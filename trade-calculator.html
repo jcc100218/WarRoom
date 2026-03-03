@@ -544,6 +544,12 @@ const IDEAL_ROSTER = { QB:3, RB:7, WR:7, TE:4, K:2, DL:7, LB:6, DB:6 };
 // 32 NFL teams × starters/team = how many "NFL starters" exist at each position
 const LINEUP_STARTERS = { QB:1, RB:2, WR:3, TE:1, K:1, DL:3, LB:2, DB:3 };
 
+// Minimum number of starting-caliber players a team must hold at each position
+// to be considered adequately covered (not a need/shortfall).
+// QB specifically requires 2 — a starter + a viable backup — since losing your
+// only starting-caliber QB is a season-altering event.
+const MIN_STARTER_QUALITY = { QB:2, RB:2, WR:3, TE:1, K:1, DL:3, LB:2, DB:3 };
+
 // How many players league-wide are considered "starting quality" at each position
 const NFL_STARTER_POOL = { QB:32, RB:64, WR:96, TE:32, DL:96, LB:64, DB:96 };
 
@@ -957,21 +963,30 @@ function assessTeam(roster, playersData, statsData, leagueInfo, users, nflStarte
         const nflStarterIds  = playerIds.filter(id => posStarters.has(id));
         const nflStarters    = nflStarterIds.length;
 
-        const actual = playerIds.length;
-        const diff   = actual - ideal;
+        const actual      = playerIds.length;
+        const diff        = actual - ideal;
+        const minQuality  = MIN_STARTER_QUALITY[pos] || startingReq;
 
         let status;
-        if      (nflStarters === 0)          status = 'deficit';  // no starter-quality player
-        else if (nflStarters < startingReq)  status = 'thin';     // can't fill all starting slots
-        else if (actual >= ideal)            status = 'surplus';  // starters covered + solid depth
-        else                                 status = 'ok';       // starters covered, thin on depth
+        if (nflStarters === 0) {
+            status = 'deficit';                 // no starter-quality player at all
+        } else if (pos === 'QB') {
+            // QB rule: need exactly 2 top-32 QBs to be safe; 3+ is a surplus
+            if      (nflStarters === 1)  status = 'thin';    // only 1 — real need/shortfall
+            else if (nflStarters === 2)  status = 'ok';      // covered — 2 starting-caliber QBs
+            else                         status = 'surplus';  // 3+ top-32 QBs — tradeable asset
+        } else {
+            if      (nflStarters < minQuality)  status = 'thin';    // can't meet quality threshold
+            else if (actual >= ideal)           status = 'surplus';  // quality + solid depth
+            else                                status = 'ok';       // quality covered, thin depth
+        }
 
         // Sort display order by 2025 total season points — same signal as green/gray.
         const sortedIds = [...playerIds]
             .map(id => ({ id, score: calcSeasonPts(id, statsData, scoring) }))
             .sort((a,b) => b.score - a.score)
             .map(p => p.id);
-        posAssessment[pos] = { actual, ideal, diff, nflStarters, nflStarterIds, sortedIds, startingReq, ptTarget, projectedPts, status };
+        posAssessment[pos] = { actual, ideal, diff, nflStarters, nflStarterIds, sortedIds, startingReq, minQuality, ptTarget, projectedPts, status };
     }
 
     // Optimal weekly scoring
@@ -988,7 +1003,7 @@ function assessTeam(roster, playersData, statsData, leagueInfo, users, nflStarte
         // nflStarters is value-based so reliable even without stats data.
         // Fall back to raw count only when the value index hasn't loaded yet.
         const ratio = hasValueData
-            ? Math.min(1, data.nflStarters / (data.startingReq || 1))
+            ? Math.min(1, data.nflStarters / (data.minQuality || data.startingReq || 1))
             : Math.min(1, data.actual / data.ideal);
         coverageScore += ratio * ((POS_WEIGHTS[pos]||0) / TOTAL_WEIGHT) * 40;
     }

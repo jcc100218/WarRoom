@@ -540,6 +540,9 @@ const ANNUAL_TARGET = 3402;
 // Ideal dynasty roster depth per position
 const IDEAL_ROSTER = { QB:3, RB:7, WR:7, TE:4, K:2, DL:7, LB:6, DB:6 };
 
+// Number of draft rounds in this league (Psycho League = 7)
+const DRAFT_ROUNDS = 7;
+
 // Dedicated lineup starters per position (drives NFL-starter-quality demand)
 // 32 NFL teams × starters/team = how many "NFL starters" exist at each position
 const LINEUP_STARTERS = { QB:1, RB:2, WR:3, TE:1, K:1, DL:3, LB:2, DB:3 };
@@ -1028,12 +1031,28 @@ function assessTeam(roster, playersData, statsData, leagueInfo, users, nflStarte
         }
 
         // Sort display order by 2025 total season points — same signal as green/gray.
+        // (Note: depth override above may have changed status from ok/surplus to thin.)
         const sortedIds = [...playerIds]
             .map(id => ({ id, score: calcSeasonPts(id, statsData, scoring) }))
             .sort((a,b) => b.score - a.score)
             .map(p => p.id);
         posAssessment[pos] = { actual, ideal, diff, nflStarters, nflStarterIds, sortedIds, startingReq, minQuality, ptTarget, projectedPts, status };
     }
+
+    // Draft picks assessment — one pick per round is the minimum (7 rounds in Psycho League)
+    const picks = roster.picks || [];
+    const pickCountByRound = {};
+    for (let r = 1; r <= DRAFT_ROUNDS; r++) {
+        pickCountByRound[r] = picks.filter(p => p.round === r).length;
+    }
+    const totalPicks    = picks.length;
+    const roundsMissing = Object.values(pickCountByRound).filter(c => c === 0).length;
+    let picksStatus;
+    if (totalPicks === 0)               picksStatus = 'deficit';  // no picks at all
+    else if (roundsMissing > 0)         picksStatus = 'thin';     // at least one round uncovered
+    else if (totalPicks > DRAFT_ROUNDS) picksStatus = 'surplus';  // all rounds covered + extras
+    else                                picksStatus = 'ok';       // exactly one pick per round
+    const picksAssessment = { pickCountByRound, totalPicks, draftRounds: DRAFT_ROUNDS, roundsMissing, status: picksStatus };
 
     // Optimal weekly scoring
     const weeklyPts = calcOptimalLineup(
@@ -1110,7 +1129,7 @@ function assessTeam(roster, playersData, statsData, leagueInfo, users, nflStarte
         .map(([pos]) => pos);
 
     return { rosterId:roster.roster_id, ownerId:roster.owner_id, teamName, ownerName, avatar, wins, losses, ties, pf,
-             posGroups, posAssessment, weeklyPts, healthScore, tier, tierColor, tierBg, panic, window, needs, strengths };
+             posGroups, posAssessment, picksAssessment, weeklyPts, healthScore, tier, tierColor, tierBg, panic, window, needs, strengths };
 }
 
 // Build per-position "NFL starter sets" using a hybrid score:
@@ -1164,7 +1183,7 @@ function countElite(assessment, eliteSet) {
 
 // Generate narrative commentary for a team
 function teamCommentary(assessment, eliteSet) {
-    const { weeklyPts, tier, needs, strengths, posAssessment, panic } = assessment;
+    const { weeklyPts, tier, needs, strengths, posAssessment, picksAssessment, panic } = assessment;
     const eliteCount = countElite(assessment, eliteSet);
     const diff = weeklyPts - WEEKLY_TARGET;
 
@@ -1199,6 +1218,20 @@ function teamCommentary(assessment, eliteSet) {
     else if (criticals.length > 0) needsText = `Critical shortage at ${criticals.map(n=>n.pos).join(', ')}${thins.length > 0 ? ` and running thin at ${thins.map(n=>n.pos).join(', ')}` : ''}. These are your priority targets.`;
     else needsText = `Running thin at ${thins.map(n=>n.pos).join(', ')} — not critical yet, but worth addressing before these become liabilities.`;
 
+    // Draft pick capital
+    let picksText;
+    const pa = picksAssessment;
+    if (!pa || pa.totalPicks === 0) {
+        picksText = 'No draft picks on hand — a critical red flag for future roster replenishment. Acquiring at least one pick per round should be an immediate priority.';
+    } else if (pa.status === 'thin') {
+        const missingRounds = Object.entries(pa.pickCountByRound).filter(([,c]) => c === 0).map(([r]) => `R${r}`);
+        picksText = `Missing picks in ${missingRounds.join(', ')} — ${pa.roundsMissing} of ${pa.draftRounds} rounds uncovered. Fill these gaps before they become liabilities in future rebuilds.`;
+    } else if (pa.status === 'ok') {
+        picksText = `Full draft coverage — one pick in each of the ${pa.draftRounds} rounds. Solid foundation for roster replenishment.`;
+    } else {
+        picksText = `${pa.totalPicks} picks across ${pa.draftRounds} rounds — surplus capital available. These extra picks are valuable trading currency; use them to address positional needs.`;
+    }
+
     // Tier identity
     const identities = {
         ELITE:     'Championship-caliber operation — trading from a position of strength.',
@@ -1207,7 +1240,7 @@ function teamCommentary(assessment, eliteSet) {
         REBUILDING: 'Building for the future — position yourself as a willing seller for premium return.',
     };
 
-    return { scoring, elite, strengthText, needsText, identity: identities[tier] || '', eliteCount };
+    return { scoring, elite, strengthText, needsText, picksText, identity: identities[tier] || '', eliteCount };
 }
 
 function calcComplementarity(mine, theirs) {
@@ -1261,6 +1294,33 @@ function PosRow({ pos, assessment }) {
     );
 }
 
+function PicksRow({ picksAssessment }) {
+    if (!picksAssessment) return null;
+    const { pickCountByRound, totalPicks, draftRounds, status } = picksAssessment;
+    const statusIcon  = { surplus:'↑', ok:'✓', thin:'~', deficit:'✗' }[status];
+    const statusColor = { surplus:'var(--gold)', ok:'var(--win-green)', thin:'var(--amber)', deficit:'var(--loss-red)' }[status];
+    const dots = [];
+    for (let r = 1; r <= draftRounds; r++) {
+        const count = pickCountByRound[r] || 0;
+        // First pick slot for this round
+        dots.push(<span key={`r${r}`}
+            className={`dot ${count > 0 ? 'dot-filled' : 'dot-empty'}`}
+            title={count > 0 ? `Round ${r} — ${count} pick${count>1?'s':''}` : `Round ${r} — no pick`} />);
+        // Extra picks in this round are surplus
+        for (let x = 1; x < count; x++) {
+            dots.push(<span key={`r${r}x${x}`} className="dot dot-surplus" title={`Round ${r} — extra pick`} />);
+        }
+    }
+    return (
+        <div className="pos-row">
+            <span className="pos-label" style={{ color:'#A8D8A8', fontSize:'0.51rem', letterSpacing:'-0.02em' }}>PICKS</span>
+            <span className="pos-dots">{dots}</span>
+            <span className="pos-count" style={{ color: statusColor }}>{totalPicks}/{draftRounds}</span>
+            <span className="pos-status-icon" style={{ color: statusColor }}>{statusIcon}</span>
+        </div>
+    );
+}
+
 function PanicMeter({ level }) {
     return (
         <div className="panic-row">
@@ -1275,7 +1335,7 @@ function PanicMeter({ level }) {
 
 function TeamCard({ assessment, isMyTeam, ownerDna }) {
     const { teamName, ownerName, wins, losses, ties, pf, weeklyPts, healthScore, tier, tierColor, tierBg,
-            posAssessment, panic, window: tradeWindow, needs, strengths } = assessment;
+            posAssessment, picksAssessment, panic, window: tradeWindow, needs, strengths } = assessment;
 
     const dna   = DNA_TYPES[ownerDna] || DNA_TYPES.NONE;
     const pct   = Math.round((weeklyPts / WEEKLY_TARGET) * 100);
@@ -1327,6 +1387,7 @@ function TeamCard({ assessment, isMyTeam, ownerDna }) {
                         .sort((a,b) => (POS_ORDER[a[0]]??9) - (POS_ORDER[b[0]]??9))
                         .map(([pos, data]) => <PosRow key={pos} pos={pos} assessment={data} />)
                     }
+                    <PicksRow picksAssessment={picksAssessment} />
                 </div>
 
                 <div className="divider" />
@@ -1765,6 +1826,10 @@ function TradeCalculator() {
                         <div className="commentary-card-title">Positional Needs</div>
                         <div className="commentary-card-text">{commentary.needsText}</div>
                     </div>
+                    <div className="commentary-card">
+                        <div className="commentary-card-title">Draft Pick Capital</div>
+                        <div className="commentary-card-text">{commentary.picksText}</div>
+                    </div>
                     {dnaKey !== 'NONE' && dna.desc && (
                         <div className="commentary-card" style={{ borderColor:`${dna.color}30` }}>
                             <div className="commentary-card-title" style={{ color:dna.color }}>Owner DNA — {dna.label}</div>
@@ -1893,6 +1958,7 @@ function TradeCalculator() {
                                             );
                                         })
                                     }
+                                    <PicksRow picksAssessment={myAssessment.picksAssessment} />
                                 </div>
 
                                 <div className="divider" style={{ margin:'0.5rem 0' }} />
@@ -1942,6 +2008,7 @@ function TradeCalculator() {
                                         );
                                     })
                                 }
+                                <PicksRow picksAssessment={selectedDetail.picksAssessment} />
                             </div>
                             <div className="divider" style={{ margin:'0.5rem 0' }} />
                             <PanicMeter level={selectedDetail.panic} />

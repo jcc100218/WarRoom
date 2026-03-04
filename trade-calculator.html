@@ -962,7 +962,7 @@ function assessTeam(roster, playersData, statsData, leagueInfo, users, nflStarte
     // means injuries and partial seasons don't penalise legitimate starters.
     for (const [pos, ideal] of Object.entries(IDEAL_ROSTER)) {
         const playerIds   = posGroups[pos] || [];
-        const startingReq = LINEUP_STARTERS[pos] || 1;
+        const startingReq = MIN_STARTER_QUALITY[pos] ?? LINEUP_STARTERS[pos] ?? 1;
         const ptTarget    = POS_PT_TARGETS[pos]  || 8;
 
         // Projected pts from this position (top starters by PPG — still useful for scoring calc)
@@ -1710,7 +1710,11 @@ function TradeCalculator() {
                             <span className="guide-step-num">2</span>
                             <div className="guide-step-body">
                                 <div className="guide-step-title">Read the Position Depth Grid</div>
-                                <div className="guide-step-desc">Each position shows filled vs. target slots. Green = stocked. Gold = surplus (trade chip). Amber = thin. Red = critical shortage. A star icon marks elite players (top 5 at position league-wide).</div>
+                                <div className="guide-step-desc">
+                                    Each row shows <strong>X / Y</strong> — starter-quality players you hold vs. the minimum required at that position. The arrow to the right is your status:<br />
+                                    <span style={{ color:'var(--gold)' }}>↑ Surplus</span> · <span style={{ color:'var(--win-green)' }}>✓ Met</span> · <span style={{ color:'var(--amber)' }}>~ Thin</span> · <span style={{ color:'var(--loss-red)' }}>✗ Deficit</span><br />
+                                    A ★ marks elite players (top 5 at their position league-wide).
+                                </div>
                             </div>
                         </div>
                         <div className="guide-step">
@@ -1794,6 +1798,15 @@ function TradeCalculator() {
                             <div className="guide-metric-row"><span className="guide-metric-label">Elite Players</span><span className="guide-metric-val">Top 5 players at each position across the entire league (marked ★)</span></div>
                             <div className="guide-metric-row"><span className="guide-metric-label">Panic Meter</span><span className="guide-metric-val">0–5 scale of trade urgency. High panic = willing to overpay</span></div>
                             <div className="guide-metric-row"><span className="guide-metric-label">Weekly Target</span><span className="guide-metric-val">{WEEKLY_TARGET} pts/week · {ANNUAL_TARGET} pts/season</span></div>
+                        </div>
+                        <div className="divider" />
+                        <div style={{ marginTop:'0.4rem', marginBottom:'0.15rem', fontSize:'0.62rem', fontWeight:700, color:'var(--gold)', letterSpacing:'0.05em' }}>STARTER REQUIREMENTS (X / Y)</div>
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:'0.25rem 0.7rem' }}>
+                            {[['QB',2],['RB',3],['WR',3],['TE',2],['K',1],['DL',4],['LB',5],['DB',4]].map(([pos, req]) => (
+                                <span key={pos} style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.8 }}>
+                                    <span style={{ color: posColor(pos), fontWeight:700 }}>{pos}</span> needs {req}
+                                </span>
+                            ))}
                         </div>
                         <div className="divider" />
                         <div style={{ marginTop:'0.4rem' }}>

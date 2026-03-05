@@ -8,8 +8,8 @@
 //   3. Paste them below
 // ============================================================
 
-const SUPABASE_URL  = 'YOUR_SUPABASE_URL';   // e.g. https://xxxx.supabase.co
-const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL  = 'https://sxshiqyxhhifvtfqawbq.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_5p-lnHKiF1NBaAvoTwO4kA_9bkPrs1-';
 
 // ── Bootstrap Supabase client (loaded via CDN in each HTML file) ──
 let _supabase = null;

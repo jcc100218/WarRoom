@@ -1501,6 +1501,17 @@
 
         React.useEffect(() => { loadMessages(); }, []);
 
+        // Poll for new messages while modal is open
+        React.useEffect(() => {
+            const poll = setInterval(async () => {
+                try {
+                    const fresh = await window.OD.loadDMs();
+                    setMessages(prev => fresh.length !== prev.length || fresh.some((m, i) => m.id !== (prev[i]?.id)) ? fresh : prev);
+                } catch {}
+            }, 30000);
+            return () => clearInterval(poll);
+        }, []);
+
         React.useEffect(() => {
             if (threadEndRef.current) threadEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }, [thread, messages.length]);
@@ -2480,6 +2491,18 @@
                 setDmUnread(unread);
             }).catch(() => {});
         }, []);
+
+        // Poll for new DMs every 30 seconds
+        useEffect(() => {
+            const poll = setInterval(() => {
+                if (showDM) return; // modal handles its own refresh
+                window.OD.loadDMs().then(msgs => {
+                    const unread = msgs.filter(m => m.to_username === sleeperUsername && !m.read).length;
+                    setDmUnread(unread);
+                }).catch(() => {});
+            }, 30000);
+            return () => clearInterval(poll);
+        }, [showDM]);
         const [showEventForm, setShowEventForm] = useState(false);
         const [editingEvent, setEditingEvent] = useState(null);
         const [selectedEvent, setSelectedEvent] = useState(null);

@@ -857,13 +857,22 @@
         }
 
         .left-column,
-        .center-column,
+        .center-column {
+            overflow-y: hidden;
+            overflow-x: hidden;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
         .right-column {
             overflow-y: auto;
             overflow-x: hidden;
             overscroll-behavior: contain;
             -webkit-overflow-scrolling: touch;
             touch-action: pan-y;
+            height: 100%;
         }
 
         /* Right column: normal column, not fixed bar */
@@ -879,7 +888,42 @@
             align-items: stretch;
         }
 
-        /* Show mobile earnings in right column */
+        /* Key events: fill left column, title fixed, dates scroll */
+        .key-events {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+            height: 100%;
+        }
+        .key-events-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+        }
+
+        /* League window: fill center column remainder, header fixed, leagues scroll */
+        .league-window {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+        .league-window-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+        }
+
+        /* Show mobile earnings in right column — stays pinned at top */
         .mobile-earnings {
             display: flex !important;
             flex-direction: column;
@@ -894,6 +938,9 @@
             text-align: center;
             margin-bottom: 0.35rem;
             flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 2;
         }
         .mobile-earnings:hover { border-color: rgba(212, 175, 55, 0.5); }
         .mobile-earnings .earnings-title  { font-size: 0.58rem; margin-bottom: 0.2rem; letter-spacing: 0.08em; }

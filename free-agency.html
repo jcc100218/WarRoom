@@ -619,13 +619,16 @@
 
             // ---- Bootstrap ----
             useEffect(() => { boot(); }, []);
+            const userIdRef = useRef('');
+            useEffect(() => { userIdRef.current = userId; }, [userId]);
+            // Only re-fetch leagues when user explicitly changes the year (not on boot)
             useEffect(() => {
-                if (!userId) return;
-                fetchLeagues(userId, selectedYear).then(lgs => {
+                if (!userIdRef.current) return;
+                fetchLeagues(userIdRef.current, selectedYear).then(lgs => {
                     setLeagues(lgs || []);
                     if (lgs?.length) setLeagueId(lgs[0].league_id);
                 }).catch(() => {});
-            }, [selectedYear, userId]);
+            }, [selectedYear]);
 
             async function boot() {
                 try {

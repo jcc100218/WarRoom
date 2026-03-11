@@ -119,20 +119,89 @@ Identify my top 3 trading partners and one sleeper pick:
 **SLEEPER PICK** — One overlooked partner most would miss and exactly why`;
 }
 
-function buildChatPrompt(ctx: any): string {
-    const teamsStr = (ctx.teams || []).map((t: any) =>
-        `• ${t.owner} (${t.record}) | ${t.tier} | DNA: ${t.dna} | Needs: ${(t.needs || []).join(', ')} | Strengths: ${(t.strengths || []).join(', ')}`
+function buildFATargetsPrompt(ctx: any): string {
+    const rosterStr = (ctx.myRoster || []).map((p: any) =>
+        `  ${p.pos} ${p.name} (${p.team}) | ${p.pts ? `${p.pts}pts` : 'no stats'} | Yr ${p.yrsExp ?? '?'}${p.isStarter ? ' [STARTER]' : p.isTaxi ? ' [TAXI]' : ''}`
     ).join('\n');
 
-    return `You have full access to this dynasty league's data.
+    const faStr = (ctx.topFreeAgents || []).slice(0, 50).map((fa: any) =>
+        `  ${fa.pos} ${fa.name} (${fa.team || 'FA'}) | ${fa.pts ? `${fa.pts}pts` : '—'} | ${fa.gp ? `${fa.gp}gp` : ''} | ${fa.avg ? `${fa.avg}avg` : ''} | Yr ${fa.yrsExp ?? '?'}${fa.isRookie ? ' [ROOKIE]' : ''}`
+    ).join('\n');
 
-**League:** ${ctx.leagueName}
-**My team:** ${ctx.myOwner || 'unknown'}
+    const rosterPositions = (ctx.rosterPositions || []).filter((p: string) => p !== 'BN' && p !== 'IR').join(', ');
 
-**TEAM SUMMARY:**
-${teamsStr}
+    return `Build a free agency action plan for **${ctx.myOwner}** in **${ctx.leagueName}**.
 
-**My question:** ${ctx.question}`;
+**REMAINING FAAB:** $${ctx.faabBudget} of $${ctx.startingBudget}
+**STARTING LINEUP SPOTS:** ${rosterPositions}
+
+**MY CURRENT ROSTER:**
+${rosterStr || 'No roster data'}
+
+**TOP AVAILABLE FREE AGENTS:**
+${faStr || 'No FA data'}
+
+Provide:
+**ROSTER AUDIT** — 2-3 sentences: current strengths and the biggest gaps to address
+**TOP FA TARGETS** — 5-7 specific free agents I should pursue, each with:
+  - Why they fit my roster (positional need, age profile, upside)
+  - Suggested FAAB bid ($X–$Y range)
+  - Priority tier (must-win bid / competitive / speculative)
+**BUDGET STRATEGY** — How to allocate the $${ctx.faabBudget} remaining across positions
+**WAIVER WIRE APPROACH** — Aggressive or patient? Any positional runs to expect?`;
+}
+
+function buildRookiesPrompt(ctx: any): string {
+    const rosterStr = (ctx.myRoster || []).map((p: any) =>
+        `  ${p.pos} ${p.name} | ${p.pts ? `${p.pts}pts` : 'no stats'} | Yr ${p.yrsExp ?? '?'}${p.isStarter ? ' [STARTER]' : p.isTaxi ? ' [TAXI]' : ''}`
+    ).join('\n');
+
+    const rookieStr = (ctx.availableRookies || []).map((r: any) =>
+        `  ${r.pos} ${r.name} (${r.team})`
+    ).join('\n');
+
+    const rosterPositions = (ctx.rosterPositions || []).filter((p: string) => p !== 'BN' && p !== 'IR').join(', ');
+
+    return `Provide a rookie draft strategy for **${ctx.myOwner}** in **${ctx.leagueName}**.
+
+**STARTING LINEUP SPOTS:** ${rosterPositions}
+
+**MY CURRENT ROSTER (with experience):**
+${rosterStr || 'No roster data'}
+
+**AVAILABLE ROOKIES (not on any roster):**
+${rookieStr || 'No rookies available'}
+
+Provide:
+**ROSTER NEEDS ANALYSIS** — Which positions are thin, aging, or lack upside on my team?
+**TOP ROOKIE TARGETS** — Top 6-8 rookies to prioritize, each with:
+  - Positional fit and why they address my roster need
+  - Dynasty upside and timeline (ready now vs. long-term hold)
+  - Suggested draft round/pick range
+**DRAFT STRATEGY** — Best Player Available vs. positional need? Specific positions to target early?
+**SLEEPER PICKS** — 1-2 overlooked rookies worth targeting late that most owners will miss`;
+}
+
+function buildFAChatPrompt(ctx: any): string {
+    const rosterStr = (ctx.myRoster || []).map((p: any) =>
+        `  ${p.pos} ${p.name} (${p.team}) | ${p.pts ? `${p.pts}pts` : 'no stats'} | Yr ${p.yrsExp ?? '?'}${p.isStarter ? ' [STARTER]' : ''}`
+    ).join('\n');
+
+    const faStr = (ctx.topFreeAgents || []).slice(0, 30).map((fa: any) =>
+        `  ${fa.pos} ${fa.name} (${fa.team || 'FA'}) | ${fa.pts ? `${fa.pts}pts` : '—'} | Yr ${fa.yrsExp ?? '?'}${fa.isRookie ? ' [ROOKIE]' : ''}`
+    ).join('\n');
+
+    return `You are advising **${ctx.myOwner}** on their free agency strategy in **${ctx.leagueName}**.
+
+**REMAINING FAAB:** $${ctx.faabBudget} of $${ctx.startingBudget}
+
+**MY ROSTER:**
+${rosterStr || 'No roster data'}
+
+**TOP AVAILABLE FREE AGENTS:**
+${faStr || 'No FA data'}
+
+**Question:** ${ctx.question}`;
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -165,10 +234,13 @@ Deno.serve(async (req) => {
 
         let userPrompt: string;
         switch (type) {
-            case 'league':   userPrompt = buildLeaguePrompt(context);   break;
-            case 'team':     userPrompt = buildTeamPrompt(context);     break;
-            case 'partners': userPrompt = buildPartnersPrompt(context); break;
-            case 'chat':     userPrompt = buildChatPrompt(context);     break;
+            case 'league':     userPrompt = buildLeaguePrompt(context);    break;
+            case 'team':       userPrompt = buildTeamPrompt(context);      break;
+            case 'partners':   userPrompt = buildPartnersPrompt(context);  break;
+            case 'chat':       userPrompt = buildChatPrompt(context);      break;
+            case 'fa_targets': userPrompt = buildFATargetsPrompt(context); break;
+            case 'rookies':    userPrompt = buildRookiesPrompt(context);   break;
+            case 'fa_chat':    userPrompt = buildFAChatPrompt(context);    break;
             default:
                 return new Response(
                     JSON.stringify({ error: `Unknown analysis type: ${type}` }),

@@ -467,6 +467,40 @@
             /* Targets panel: FA$ column also hidden */
             .mob-hide-fa { display: none !important; }
         }
+
+        /* ---- Panel tab switcher ---- */
+        .fa-tab-btn {
+            background: transparent;
+            border: 1.5px solid rgba(212,175,55,0.3);
+            color: rgba(255,255,255,0.45);
+            font-family: 'Oswald', sans-serif;
+            font-size: 0.62rem;
+            font-weight: 600;
+            padding: 0.18rem 0.5rem;
+            border-radius: 3px;
+            cursor: pointer;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .fa-tab-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(212,175,55,0.08); }
+        .fa-tab-btn:hover:not(.active) { border-color: rgba(212,175,55,0.5); color: rgba(212,175,55,0.7); }
+
+        /* ---- AI Scout (right panel) ---- */
+        .ai-mode-btn { padding: 0.2rem 0.55rem; border: 1.5px solid rgba(212,175,55,0.3); background: transparent; color: rgba(255,255,255,0.45); font-family: 'Oswald', sans-serif; font-size: 0.6rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+        .ai-mode-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(212,175,55,0.08); }
+        .ai-mode-btn:hover:not(.active) { border-color: rgba(212,175,55,0.5); color: rgba(212,175,55,0.7); }
+        .ai-analyze-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.38rem 1rem; background: linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.07)); border: 1.5px solid var(--gold); color: var(--gold); font-family: 'Oswald', sans-serif; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+        .ai-analyze-btn:hover:not(:disabled) { background: rgba(212,175,55,0.2); box-shadow: 0 0 10px rgba(212,175,55,0.18); }
+        .ai-analyze-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+        .ai-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(212,175,55,0.3); border-top-color: var(--gold); border-radius: 50%; animation: ai-spin 0.75s linear infinite; }
+        @keyframes ai-spin { to { transform: rotate(360deg); } }
+        .ai-output { background: rgba(212,175,55,0.04); border: 1px solid rgba(212,175,55,0.18); border-radius: 6px; padding: 0.85rem 0.95rem; margin-top: 0.65rem; font-size: 0.75rem; color: var(--silver); line-height: 1.72; }
+        .ai-output strong { color: var(--gold); font-weight: 700; }
+        .ai-chat-input { width: 100%; background: var(--charcoal); border: 1.5px solid rgba(212,175,55,0.25); color: var(--white); font-family: 'Oswald', sans-serif; font-size: 0.74rem; padding: 0.5rem 0.6rem; border-radius: 5px; resize: vertical; min-height: 58px; margin-bottom: 0.6rem; box-sizing: border-box; }
+        .ai-chat-input:focus { outline: none; border-color: var(--gold); }
+        .ai-error-msg { color: #E74C3C; font-size: 0.73rem; padding: 0.5rem 0; }
     </style>
 </head>
 <body>
@@ -953,6 +987,91 @@
                 return '#2ECC71';
             }
 
+            // ---- AI Scout state ----
+            const [faTab,       setFaTab]       = useState('targets'); // 'targets' | 'ai'
+            const [aiMode,      setAiMode]      = useState('fa_targets');
+            const [aiAnalysis,  setAiAnalysis]  = useState(null);
+            const [aiLoading,   setAiLoading]   = useState(false);
+            const [aiError,     setAiError]     = useState(null);
+            const [aiChatInput, setAiChatInput] = useState('');
+
+            const FA_AI_MODES = [
+                { id: 'fa_targets', label: 'FA Pickups',   desc: 'Recommend free agents based on your roster needs and remaining FAAB' },
+                { id: 'rookies',    label: 'Rookies',      desc: 'Rookie draft targets ranked by fit with your roster needs' },
+                { id: 'fa_chat',    label: 'Ask AI',       desc: 'Ask anything about free agency, rookies, or roster building' },
+            ];
+
+            function renderMarkdown(text) {
+                if (!text) return '';
+                const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                return esc
+                    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+                    .replace(/^### (.+)$/gm, '<div style="font-family:Bebas Neue,cursive;font-size:0.88rem;color:var(--gold);margin:0.75rem 0 0.2rem;letter-spacing:0.08em">$1</div>')
+                    .replace(/^## (.+)$/gm,  '<div style="font-family:Bebas Neue,cursive;font-size:0.95rem;color:var(--gold);margin:0.9rem 0 0.25rem;letter-spacing:0.1em">$1</div>')
+                    .replace(/^# (.+)$/gm,   '<div style="font-family:Bebas Neue,cursive;font-size:1.05rem;color:var(--gold);margin:1rem 0 0.3rem;letter-spacing:0.12em">$1</div>')
+                    .replace(/\n\n/g, '<div style="margin:0.25rem 0"></div>');
+            }
+
+            function buildFAContext() {
+                const leagueName = leagueInfo?.name || 'Fantasy League';
+                const rosterPositions = leagueInfo?.roster_positions || [];
+
+                const myRosterSummary = (myRoster?.players || []).map(id => {
+                    const p = playersData[id];
+                    if (!p) return null;
+                    const s = statsData[id];
+                    const rawPts = calcRawPts(s);
+                    return {
+                        pos: p.position,
+                        name: p.full_name || `${p.first_name||''} ${p.last_name||''}`.trim(),
+                        team: p.team || 'FA',
+                        pts: rawPts ? Number(rawPts).toFixed(1) : null,
+                        gp: s?.gp || null,
+                        avg: (rawPts && s?.gp) ? (rawPts / s.gp).toFixed(1) : null,
+                        yrsExp: p.years_exp ?? null,
+                        isStarter: (myRoster.starters || []).includes(id),
+                        isTaxi: (myRoster.taxi || []).includes(id),
+                    };
+                }).filter(Boolean);
+
+                const topFAs = freeAgents.slice(0, 60).map(fa => {
+                    const s = statsData[fa.id];
+                    const rawPts = calcRawPts(s);
+                    return {
+                        pos: fa.pos, name: fa.name, team: fa.team,
+                        pts: rawPts ? Number(rawPts).toFixed(1) : null,
+                        gp: s?.gp || null,
+                        avg: (rawPts && s?.gp) ? (rawPts / s.gp).toFixed(1) : null,
+                        yrsExp: fa.yrsExp, isRookie: fa.yrsExp === 0,
+                    };
+                });
+
+                const availableRookies = freeAgents.filter(fa => fa.yrsExp === 0).slice(0, 50).map(fa => ({
+                    pos: fa.pos, name: fa.name, team: fa.team || 'UFA',
+                }));
+
+                return {
+                    leagueName, myOwner: sleeperUsername,
+                    faabBudget: finalBalance, startingBudget,
+                    myRoster: myRosterSummary, rosterPositions,
+                    topFreeAgents: topFAs, availableRookies,
+                    question: aiChatInput,
+                };
+            }
+
+            async function runFAAnalysis() {
+                setAiLoading(true); setAiError(null); setAiAnalysis(null);
+                try {
+                    const ctx = buildFAContext();
+                    const result = await window.OD.callAI({ type: aiMode, context: ctx });
+                    setAiAnalysis(result.analysis);
+                } catch(e) {
+                    setAiError(e.message);
+                } finally {
+                    setAiLoading(false);
+                }
+            }
+
             // ---- Boot/error states ----
             if (phase === 'boot') return (
                 <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'0.75rem' }}>
@@ -1188,132 +1307,190 @@
                                 </div>
                             </div>
 
-                            {/* ===== RIGHT: FA TARGETS ===== */}
+                            {/* ===== RIGHT: FA TARGETS / AI SCOUT ===== */}
                             <div className="panel">
                                 <div className="panel-header">
                                     <div className="ph-title">
-                                        FA TARGETS
-                                        {editingBudget ? (
-                                            <input className="budget-input-inline"
-                                                style={{ marginLeft:'auto', fontSize:'0.78rem', width:'90px' }}
-                                                type="number" min="0"
-                                                value={budgetDraft}
-                                                onChange={e => setBudgetDraft(e.target.value)}
-                                                onBlur={commitBudget}
-                                                onKeyDown={e => e.key === 'Enter' && commitBudget()}
-                                                autoFocus />
+                                        {faTab === 'targets' ? (
+                                            <>
+                                                FA TARGETS
+                                                {editingBudget ? (
+                                                    <input className="budget-input-inline"
+                                                        style={{ marginLeft:'auto', fontSize:'0.78rem', width:'90px' }}
+                                                        type="number" min="0"
+                                                        value={budgetDraft}
+                                                        onChange={e => setBudgetDraft(e.target.value)}
+                                                        onBlur={commitBudget}
+                                                        onKeyDown={e => e.key === 'Enter' && commitBudget()}
+                                                        autoFocus />
+                                                ) : (
+                                                    <span title="Click to edit total FAAB budget"
+                                                        onClick={() => { setEditingBudget(true); setBudgetDraft(String(startingBudget)); }}
+                                                        style={{ marginLeft:'auto', color: remColor(finalBalance),
+                                                                 fontSize:'0.78rem', fontWeight:700, cursor:'pointer',
+                                                                 fontFamily:'monospace', letterSpacing:0, flexShrink:0 }}>
+                                                        FAAB ${finalBalance.toLocaleString()}
+                                                    </span>
+                                                )}
+                                            </>
                                         ) : (
-                                            <span title="Click to edit total FAAB budget"
-                                                onClick={() => { setEditingBudget(true); setBudgetDraft(String(startingBudget)); }}
-                                                style={{ marginLeft:'auto', color: remColor(finalBalance),
-                                                         fontSize:'0.78rem', fontWeight:700, cursor:'pointer',
-                                                         fontFamily:'monospace', letterSpacing:0, flexShrink:0 }}>
-                                                Available FAAB ${finalBalance.toLocaleString()}
-                                            </span>
+                                            <>
+                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style={{color:'var(--gold)',flexShrink:0}}>
+                                                    <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+                                                </svg>
+                                                AI SCOUT
+                                                <span style={{ background:'var(--gold)', color:'var(--black)', fontFamily:'Oswald,sans-serif', fontSize:'0.52rem', fontWeight:700, padding:'0.1rem 0.35rem', borderRadius:'3px', letterSpacing:'0.06em', marginLeft:'0.4rem', flexShrink:0 }}>BETA</span>
+                                            </>
                                         )}
-                                    </div>
-                                    {/* Add form lives in ph-sub so all three panel-headers are the same height */}
-                                    <div className="ph-sub" style={{ gap:'0.22rem' }}>
-                                        <form onSubmit={handleFormAdd} style={{ display:'flex', alignItems:'center', gap:'0.22rem', width:'100%' }}>
-                                            <input className="t-input" style={{ width:'36px' }} placeholder="POS"
-                                                value={fPos} onChange={e => setFPos(e.target.value)} maxLength={3} />
-                                            <input className="t-input" style={{ flex:1 }} placeholder="Player name"
-                                                value={fName} onChange={e => setFName(e.target.value)} />
-                                            <input className="t-input" style={{ width:'44px' }} type="number"
-                                                placeholder="$" value={fCost} min="0"
-                                                onChange={e => setFCost(e.target.value)} />
-                                            <button type="submit" className="t-submit">+ Add</button>
-                                        </form>
-                                    </div>
-                                </div>
-
-                                {/* Column header row — sits at same level as stat-col-hdr in other panels */}
-                                <div className="stat-col-hdr" style={{ padding:'0.18rem 0.38rem' }}>
-                                    <span style={{ width:'30px', flexShrink:0 }}></span>
-                                    <span style={{ flex:1, minWidth:0 }}></span>
-                                    <span className="stat-lbl" style={{ width:'30px' }}>COST</span>
-                                    <span className="stat-lbl mob-hide-fa" style={{ width:'32px' }}>FA$</span>
-                                    <span className="stat-lbl" style={{ width:'38px' }}>REM.</span>
-                                    <span style={{ width:'20px', flexShrink:0 }}></span>
-                                </div>
-
-                                {/* Targets list — div-based rows matching left/center player-row layout */}
-                                <div className="panel-body" style={{ padding:'0.4rem 0.38rem',
-                                        outline: dropTarget ? '2px dashed rgba(212,175,55,0.6)' : 'none',
-                                        outlineOffset: '-3px',
-                                        transition: 'outline 0.1s' }}
-                                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect='copy'; setDropTarget(true); }}
-                                    onDragLeave={() => setDropTarget(false)}
-                                    onDrop={e => {
-                                        e.preventDefault();
-                                        setDropTarget(false);
-                                        const id = e.dataTransfer.getData('fa-id');
-                                        const fa = filteredFAs.find(f => f.id === id);
-                                        if (fa) {
-                                            const newId = Date.now().toString();
-                                            setTargets(prev => [...prev, {
-                                                id: newId,
-                                                pos: (fa.norm || fa.pos || '?').toUpperCase(),
-                                                name: fa.name,
-                                                cost: 0
-                                            }]);
-                                            setEditingCostId(newId);
-                                            setEditingCostVal('');
-                                        }
-                                    }}>
-                                    {targetRows.length === 0 && (
-                                        <div className="center-msg">{dropTarget ? 'Drop to add target' : 'Drag a free agent here or use the form above'}</div>
-                                    )}
-                                    {targetRows.map(row => (
-                                        <div key={row.id} className="player-row">
-                                            <span className="pos-badge"
-                                                style={{ color:posColor(row.pos), width:'30px', fontSize:'0.58rem', flexShrink:0 }}>
-                                                {row.pos}
-                                            </span>
-                                            <span className="player-name" style={{ fontSize:'0.82rem' }} title={row.name}>
-                                                {row.name}
-                                            </span>
-                                            {editingCostId === row.id ? (
-                                                <input type="number" min="0" autoFocus
-                                                    value={editingCostVal}
-                                                    onChange={e => setEditingCostVal(e.target.value)}
-                                                    onBlur={() => { updateTargetCost(row.id, editingCostVal || '0'); setEditingCostId(null); }}
-                                                    onKeyDown={e => {
-                                                        if (e.key === 'Enter') { updateTargetCost(row.id, editingCostVal || '0'); setEditingCostId(null); }
-                                                        if (e.key === 'Escape') setEditingCostId(null);
-                                                    }}
-                                                    style={{ width:'30px', background:'transparent', border:'1px solid rgba(212,175,55,0.5)',
-                                                             borderRadius:'3px', color:'var(--gold)', fontSize:'0.72rem',
-                                                             textAlign:'right', padding:'0 2px', outline:'none' }} />
-                                            ) : (
-                                                <span className="sc" title="Click to edit bid"
-                                                    onClick={() => { setEditingCostId(row.id); setEditingCostVal(String(row.cost)); }}
-                                                    style={{ width:'30px', color: row.cost === 0 ? 'rgba(212,175,55,0.4)' : 'var(--silver)',
-                                                             opacity: row.cost === 0 ? 1 : 0.65, cursor:'pointer' }}>
-                                                    {row.cost === 0 ? '$?' : row.cost}
-                                                </span>
-                                            )}
-                                            <span className="sc mob-hide-fa" style={{ width:'32px', color:'var(--silver)', opacity:0.65 }}>{row.faDollar.toLocaleString()}</span>
-                                            <span className="sc" style={{ width:'38px', color:remColor(row.remaining), fontWeight:700 }}>{row.remaining.toLocaleString()}</span>
-                                            <button className="del-btn" onClick={() => deleteTarget(row.id)} title="Remove">&times;</button>
+                                        <div style={{ display:'flex', gap:'0.28rem', marginLeft: faTab === 'ai' ? 'auto' : '0.4rem', flexShrink:0 }}>
+                                            <button className={`fa-tab-btn${faTab==='targets'?' active':''}`} onClick={() => setFaTab('targets')}>Targets</button>
+                                            <button className={`fa-tab-btn${faTab==='ai'?' active':''}`} onClick={() => setFaTab('ai')}>AI ✦</button>
                                         </div>
-                                    ))}
-                                    {targetRows.length > 0 && (
-                                        <div style={{ display:'flex', alignItems:'center', gap:'0.35rem',
-                                                      padding:'0.26rem 0.3rem', marginTop:'0.2rem',
-                                                      borderTop:'1.5px solid rgba(212,175,55,0.33)' }}>
-                                            <span style={{ flex:1, fontFamily:'Bebas Neue,cursive', fontSize:'0.7rem',
-                                                           color:'var(--gold)', letterSpacing:'0.06em',
-                                                           textAlign:'right', paddingRight:'0.3rem' }}>
-                                                BALANCE REMAINING
-                                            </span>
-                                            <span className="sc" style={{ width:'38px', color:remColor(finalBalance), fontWeight:700 }}>
-                                                {finalBalance.toLocaleString()}
-                                            </span>
+                                    </div>
+
+                                    {faTab === 'targets' ? (
+                                        <div className="ph-sub" style={{ gap:'0.22rem' }}>
+                                            <form onSubmit={handleFormAdd} style={{ display:'flex', alignItems:'center', gap:'0.22rem', width:'100%' }}>
+                                                <input className="t-input" style={{ width:'36px' }} placeholder="POS"
+                                                    value={fPos} onChange={e => setFPos(e.target.value)} maxLength={3} />
+                                                <input className="t-input" style={{ flex:1 }} placeholder="Player name"
+                                                    value={fName} onChange={e => setFName(e.target.value)} />
+                                                <input className="t-input" style={{ width:'44px' }} type="number"
+                                                    placeholder="$" value={fCost} min="0"
+                                                    onChange={e => setFCost(e.target.value)} />
+                                                <button type="submit" className="t-submit">+ Add</button>
+                                            </form>
+                                        </div>
+                                    ) : (
+                                        <div className="ph-sub" style={{ gap:'0.3rem' }}>
+                                            {FA_AI_MODES.map(m => (
+                                                <button key={m.id} className={`ai-mode-btn${aiMode===m.id?' active':''}`}
+                                                    onClick={() => setAiMode(m.id)}>{m.label}</button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {faTab === 'targets' ? (
+                                    <>
+                                        {/* Column header row */}
+                                        <div className="stat-col-hdr" style={{ padding:'0.18rem 0.38rem' }}>
+                                            <span style={{ width:'30px', flexShrink:0 }}></span>
+                                            <span style={{ flex:1, minWidth:0 }}></span>
+                                            <span className="stat-lbl" style={{ width:'30px' }}>COST</span>
+                                            <span className="stat-lbl mob-hide-fa" style={{ width:'32px' }}>FA$</span>
+                                            <span className="stat-lbl" style={{ width:'38px' }}>REM.</span>
                                             <span style={{ width:'20px', flexShrink:0 }}></span>
                                         </div>
-                                    )}
-                                </div>
+
+                                        {/* Targets list */}
+                                        <div className="panel-body" style={{ padding:'0.4rem 0.38rem',
+                                                outline: dropTarget ? '2px dashed rgba(212,175,55,0.6)' : 'none',
+                                                outlineOffset: '-3px', transition: 'outline 0.1s' }}
+                                            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect='copy'; setDropTarget(true); }}
+                                            onDragLeave={() => setDropTarget(false)}
+                                            onDrop={e => {
+                                                e.preventDefault();
+                                                setDropTarget(false);
+                                                const id = e.dataTransfer.getData('fa-id');
+                                                const fa = filteredFAs.find(f => f.id === id);
+                                                if (fa) {
+                                                    const newId = Date.now().toString();
+                                                    setTargets(prev => [...prev, {
+                                                        id: newId,
+                                                        pos: (fa.norm || fa.pos || '?').toUpperCase(),
+                                                        name: fa.name,
+                                                        cost: 0
+                                                    }]);
+                                                    setEditingCostId(newId);
+                                                    setEditingCostVal('');
+                                                }
+                                            }}>
+                                            {targetRows.length === 0 && (
+                                                <div className="center-msg">{dropTarget ? 'Drop to add target' : 'Drag a free agent here or use the form above'}</div>
+                                            )}
+                                            {targetRows.map(row => (
+                                                <div key={row.id} className="player-row">
+                                                    <span className="pos-badge"
+                                                        style={{ color:posColor(row.pos), width:'30px', fontSize:'0.58rem', flexShrink:0 }}>
+                                                        {row.pos}
+                                                    </span>
+                                                    <span className="player-name" style={{ fontSize:'0.82rem' }} title={row.name}>
+                                                        {row.name}
+                                                    </span>
+                                                    {editingCostId === row.id ? (
+                                                        <input type="number" min="0" autoFocus
+                                                            value={editingCostVal}
+                                                            onChange={e => setEditingCostVal(e.target.value)}
+                                                            onBlur={() => { updateTargetCost(row.id, editingCostVal || '0'); setEditingCostId(null); }}
+                                                            onKeyDown={e => {
+                                                                if (e.key === 'Enter') { updateTargetCost(row.id, editingCostVal || '0'); setEditingCostId(null); }
+                                                                if (e.key === 'Escape') setEditingCostId(null);
+                                                            }}
+                                                            style={{ width:'30px', background:'transparent', border:'1px solid rgba(212,175,55,0.5)',
+                                                                     borderRadius:'3px', color:'var(--gold)', fontSize:'0.72rem',
+                                                                     textAlign:'right', padding:'0 2px', outline:'none' }} />
+                                                    ) : (
+                                                        <span className="sc" title="Click to edit bid"
+                                                            onClick={() => { setEditingCostId(row.id); setEditingCostVal(String(row.cost)); }}
+                                                            style={{ width:'30px', color: row.cost === 0 ? 'rgba(212,175,55,0.4)' : 'var(--silver)',
+                                                                     opacity: row.cost === 0 ? 1 : 0.65, cursor:'pointer' }}>
+                                                            {row.cost === 0 ? '$?' : row.cost}
+                                                        </span>
+                                                    )}
+                                                    <span className="sc mob-hide-fa" style={{ width:'32px', color:'var(--silver)', opacity:0.65 }}>{row.faDollar.toLocaleString()}</span>
+                                                    <span className="sc" style={{ width:'38px', color:remColor(row.remaining), fontWeight:700 }}>{row.remaining.toLocaleString()}</span>
+                                                    <button className="del-btn" onClick={() => deleteTarget(row.id)} title="Remove">&times;</button>
+                                                </div>
+                                            ))}
+                                            {targetRows.length > 0 && (
+                                                <div style={{ display:'flex', alignItems:'center', gap:'0.35rem',
+                                                              padding:'0.26rem 0.3rem', marginTop:'0.2rem',
+                                                              borderTop:'1.5px solid rgba(212,175,55,0.33)' }}>
+                                                    <span style={{ flex:1, fontFamily:'Bebas Neue,cursive', fontSize:'0.7rem',
+                                                                   color:'var(--gold)', letterSpacing:'0.06em',
+                                                                   textAlign:'right', paddingRight:'0.3rem' }}>
+                                                        BALANCE REMAINING
+                                                    </span>
+                                                    <span className="sc" style={{ width:'38px', color:remColor(finalBalance), fontWeight:700 }}>
+                                                        {finalBalance.toLocaleString()}
+                                                    </span>
+                                                    <span style={{ width:'20px', flexShrink:0 }}></span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                ) : (
+                                    /* AI Scout tab content */
+                                    <div className="panel-body" style={{ padding:'0.85rem 0.8rem' }}>
+                                        <div style={{ fontSize:'0.68rem', color:'var(--silver)', opacity:0.55, marginBottom:'0.75rem', lineHeight:1.5 }}>
+                                            {FA_AI_MODES.find(m => m.id === aiMode)?.desc}
+                                        </div>
+                                        {aiMode === 'fa_chat' && (
+                                            <textarea className="ai-chat-input"
+                                                placeholder="e.g. Should I spend big on a WR or wait for the market to drop? My roster is thin at RB..."
+                                                value={aiChatInput}
+                                                onChange={e => setAiChatInput(e.target.value)} />
+                                        )}
+                                        <button className="ai-analyze-btn" onClick={runFAAnalysis}
+                                            disabled={aiLoading || (aiMode === 'fa_chat' && !aiChatInput.trim()) || !myRoster}>
+                                            {aiLoading
+                                                ? <><span className="ai-spinner"/>&nbsp;Analyzing...</>
+                                                : '✦ Run Analysis'}
+                                        </button>
+                                        {aiError && <div className="ai-error-msg">⚠ {aiError}</div>}
+                                        {aiAnalysis && (
+                                            <div className="ai-output"
+                                                dangerouslySetInnerHTML={{ __html: renderMarkdown(aiAnalysis) }} />
+                                        )}
+                                        {!aiAnalysis && !aiLoading && !aiError && (
+                                            <div style={{ textAlign:'center', padding:'2.5rem 1rem',
+                                                          color:'var(--silver)', opacity:0.28, fontSize:'0.73rem' }}>
+                                                Select a mode and run analysis
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                         </div>

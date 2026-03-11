@@ -960,12 +960,12 @@
                   )}
                   <button
                     onClick={() => setRightTab(rightTab === 'ai' ? 'rankings' : 'ai')}
-                    className={`px-1.5 py-0 rounded text-[10px] font-bold font-oswald tracking-wide ${
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold font-oswald tracking-wide ${
                       rightTab === 'ai' ? 'bg-gold text-black' : 'bg-charcoal text-gold border border-gold/40'
                     }`}
                     title="AI Scout"
                   >
-                    ✦
+                    ✦ AI
                   </button>
                   {rightTab === 'rankings' && (
                     <button
@@ -1075,7 +1075,7 @@
                   )}
                   <button
                     onClick={runAIAnalysis}
-                    disabled={aiLoading || (aiMode === 'fa_chat' && !aiChatInput.trim()) || players.length === 0}
+                    disabled={aiLoading || (aiMode === 'fa_chat' && !aiChatInput.trim())}
                     className="px-4 py-1.5 border border-gold text-gold bg-gold/10 hover:bg-gold/20 disabled:opacity-40 disabled:cursor-not-allowed rounded text-xs font-bold font-oswald tracking-widest uppercase flex items-center gap-2"
                   >
                     {aiLoading ? (

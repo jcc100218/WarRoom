@@ -1473,7 +1473,7 @@
                                                 onChange={e => setAiChatInput(e.target.value)} />
                                         )}
                                         <button className="ai-analyze-btn" onClick={runFAAnalysis}
-                                            disabled={aiLoading || (aiMode === 'fa_chat' && !aiChatInput.trim()) || !myRoster}>
+                                            disabled={aiLoading || (aiMode === 'fa_chat' && !aiChatInput.trim()) || !leagueId}>
                                             {aiLoading
                                                 ? <><span className="ai-spinner"/>&nbsp;Analyzing...</>
                                                 : '✦ Run Analysis'}

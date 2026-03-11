@@ -3703,7 +3703,7 @@ function TradeCalculator() {
                 {/* Controls */}
                 <div className="ai-controls">
                     {aiMode === 'team' && (
-                        <select className="ai-team-select" value={aiSelectedTeam || ''} onChange={e => setAiSelectedTeam(e.target.value || null)}>
+                        <select className="ai-team-select" value={aiSelectedTeam || ''} onChange={e => setAiSelectedTeam(Number(e.target.value) || null)}>
                             <option value="">My Team ({myAssessment?.ownerName || '—'})</option>
                             {assessments.filter(a => a.rosterId !== myRosterId).map(a => (
                                 <option key={a.rosterId} value={a.rosterId}>{a.ownerName}</option>

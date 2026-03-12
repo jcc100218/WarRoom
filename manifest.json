@@ -1,7 +1,7 @@
 {
-  "name": "Owner Dashboard",
-  "short_name": "Owner Dashboard",
-  "description": "Fantasy football owner dashboard",
+  "name": "Fantasy War Room",
+  "short_name": "Fantasy War Room",
+  "description": "Fantasy football owner dashboard — draft war room, earnings tracking, free agent targets",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",

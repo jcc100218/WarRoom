@@ -1,5 +1,5 @@
 // ============================================================
-// Owner Dashboard — AI Analysis Edge Function
+// Owner Dashboard — AI Analysis Edge Function  [v2]
 // Supabase Edge Function: /functions/v1/ai-analyze
 //
 // DEPLOY:

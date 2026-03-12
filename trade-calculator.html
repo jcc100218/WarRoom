@@ -823,7 +823,7 @@ async function fetchFantasyCalcValues() {
 //     T3 boundary value down to INT_FLOOR rather than a single flat number.
 //   - Established IDP vets (years_exp ≥ 3) who scored 0 pts in 2025 (injured/IR) are
 //     included with a floor value based on experience + age, tagged tier 'INJ'.
-// Non-IDP (kickers, etc.): linear percentile scale, capped at 200 in tradeSideValue.
+// Non-IDP (kickers, etc.): linear percentile scale capped at 200 at the source.
 function buildInternalValues(playersData, statsData, scoring) {
     const INT_FLOOR   = 50;
     const T3_BOUNDARY = IDP_TIERS.find(t => t.label === 'T3').maxRank; // 50
@@ -864,9 +864,13 @@ function buildInternalValues(playersData, statsData, scoring) {
                 const value = Math.max(INT_FLOOR, Math.round(baseValue * mult));
                 idx[id] = { value, trend: 0, rank, posRank: rank, source: 'internal', tier: tier.label };
             } else {
-                // Linear scale for kickers / other non-IDP
+                // Non-IDP players not in FantasyCalc (kickers, fringe offensive players).
+                // Capped at 200 here — these players have no meaningful dynasty value
+                // and the 200 ceiling prevents them from inflating display values,
+                // team assessments, and trade totals. Range 50–200 gives slight
+                // differentiation within position without overstating importance.
                 const pct = total > 1 ? (1 - i / (total - 1)) : 1;
-                idx[id] = { value: Math.round(200 + pct * 7800), trend: 0, rank, posRank: rank, source: 'internal', tier: null };
+                idx[id] = { value: Math.round(50 + pct * 150), trend: 0, rank, posRank: rank, source: 'internal', tier: null };
             }
         });
     }
@@ -1849,10 +1853,8 @@ function TradeCalculator() {
     const tradeSideValue = useCallback((ids, pickIds = [], faab = 0) => {
         const playerSum = ids.reduce((sum, id) => {
             const v = getPlayerValue(id, valueIndex);
-            // INT-source players: IDP defenders use full tiered value; kickers/others capped at 200
-            const val = v.source === 'internal'
-                ? (IDP_POSITIONS.has(normPos(playersData[id]?.position)) ? (v.value || 0) : Math.min(v.value, 200))
-                : (v.value || 0);
+            // Non-IDP internal values are already capped at 200 in buildInternalValues.
+            const val = v.value || 0;
             return sum + val;
         }, 0);
         const pickSum = pickIds.reduce((sum, pkId) => {

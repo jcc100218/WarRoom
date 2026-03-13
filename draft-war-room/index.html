@@ -236,6 +236,7 @@
       const [mockIsPlaying,   setMockIsPlaying]   = useState(false);
       const [mockLoading,     setMockLoading]     = useState(false);
       const [mockError,       setMockError]       = useState(null);
+      const preMockPicksRef = React.useRef(null); // saves real picks before mock overwrites board
 
       // Auto-load on mount if we have URL params
       useEffect(() => {
@@ -262,11 +263,25 @@
           });
       }, []);
 
-      // Auto-advance mock draft picks
+      // Auto-advance mock draft picks + inject each pick into the board as it reveals
       useEffect(() => {
         if (!mockIsPlaying || !mockResults) return;
         if (mockCurrentPick >= mockResults.length) { setMockIsPlaying(false); return; }
-        const t = setTimeout(() => setMockCurrentPick(p => p + 1), 1100);
+        const t = setTimeout(() => {
+          const pick = mockResults[mockCurrentPick];
+          if (pick) {
+            const parts = (pick.player || '').split(' ');
+            const boardKey = `${pick.round}.${String(pick.slot).padStart(2, '0')}`;
+            setDraftPicks(prev => ({
+              ...prev,
+              [boardKey]: {
+                metadata: { first_name: parts[0] || pick.player, last_name: parts.slice(1).join(' ') || '', position: pick.pos },
+                isMock: true,
+              },
+            }));
+          }
+          setMockCurrentPick(p => p + 1);
+        }, 220);
         return () => clearTimeout(t);
       }, [mockIsPlaying, mockCurrentPick, mockResults]);
 
@@ -698,20 +713,22 @@
         let ownerDnaMap = {};
         try { ownerDnaMap = JSON.parse(localStorage.getItem(`od_owner_dna_v1_${leagueId}`) || '{}'); } catch(e) {}
 
-        // Build slot list + detect my slot
+        // Build slot list + detect my slot — prefer draftSlotOwners (round 1), fall back to leagueUsers
         const draftSlots = [];
         let detectedMySlot = 1;
         for (let slot = 1; slot <= numTeamCount; slot++) {
           const ownerInfo = draftSlotOwners[`1_${slot}`];
-          if (!ownerInfo) continue;
+          if (!ownerInfo) continue; // skip missing slots, don't break
           const dnaKey    = ownerDnaMap[ownerInfo.userId] || 'NONE';
           const archetype = DNA_TO_ARCHETYPE[dnaKey] || 'Unknown';
           draftSlots.push({ slot, name: ownerInfo.displayName, dna: archetype, needs: [] });
           if (ownerInfo.userId === sleeperUserId) detectedMySlot = slot;
         }
 
-        // Fallback: if draftSlotOwners not populated yet, use leagueUsers
-        if (!draftSlots.length) {
+        // Fallback to leagueUsers when draftSlotOwners isn't populated yet
+        // (upcoming draft with no confirmed slot assignments, or owner has no current picks)
+        if (draftSlots.length < 2 && leagueUsers.length) {
+          draftSlots.length = 0; // clear partial results
           leagueUsers.forEach((u, i) => {
             const slot      = i + 1;
             const dnaKey    = ownerDnaMap[u.user_id] || 'NONE';
@@ -741,7 +758,10 @@
         setMockLoading(true); setMockError(null); setMockResults(null); setMockCurrentPick(0); setMockIsPlaying(false);
         try {
           const ctx = buildMockContext();
-          setMockMySlot(ctx._mySlot); // capture before async
+          if (!ctx.draftSlots.length) throw new Error('No league owners found — load your Sleeper league first.');
+          setMockMySlot(ctx._mySlot);
+          // Save real picks so we can restore after mock
+          preMockPicksRef.current = draftPicks;
           const resp = await fetch(`${SUPABASE_URL}/functions/v1/ai-analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
@@ -753,9 +773,11 @@
             try { return JSON.parse(result.analysis); }
             catch { const m = result.analysis?.match(/\[[\s\S]*\]/); return m ? JSON.parse(m[0]) : null; }
           })();
-          if (!picks?.length) throw new Error('AI returned no picks — try again.');
+          if (!picks?.length) throw new Error(`Draft simulation failed — AI response: "${String(result.analysis || '').slice(0, 120)}"`);
+          // Clear the board and start fresh for mock
+          setDraftPicks({});
           setMockResults(picks);
-          setMockCurrentPick(1);
+          setMockCurrentPick(0); // effect fires at 0, injects pick[0] after 220ms
           setMockIsPlaying(true);
         } catch(e) {
           setMockError(e.message);
@@ -878,8 +900,9 @@
 
           <div className="flex flex-row-reverse gap-1 md:gap-4 p-1 md:p-4 h-[calc(100vh-80px)] md:h-[calc(100vh-100px)]">
             <div className="w-1/2 bg-off-black border border-gold/20 rounded-lg overflow-hidden flex flex-col">
-              <div className="bg-charcoal px-2 md:px-4 py-2 md:py-3 border-b border-gold/20 flex-shrink-0">
+              <div className="bg-charcoal px-2 md:px-4 py-2 md:py-3 border-b border-gold/20 flex-shrink-0 flex items-center gap-2">
                 <h2 className="font-bebas font-bold text-gold text-sm md:text-base tracking-wider">Draft Board</h2>
+                {mockResults && <span className="text-[8px] px-1.5 py-0.5 rounded border border-gold/40 text-gold font-bold font-oswald tracking-widest">MOCK</span>}
               </div>
 
               <div className="flex-1 p-1 md:p-4 space-y-2 md:space-y-6 overflow-y-auto scroll-container draft-board-container">
@@ -1186,11 +1209,26 @@
                             className="text-gold text-[10px] px-2 py-0.5 border border-gold/40 rounded hover:bg-gold/10 font-oswald">
                             {mockIsPlaying ? '⏸ Pause' : '▶ Play'}
                           </button>
-                          <button onClick={() => setMockCurrentPick(mockResults.length)}
+                          <button onClick={() => {
+                              setMockIsPlaying(false);
+                              const allPicks = {};
+                              (mockResults || []).forEach(pick => {
+                                const parts = (pick.player || '').split(' ');
+                                allPicks[`${pick.round}.${String(pick.slot).padStart(2,'0')}`] = {
+                                  metadata: { first_name: parts[0], last_name: parts.slice(1).join(' '), position: pick.pos },
+                                  isMock: true,
+                                };
+                              });
+                              setDraftPicks(prev => ({ ...prev, ...allPicks }));
+                              setMockCurrentPick(mockResults.length);
+                            }}
                             className="text-silver text-[10px] px-1.5 py-0.5 border border-gold/20 rounded hover:bg-charcoal font-oswald">
                             ⏭ All
                           </button>
-                          <button onClick={() => { setMockResults(null); setMockCurrentPick(0); setMockIsPlaying(false); }}
+                          <button onClick={() => {
+                              setMockResults(null); setMockCurrentPick(0); setMockIsPlaying(false);
+                              if (preMockPicksRef.current !== null) { setDraftPicks(preMockPicksRef.current); preMockPicksRef.current = null; }
+                            }}
                             className="text-silver text-[10px] px-1.5 py-0.5 border border-gold/20 rounded hover:bg-charcoal font-oswald">
                             ↺
                           </button>

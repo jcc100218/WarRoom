@@ -250,6 +250,49 @@ Provide:
 **SLEEPER PICKS** — 1-2 overlooked rookies worth targeting (via draft or trade).`;
 }
 
+function buildMockDraftPrompt(ctx: any): string {
+    const slotsStr = (ctx.draftSlots || []).map((o: any) =>
+        `Slot ${o.slot}: ${o.name} | DNA: ${o.dna}${o.needs?.length ? ` | Needs: ${o.needs.join(', ')}` : ''}`
+    ).join('\n');
+
+    const playersStr = (ctx.players || []).map((p: any, i: number) =>
+        `${i + 1}. ${p.name} | ${p.pos} | Tier ${p.tier}`
+    ).join('\n');
+
+    const draftTypeLabel = ctx.draftType === 'snake'
+        ? 'SNAKE (odd rounds pick left→right, even rounds pick right→left)'
+        : 'LINEAR (same slot order every round)';
+
+    return `Simulate a complete ${ctx.numRounds}-round rookie draft with ${ctx.numTeams} teams in ${ctx.leagueName || 'the league'}.
+
+DRAFT TYPE: ${draftTypeLabel}
+
+OWNER PROFILES (slot → name → DNA archetype):
+${slotsStr}
+
+AVAILABLE PLAYERS (consensus ranked — highest priority at top):
+${playersStr}
+
+DNA DRAFT BEHAVIOR (every pick MUST reflect the owner's DNA, not generic BPA):
+• Win Now       → Avoids projects. Takes immediate starters. Prioritizes positions where they're weakest now.
+• Rebuilder     → Ceiling > floor. Loves raw upside. Comfortable with developmental Tier 1-2 players at any position.
+• Value Drafter → Strict BPA. Trusts the rankings regardless of team needs. Never reaches for positional fit.
+• Need Drafter  → Fills roster gaps first. Will reach 3-5 spots for a critical positional need.
+• Contrarian    → Regularly picks players ranked 8-15 spots below expectations. Fades popular consensus picks.
+• Risk Averse   → Avoids injury history, boom-or-bust profiles, small players. Prefers safe, proven college producers.
+• Aggressive    → Comfortable reaching 3-8 spots for high-upside plays. Takes swings early and often.
+• Unknown       → Balanced BPA with mild positional awareness.
+
+CRITICAL SIMULATION RULES:
+1. Each player can only be selected ONCE — track every pick and never repeat a player name
+2. Process picks in the correct draft order based on DRAFT TYPE above
+3. EVERY pick must reflect that specific owner's DNA profile — not what's "optimal"
+4. The "reason" field must be 10-15 words and explicitly reference their DNA behavior or team need
+
+Output ONLY a valid JSON array with no extra text, no markdown, no backticks:
+[{"pick":1,"round":1,"slot":1,"owner":"Name","player":"Exact Player Name","pos":"WR","tier":1,"reason":"DNA-driven reason in exactly 10-15 words"},...]`;
+}
+
 function buildFAChatPrompt(ctx: any): string {
     const rosterStr = (ctx.myRoster || []).map((p: any) =>
         `  ${p.pos} ${p.name} (${p.team}) | ${p.pts ? `${p.pts}pts` : 'no stats'} | Yr ${p.yrsExp ?? '?'}${p.isStarter ? ' [STARTER]' : ''}`
@@ -308,6 +351,7 @@ Deno.serve(async (req) => {
             case 'fa_targets': userPrompt = buildFATargetsPrompt(context); break;
             case 'rookies':    userPrompt = buildRookiesPrompt(context);   break;
             case 'fa_chat':    userPrompt = buildFAChatPrompt(context);    break;
+            case 'mock_draft': userPrompt = buildMockDraftPrompt(context); break;
             default:
                 return new Response(
                     JSON.stringify({ error: `Unknown analysis type: ${type}` }),
@@ -315,17 +359,33 @@ Deno.serve(async (req) => {
                 );
         }
 
+        const isMockDraft = type === 'mock_draft';
         const message = await anthropic.messages.create({
             model: 'claude-haiku-4-5-20251001', // dev mode — switch to claude-sonnet-4-6 pre-launch
-            max_tokens: 1200,
-            system: buildSystemPrompt(),
+            max_tokens: isMockDraft ? 6000 : 1200,
+            system: isMockDraft
+                ? 'You are a dynasty fantasy football draft simulator. Output ONLY valid JSON arrays exactly as instructed. No prose, no markdown fences, no backticks. Never repeat a player. Track all prior picks carefully so each player is selected at most once.'
+                : buildSystemPrompt(),
             messages: [{ role: 'user', content: userPrompt }],
         });
 
         const analysis = (message.content[0] as any).text as string;
 
+        // For mock_draft, parse the JSON picks array from the AI response
+        let picks: any[] | undefined;
+        if (isMockDraft) {
+            try {
+                picks = JSON.parse(analysis);
+            } catch {
+                const match = analysis.match(/\[[\s\S]*\]/);
+                if (match) {
+                    try { picks = JSON.parse(match[0]); } catch { /* leave undefined */ }
+                }
+            }
+        }
+
         return new Response(
-            JSON.stringify({ analysis }),
+            JSON.stringify({ analysis, ...(picks ? { picks } : {}) }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     } catch (error: any) {

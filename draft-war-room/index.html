@@ -229,6 +229,14 @@
       const [aiError,     setAiError]     = useState(null);
       const [aiChatInput, setAiChatInput] = useState('');
 
+      // Mock Draft state
+      const [mockMySlot,      setMockMySlot]      = useState(1);
+      const [mockResults,     setMockResults]     = useState(null);
+      const [mockCurrentPick, setMockCurrentPick] = useState(0);
+      const [mockIsPlaying,   setMockIsPlaying]   = useState(false);
+      const [mockLoading,     setMockLoading]     = useState(false);
+      const [mockError,       setMockError]       = useState(null);
+
       // Auto-load on mount if we have URL params
       useEffect(() => {
         if (urlParams.username) {
@@ -253,6 +261,14 @@
             setPlayers(mockPlayers);
           });
       }, []);
+
+      // Auto-advance mock draft picks
+      useEffect(() => {
+        if (!mockIsPlaying || !mockResults) return;
+        if (mockCurrentPick >= mockResults.length) { setMockIsPlaying(false); return; }
+        const t = setTimeout(() => setMockCurrentPick(p => p + 1), 1100);
+        return () => clearTimeout(t);
+      }, [mockIsPlaying, mockCurrentPick, mockResults]);
 
       const fetchSleeperUser = async (username, season) => {
         if (!username) {
@@ -662,6 +678,91 @@
           setAiLoading(false);
         }
       }
+      // ---- Mock Draft helpers ---------------------------------------------
+      // DNA key (trade-calculator) → mock draft archetype
+      const DNA_TO_ARCHETYPE = {
+        FLEECER:   'Aggressive',
+        DOMINATOR: 'Contrarian',
+        STALWART:  'Value Drafter',
+        ACCEPTOR:  'Rebuilder',
+        DESPERATE: 'Need Drafter',
+        NONE:      'Unknown',
+      };
+
+      function buildMockContext() {
+        const numTeamCount  = selectedLeague?.totalRosters || numTeams;
+        const roundCount    = selectedDraft?.settings?.rounds || 3;
+        const leagueId      = selectedLeague?.id;
+
+        // Load DNA from localStorage (same store as trade-calculator)
+        let ownerDnaMap = {};
+        try { ownerDnaMap = JSON.parse(localStorage.getItem(`od_owner_dna_v1_${leagueId}`) || '{}'); } catch(e) {}
+
+        // Build slot list + detect my slot
+        const draftSlots = [];
+        let detectedMySlot = 1;
+        for (let slot = 1; slot <= numTeamCount; slot++) {
+          const ownerInfo = draftSlotOwners[`1_${slot}`];
+          if (!ownerInfo) continue;
+          const dnaKey    = ownerDnaMap[ownerInfo.userId] || 'NONE';
+          const archetype = DNA_TO_ARCHETYPE[dnaKey] || 'Unknown';
+          draftSlots.push({ slot, name: ownerInfo.displayName, dna: archetype, needs: [] });
+          if (ownerInfo.userId === sleeperUserId) detectedMySlot = slot;
+        }
+
+        // Fallback: if draftSlotOwners not populated yet, use leagueUsers
+        if (!draftSlots.length) {
+          leagueUsers.forEach((u, i) => {
+            const slot      = i + 1;
+            const dnaKey    = ownerDnaMap[u.user_id] || 'NONE';
+            const archetype = DNA_TO_ARCHETYPE[dnaKey] || 'Unknown';
+            draftSlots.push({ slot, name: u.display_name || u.username, dna: archetype, needs: [] });
+            if (u.user_id === sleeperUserId) detectedMySlot = slot;
+          });
+        }
+
+        const topPlayers = players.slice(0, numTeamCount * roundCount + 20).map(p => ({
+          name: p.name, pos: p.pos, tier: p.tier,
+        }));
+
+        return {
+          numTeams:   draftSlots.length || numTeamCount,
+          numRounds:  roundCount,
+          draftType:  'snake',
+          mySlot:     detectedMySlot,
+          draftSlots,
+          players:    topPlayers,
+          leagueName: selectedLeague?.name || 'Mock Draft',
+          _mySlot:    detectedMySlot, // pass back so we can set state
+        };
+      }
+
+      async function runMockDraft() {
+        setMockLoading(true); setMockError(null); setMockResults(null); setMockCurrentPick(0); setMockIsPlaying(false);
+        try {
+          const ctx = buildMockContext();
+          setMockMySlot(ctx._mySlot); // capture before async
+          const resp = await fetch(`${SUPABASE_URL}/functions/v1/ai-analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
+            body: JSON.stringify({ type: 'mock_draft', context: ctx }),
+          });
+          if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || `HTTP ${resp.status}`); }
+          const result = await resp.json();
+          const picks = result.picks || (() => {
+            try { return JSON.parse(result.analysis); }
+            catch { const m = result.analysis?.match(/\[[\s\S]*\]/); return m ? JSON.parse(m[0]) : null; }
+          })();
+          if (!picks?.length) throw new Error('AI returned no picks — try again.');
+          setMockResults(picks);
+          setMockCurrentPick(1);
+          setMockIsPlaying(true);
+        } catch(e) {
+          setMockError(e.message);
+        } finally {
+          setMockLoading(false);
+        }
+      }
       // ---------------------------------------------------------------------
 
       const picksByRound = draftOrder.reduce((acc, pick) => {
@@ -957,6 +1058,14 @@
                       >
                         Ask AI
                       </button>
+                      <button
+                        onClick={() => setAiMode('mock_draft')}
+                        className={`flex-1 px-1 md:px-2 py-0.5 md:py-1 rounded text-[10px] md:text-xs font-semibold font-oswald uppercase tracking-wide ${
+                          aiMode === 'mock_draft' ? 'border border-gold text-gold bg-gold/10' : 'border border-gold/30 text-silver'
+                        }`}
+                      >
+                        ⚡ Mock Draft
+                      </button>
                     </>
                   )}
                   <button
@@ -1057,6 +1166,142 @@
                     </div>
                   ))}
                 </div>
+              ) : aiMode === 'mock_draft' ? (
+                /* AI Mock Draft panel */
+                (() => {
+                  const numSlots = Object.keys(draftSlotOwners).length || leagueUsers.length || 12;
+                  const slots = Array.from({ length: numSlots }, (_, i) => i + 1);
+                  const DNA_TYPES = ['Unknown', 'Win Now', 'Rebuilder', 'Value Drafter', 'Need Drafter', 'Contrarian', 'Risk Averse', 'Aggressive'];
+                  const POS_BG = { QB: '#EF4444', RB: '#22C55E', WR: '#3B82F6', TE: '#A855F7', EDGE: '#F97316', DL: '#6B7280', LB: '#84CC16', CB: '#06B6D4', S: '#14B8A6', K: '#9CA3AF' };
+
+                  if (mockResults) {
+                    const visible = mockResults.slice(0, mockCurrentPick);
+                    return (
+                      <div className="flex-1 overflow-y-auto scroll-container p-2 md:p-3">
+                        {/* Controls */}
+                        <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-gold/20">
+                          <span className="text-[9px] text-silver font-mono">Pick {Math.min(mockCurrentPick, mockResults.length)}/{mockResults.length}</span>
+                          <div className="flex-1" />
+                          <button onClick={() => setMockIsPlaying(p => !p)}
+                            className="text-gold text-[10px] px-2 py-0.5 border border-gold/40 rounded hover:bg-gold/10 font-oswald">
+                            {mockIsPlaying ? '⏸ Pause' : '▶ Play'}
+                          </button>
+                          <button onClick={() => setMockCurrentPick(mockResults.length)}
+                            className="text-silver text-[10px] px-1.5 py-0.5 border border-gold/20 rounded hover:bg-charcoal font-oswald">
+                            ⏭ All
+                          </button>
+                          <button onClick={() => { setMockResults(null); setMockCurrentPick(0); setMockIsPlaying(false); }}
+                            className="text-silver text-[10px] px-1.5 py-0.5 border border-gold/20 rounded hover:bg-charcoal font-oswald">
+                            ↺
+                          </button>
+                        </div>
+                        {/* Pick cards */}
+                        <div className="space-y-1">
+                          {visible.map(pick => {
+                            const isMe = pick.slot === mockMySlot;
+                            return (
+                              <div key={pick.pick} className={`p-1.5 rounded border text-xs ${isMe ? 'border-gold bg-gold/10' : 'border-gold/15 bg-charcoal/40'}`}>
+                                <div className="flex items-center gap-1 mb-0.5">
+                                  <span className="text-silver opacity-40 font-mono text-[9px] w-7 flex-shrink-0">{pick.round}.{String(pick.slot).padStart(2,'0')}</span>
+                                  <span className="px-1 py-0 rounded text-[8px] font-bold text-black flex-shrink-0"
+                                    style={{ backgroundColor: POS_BG[pick.pos] || '#6B7280' }}>{pick.pos}</span>
+                                  {pick.tier <= 2 && <span className="text-gold text-[8px] flex-shrink-0">★T{pick.tier}</span>}
+                                  <span className="font-bold text-white flex-1 truncate text-[10px]">{pick.player}</span>
+                                  {isMe && <span className="text-gold text-[8px] font-bold flex-shrink-0">MY PICK</span>}
+                                </div>
+                                <div className="text-silver opacity-50 text-[9px] leading-tight truncate pl-7">{pick.owner} · {pick.reason}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {mockIsPlaying && mockCurrentPick < mockResults.length && (
+                          <div className="flex justify-center py-3">
+                            <span style={{display:'inline-block',width:'12px',height:'12px',border:'2px solid rgba(212,175,55,0.3)',borderTopColor:'#D4AF37',borderRadius:'50%',animation:'ai-spin 0.75s linear infinite'}} />
+                          </div>
+                        )}
+                        {mockCurrentPick >= mockResults.length && (
+                          <div className="text-center text-gold text-[10px] opacity-50 pt-3 font-oswald tracking-widest">— DRAFT COMPLETE —</div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Build preview from current state (no renders needed)
+                  const numTeamCount = selectedLeague?.totalRosters || numTeams;
+                  const roundCount   = selectedDraft?.settings?.rounds || 3;
+                  const leagueId     = selectedLeague?.id;
+                  let ownerDnaMap = {};
+                  try { ownerDnaMap = JSON.parse(localStorage.getItem(`od_owner_dna_v1_${leagueId}`) || '{}'); } catch(e) {}
+
+                  const previewSlots = [];
+                  for (let slot = 1; slot <= numTeamCount; slot++) {
+                    const ownerInfo = draftSlotOwners[`1_${slot}`];
+                    if (!ownerInfo) break;
+                    const dnaKey    = ownerDnaMap[ownerInfo.userId] || 'NONE';
+                    const archetype = DNA_TO_ARCHETYPE[dnaKey] || 'Unknown';
+                    previewSlots.push({ slot, name: ownerInfo.displayName, archetype, isMe: ownerInfo.userId === sleeperUserId });
+                  }
+                  // Fallback to leagueUsers if slot owners not ready
+                  if (!previewSlots.length && leagueUsers.length) {
+                    leagueUsers.forEach((u, i) => {
+                      const dnaKey    = ownerDnaMap[u.user_id] || 'NONE';
+                      previewSlots.push({ slot: i+1, name: u.display_name || u.username, archetype: DNA_TO_ARCHETYPE[dnaKey] || 'Unknown', isMe: u.user_id === sleeperUserId });
+                    });
+                  }
+
+                  const hasLeague = !!selectedLeague;
+
+                  return (
+                    <div className="flex-1 overflow-y-auto scroll-container p-3">
+                      {!hasLeague ? (
+                        <div className="text-center text-silver opacity-40 text-xs mt-8">Load a Sleeper league first.</div>
+                      ) : (
+                        <>
+                          {/* League info line */}
+                          <div className="flex items-center gap-2 mb-3 text-[10px] text-silver opacity-60">
+                            <span>{selectedLeague.name}</span>
+                            <span>·</span>
+                            <span>{numTeamCount} teams</span>
+                            <span>·</span>
+                            <span>{roundCount} rounds</span>
+                            <span>·</span>
+                            <span>Snake</span>
+                          </div>
+
+                          {/* Owner DNA preview */}
+                          <div className="text-[9px] text-silver mb-1.5 uppercase tracking-wider opacity-40 font-bold">Owner DNA (from your profiles)</div>
+                          <div className="space-y-0.5 mb-4 max-h-56 overflow-y-auto scroll-container">
+                            {previewSlots.map(({ slot, name, archetype, isMe }) => (
+                              <div key={slot} className={`flex items-center gap-1.5 py-0.5 px-1.5 rounded text-[9px] ${isMe ? 'bg-gold/10 border border-gold/30' : ''}`}>
+                                <span className="w-5 text-silver opacity-40 font-mono text-center flex-shrink-0">{slot}</span>
+                                <span className={`flex-1 truncate ${isMe ? 'text-gold font-bold' : 'text-white'}`}>
+                                  {name}{isMe && ' ★'}
+                                </span>
+                                <span className={`text-[8px] px-1 py-0 rounded border flex-shrink-0 ${archetype === 'Unknown' ? 'border-gold/20 text-silver opacity-40' : 'border-gold/40 text-gold'}`}>
+                                  {archetype}
+                                </span>
+                              </div>
+                            ))}
+                            {!previewSlots.length && (
+                              <div className="text-silver opacity-40 text-[9px] py-2">Loading owners…</div>
+                            )}
+                          </div>
+
+                          <button onClick={runMockDraft} disabled={mockLoading}
+                            className="w-full px-4 py-2 border border-gold text-gold bg-gold/10 hover:bg-gold/20 disabled:opacity-40 disabled:cursor-not-allowed rounded text-xs font-bold font-oswald tracking-widest uppercase flex items-center justify-center gap-2">
+                            {mockLoading ? (
+                              <>
+                                <span style={{display:'inline-block',width:'10px',height:'10px',border:'2px solid rgba(212,175,55,0.3)',borderTopColor:'#D4AF37',borderRadius:'50%',animation:'ai-spin 0.75s linear infinite'}} />
+                                Simulating Draft...
+                              </>
+                            ) : '⚡ Run AI Mock Draft'}
+                          </button>
+                          {mockError && <div className="mt-3 text-loss-red text-xs">⚠ {mockError}</div>}
+                        </>
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
                 /* AI Scout panel */
                 <div className="flex-1 overflow-y-auto scroll-container p-3 md:p-4">

@@ -359,9 +359,9 @@ CRITICAL SIMULATION RULES:
 5. Round 2: QB, RB, WR, or TE only — still no defenders in standard leagues
 6. Use each owner's "Round splits" data as the primary guide for when they take each position type
 7. The "reason" field must be 10-15 words referencing DNA behavior, positional need, or roster fit
-8. QB NEED IS ABSOLUTE: If an owner's Needs include QB, their FIRST pick IS the best available QB.
-   No exceptions. No DNA override. No "BPA instead." Dynasty owners without a QB starter always
-   take the first available QB — that is universally what every owner does in this situation.
+8. QB NEED RULE: If an owner's Needs include QB AND a QB is ranked in the top 5 of the available
+   player pool, that owner WILL take the QB with their first pick. No DNA override. This reflects
+   real owner behavior — nobody passes on a top-5 QB when they're desperate at the position.
 
 Output ONLY a valid JSON array with no extra text, no markdown, no backticks:
 [{"pick":1,"round":1,"slot":1,"owner":"Name","player":"Exact Player Name","pos":"WR","tier":1,"reason":"DNA-driven reason in exactly 10-15 words"},...]`;
@@ -435,8 +435,8 @@ Deno.serve(async (req) => {
 
         const isMockDraft = type === 'mock_draft';
         const message = await anthropic.messages.create({
-            model: 'claude-haiku-4-5-20251001', // dev mode — switch to claude-sonnet-4-6 pre-launch
-            max_tokens: isMockDraft ? 8000 : 1200,
+            model: isMockDraft ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001',
+            max_tokens: isMockDraft ? 16000 : 1200,
             system: isMockDraft
                 ? 'You are a dynasty fantasy football draft simulator. Output ONLY a raw JSON array. No markdown, no code fences, no backticks, no prose before or after. Start your response with [ and end with ]. Never repeat a player. Track all prior picks carefully so each player is selected at most once.'
                 : buildSystemPrompt(),
@@ -444,10 +444,18 @@ Deno.serve(async (req) => {
         });
 
         const analysis = (message.content[0] as any).text as string;
+        const stopReason = (message as any).stop_reason;
 
         // For mock_draft, parse the JSON picks array from the AI response
         let picks: any[] | undefined;
         if (isMockDraft) {
+            // Detect truncation before attempting to parse
+            if (stopReason === 'max_tokens') {
+                return new Response(
+                    JSON.stringify({ error: 'Draft simulation response was too long and got cut off. Try reducing the number of rounds or owners.' }),
+                    { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                );
+            }
             // Strip markdown code fences if the AI wrapped the response despite instructions
             let cleanAnalysis = analysis.trim();
             if (cleanAnalysis.startsWith('```')) {

@@ -719,7 +719,6 @@
                     setLeagueInfo(info);
                     // Load player names in background — large payload, non-blocking
                     fetchPlayers().then(p => setPlayersData(p)).catch(() => {});
-                    setPlayersData(players);
                     setStatsData(stats);
 
                     // Load targets: start from cache, then merge cloud data.

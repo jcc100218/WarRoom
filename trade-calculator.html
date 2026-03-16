@@ -1721,7 +1721,7 @@ function TradeCalculator() {
     const [tradedPicks, setTradedPicks] = useState([]);
     const [loading,     setLoading]     = useState(false);
 
-    const [activeTab,    setActiveTab]    = useState('guide');
+    const [activeTab,    setActiveTab]    = useState(() => sessionStorage.getItem('tc_activeTab') || 'guide');
     const [myRosterId,   setMyRosterId]   = useState(null);
     const [ownerDna,      setOwnerDna]      = useState({});   // { ownerId: DNA_TYPE_KEY }
     const [ownerDraftDna, setOwnerDraftDna] = useState({});  // { ownerId: { label, tendency, ... } }
@@ -2128,7 +2128,7 @@ function TradeCalculator() {
                 </div>
 
                 <div style={{ textAlign:'center', marginTop:'1.5rem' }}>
-                    <button className="outcome-btn primary" onClick={() => setActiveTab('audit')} style={{ fontSize:'0.8rem', padding:'0.5rem 1.5rem' }}>
+                    <button className="outcome-btn primary" onClick={() => { sessionStorage.setItem('tc_activeTab', 'audit'); setActiveTab('audit'); }} style={{ fontSize:'0.8rem', padding:'0.5rem 1.5rem' }}>
                         Start with Roster Audit →
                     </button>
                 </div>
@@ -3957,7 +3957,7 @@ function TradeCalculator() {
                     <button
                         key={t.key}
                         className={`tab-btn${activeTab===t.key?' active':''}`}
-                        onClick={() => setActiveTab(t.key)}
+                        onClick={() => { sessionStorage.setItem('tc_activeTab', t.key); setActiveTab(t.key); }}
                     >
                         {t.label}
                     </button>

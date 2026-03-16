@@ -433,13 +433,35 @@ function shortName(fullName = "") {
   return `${first[0].toUpperCase()}. ${last}`;
 }
 
-function buildPlayerCellEl(nameText, url, phoneLines = []) {
+function playerThumbImg(playerId, size) {
+  const img = document.createElement("img");
+  img.src = `https://sleepercdn.com/content/nfl/players/thumb/${playerId}.jpg`;
+  img.alt = "";
+  img.style.width = `${size}px`;
+  img.style.height = `${size}px`;
+  img.style.borderRadius = "50%";
+  img.style.objectFit = "cover";
+  img.style.flexShrink = "0";
+  img.onerror = () => { img.style.display = "none"; };
+  return img;
+}
+
+function buildPlayerCellEl(nameText, url, phoneLines = [], playerId = "") {
   // phoneLines: array of strings (already formatted) to show under the name
   const wrap = document.createElement("div");
   wrap.style.display = "flex";
   wrap.style.flexDirection = "column";
   wrap.style.gap = "4px";
   wrap.style.minWidth = "0";
+
+  // Name row: headshot + anchor side-by-side
+  const nameRow = document.createElement("div");
+  nameRow.style.display = "flex";
+  nameRow.style.alignItems = "center";
+  nameRow.style.gap = "6px";
+  nameRow.style.minWidth = "0";
+
+  if (playerId) nameRow.appendChild(playerThumbImg(playerId, 24));
 
   const a = document.createElement("a");
   a.textContent = nameText || "";
@@ -455,7 +477,8 @@ function buildPlayerCellEl(nameText, url, phoneLines = []) {
   a.style.textOverflow = "ellipsis";
   a.style.whiteSpace = "nowrap";
 
-  wrap.appendChild(a);
+  nameRow.appendChild(a);
+  wrap.appendChild(nameRow);
 
   if (phoneLines.length) {
     const sub = document.createElement("div");
@@ -862,8 +885,17 @@ function renderSingleRoster(tbody, roster, ownerId, placeholderText) {
         : [];
 
       const playerEl = phone
-        ? buildPlayerCellEl(nameText, url, phoneLines)
+        ? buildPlayerCellEl(nameText, url, phoneLines, p.player_id)
         : (() => {
+            const wrap = document.createElement("div");
+            wrap.style.display = "flex";
+            wrap.style.alignItems = "center";
+            wrap.style.gap = "6px";
+            wrap.style.minWidth = "0";
+            wrap.style.overflow = "hidden";
+
+            wrap.appendChild(playerThumbImg(p.player_id, 24));
+
             const a = document.createElement("a");
             a.textContent = nameText;
             if (url) {
@@ -873,7 +905,11 @@ function renderSingleRoster(tbody, roster, ownerId, placeholderText) {
             }
             a.style.color = "inherit";
             a.style.textDecoration = "none";
-            return a;
+            a.style.overflow = "hidden";
+            a.style.textOverflow = "ellipsis";
+            a.style.whiteSpace = "nowrap";
+            wrap.appendChild(a);
+            return wrap;
           })();
 
       tbody.appendChild(

@@ -1317,8 +1317,17 @@
                                                 <a className="player-name" href={url || '#'} target="_blank" rel="noopener noreferrer"
                                                     onClick={e => e.stopPropagation()}
                                                     onMouseEnter={e => e.currentTarget.style.color='var(--gold)'}
-                                                    onMouseLeave={e => e.currentTarget.style.color='inherit'}>
-                                                    {fa.name} <span className="player-team">{fa.team}</span>
+                                                    onMouseLeave={e => e.currentTarget.style.color='inherit'}
+                                                    style={{ display:'inline-flex', alignItems:'center', gap:'6px' }}>
+                                                    <img
+                                                        src={`https://sleepercdn.com/content/nfl/players/thumb/${fa.id}.jpg`}
+                                                        alt=""
+                                                        onError={e => { e.target.style.display='none'; }}
+                                                        style={{ width:'28px', height:'28px', borderRadius:'50%', objectFit:'cover', flexShrink:0 }}
+                                                    />
+                                                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                                        {fa.name} <span className="player-team">{fa.team}</span>
+                                                    </span>
                                                 </a>
                                                 <span className="sc mob-hide" style={{ width:`${SW.yrs}px`, color:'var(--silver)', opacity:0.65 }}>{st.yrs}</span>
                                                 <span className="sc" style={{ width:`${SW.pts}px`, color:'var(--gold)' }}>{st.pts}</span>

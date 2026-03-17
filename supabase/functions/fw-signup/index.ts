@@ -1,5 +1,5 @@
 /**
- * fw-signup — Fantasy Wars email registration
+ * fw-signup — Fantasy Wars email registration (v2)
  *
  * POST /functions/v1/fw-signup
  * Body: { email, password, displayName?, productSlug? }

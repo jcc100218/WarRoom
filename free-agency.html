@@ -967,14 +967,15 @@
                 : startingBudget;
 
             // ---- Handlers ----
-            function addTarget(pos, name, cost) {
+            function addTarget(pos, name, cost, playerId) {
                 const c = parseInt(cost);
                 if (!name.trim() || isNaN(c) || c < 0) return;
                 setTargets(prev => [...prev, {
                     id: Date.now().toString(),
                     pos: (pos || '?').toUpperCase(),
                     name: name.trim(),
-                    cost: c
+                    cost: c,
+                    playerId: playerId || null
                 }]);
             }
             function deleteTarget(id) { setTargets(prev => prev.filter(t => t.id !== id)); }
@@ -991,7 +992,7 @@
             function handleQuickAdd(e) {
                 e.preventDefault();
                 if (!quickPlayer) return;
-                addTarget(quickPlayer.norm || quickPlayer.pos, quickPlayer.name, quickCost);
+                addTarget(quickPlayer.norm || quickPlayer.pos, quickPlayer.name, quickCost, quickPlayer.id);
                 setQuickPlayer(null); setQuickCost('');
             }
             function commitBudget() {
@@ -1434,7 +1435,8 @@
                                                         id: newId,
                                                         pos: (fa.norm || fa.pos || '?').toUpperCase(),
                                                         name: fa.name,
-                                                        cost: 0
+                                                        cost: 0,
+                                                        playerId: fa.id || null
                                                     }]);
                                                     setEditingCostId(newId);
                                                     setEditingCostVal('');
@@ -1449,8 +1451,18 @@
                                                         style={{ color:posColor(row.pos), width:'30px', fontSize:'0.58rem', flexShrink:0 }}>
                                                         {row.pos}
                                                     </span>
-                                                    <span className="player-name" style={{ fontSize:'0.82rem' }} title={row.name}>
-                                                        {row.name}
+                                                    <span className="player-name" style={{ fontSize:'0.82rem', display:'inline-flex', alignItems:'center', gap:'5px' }} title={row.name}>
+                                                        {row.playerId && (
+                                                            <img
+                                                                src={`https://sleepercdn.com/content/nfl/players/thumb/${row.playerId}.jpg`}
+                                                                alt=""
+                                                                onError={e => { e.target.style.display='none'; }}
+                                                                style={{ width:'24px', height:'24px', borderRadius:'50%', objectFit:'cover', flexShrink:0 }}
+                                                            />
+                                                        )}
+                                                        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                                            {row.name}{row.playerId && playersData[row.playerId]?.team ? <span style={{ fontSize:'0.6rem', opacity:0.5, marginLeft:'3px' }}>{playersData[row.playerId].team}</span> : null}
+                                                        </span>
                                                     </span>
                                                     {editingCostId === row.id ? (
                                                         <input type="number" min="0" autoFocus

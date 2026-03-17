@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
 
     if (insertErr || !newUser) {
       console.error('Insert error:', insertErr);
-      return json({ error: 'Failed to create account. Please try again.' }, 500);
+      return json({ error: `DB insert failed: ${insertErr?.message ?? insertErr?.code ?? 'unknown'} (${insertErr?.details ?? insertErr?.hint ?? ''})` }, 500);
     }
 
     // ── Provision free subscription for chosen product ────────

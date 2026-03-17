@@ -16,6 +16,14 @@ create table if not exists public.app_users (
     avatar_url          text,
     email_verified      boolean default false,
     stripe_customer_id  text unique,
+
+    -- ── Platform usernames ────────────────────────────────────
+    -- Users connect their accounts from any supported fantasy platform.
+    -- Stored as a flat JSONB object: { "sleeper": "...", "yahoo": "...", etc. }
+    -- Supported platform keys:
+    --   sleeper, yahoo, espn, draftkings, mfl, fantrax, cbs, nfl, fleaflicker, underdog
+    platform_usernames  jsonb default '{}'::jsonb,
+
     created_at          timestamptz default now(),
     updated_at          timestamptz default now()
 );
@@ -94,6 +102,8 @@ create policy "subscriptions_own" on public.subscriptions
 -- ── INDEXES ───────────────────────────────────────────────────
 create index if not exists idx_app_users_email         on public.app_users (email);
 create index if not exists idx_app_users_stripe        on public.app_users (stripe_customer_id);
+-- GIN index allows efficient lookup by any platform key inside the JSONB
+create index if not exists idx_app_users_platforms     on public.app_users using gin (platform_usernames);
 create index if not exists idx_subscriptions_user      on public.subscriptions (user_id);
 create index if not exists idx_subscriptions_stripe_id on public.subscriptions (stripe_subscription_id);
 create index if not exists idx_subscriptions_status    on public.subscriptions (status);
@@ -124,7 +134,8 @@ create trigger trg_subscriptions_updated_at
 --        supabase secrets set STRIPE_SECRET_KEY=sk_live_...
 --        supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
 --   2. Set Stripe Price IDs (from Stripe Dashboard → Products):
---        supabase secrets set STRIPE_PRICE_WAR_ROOM_PRO=price_...
+--        supabase secrets set STRIPE_PRICE_WAR_ROOM_PRO=price_...   ($9.99/mo)
+--        supabase secrets set STRIPE_PRICE_DYNAST_HQ_PRO=price_...  ($9.99/mo, when live)
 --        supabase secrets set STRIPE_PRICE_BUNDLE_PRO=price_...
 --   3. Deploy new Edge Functions:
 --        supabase functions deploy fw-signup

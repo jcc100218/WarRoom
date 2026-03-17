@@ -16,6 +16,43 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ── Rate limiting ─────────────────────────────────────────────
+// 10 AI requests per user per minute to protect Anthropic API costs.
+// Uses Deno KV (shared across Edge Function instances).
+const RATE_LIMIT_MAX     = 10;
+const RATE_LIMIT_WINDOW  = 60 * 1000; // 1 minute in ms
+
+function extractUsernameFromJWT(authHeader: string | null): string {
+    if (!authHeader) return 'anonymous';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    try {
+        const [, payload] = token.split('.');
+        const decoded = JSON.parse(atob(payload));
+        return decoded?.app_metadata?.sleeper_username
+            ?? decoded?.sub
+            ?? 'anonymous';
+    } catch { return 'anonymous'; }
+}
+
+async function checkRateLimit(identifier: string): Promise<{ allowed: boolean; retryAfterMs?: number }> {
+    try {
+        const kv = await Deno.openKv();
+        const bucket = Math.floor(Date.now() / RATE_LIMIT_WINDOW);
+        const key = ['rate_limit', 'ai_analyze', identifier, bucket];
+        const entry = await kv.get<number>(key);
+        const count = entry.value ?? 0;
+        if (count >= RATE_LIMIT_MAX) {
+            const windowEnd = (bucket + 1) * RATE_LIMIT_WINDOW;
+            return { allowed: false, retryAfterMs: windowEnd - Date.now() };
+        }
+        await kv.set(key, count + 1, { expireIn: RATE_LIMIT_WINDOW });
+        return { allowed: true };
+    } catch {
+        // If KV is unavailable, allow the request (fail open)
+        return { allowed: true };
+    }
+}
+
 // ── Prompt builders ───────────────────────────────────────────────────────────
 
 function buildSystemPrompt(): string {
@@ -468,6 +505,24 @@ Deno.serve(async (req) => {
             return new Response(
                 JSON.stringify({ error: 'Missing required fields: type, context' }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
+        // ── Rate limit check ──────────────────────────────────────────────
+        const identifier = extractUsernameFromJWT(req.headers.get('Authorization'));
+        const rateCheck  = await checkRateLimit(identifier);
+        if (!rateCheck.allowed) {
+            const retryAfterSec = Math.ceil((rateCheck.retryAfterMs ?? RATE_LIMIT_WINDOW) / 1000);
+            return new Response(
+                JSON.stringify({ error: `Rate limit exceeded. Try again in ${retryAfterSec}s.` }),
+                {
+                    status: 429,
+                    headers: {
+                        ...corsHeaders,
+                        'Content-Type': 'application/json',
+                        'Retry-After': String(retryAfterSec),
+                    },
+                }
             );
         }
 

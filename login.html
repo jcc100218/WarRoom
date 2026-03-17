@@ -276,11 +276,13 @@
         const existingLocal = localStorage.getItem(AUTH_KEY);
 
         if (existingLocal) {
-            // Returning user with local credentials — verify locally
+            // Returning user — verify locally, then refresh session token in background
             try {
                 const auth = JSON.parse(existingLocal);
                 const inputHash = await hashPassword(password);
                 if (auth.username === username && auth.passwordHash === inputHash) {
+                    window.OD.acquireSessionToken(username, auth.isGifted ? password : undefined)
+                        .catch(() => {});
                     window.location.href = 'index.html';
                 } else {
                     showError('Incorrect username or password');
@@ -291,18 +293,18 @@
             return;
         }
 
-        // No local auth — check Supabase first (gifted accounts)
-        loginBtn.textContent = 'Checking...';
+        // No local auth — authenticate via get-session-token Edge Function.
+        // Handles both gifted users (bcrypt server-side) and regular Sleeper users.
+        loginBtn.textContent = 'Verifying...';
         loginBtn.disabled = true;
         try {
-            const result = await window.OD.verifySupabasePassword(username, password);
-            if (result && result.match) {
-                // Gifted user authenticated via Supabase
+            const session = await window.OD.acquireSessionToken(username, password);
+            if (session?.token) {
                 const passwordHash = await hashPassword(password);
                 localStorage.setItem(AUTH_KEY, JSON.stringify({
                     username,
                     passwordHash,
-                    isGifted: result.isGifted,
+                    isGifted: session.isGifted || false,
                     createdAt: new Date().toISOString()
                 }));
                 localStorage.setItem('od_locked_username_v2', username);
@@ -311,7 +313,7 @@
             }
         } catch {}
 
-        // Not a gifted account — first-time self-setup: validate Sleeper username
+        // Fallback for regular Sleeper users when Edge Function is unreachable
         loginBtn.textContent = 'Verifying Sleeper username...';
         try {
             const resp = await fetch(`https://api.sleeper.app/v1/user/${encodeURIComponent(username)}`);
@@ -325,6 +327,7 @@
             const passwordHash = await hashPassword(password);
             localStorage.setItem(AUTH_KEY, JSON.stringify({ username, passwordHash, createdAt: new Date().toISOString() }));
             localStorage.setItem('od_locked_username_v2', username);
+            window.OD.acquireSessionToken(username).catch(() => {});
             window.location.href = 'index.html';
         } catch {
             showError('Failed to verify Sleeper username. Check your connection and try again.');

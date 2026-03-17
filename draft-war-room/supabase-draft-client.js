@@ -14,10 +14,20 @@
 // ---------------------------------------------------------------------------
 
 let _supabase = null;
+let _supabaseToken = null;
+
+function getSessionToken() {
+  try {
+    const raw = localStorage.getItem('od_session_v1');
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s?.token || !s?.expiresAt) return null;
+    if (Date.now() >= new Date(s.expiresAt).getTime() - 5 * 60 * 1000) return null;
+    return s.token;
+  } catch { return null; }
+}
 
 function getSupabaseClient() {
-  if (_supabase) return _supabase;
-
   if (typeof SUPABASE_URL === 'undefined' || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
     console.warn('[supabase-draft-client] Supabase credentials not configured. Edit supabase-config.js.');
     return null;
@@ -29,7 +39,14 @@ function getSupabaseClient() {
     return null;
   }
 
-  _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const token = getSessionToken();
+  // Re-create client when token changes
+  if (_supabase && _supabaseToken === token) return _supabase;
+  const opts = token
+    ? { global: { headers: { Authorization: `Bearer ${token}` } } }
+    : {};
+  _supabase      = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, opts);
+  _supabaseToken = token;
   return _supabase;
 }
 

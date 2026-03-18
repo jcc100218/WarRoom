@@ -1506,6 +1506,31 @@
             } catch { return false; }
         }, []);
 
+        const currentTier = React.useMemo(() => {
+            try {
+                const p = JSON.parse(localStorage.getItem('od_profile_v1') || '{}');
+                return p.tier || 'free';
+            } catch { return 'free'; }
+        }, []);
+
+        const tierLabel = { free: 'War Room Free', pro: 'Dynasty HQ Pro', power: 'Dynasty HQ Power' };
+        const tierColor = { free: 'var(--silver)', pro: 'var(--gold)', power: '#A855F7' };
+        const tierBg    = { free: 'rgba(192,192,192,0.12)', pro: 'rgba(212,175,55,0.12)', power: 'rgba(168,85,247,0.12)' };
+
+        function goToManagePlan() {
+            window.location.href = 'onboarding.html?manage=true';
+        }
+
+        function handleCancelPlan() {
+            if (!confirm('Cancel your subscription? You will be moved to the War Room Free plan.')) return;
+            try {
+                const profile = JSON.parse(localStorage.getItem('od_profile_v1') || '{}');
+                localStorage.setItem('od_profile_v1', JSON.stringify({ ...profile, tier: 'free' }));
+                alert('Subscription cancelled. You are now on the War Room Free plan.');
+                onClose();
+            } catch { alert('Failed to cancel. Please try again.'); }
+        }
+
         function handleDisplayNameSave() {
             onDisplayNameSave(displayName);
         }
@@ -1661,6 +1686,24 @@
                             </div>
                         </div>
                     )}
+
+                    {/* ── SUBSCRIPTION ── */}
+                    <div style={sectionStyle}>
+                        <div style={sectionTitle}>SUBSCRIPTION</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>Current plan:</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: tierColor[currentTier] || 'var(--silver)', background: tierBg[currentTier] || 'rgba(192,192,192,0.12)', padding: '0.15rem 0.55rem', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                {tierLabel[currentTier] || 'War Room Free'}
+                            </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                            <button onClick={goToManagePlan} style={{ ...btnPrimary, fontSize: '0.75rem' }}>Upgrade</button>
+                            <button onClick={goToManagePlan} style={{ ...btnOutline, fontSize: '0.75rem' }}>Change Plan</button>
+                            <button onClick={goToManagePlan} style={{ ...btnOutline, fontSize: '0.75rem' }}>Gift Sub</button>
+                            <button onClick={handleCancelPlan} style={{ ...btnOutline, fontSize: '0.75rem', borderColor: 'rgba(231,76,60,0.35)', color: '#E74C3C' }}>Cancel</button>
+                        </div>
+                        <div style={{ marginTop: '0.6rem', fontSize: '0.66rem', color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Manage your Dynasty HQ subscription</div>
+                    </div>
 
                     <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column' }}>
                         <button onClick={handleLogout} style={{ padding: '0.75rem', background: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)', border: 'none', borderRadius: '8px', color: 'white', fontFamily: 'Oswald, sans-serif', fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>

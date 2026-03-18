@@ -809,14 +809,14 @@
       const hasLegacyAuth  = !!JSON.parse(localStorage.getItem(LEGACY_KEY)   || 'null')?.username;
       if (!hasNewSession && !hasLegacyAuth) { window.location.href = 'landing.html'; return; }
 
-      // If onboarding already complete, skip to the app
+      const params = new URLSearchParams(window.location.search);
+      const isManaging = params.get('manage') === 'true';
+
+      // If onboarding already complete, skip to the app (unless user came from settings to manage plan)
       try {
         const p = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null');
-        if (p && p.onboardingComplete) { window.location.href = 'index.html'; return; }
+        if (!isManaging && p && p.onboardingComplete) { window.location.href = 'index.html'; return; }
       } catch {}
-
-      // Stripe payment return
-      const params = new URLSearchParams(window.location.search);
       if (params.get('payment') === 'success') {
         selectedPlan = 'pro';
         patchProfile({ tier: 'pro' });

@@ -1959,6 +1959,7 @@
         const [stats2025Data, setStats2025Data] = useState({});
         const [currentLeague, setCurrentLeague] = useState(league);
         const [activeYear, setActiveYear] = useState(league.season);
+        const [trending, setTrending] = useState({ adds: [], drops: [] });
 
         useEffect(() => {
             loadLeagueDetails();
@@ -2005,6 +2006,15 @@
                 setLoading(false);
                 // Load player names in background — large payload, non-blocking
                 fetchAllPlayers().then(p => setPlayersData(p)).catch(() => {});
+                // Load Sleeper trending adds/drops in background
+                if (window.Sleeper?.fetchTrending) {
+                    Promise.all([
+                        window.Sleeper.fetchTrending('add', 24, 15),
+                        window.Sleeper.fetchTrending('drop', 24, 15)
+                    ]).then(([adds, drops]) => {
+                        setTrending({ adds: adds || [], drops: drops || [] });
+                    }).catch(() => {});
+                }
             } catch (err) {
                 console.error('Failed to load league details:', err);
                 setError(err.message || 'Failed to load league details');
@@ -2561,6 +2571,83 @@
                         </div>
 
                     </div>
+
+                    {/* League Pulse — Sleeper Trending Adds / Drops */}
+                    {(trending.adds.length > 0 || trending.drops.length > 0) && (
+                        <div style={{
+                            marginTop: '1.25rem',
+                            background: 'var(--black)',
+                            border: '2px solid rgba(212, 175, 55, 0.3)',
+                            borderRadius: '12px',
+                            padding: '1rem 1.25rem'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(212, 175, 55, 0.3)' }}>
+                                <span style={{ color: 'var(--gold)', fontFamily: 'Bebas Neue, cursive', fontSize: '1.4rem', letterSpacing: '0.1em' }}>LEAGUE PULSE</span>
+                                <span style={{ color: 'var(--silver)', fontSize: '0.68rem', opacity: 0.6 }}>Trending across Sleeper - Last 24h</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                {/* Most Added */}
+                                <div>
+                                    <div style={{ color: '#2ECC71', fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', fontFamily: 'Oswald, sans-serif' }}>Most Added</div>
+                                    {trending.adds.slice(0, 10).map(item => {
+                                        const player = playersData[item.player_id];
+                                        if (!player) return null;
+                                        const pos = player.position || '??';
+                                        return (
+                                            <div key={item.player_id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0', fontSize: '0.82rem' }}>
+                                                <span style={{ color: '#2ECC71', fontWeight: '700', fontSize: '0.72rem', minWidth: '14px' }}>▲</span>
+                                                <span style={{
+                                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                    width: '30px', flexShrink: 0, fontSize: '0.6rem', fontWeight: '700',
+                                                    color: getPositionColor(pos), border: '1px solid var(--gold)',
+                                                    borderRadius: '3px', padding: '1px 0', background: 'rgba(212, 175, 55, 0.08)'
+                                                }}>{pos}</span>
+                                                <a href="#"
+                                                    onClick={e => { e.preventDefault(); if (window.openFWPlayerModal) openFWPlayerModal(item.player_id, playersData, statsData); }}
+                                                    style={{ flex: 1, color: 'var(--white)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'color 0.2s' }}
+                                                    onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
+                                                    onMouseLeave={e => e.currentTarget.style.color = 'var(--white)'}
+                                                >
+                                                    {player.full_name || `${player.first_name || ''} ${player.last_name || ''}`.trim()}
+                                                </a>
+                                                <span style={{ color: 'var(--silver)', fontSize: '0.62rem', opacity: 0.5, flexShrink: 0 }}>{player.team || ''}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {/* Most Dropped */}
+                                <div>
+                                    <div style={{ color: '#E74C3C', fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', fontFamily: 'Oswald, sans-serif' }}>Most Dropped</div>
+                                    {trending.drops.slice(0, 10).map(item => {
+                                        const player = playersData[item.player_id];
+                                        if (!player) return null;
+                                        const pos = player.position || '??';
+                                        return (
+                                            <div key={item.player_id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0', fontSize: '0.82rem' }}>
+                                                <span style={{ color: '#E74C3C', fontWeight: '700', fontSize: '0.72rem', minWidth: '14px' }}>▼</span>
+                                                <span style={{
+                                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                    width: '30px', flexShrink: 0, fontSize: '0.6rem', fontWeight: '700',
+                                                    color: getPositionColor(pos), border: '1px solid var(--gold)',
+                                                    borderRadius: '3px', padding: '1px 0', background: 'rgba(212, 175, 55, 0.08)'
+                                                }}>{pos}</span>
+                                                <a href="#"
+                                                    onClick={e => { e.preventDefault(); if (window.openFWPlayerModal) openFWPlayerModal(item.player_id, playersData, statsData); }}
+                                                    style={{ flex: 1, color: 'var(--white)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'color 0.2s' }}
+                                                    onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
+                                                    onMouseLeave={e => e.currentTarget.style.color = 'var(--white)'}
+                                                >
+                                                    {player.full_name || `${player.first_name || ''} ${player.last_name || ''}`.trim()}
+                                                </a>
+                                                <span style={{ color: 'var(--silver)', fontSize: '0.62rem', opacity: 0.5, flexShrink: 0 }}>{player.team || ''}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                 </div>
             </div>
         );

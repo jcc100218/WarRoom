@@ -127,7 +127,10 @@
     <div id="root"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-    <script src="https://jcc100218.github.io/ReconAI/shared/supabase-client.js"></script>
+    <script src="https://jcc100218.github.io/ReconAI/shared/constants.js"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/supabase-client.js"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/dhq-engine.js"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/player-modal.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -619,7 +622,7 @@
                                                             <tr key={id}>
                                                                 <td className="rtd-pos">{p.position||'?'}</td>
                                                                 <td className={`rtd-player${sc?' '+sc:''}`}>
-                                                                    <a href={url||'#'} target="_blank" rel="noopener noreferrer">
+                                                                    <a href="#" onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(id, playersData, statsData); }} style={{cursor:'pointer'}}>
                                                                         {pName}
                                                                         {p.years_exp === 0 && <span style={{marginLeft:'0.3rem', background:'rgba(212,175,55,0.2)', color:'var(--gold)', fontSize:'0.56rem', padding:'1px 3px', borderRadius:'2px', fontFamily:'Bebas Neue,cursive', letterSpacing:'0.04em'}}>RK</span>}
                                                                         <span style={{fontSize:'0.65rem',color:'var(--silver)',opacity:0.55,marginLeft:'0.3rem'}}>{p.team||''}</span>
@@ -671,8 +674,9 @@
                                             <div key={r.id} className="player-row">
                                                 <span style={{ color:'var(--silver)', opacity:0.4, fontSize:'0.6rem', width:'20px', textAlign:'right', flexShrink:0 }}>{idx+1}</span>
                                                 <span className="pos-badge" style={{ color: posColor(r.pos) }}>{r.pos}</span>
-                                                <a className="player-name" href={url||'#'} target="_blank" rel="noopener noreferrer"
-                                                    style={{ color:'inherit', textDecoration:'none' }}
+                                                <a className="player-name" href="#"
+                                                    onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData); }}
+                                                    style={{ color:'inherit', textDecoration:'none', cursor:'pointer' }}
                                                     onMouseEnter={e=>e.currentTarget.style.color='var(--gold)'}
                                                     onMouseLeave={e=>e.currentTarget.style.color='inherit'}>
                                                     {r.name}

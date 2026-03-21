@@ -508,7 +508,10 @@
     <div id="root"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-    <script src="https://jcc100218.github.io/ReconAI/shared/supabase-client.js"></script>
+    <script src="https://jcc100218.github.io/ReconAI/shared/constants.js"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/supabase-client.js"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/dhq-engine.js"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/player-modal.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -1235,7 +1238,7 @@
                                                             <tr key={id}>
                                                                 <td className="rtd-pos">{p.position || '?'}</td>
                                                                 <td className={`rtd-player${sc ? ' '+sc : ''}`}>
-                                                                    <a href={url || '#'} target="_blank" rel="noopener noreferrer">
+                                                                    <a href="#" onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(id, playersData, statsData); }} style={{cursor:'pointer'}}>
                                                                         {pName}
                                                                         <span style={{fontSize:'0.65rem', color:'var(--silver)', opacity:0.55, marginLeft:'0.3rem'}}>{p.team||''}</span>
                                                                     </a>
@@ -1315,11 +1318,11 @@
                                                 <span className="pos-badge" style={{ color: posColor(fa.pos) }}>
                                                     {fa.pos}
                                                 </span>
-                                                <a className="player-name" href={url || '#'} target="_blank" rel="noopener noreferrer"
-                                                    onClick={e => e.stopPropagation()}
+                                                <a className="player-name" href="#"
+                                                    onClick={e => { e.preventDefault(); e.stopPropagation(); if(window.openFWPlayerModal) openFWPlayerModal(fa.id, playersData, statsData); }}
                                                     onMouseEnter={e => e.currentTarget.style.color='var(--gold)'}
                                                     onMouseLeave={e => e.currentTarget.style.color='inherit'}
-                                                    style={{ display:'inline-flex', alignItems:'center', gap:'6px' }}>
+                                                    style={{ display:'inline-flex', alignItems:'center', gap:'6px', cursor:'pointer' }}>
                                                     <img
                                                         src={`https://sleepercdn.com/content/nfl/players/thumb/${fa.id}.jpg`}
                                                         alt=""

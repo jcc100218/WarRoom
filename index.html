@@ -992,7 +992,10 @@
     <div id="root"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/constants.js"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/supabase-client.js"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/dhq-engine.js"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/player-modal.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -2243,11 +2246,10 @@
                     }}>
                         {pos}
                     </span>
-                    {/* Player name + team */}
+                    {/* Player name + team — opens shared player card */}
                     <a
-                        href={fpUrl || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href="#"
+                        onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(playerId, playersData, statsData); }}
                         style={{
                             flex: 1,
                             display: 'flex',
@@ -2258,7 +2260,8 @@
                             overflow: 'hidden',
                             textDecoration: 'none',
                             transition: 'color 0.2s',
-                            minWidth: 0
+                            minWidth: 0,
+                            cursor: 'pointer'
                         }}
                         onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
                         onMouseLeave={e => e.currentTarget.style.color = 'var(--white)'}

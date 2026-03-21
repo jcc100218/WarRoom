@@ -1061,6 +1061,7 @@
         const [aiStories, setAiStories] = useState([]);
         const [transactions, setTransactions] = useState([]);
         const [rankedTeams, setRankedTeams] = useState([]);
+        const [dhqStatus, setDhqStatus] = useState({ loading: false, step: '', progress: 0 });
         const [reconPanelOpen, setReconPanelOpen] = useState(false);
         const [reconMessages, setReconMessages] = useState([
           { role: 'assistant', content: 'Ask me anything about your league, team, or players.' }
@@ -1204,13 +1205,33 @@
                           window.S.tradedPicks = tp || [];
                         }).catch(() => {});
 
-                        // Trigger DHQ engine (non-blocking)
+                        // Trigger DHQ engine (non-blocking) with progress tracking
                         if (typeof window.App.loadLeagueIntel === 'function' && !window.App.LI_LOADED) {
+                          setDhqStatus({ loading: true, step: 'Discovering league history...', progress: 10 });
+                          // Track progress via console output interception
+                          const origLog = console.log;
+                          console.log = function(...args) {
+                            origLog.apply(console, args);
+                            const msg = args[0];
+                            if (typeof msg === 'string') {
+                              if (msg.includes('COLD PATH')) setDhqStatus(s => ({...s, step: 'Analyzing 5 years of data...', progress: 30}));
+                              else if (msg.includes('FAST PATH')) setDhqStatus(s => ({...s, step: 'Loading from cache...', progress: 80}));
+                              else if (msg.includes('Scored players')) setDhqStatus(s => ({...s, step: 'Scoring players...', progress: 60}));
+                              else if (msg.includes('FC blend')) setDhqStatus(s => ({...s, step: 'Blending market data...', progress: 75}));
+                              else if (msg.includes('Trade analysis')) setDhqStatus(s => ({...s, step: 'Analyzing trade history...', progress: 85}));
+                              else if (msg.includes('LeagueIntel COMPLETE')) setDhqStatus(s => ({...s, step: 'Complete!', progress: 100}));
+                            }
+                          };
                           window.App.loadLeagueIntel().then(() => {
+                            console.log = origLog;
                             console.log('[War Room] DHQ engine loaded:', Object.keys(window.App.LI?.playerScores || {}).length, 'players valued');
-                            // Force re-render to show values
+                            setDhqStatus({ loading: false, step: 'Complete!', progress: 100 });
                             setStatsData(prev => ({...prev}));
-                          }).catch(e => console.warn('[War Room] DHQ engine error:', e));
+                          }).catch(e => {
+                            console.log = origLog;
+                            console.warn('[War Room] DHQ engine error:', e);
+                            setDhqStatus({ loading: false, step: 'Error: ' + e.message, progress: 0 });
+                          });
                         }
                       }
                     } catch(e) { console.warn('[War Room] DHQ bridge error:', e); }
@@ -1907,6 +1928,42 @@
 
         return (
             <div className="app-container" style={{ paddingBottom: '60px' }}>
+                {/* DHQ Loading Bubble */}
+                {dhqStatus.loading && (
+                    <div style={{
+                        position: 'fixed', bottom: '24px', left: '80px', zIndex: 300,
+                        background: 'var(--black)', border: '2px solid rgba(212,175,55,0.4)',
+                        borderRadius: '16px', padding: '16px 20px', minWidth: '280px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                        animation: 'fadeSlideUp 0.3s ease'
+                    }}>
+                        <style>{`@keyframes fadeSlideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes dhqSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                            <div style={{
+                                width: '20px', height: '20px', border: '2px solid rgba(212,175,55,0.3)',
+                                borderTopColor: 'var(--gold)', borderRadius: '50%',
+                                animation: 'dhqSpin 0.8s linear infinite'
+                            }}></div>
+                            <div>
+                                <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.75rem', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.04em' }}>BUILDING LEAGUE INTELLIGENCE</div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--silver)', marginTop: '2px' }}>{dhqStatus.step}</div>
+                            </div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '4px', height: '4px', overflow: 'hidden' }}>
+                            <div style={{
+                                width: dhqStatus.progress + '%', height: '100%',
+                                background: 'linear-gradient(90deg, var(--gold), #F0A500)',
+                                borderRadius: '4px', transition: 'width 0.5s ease'
+                            }}></div>
+                        </div>
+                        <div style={{ fontSize: '0.6rem', color: 'var(--silver)', marginTop: '6px', opacity: 0.6 }}>
+                            {dhqStatus.progress < 50 ? 'Analyzing 5 years of stats, drafts, and transactions. First time takes ~15 seconds, then it\'s cached.' :
+                             dhqStatus.progress < 80 ? 'Scoring every player in your league\'s scoring system...' :
+                             'Almost done — blending market data and computing trade values.'}
+                        </div>
+                    </div>
+                )}
+
                 {/* Left Navigation */}
                 <div style={{
                     position: 'fixed', left: 0, top: 0, bottom: 0, width: '64px',

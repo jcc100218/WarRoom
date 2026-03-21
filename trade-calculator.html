@@ -3820,7 +3820,9 @@ function TradeCalculator() {
             setAiAnalysis(null);
             try {
                 const ctx = buildContext();
-                const result = await window.OD.callAI({ type: aiMode, context: ctx });
+                const dhqSystem = (typeof DHQ_IDENTITY !== 'undefined') ? DHQ_IDENTITY : '';
+                const enrichedCtx = dhqSystem ? { ...ctx, system: dhqSystem } : ctx;
+                const result = await window.OD.callAI({ type: aiMode, context: enrichedCtx });
                 setAiAnalysis(result.analysis);
                 // Persist to Supabase
                 const labels = { league: 'League Overview', team: (assessments.find(a => a.rosterId === aiSelectedTeam) || myAssessment)?.ownerName || 'Team', partners: 'Trade Partners', chat: aiChatInput.slice(0, 60) };

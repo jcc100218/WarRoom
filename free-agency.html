@@ -1093,7 +1093,9 @@
                 setAiLoading(true); setAiError(null); setAiAnalysis(null);
                 try {
                     const ctx = buildFAContext();
-                    const result = await window.OD.callAI({ type: aiMode, context: ctx });
+                    const dhqSystem = (typeof DHQ_IDENTITY !== 'undefined') ? DHQ_IDENTITY : '';
+                    const enrichedCtx = dhqSystem ? { ...ctx, system: dhqSystem } : ctx;
+                    const result = await window.OD.callAI({ type: aiMode, context: enrichedCtx });
                     setAiAnalysis(result.analysis);
                 } catch(e) {
                     setAiError(e.message);

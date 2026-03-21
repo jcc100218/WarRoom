@@ -1055,6 +1055,17 @@
         const [showSettings, setShowSettings] = useState(false);
         const [analyticsData, setAnalyticsData] = useState(null);
         const [analyticsTab, setAnalyticsTab] = useState('roster');
+        const [rosterFilter, setRosterFilter] = useState('All');
+        const [rosterSort, setRosterSort] = useState({ key: 'dhq', dir: -1 });
+        const [heroStory, setHeroStory] = useState('');
+        const [aiStories, setAiStories] = useState([]);
+        const [transactions, setTransactions] = useState([]);
+        const [rankedTeams, setRankedTeams] = useState([]);
+        const [reconPanelOpen, setReconPanelOpen] = useState(false);
+        const [reconMessages, setReconMessages] = useState([
+          { role: 'assistant', content: 'Ask me anything about your league, team, or players.' }
+        ]);
+        const [reconInput, setReconInput] = useState('');
 
         useEffect(() => {
             if (activeTab === 'analytics' && !analyticsData && window.App?.LI_LOADED) {
@@ -1062,6 +1073,58 @@
                 setAnalyticsData(data);
             }
         }, [activeTab]);
+
+        // Keyboard shortcut: Cmd/Ctrl+K to toggle ReconAI panel
+        useEffect(() => {
+          const handler = e => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+              e.preventDefault();
+              setReconPanelOpen(prev => !prev);
+            }
+          };
+          window.addEventListener('keydown', handler);
+          return () => window.removeEventListener('keydown', handler);
+        }, []);
+
+        // Compute power rankings when DHQ engine finishes or standings change
+        useEffect(() => {
+            if (!standings.length) return;
+            function computeRankings() {
+                const ranked = standings.map(t => {
+                    const r = currentLeague.rosters.find(r => r.owner_id === t.userId);
+                    const totalDHQ = r?.players?.reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0) || 0;
+                    let healthScore = 0;
+                    let tierColor = 'var(--silver)';
+                    try {
+                        if (window.assessTeamFromGlobal && r) {
+                            const assessment = window.assessTeamFromGlobal(r.roster_id);
+                            if (assessment) {
+                                healthScore = Math.round((assessment.overallScore || 0) * 100);
+                                const tier = assessment.tier || '';
+                                tierColor = tier === 'contender' ? '#2ECC71' : tier === 'playoff' ? '#D4AF37' : tier === 'bubble' ? '#F0A500' : tier === 'rebuild' ? '#E74C3C' : 'var(--silver)';
+                            }
+                        }
+                    } catch(e) {}
+                    if (!healthScore && totalDHQ > 0) {
+                        const maxDHQ = 120000;
+                        healthScore = Math.min(100, Math.round((totalDHQ / maxDHQ) * 100));
+                        tierColor = healthScore >= 70 ? '#2ECC71' : healthScore >= 50 ? '#D4AF37' : healthScore >= 30 ? '#F0A500' : '#E74C3C';
+                    }
+                    return { ...t, totalDHQ, healthScore, tierColor };
+                }).sort((a,b) => {
+                    if (b.healthScore !== a.healthScore) return b.healthScore - a.healthScore;
+                    return b.totalDHQ - a.totalDHQ;
+                });
+                setRankedTeams(ranked);
+            }
+            computeRankings();
+            if (!window.App?.LI_LOADED) {
+                const interval = setInterval(() => {
+                    if (window.App?.LI_LOADED) { computeRankings(); clearInterval(interval); }
+                }, 2000);
+                return () => clearInterval(interval);
+            }
+        }, [standings, currentLeague]);
 
         useEffect(() => {
             loadLeagueDetails();
@@ -1161,6 +1224,18 @@
                         setTrending({ adds: adds || [], drops: drops || [] });
                     }).catch(() => {});
                 }
+                // Fetch recent transactions (last 3 weeks) for dashboard ticker
+                try {
+                    const currentWeek = parseInt(activeYear === '2026' ? '1' : '18');
+                    const weekFetches = [];
+                    for (let w = Math.max(1, currentWeek - 2); w <= Math.min(18, currentWeek); w++) {
+                        weekFetches.push(fetchJSON(`${SLEEPER_BASE_URL}/league/${currentLeague.id}/transactions/${w}`).catch(() => []));
+                    }
+                    Promise.all(weekFetches).then(weekResults => {
+                        const allTxns = weekResults.flat().filter(t => t && t.type && t.status !== 'failed').sort((a,b) => (b.created || 0) - (a.created || 0));
+                        setTransactions(allTxns.slice(0, 50));
+                    }).catch(() => {});
+                } catch(e) { console.warn('Transaction fetch error:', e); }
             } catch (err) {
                 console.error('Failed to load league details:', err);
                 setError(err.message || 'Failed to load league details');
@@ -1308,6 +1383,155 @@
         function getPositionColor(pos) {
             const colors = { QB: '#FF6B6B', RB: '#4ECDC4', WR: '#45B7D1', TE: '#F7DC6F', K: '#BB8FCE', DEF: '#85929E' };
             return colors[pos] || 'var(--silver)';
+        }
+
+        // Dashboard helpers
+        function timeAgo(ts) {
+            if (!ts) return '';
+            const ms = Date.now() - ts * 1000;
+            const mins = Math.floor(ms / 60000);
+            if (mins < 60) return mins + 'm ago';
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return hrs + 'h ago';
+            const days = Math.floor(hrs / 24);
+            if (days < 30) return days + 'd ago';
+            return Math.floor(days / 30) + 'mo ago';
+        }
+
+        function getOwnerName(rosterId) {
+            const roster = currentLeague.rosters?.find(r => r.roster_id === rosterId);
+            const user = currentLeague.users?.find(u => u.user_id === roster?.owner_id);
+            return user?.display_name || user?.username || 'Unknown';
+        }
+
+        async function generateHeroStory() {
+            setHeroStory('Generating...');
+            try {
+                const ctx = typeof dhqContext === 'function' ? dhqContext(true) : '';
+                const prompt = "Write a 3-4 sentence sports journalist narrative about the current state of this dynasty league. Focus on the biggest storyline this week — trades, injuries, power shifts, or playoff implications. Write in the style of The Athletic — dramatic, informed, specific. Use owner names and player names when possible.";
+                const reply = await dhqAI('home-chat', prompt, ctx);
+                setHeroStory(reply || 'Unable to generate story at this time.');
+            } catch(e) {
+                console.warn('Hero story generation error:', e);
+                setHeroStory('Unable to generate story. Make sure League Intelligence has loaded.');
+            }
+        }
+
+        async function generateAiStories() {
+            setAiStories([{ icon: '\u23F3', category: 'Generating...', headline: 'Analyzing league data...', body: '' }]);
+            try {
+                const stories = [];
+                const trades = transactions.filter(t => t.type === 'trade');
+                if (trades.length > 0) {
+                    const bigTrade = trades[0];
+                    const addPids = Object.keys(bigTrade.adds || {});
+                    const addNames = addPids.slice(0, 3).map(pid => getPlayerName(pid)).join(', ');
+                    const totalVal = addPids.reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
+                    stories.push({
+                        icon: '\uD83E\uDD1D', category: 'Trade of the Week',
+                        headline: addNames ? addNames + ' change hands in blockbuster deal' : 'Latest trade shakes up league landscape',
+                        body: getOwnerName(bigTrade.roster_ids?.[0]) + ' and ' + getOwnerName(bigTrade.roster_ids?.[1]) + ' swapped ' + addPids.length + ' player' + (addPids.length !== 1 ? 's' : '') + '. Combined DHQ value: ' + totalVal.toLocaleString() + '.'
+                    });
+                } else {
+                    stories.push({ icon: '\uD83E\uDD1D', category: 'Trade Watch', headline: 'Trade market remains quiet', body: 'No trades completed recently. The league is in a holding pattern.' });
+                }
+                if (rankedTeams.length > 0) {
+                    const top = rankedTeams[0];
+                    const bottom = rankedTeams[rankedTeams.length - 1];
+                    stories.push({
+                        icon: '\uD83D\uDCCA', category: 'Power Shift',
+                        headline: top.displayName + ' holds the top spot in power rankings',
+                        body: 'Health score of ' + top.healthScore + ' and ' + top.totalDHQ.toLocaleString() + ' total DHQ. ' + top.displayName + ' leads at ' + top.wins + '-' + top.losses + '. ' + bottom.displayName + ' trails at #' + rankedTeams.length + '.'
+                    });
+                }
+                if (myRoster?.players?.length) {
+                    const agingPlayers = myRoster.players
+                        .map(pid => ({ pid, player: playersData[pid], dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
+                        .filter(p => p.player && p.player.age >= 29 && p.dhq > 1000)
+                        .sort((a,b) => b.dhq - a.dhq)
+                        .slice(0, 3);
+                    if (agingPlayers.length > 0) {
+                        const names = agingPlayers.map(p => (p.player.full_name || getPlayerName(p.pid)) + ' (' + p.player.age + ')').join(', ');
+                        stories.push({ icon: '\u23F0', category: 'Aging Watch', headline: 'Your veterans with declining windows', body: names + ' \u2014 high-value assets past peak age. Consider selling high before value erodes.' });
+                    } else {
+                        stories.push({ icon: '\uD83C\uDF31', category: 'Youth Movement', headline: 'Your roster skews young', body: 'No significant aging concerns. Your dynasty foundation is built for the long haul.' });
+                    }
+                }
+                if (typeof dhqAI === 'function' && window.App?.LI_LOADED) {
+                    try {
+                        const ctx = dhqContext(true);
+                        const reply = await dhqAI('home-chat', 'Write one punchy 2-sentence sports headline and body about the most interesting dynasty angle in this league right now. Focus on a specific team or player. Format exactly: HEADLINE: [headline]\\nBODY: [body]', ctx);
+                        if (reply) {
+                            const headlineMatch = reply.match(/HEADLINE:\s*(.+)/i);
+                            const bodyMatch = reply.match(/BODY:\s*(.+)/is);
+                            if (headlineMatch) {
+                                stories.push({ icon: '\uD83E\uDD16', category: 'AI Insight', headline: headlineMatch[1].trim(), body: bodyMatch ? bodyMatch[1].trim() : reply });
+                            }
+                        }
+                    } catch(e) {}
+                }
+                setAiStories(stories.slice(0, 3));
+            } catch(e) {
+                console.warn('AI stories error:', e);
+                setAiStories([{ icon: '\u26A0\uFE0F', category: 'Error', headline: 'Could not generate stories', body: 'Please try again later.' }]);
+            }
+        }
+
+        // ReconAI: send message
+        async function sendReconMessage(text) {
+          if (!text?.trim()) return;
+          setReconInput('');
+          const userMsg = { role: 'user', content: text.trim() };
+          setReconMessages(prev => [...prev, userMsg, { role: 'assistant', content: '...' }]);
+          try {
+            let context = '';
+            if (typeof dhqContext === 'function') context = dhqContext(true);
+            const messages = [...reconMessages.slice(-4), userMsg].map((m, i, arr) => {
+              if (m.role === 'user' && i === arr.length - 1) {
+                return { role: 'user', content: context + '\n\n' + m.content };
+              }
+              if (m.role === 'assistant' && m.content.length > 400) {
+                return { role: 'assistant', content: m.content.substring(0, 400) + '...' };
+              }
+              return m;
+            });
+            const reply = typeof dhqAI === 'function'
+              ? await dhqAI('home-chat', null, null, { messages })
+              : typeof callClaude === 'function'
+                ? await callClaude(messages)
+                : 'AI not available. Add an API key in Settings.';
+            setReconMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1] = { role: 'assistant', content: reply };
+              return updated;
+            });
+          } catch(e) {
+            setReconMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1] = { role: 'assistant', content: 'Error: ' + e.message };
+              return updated;
+            });
+          }
+        }
+
+        // ReconAI: contextual chips
+        function getReconChips() {
+          const base = [
+            { label: 'What should I do?', prompt: 'What are the top 3 moves I should make right now?' },
+          ];
+          if (activeTab === 'dashboard') return [...base,
+            { label: 'League recap', prompt: 'Summarize the key storylines in my league right now.' },
+            { label: 'Power rankings', prompt: 'Give me your power rankings for this league with one-line analysis per team.' },
+          ];
+          if (activeTab === 'myteam') return [...base,
+            { label: 'Roster grade', prompt: 'Grade my roster position by position and identify the biggest weakness.' },
+            { label: 'Who to sell?', prompt: 'Which players on my roster should I sell high on right now?' },
+          ];
+          if (activeTab === 'analytics') return [...base,
+            { label: 'Explain my gaps', prompt: 'Based on the winner analysis, what are my biggest gaps and how do I close them?' },
+            { label: 'Draft strategy', prompt: 'Based on historical draft success in this league, what should my draft strategy be?' },
+          ];
+          return base;
         }
 
         if (error) {
@@ -1480,6 +1704,175 @@
             );
         }
 
+        // --- My Team Tab helpers ---
+        function filteredAndSortedRows(rows) {
+          const offPos = new Set(['QB','RB','WR','TE','K']);
+          const idpPos = new Set(['DL','LB','DB']);
+          let filtered = rows;
+          if (rosterFilter === 'Starters') filtered = rows.filter(r => r.isStarter);
+          else if (rosterFilter === 'Bench') filtered = rows.filter(r => !r.isStarter && !r.isIR && !r.isTaxi);
+          else if (rosterFilter === 'Taxi') filtered = rows.filter(r => r.isTaxi);
+          else if (rosterFilter === 'IR') filtered = rows.filter(r => r.isIR);
+          else if (rosterFilter === 'Offense') filtered = rows.filter(r => offPos.has(r.pos));
+          else if (rosterFilter === 'IDP') filtered = rows.filter(r => idpPos.has(r.pos));
+
+          const posOrder = {QB:0,RB:1,WR:2,TE:3,K:4,DL:5,LB:6,DB:7};
+          return [...filtered].sort((a, b) => {
+            const {key, dir} = rosterSort;
+            if (key === 'dhq') return (b.dhq - a.dhq) * dir;
+            if (key === 'age') return ((a.age||99) - (b.age||99)) * dir;
+            if (key === 'ppg') return (parseFloat(b.stats.avg||0) - parseFloat(a.stats.avg||0)) * dir;
+            if (key === 'pos') return ((posOrder[a.pos]||99) - (posOrder[b.pos]||99)) * dir;
+            if (key === 'peak') return ((b.peakYrsLeft||0) - (a.peakYrsLeft||0)) * dir;
+            if (key === 'rec') { const ord = {BUY:3,HOLD:2,SELL:1}; return ((ord[b.rec]||0) - (ord[a.rec]||0)) * dir; }
+            return 0;
+          });
+        }
+
+        function renderMyTeamTab() {
+          if (!myRoster) return React.createElement('div', {style: { padding: '2rem', textAlign: 'center', color: 'var(--silver)' }}, 'No roster found');
+
+          const allPlayers = myRoster.players || [];
+          const startersSet = new Set(myRoster.starters || []);
+          const reserveSet = new Set(myRoster.reserve || []);
+          const taxiSet = new Set(myRoster.taxi || []);
+
+          const normPos = (pos) => {
+            if (!pos) return null;
+            const p = pos.toUpperCase();
+            if (['DE','DT','NT'].includes(p)) return 'DL';
+            if (['ILB','OLB','MLB'].includes(p)) return 'LB';
+            if (['CB','SS','FS','S'].includes(p)) return 'DB';
+            return p;
+          };
+
+          const rows = allPlayers.map(pid => {
+            const p = playersData[pid];
+            if (!p) return null;
+            const pos = normPos(p.position) || p.position || '?';
+            const dhq = window.App?.LI?.playerScores?.[pid] || 0;
+            const meta = window.App?.LI?.playerMeta?.[pid];
+            const stats = getPlayerStats(pid);
+            const isStarter = startersSet.has(pid);
+            const isIR = reserveSet.has(pid);
+            const isTaxi = taxiSet.has(pid);
+            const section = isStarter ? 'starter' : isIR ? 'ir' : isTaxi ? 'taxi' : 'bench';
+            const age = p.age || (p.birth_date ? Math.floor((Date.now() - new Date(p.birth_date).getTime()) / 31557600000) : null);
+
+            const peaks = {QB:[27,33],RB:[22,26],WR:[24,29],TE:[25,30],DL:[24,29],LB:[23,28],DB:[24,29]};
+            const [pLo, pHi] = peaks[pos] || [24,29];
+            const peakStatus = !age ? '\u2014' : age < pLo ? 'Rising' : age <= pHi ? 'Peak' : age <= pHi+2 ? 'Veteran' : 'Declining';
+            const peakColor = peakStatus === 'Peak' ? '#2ECC71' : peakStatus === 'Rising' ? '#4ECDC4' : peakStatus === 'Veteran' ? '#F0A500' : peakStatus === 'Declining' ? '#E74C3C' : 'var(--silver)';
+
+            const peakYrsLeft = age ? Math.max(0, pHi - age) : 0;
+            const trend = meta?.trend || 0;
+            const rec = peakYrsLeft <= 0 ? 'SELL' : peakYrsLeft <= 2 ? (trend >= 10 ? 'HOLD' : 'SELL') : (dhq >= 7000 ? 'HOLD' : 'BUY');
+
+            return { pid, p, pos, dhq, age, stats, isStarter, isIR, isTaxi, section, peakStatus, peakColor, rec, trend, meta, peakYrsLeft };
+          }).filter(Boolean);
+
+          return (
+            <div style={{ padding: '16px' }}>
+              <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '4px' }}>MY TEAM</div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--silver)', marginBottom: '16px' }}>{myRoster.players?.length} players {'\u00B7'} {currentLeague.name}</div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '16px' }}>
+                <div style={kpiCardStyle}>
+                  <div style={kpiLabelStyle}>PORTFOLIO</div>
+                  <div style={kpiValueStyle}>{rows.reduce((s,r) => s+r.dhq, 0).toLocaleString()}</div>
+                  <div style={kpiSubStyle}>Total DHQ</div>
+                </div>
+                <div style={kpiCardStyle}>
+                  <div style={kpiLabelStyle}>STARTERS</div>
+                  <div style={kpiValueStyle}>{rows.filter(r=>r.isStarter).length}</div>
+                  <div style={kpiSubStyle}>{rows.filter(r=>r.isStarter && r.dhq >= 4000).length} above starter line</div>
+                </div>
+                <div style={kpiCardStyle}>
+                  <div style={kpiLabelStyle}>AVG AGE</div>
+                  <div style={kpiValueStyle}>{(rows.reduce((s,r) => s + (r.age||26), 0) / rows.length).toFixed(1)}</div>
+                  <div style={kpiSubStyle}>{rows.filter(r => r.peakStatus === 'Rising' || r.peakStatus === 'Peak').length} in/pre peak</div>
+                </div>
+                <div style={kpiCardStyle}>
+                  <div style={kpiLabelStyle}>HEALTH</div>
+                  <div style={kpiValueStyle}>{(() => {
+                    const total = rows.reduce((s,r) => s+r.dhq, 0);
+                    const allTotals = (currentLeague.rosters||[]).map(r => (r.players||[]).reduce((s,pid) => s + (window.App?.LI?.playerScores?.[pid]||0), 0));
+                    const med = allTotals.sort((a,b)=>a-b)[Math.floor(allTotals.length/2)] || 50000;
+                    return Math.min(100, Math.round(total / med * 80));
+                  })()}</div>
+                  <div style={kpiSubStyle}>Score</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                {['All','Starters','Bench','Taxi','IR','Offense','IDP'].map(f => (
+                  <button key={f} onClick={() => setRosterFilter(f)}
+                    style={{
+                      padding: '5px 12px', fontSize: '0.62rem', fontWeight: 700,
+                      fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.04em',
+                      background: rosterFilter === f ? 'var(--gold)' : 'transparent',
+                      color: rosterFilter === f ? 'var(--black)' : 'var(--silver)',
+                      border: '1px solid rgba(212,175,55,0.3)', borderRadius: '4px', cursor: 'pointer'
+                    }}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.6 }}>Sort:</span>
+                {[{k:'dhq',l:'DHQ'},{k:'age',l:'Age'},{k:'ppg',l:'PPG'},{k:'pos',l:'Pos'},{k:'peak',l:'Peak'},{k:'rec',l:'Action'}].map(s => (
+                  <button key={s.k} onClick={() => setRosterSort(prev => prev.key === s.k ? {...prev, dir: prev.dir * -1} : {key: s.k, dir: -1})}
+                    style={{
+                      padding: '3px 8px', fontSize: '0.58rem', fontWeight: 600,
+                      fontFamily: 'Oswald', background: rosterSort.key === s.k ? 'rgba(212,175,55,0.15)' : 'transparent',
+                      color: rosterSort.key === s.k ? 'var(--gold)' : 'var(--silver)',
+                      border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', cursor: 'pointer'
+                    }}>
+                    {s.l} {rosterSort.key === s.k ? (rosterSort.dir === -1 ? '\u25BC' : '\u25B2') : ''}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 36px 32px 52px 42px 42px 42px 50px 44px', gap: '4px', padding: '8px 10px', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <span></span><span>Player</span><span>Pos</span><span>Age</span><span>DHQ</span><span>PPG</span><span>Prev</span><span>Total</span><span>Peak</span><span>Action</span>
+                </div>
+
+                {filteredAndSortedRows(rows).map(r => (
+                  <div key={r.pid}
+                    onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(r.pid, playersData, statsData); }}
+                    style={{
+                      display: 'grid', gridTemplateColumns: '28px 1fr 36px 32px 52px 42px 42px 42px 50px 44px',
+                      gap: '4px', padding: '6px 10px', cursor: 'pointer',
+                      borderBottom: '1px solid rgba(255,255,255,0.04)',
+                      borderLeft: r.isStarter ? '3px solid var(--gold)' : r.isIR ? '3px solid #E74C3C' : r.isTaxi ? '3px solid #3498DB' : '3px solid transparent',
+                      background: r.isStarter ? 'rgba(212,175,55,0.04)' : 'transparent',
+                      transition: 'background 0.15s', fontSize: '0.72rem'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.08)'}
+                    onMouseLeave={e => e.currentTarget.style.background = r.isStarter ? 'rgba(212,175,55,0.04)' : 'transparent'}
+                  >
+                    <img src={`https://sleepercdn.com/content/nfl/players/thumb/${r.pid}.jpg`} alt="" onError={e => e.target.style.display='none'} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getPlayerName(r.pid)}</div>
+                      <div style={{ fontSize: '0.58rem', color: 'var(--silver)', opacity: 0.5 }}>{r.p.team || 'FA'}{r.p.injury_status ? ' \u00B7 ' + r.p.injury_status : ''}</div>
+                    </div>
+                    <span style={{ fontWeight: 700, fontSize: '0.6rem', color: getPositionColor(r.pos) }}>{r.pos}</span>
+                    <span style={{ color: 'var(--silver)' }}>{r.age || '\u2014'}</span>
+                    <span style={{ fontWeight: 700, fontFamily: 'Oswald', color: r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#D4AF37' : r.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span>
+                    <span style={{ color: 'var(--silver)' }}>{r.stats.avg || '\u2014'}</span>
+                    <span style={{ color: 'var(--silver)', opacity: 0.6 }}>{r.stats.pts || '\u2014'}</span>
+                    <span style={{ color: 'var(--silver)', opacity: 0.6 }}>{r.stats.gp ? Math.round(parseFloat(r.stats.pts || 0)) : '\u2014'}</span>
+                    <span style={{ fontSize: '0.6rem', fontWeight: 600, color: r.peakColor }}>{r.peakStatus}</span>
+                    <span style={{ fontSize: '0.58rem', fontWeight: 700, color: r.rec === 'BUY' ? '#2ECC71' : r.rec === 'HOLD' ? '#D4AF37' : '#E74C3C' }}>{r.rec}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
         // Build divisions
         const divisions = {};
         const hasDivisions = standings.some(t => t.division > 0);
@@ -1526,7 +1919,8 @@
 
                     {/* Nav items */}
                     {[
-                        {icon: '\u{1F3E0}', label: 'Home', action: onBack},
+                        {icon: '\u{1F3E0}', label: 'Home', action: () => setActiveTab('dashboard')},
+                        {icon: '\u{1F464}', label: 'My Team', action: () => setActiveTab('myteam')},
                         {icon: '\u{1F4CA}', label: 'Analytics', action: () => setActiveTab('analytics')},
                         {icon: '\u{1F504}', label: 'Trades', url: 'trade-calculator.html'},
                         {icon: '\u{1F3C8}', label: 'FA', url: 'free-agency.html'},
@@ -1667,7 +2061,7 @@
                 </div>
 
                 {/* Tab Content Routing */}
-                {activeTab === 'analytics' ? (() => {
+                {activeTab === 'myteam' ? renderMyTeamTab() : activeTab === 'analytics' ? (() => {
                     const aCardStyle = { background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', marginBottom: '16px' };
                     const aHeaderStyle = { fontFamily: 'Bebas Neue, cursive', color: 'var(--gold)', fontSize: '1.2rem', letterSpacing: '0.08em', marginBottom: '12px', borderBottom: '1px solid rgba(212,175,55,0.2)', paddingBottom: '8px' };
                     const aValStyle = { fontFamily: 'Oswald, sans-serif', fontSize: '0.95rem' };
@@ -2125,227 +2519,303 @@
                     );
                 })() : (
                 <React.Fragment>
-                {/* 3-Column Layout */}
-                <div style={{ padding: '1rem', maxWidth: '1600px', margin: '0 auto' }}>
-                    <div className="league-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem' }}>
+                {/* THE ATHLETIC-STYLE DASHBOARD */}
+                <div style={{ padding: '16px', maxWidth: '1200px', margin: '0 auto' }}>
 
-                        {/* LEFT COLUMN - Clickable Owners */}
-                        <div style={{ background: 'var(--black)', border: '2px solid rgba(212, 175, 55, 0.3)', borderRadius: '12px', padding: '1rem' }}>
-                            <h3 style={{ color: 'var(--gold)', fontFamily: 'Bebas Neue, cursive', fontSize: '1.4rem', letterSpacing: '0.1em', marginBottom: '0.75rem', textAlign: 'center', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(212, 175, 55, 0.3)', flexShrink: 0 }}>OWNERS</h3>
-
-                            <div className="league-detail-scroll">
-                            {standings.map((team, idx) => {
-                                const isViewing = team.userId === viewingOwnerId;
-                                const isMe = team.userId === sleeperUserId;
-                                return (
-                                    <div
-                                        key={team.rosterId}
-                                        onClick={() => setViewingOwnerId(team.userId)}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            padding: '0.5rem',
-                                            marginBottom: '0.35rem',
-                                            background: isViewing ? 'rgba(212, 175, 55, 0.15)' : isMe ? 'rgba(212, 175, 55, 0.06)' : 'transparent',
-                                            border: isViewing ? '1.5px solid var(--gold)' : isMe ? '1px solid rgba(212, 175, 55, 0.3)' : '1px solid rgba(255, 255, 255, 0.06)',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                    >
-                                        <div style={{ width: '20px', color: 'var(--gold)', fontWeight: '700', fontSize: '0.8rem', textAlign: 'center', flexShrink: 0 }}>{idx + 1}</div>
-                                        {team.avatar ? (
-                                            <img src={`https://sleepercdn.com/avatars/thumbs/${team.avatar}`} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', border: isViewing ? '2px solid var(--gold)' : '2px solid var(--charcoal)', flexShrink: 0 }} />
-                                        ) : (
-                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--charcoal)', border: isViewing ? '2px solid var(--gold)' : '2px solid rgba(255,255,255,0.1)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: 'var(--silver)' }}>{team.displayName.charAt(0)}</div>
-                                        )}
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ color: isViewing ? 'var(--gold)' : isMe ? 'var(--gold)' : 'var(--white)', fontSize: '0.88rem', fontWeight: isViewing || isMe ? '700' : '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: '1.2' }}>
-                                                {team.displayName}{isMe ? ' (You)' : ''}
-                                            </div>
-                                            <div style={{ color: 'var(--silver)', fontSize: '0.7rem', opacity: 0.7 }}>
-                                                {team.wins}-{team.losses}{team.ties > 0 ? `-${team.ties}` : ''} · {team.pointsFor.toFixed(1)} PF
-                                                {(() => {
-                                                  const roster = currentLeague.rosters.find(r => r.owner_id === team.userId);
-                                                  if (!roster?.players || !window.App?.LI?.playerScores) return null;
-                                                  const totalDhq = roster.players.reduce((sum, pid) => sum + (window.App.LI.playerScores[pid] || 0), 0);
-                                                  if (!totalDhq) return null;
-                                                  return <span style={{ color: '#4ECDC4' }}> · {totalDhq.toLocaleString()} DHQ</span>;
-                                                })()}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            </div>
-                        </div>
-
-                        {/* CENTER COLUMN - Roster (changes when owner clicked) */}
-                        <div style={{ background: 'var(--black)', border: '2px solid rgba(212, 175, 55, 0.3)', borderRadius: '12px', padding: '1.25rem' }}>
-                            <h3 style={{ color: 'var(--gold)', fontFamily: 'Bebas Neue, cursive', fontSize: '1.5rem', letterSpacing: '0.1em', marginBottom: '0.75rem', textAlign: 'center', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(212, 175, 55, 0.3)', flexShrink: 0 }}>
-                                {isViewingMyTeam ? 'MY ROSTER' : (viewingOwner?.displayName || 'TEAM') + "'S ROSTER"}
-                            </h3>
-                            <div className="league-detail-scroll">
-                                {!isViewingMyTeam && (
-                                    <div
-                                        onClick={() => setViewingOwnerId(sleeperUserId)}
-                                        style={{ textAlign: 'center', marginBottom: '0.75rem', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--gold)', opacity: 0.7, transition: 'opacity 0.2s' }}
-                                        onMouseEnter={e => e.target.style.opacity = 1}
-                                        onMouseLeave={e => e.target.style.opacity = 0.7}
-                                    >
-                                        ← Back to My Roster
-                                    </div>
-                                )}
-                                <RosterSection roster={viewingRoster} />
-                            </div>
-                        </div>
-
-                        {/* RIGHT COLUMN - Divisions (clickable teams) */}
-                        <div style={{ background: 'var(--black)', border: '2px solid rgba(212, 175, 55, 0.3)', borderRadius: '12px', padding: '1rem' }}>
-                            <h3 style={{ color: 'var(--gold)', fontFamily: 'Bebas Neue, cursive', fontSize: '1.4rem', letterSpacing: '0.1em', marginBottom: '0.75rem', textAlign: 'center', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(212, 175, 55, 0.3)', flexShrink: 0 }}>
-                                {hasDivisions ? 'DIVISIONS' : 'LEAGUE STANDINGS'}
-                            </h3>
-
-                            <div className="league-detail-scroll">
-                            {divisionKeys.map((divKey, divIdx) => {
-                                const divTeams = divisions[divKey];
-                                const divSorted = [...divTeams].sort((a, b) => {
-                                    if (b.wins !== a.wins) return b.wins - a.wins;
-                                    if (a.losses !== b.losses) return a.losses - b.losses;
-                                    return b.pointsFor - a.pointsFor;
-                                });
-                                return (
-                                    <div key={divKey} style={{ marginBottom: divIdx < divisionKeys.length - 1 ? '1rem' : 0 }}>
-                                        {hasDivisions && (
-                                            <div style={{ color: 'var(--gold)', fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem', paddingBottom: '0.35rem', borderBottom: '1px solid rgba(212, 175, 55, 0.2)' }}>Division {divKey}</div>
-                                        )}
-                                        {divSorted.map(team => (
-                                            <div
-                                                key={team.rosterId}
-                                                onClick={() => setViewingOwnerId(team.userId)}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    padding: '0.5rem 0.6rem',
-                                                    marginBottom: '0.3rem',
-                                                    background: team.userId === viewingOwnerId ? 'rgba(212, 175, 55, 0.12)' : 'transparent',
-                                                    border: team.userId === viewingOwnerId ? '1px solid rgba(212, 175, 55, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)',
-                                                    borderRadius: '6px',
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.2s'
-                                                }}
-                                            >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1, minWidth: 0 }}>
-                                                    {team.avatar ? (
-                                                        <img src={`https://sleepercdn.com/avatars/thumbs/${team.avatar}`} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0 }} />
-                                                    ) : (
-                                                        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--charcoal)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--silver)' }}>{team.displayName.charAt(0)}</div>
-                                                    )}
-                                                    <span style={{ color: team.userId === viewingOwnerId ? 'var(--gold)' : 'var(--white)', fontSize: '0.85rem', fontWeight: team.userId === viewingOwnerId ? '700' : '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.displayName}</span>
-                                                </div>
-                                                <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                                                    <div style={{ color: 'var(--silver)', fontSize: '0.78rem', fontWeight: '600' }}>{team.wins}-{team.losses}{team.ties > 0 ? `-${team.ties}` : ''}</div>
-                                                    <div style={{ color: 'var(--gold)', fontSize: '0.68rem', opacity: 0.7 }}>{team.pointsFor.toFixed(1)}</div>
-                                                    {(() => {
-                                                      const roster = currentLeague.rosters.find(r => r.owner_id === team.userId);
-                                                      if (!roster?.players || !window.App?.LI?.playerScores) return null;
-                                                      const totalDhq = roster.players.reduce((sum, pid) => sum + (window.App.LI.playerScores[pid] || 0), 0);
-                                                      if (!totalDhq) return null;
-                                                      return <div style={{ color: '#4ECDC4', fontSize: '0.62rem', opacity: 0.8, fontWeight: '600' }}>{totalDhq.toLocaleString()} DHQ</div>;
-                                                    })()}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                );
-                            })}
-                            </div>
-                        </div>
-
+                    {/* 1. HERO STORY */}
+                    <div style={{
+                      background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(0,0,0,0.8))',
+                      border: '2px solid rgba(212,175,55,0.3)',
+                      borderRadius: '16px',
+                      padding: '24px 28px',
+                      marginBottom: '16px',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '8px' }}>THIS WEEK IN {currentLeague.name?.toUpperCase()}</div>
+                      <div style={{ fontFamily: 'Crimson Text, serif', fontSize: '1.15rem', color: 'var(--white)', lineHeight: 1.6 }}>
+                        {heroStory || 'Loading league intel...'}
+                      </div>
+                      {!heroStory && (
+                        <button onClick={generateHeroStory} style={{ marginTop: '12px', padding: '6px 16px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Oswald, sans-serif', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Generate Story
+                        </button>
+                      )}
                     </div>
 
-                    {/* League Pulse — Sleeper Trending Adds / Drops */}
-                    {(trending.adds.length > 0 || trending.drops.length > 0) && (
-                        <div style={{
-                            marginTop: '1.25rem',
-                            background: 'var(--black)',
-                            border: '2px solid rgba(212, 175, 55, 0.3)',
-                            borderRadius: '12px',
-                            padding: '1rem 1.25rem'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(212, 175, 55, 0.3)' }}>
-                                <span style={{ color: 'var(--gold)', fontFamily: 'Bebas Neue, cursive', fontSize: '1.4rem', letterSpacing: '0.1em' }}>LEAGUE PULSE</span>
-                                <span style={{ color: 'var(--silver)', fontSize: '0.68rem', opacity: 0.6 }}>Trending across Sleeper - Last 24h</span>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                                {/* Most Added */}
-                                <div>
-                                    <div style={{ color: '#2ECC71', fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', fontFamily: 'Oswald, sans-serif' }}>Most Added</div>
-                                    {trending.adds.slice(0, 10).map(item => {
-                                        const player = playersData[item.player_id];
-                                        if (!player) return null;
-                                        const pos = player.position || '??';
-                                        return (
-                                            <div key={item.player_id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0', fontSize: '0.82rem' }}>
-                                                <span style={{ color: '#2ECC71', fontWeight: '700', fontSize: '0.72rem', minWidth: '14px' }}>▲</span>
-                                                <span style={{
-                                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                                    width: '30px', flexShrink: 0, fontSize: '0.6rem', fontWeight: '700',
-                                                    color: getPositionColor(pos), border: '1px solid var(--gold)',
-                                                    borderRadius: '3px', padding: '1px 0', background: 'rgba(212, 175, 55, 0.08)'
-                                                }}>{pos}</span>
-                                                <a href="#"
-                                                    onClick={e => { e.preventDefault(); if (window.openFWPlayerModal) openFWPlayerModal(item.player_id, playersData, statsData); }}
-                                                    style={{ flex: 1, color: 'var(--white)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'color 0.2s' }}
-                                                    onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
-                                                    onMouseLeave={e => e.currentTarget.style.color = 'var(--white)'}
-                                                >
-                                                    {player.full_name || `${player.first_name || ''} ${player.last_name || ''}`.trim()}
-                                                </a>
-                                                <span style={{ color: 'var(--silver)', fontSize: '0.62rem', opacity: 0.5, flexShrink: 0 }}>{player.team || ''}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                {/* Most Dropped */}
-                                <div>
-                                    <div style={{ color: '#E74C3C', fontSize: '0.78rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', fontFamily: 'Oswald, sans-serif' }}>Most Dropped</div>
-                                    {trending.drops.slice(0, 10).map(item => {
-                                        const player = playersData[item.player_id];
-                                        if (!player) return null;
-                                        const pos = player.position || '??';
-                                        return (
-                                            <div key={item.player_id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0', fontSize: '0.82rem' }}>
-                                                <span style={{ color: '#E74C3C', fontWeight: '700', fontSize: '0.72rem', minWidth: '14px' }}>▼</span>
-                                                <span style={{
-                                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                                    width: '30px', flexShrink: 0, fontSize: '0.6rem', fontWeight: '700',
-                                                    color: getPositionColor(pos), border: '1px solid var(--gold)',
-                                                    borderRadius: '3px', padding: '1px 0', background: 'rgba(212, 175, 55, 0.08)'
-                                                }}>{pos}</span>
-                                                <a href="#"
-                                                    onClick={e => { e.preventDefault(); if (window.openFWPlayerModal) openFWPlayerModal(item.player_id, playersData, statsData); }}
-                                                    style={{ flex: 1, color: 'var(--white)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'color 0.2s' }}
-                                                    onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
-                                                    onMouseLeave={e => e.currentTarget.style.color = 'var(--white)'}
-                                                >
-                                                    {player.full_name || `${player.first_name || ''} ${player.last_name || ''}`.trim()}
-                                                </a>
-                                                <span style={{ color: 'var(--silver)', fontSize: '0.62rem', opacity: 0.5, flexShrink: 0 }}>{player.team || ''}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    {/* 2. TWO-COLUMN: TRANSACTION TICKER + POWER RANKINGS */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
 
-                </div>
+                      {/* LEFT: Transaction Ticker */}
+                      <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', maxHeight: '420px', overflow: 'auto' }}>
+                        <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.2rem', color: 'var(--gold)', marginBottom: '12px', letterSpacing: '0.06em' }}>TRANSACTION TICKER</div>
+                        {transactions.length === 0 ? (
+                          <div style={{ color: 'var(--silver)', fontSize: '0.78rem', opacity: 0.6, padding: '16px 0', textAlign: 'center' }}>No recent transactions found</div>
+                        ) : transactions.map((txn, ti) => (
+                          <div key={ti} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              <span style={{ fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5, minWidth: '40px' }}>{timeAgo(txn.created)}</span>
+                              <span style={{ fontSize: '0.58rem', fontWeight: 700, padding: '1px 6px', borderRadius: '3px',
+                                background: txn.type === 'trade' ? 'rgba(124,107,248,0.2)' : txn.type === 'waiver' ? 'rgba(52,211,153,0.2)' : txn.type === 'free_agent' ? 'rgba(59,130,246,0.2)' : 'rgba(248,113,113,0.2)',
+                                color: txn.type === 'trade' ? '#a78bfa' : txn.type === 'waiver' ? '#34d399' : txn.type === 'free_agent' ? '#60a5fa' : '#f87171'
+                              }}>{(txn.type === 'free_agent' ? 'FA' : txn.type || '').toUpperCase()}</span>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>{getOwnerName(txn.roster_ids?.[0])}</span>
+                              {txn.type === 'trade' && txn.roster_ids?.[1] && (
+                                <span style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.5 }}>{'\u2194'} {getOwnerName(txn.roster_ids[1])}</span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--white)', paddingLeft: '48px' }}>
+                              {Object.keys(txn.adds || {}).map(pid => (
+                                <span key={'a'+pid} style={{ color: '#2ECC71', cursor: 'pointer', marginRight: '6px' }}
+                                  onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(pid, playersData, statsData); }}>
+                                  +{getPlayerName(pid)}
+                                </span>
+                              ))}
+                              {Object.keys(txn.drops || {}).map(pid => (
+                                <span key={'d'+pid} style={{ color: '#E74C3C', marginLeft: '4px', marginRight: '6px' }}>
+                                  -{getPlayerName(pid)}
+                                </span>
+                              ))}
+                              {txn.settings?.waiver_bid > 0 && <span style={{ color: '#F0A500', marginLeft: '4px' }}>${txn.settings.waiver_bid}</span>}
+                              {txn.type === 'trade' && txn.draft_picks?.length > 0 && (
+                                <span style={{ color: '#a78bfa', fontSize: '0.68rem', marginLeft: '6px' }}>
+                                  +{txn.draft_picks.length} pick{txn.draft_picks.length !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* RIGHT: Power Rankings */}
+                      <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', maxHeight: '420px', overflow: 'auto' }}>
+                        <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.2rem', color: 'var(--gold)', marginBottom: '12px', letterSpacing: '0.06em' }}>POWER RANKINGS</div>
+                        {rankedTeams.length === 0 ? (
+                          <div style={{ color: 'var(--silver)', fontSize: '0.78rem', opacity: 0.6, padding: '16px 0', textAlign: 'center' }}>Loading rankings...</div>
+                        ) : rankedTeams.map((team, i) => (
+                          <div key={team.rosterId} style={{
+                            display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 6px',
+                            borderBottom: '1px solid rgba(255,255,255,0.06)',
+                            background: team.rosterId === myRoster?.roster_id ? 'rgba(212,175,55,0.08)' : 'transparent'
+                          }}>
+                            <span style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.3rem', color: i === 0 ? '#D4AF37' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : 'var(--silver)', minWidth: '24px', textAlign: 'center' }}>{i + 1}</span>
+                            {team.avatar ? (
+                              <img src={'https://sleepercdn.com/avatars/thumbs/' + team.avatar} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0 }} />
+                            ) : (
+                              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--charcoal)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--silver)' }}>{team.displayName.charAt(0)}</div>
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.displayName}</div>
+                              <div style={{ fontSize: '0.62rem', color: 'var(--silver)' }}>{team.wins}-{team.losses} {'\u00B7'} {team.totalDHQ?.toLocaleString()} DHQ</div>
+                            </div>
+                            <div style={{ width: '60px' }}>
+                              <div style={{ height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                                <div style={{ width: (team.healthScore || 0) + '%', height: '100%', background: team.tierColor || 'var(--gold)', borderRadius: '2px' }}></div>
+                              </div>
+                              <div style={{ fontSize: '0.58rem', color: team.tierColor || 'var(--silver)', textAlign: 'right', marginTop: '2px' }}>{team.healthScore || '\u2014'}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 3. AI STORIES (3 cards) */}
+                    <div style={{ marginBottom: '16px' }}>
+                      {aiStories.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '16px' }}>
+                          <button onClick={generateAiStories} style={{ padding: '8px 20px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '8px', fontFamily: 'Oswald, sans-serif', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            Generate Stories
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                          {aiStories.map((story, i) => (
+                            <div key={i} style={{
+                              background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)',
+                              borderRadius: '12px', padding: '16px'
+                            }}>
+                              <div style={{ fontSize: '1.2rem', marginBottom: '6px' }}>{story.icon}</div>
+                              <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>{story.category}</div>
+                              <div style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.92rem', color: 'var(--white)', lineHeight: 1.5, marginBottom: '8px' }}>{story.headline}</div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.5 }}>{story.body}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 4. LEAGUE ACTIVITY FEED */}
+                    <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px' }}>
+                      <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.2rem', color: 'var(--gold)', marginBottom: '12px', letterSpacing: '0.06em' }}>LEAGUE ACTIVITY</div>
+                      {transactions.length === 0 ? (
+                        <div style={{ color: 'var(--silver)', fontSize: '0.78rem', opacity: 0.6, padding: '16px 0', textAlign: 'center' }}>No recent activity</div>
+                      ) : transactions.slice(0, 20).map((txn, ti) => {
+                        const isTradeType = txn.type === 'trade';
+                        const addKeys = Object.keys(txn.adds || {});
+                        const dropKeys = Object.keys(txn.drops || {});
+                        return (
+                          <div key={'act'+ti} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '12px' }}>
+                            <div style={{ width: '50px', flexShrink: 0, textAlign: 'right', paddingTop: '2px' }}>
+                              <div style={{ fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5 }}>{timeAgo(txn.created)}</div>
+                              <div style={{ fontSize: '0.55rem', fontWeight: 700, marginTop: '2px', padding: '1px 4px', borderRadius: '3px', display: 'inline-block',
+                                background: isTradeType ? 'rgba(124,107,248,0.15)' : txn.type === 'waiver' ? 'rgba(52,211,153,0.15)' : txn.type === 'free_agent' ? 'rgba(59,130,246,0.15)' : 'rgba(248,113,113,0.15)',
+                                color: isTradeType ? '#a78bfa' : txn.type === 'waiver' ? '#34d399' : txn.type === 'free_agent' ? '#60a5fa' : '#f87171'
+                              }}>{(txn.type === 'free_agent' ? 'FA' : txn.type || '').toUpperCase()}</div>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '0.82rem', color: 'var(--white)', fontWeight: 600, marginBottom: '4px' }}>
+                                {getOwnerName(txn.roster_ids?.[0])}
+                                {isTradeType && txn.roster_ids?.[1] && (<span style={{ color: 'var(--silver)', fontWeight: 400 }}> {'\u2194'} {getOwnerName(txn.roster_ids[1])}</span>)}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', lineHeight: 1.6 }}>
+                                {addKeys.map(pid => (
+                                  <div key={'aa'+pid}>
+                                    <span style={{ color: '#2ECC71', cursor: 'pointer' }}
+                                      onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(pid, playersData, statsData); }}>
+                                      + {getPlayerName(pid)}
+                                    </span>
+                                    {(() => {
+                                      const dhq = window.App?.LI?.playerScores?.[pid];
+                                      return dhq ? <span style={{ color: 'var(--silver)', fontSize: '0.62rem', marginLeft: '6px', opacity: 0.6 }}>{dhq.toLocaleString()} DHQ</span> : null;
+                                    })()}
+                                    {isTradeType && txn.adds?.[pid] != null && (
+                                      <span style={{ color: 'var(--silver)', fontSize: '0.62rem', marginLeft: '4px', opacity: 0.4 }}>{'\u2192'} {getOwnerName(txn.adds[pid])}</span>
+                                    )}
+                                  </div>
+                                ))}
+                                {dropKeys.map(pid => (
+                                  <div key={'dd'+pid}>
+                                    <span style={{ color: '#E74C3C' }}>- {getPlayerName(pid)}</span>
+                                    {isTradeType && txn.drops?.[pid] != null && (
+                                      <span style={{ color: 'var(--silver)', fontSize: '0.62rem', marginLeft: '4px', opacity: 0.4 }}>{'\u2192'} {getOwnerName(txn.drops[pid])}</span>
+                                    )}
+                                  </div>
+                                ))}
+                                {txn.draft_picks?.length > 0 && txn.draft_picks.map((pick, pi) => (
+                                  <div key={'pk'+pi} style={{ color: '#a78bfa', fontSize: '0.72rem' }}>
+                                    {pick.season} Round {pick.round} ({getOwnerName(pick.roster_id)}) {'\u2192'} {getOwnerName(pick.owner_id)}
+                                  </div>
+                                ))}
+                                {txn.settings?.waiver_bid > 0 && <div style={{ color: '#F0A500', fontSize: '0.68rem', marginTop: '2px' }}>FAAB Bid: ${txn.settings.waiver_bid}</div>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                </div>{/* end Athletic dashboard */}
                 </React.Fragment>
                 )}
                 </div>{/* end marginLeft wrapper */}
+
+            {/* ReconAI Panel — slides in from right */}
+            <div style={{
+              position: 'fixed', top: 0, right: reconPanelOpen ? 0 : '-340px',
+              width: '340px', height: '100vh',
+              background: '#0a0b0d', borderLeft: '2px solid rgba(124,107,248,0.3)',
+              transition: 'right 0.3s ease',
+              zIndex: 200, display: 'flex', flexDirection: 'column',
+              boxShadow: reconPanelOpen ? '-8px 0 32px rgba(0,0,0,0.5)' : 'none'
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: '14px 16px', borderBottom: '1px solid rgba(124,107,248,0.2)',
+                display: 'flex', alignItems: 'center', gap: '8px',
+                background: 'rgba(124,107,248,0.06)'
+              }}>
+                <div style={{
+                  width: '28px', height: '28px', borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #7c6bf8, #5b4cc4)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <svg viewBox="0 0 32 32" width="16" height="16" fill="none">
+                    <circle cx="16" cy="16" r="6" stroke="#e0d4ff" strokeWidth="1.5"/>
+                    <circle cx="16" cy="16" r="2" fill="#e0d4ff"/>
+                  </svg>
+                </div>
+                <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#f0f0f3', letterSpacing: '-0.02em' }}>
+                  Recon<span style={{ color: '#7c6bf8' }}>AI</span>
+                </span>
+                <span style={{ flex: 1 }}></span>
+                <button onClick={() => setReconPanelOpen(false)} style={{
+                  background: 'none', border: 'none', color: '#7d8291', cursor: 'pointer',
+                  fontSize: '1.2rem', padding: '4px'
+                }}>&#10005;</button>
+              </div>
+
+              {/* Context chips */}
+              <div style={{ padding: '8px 12px', display: 'flex', gap: '6px', flexWrap: 'wrap', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                {getReconChips().map((chip, i) => (
+                  <button key={i} onClick={() => sendReconMessage(chip.prompt)}
+                    style={{
+                      padding: '4px 10px', fontSize: '0.65rem', borderRadius: '20px',
+                      border: '1px solid rgba(124,107,248,0.3)', background: 'rgba(124,107,248,0.06)',
+                      color: '#a78bfa', cursor: 'pointer', fontFamily: 'inherit'
+                    }}>
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Messages */}
+              <div style={{
+                flex: 1, overflow: 'auto', padding: '12px',
+                display: 'flex', flexDirection: 'column', gap: '8px'
+              }}>
+                {reconMessages.map((msg, i) => (
+                  <div key={i} style={{
+                    alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    maxWidth: '85%', padding: '8px 12px', borderRadius: '12px',
+                    fontSize: '0.78rem', lineHeight: 1.6,
+                    background: msg.role === 'user' ? 'rgba(124,107,248,0.12)' : '#181b22',
+                    border: msg.role === 'user' ? '1px solid rgba(124,107,248,0.18)' : '1px solid rgba(255,255,255,0.07)',
+                    color: '#f0f0f3'
+                  }} dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>') }} />
+                ))}
+              </div>
+
+              {/* Input */}
+              <div style={{
+                padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.07)',
+                display: 'flex', gap: '8px', background: '#111318'
+              }}>
+                <input
+                  value={reconInput}
+                  onChange={e => setReconInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') sendReconMessage(reconInput); }}
+                  placeholder="Ask anything..."
+                  style={{
+                    flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                    color: '#f0f0f3', fontSize: '0.82rem', fontFamily: 'inherit'
+                  }}
+                />
+                <button onClick={() => sendReconMessage(reconInput)} style={{
+                  background: 'linear-gradient(135deg, #7c6bf8, #9b8afb)',
+                  border: 'none', borderRadius: '8px', width: '32px', height: '32px',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" strokeWidth="2.5">
+                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* ReconAI Toggle button — always visible */}
+            <button onClick={() => setReconPanelOpen(!reconPanelOpen)} style={{
+              position: 'fixed', right: reconPanelOpen ? '340px' : '0',
+              top: '50%', transform: 'translateY(-50%)',
+              width: '32px', height: '64px', borderRadius: '8px 0 0 8px',
+              background: 'linear-gradient(135deg, #7c6bf8, #5b4cc4)',
+              border: 'none', cursor: 'pointer', zIndex: 201,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'right 0.3s ease',
+              boxShadow: '-4px 0 16px rgba(124,107,248,0.3)'
+            }}>
+              <span style={{ color: 'white', fontSize: '0.85rem' }}>{reconPanelOpen ? '\u203A' : '\u2039'}</span>
+            </button>
+
             </div>
         );
     }

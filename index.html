@@ -1053,6 +1053,15 @@
         const [trending, setTrending] = useState({ adds: [], drops: [] });
         const [activeTab, setActiveTab] = useState('dashboard');
         const [showSettings, setShowSettings] = useState(false);
+        const [analyticsData, setAnalyticsData] = useState(null);
+        const [analyticsTab, setAnalyticsTab] = useState('roster');
+
+        useEffect(() => {
+            if (activeTab === 'analytics' && !analyticsData && window.App?.LI_LOADED) {
+                const data = runLeagueAnalytics();
+                setAnalyticsData(data);
+            }
+        }, [activeTab]);
 
         useEffect(() => {
             loadLeagueDetails();
@@ -1658,14 +1667,463 @@
                 </div>
 
                 {/* Tab Content Routing */}
-                {activeTab === 'analytics' ? (
+                {activeTab === 'analytics' ? (() => {
+                    const aCardStyle = { background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', marginBottom: '16px' };
+                    const aHeaderStyle = { fontFamily: 'Bebas Neue, cursive', color: 'var(--gold)', fontSize: '1.2rem', letterSpacing: '0.08em', marginBottom: '12px', borderBottom: '1px solid rgba(212,175,55,0.2)', paddingBottom: '8px' };
+                    const aValStyle = { fontFamily: 'Oswald, sans-serif', fontSize: '0.95rem' };
+                    const goodColor = '#2ECC71';
+                    const warnColor = '#F0A500';
+                    const badColor = '#E74C3C';
+                    const sevIcon = (sev) => sev === 'high' || sev === 'critical' ? '\uD83D\uDD34' : sev === 'medium' ? '\u26A0\uFE0F' : '\u2705';
+                    const sevColor = (sev) => sev === 'high' || sev === 'critical' ? badColor : sev === 'medium' ? warnColor : goodColor;
+                    const pctFmt = (v) => Math.round((v || 0) * 100) + '%';
+                    const numFmt = (v) => v != null ? (typeof v === 'number' ? v.toLocaleString() : v) : '\u2014';
+                    const subTabs = [
+                        { key: 'roster', label: 'Roster' },
+                        { key: 'draft', label: 'Draft' },
+                        { key: 'waivers', label: 'Waivers' },
+                        { key: 'trades', label: 'Trades' },
+                        { key: 'projections', label: 'Projections' },
+                    ];
+                    const subTabBtnStyle = (active) => ({
+                        padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontFamily: 'Bebas Neue, cursive', fontSize: '1rem', letterSpacing: '0.06em', transition: 'all 0.2s',
+                        border: active ? '2px solid var(--gold)' : '2px solid rgba(212,175,55,0.3)',
+                        background: active ? 'var(--gold)' : 'transparent',
+                        color: active ? 'var(--black)' : 'var(--gold)',
+                    });
+                    const tableRowStyle = (i) => ({ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', ...(i === 0 ? { fontWeight: 700, color: 'var(--gold)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' } : { color: 'var(--silver)' }) });
+                    const d = analyticsData;
+
+                    return (
                     <div style={{ padding: '16px' }}>
                         <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '16px' }}>LEAGUE ANALYTICS</div>
-                        <div id="wr-analytics-content" style={{ color: 'var(--silver)' }}>
-                            Analytics engine loading... Run <code>runLeagueAnalytics()</code> in console to test.
+
+                        {/* Sub-tab navigation */}
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                            {subTabs.map(t => (
+                                <div key={t.key} style={subTabBtnStyle(analyticsTab === t.key)} onClick={() => setAnalyticsTab(t.key)}>{t.label}</div>
+                            ))}
                         </div>
+
+                        {!d ? (
+                            <div style={{ ...aCardStyle, color: 'var(--silver)', textAlign: 'center', padding: '40px' }}>
+                                {window.App?.LI_LOADED ? 'Computing analytics...' : 'League Intelligence is still loading. Please wait...'}
+                            </div>
+                        ) : (
+                        <React.Fragment>
+
+                        {/* ═══ ROSTER CONSTRUCTION ═══ */}
+                        {analyticsTab === 'roster' && (() => {
+                            const r = d.roster;
+                            if (!r) return <div style={{ color: 'var(--silver)' }}>No roster data available.</div>;
+                            const w = r.winnerProfile;
+                            const m = r.myProfile;
+                            const rows = [
+                                ['Avg Age', w.avgAge, m.avgAge, (m.avgAge - w.avgAge).toFixed(1), m.avgAge > w.avgAge + 1],
+                                ['Elite Players', w.avgEliteCount, m.avgEliteCount, (m.avgEliteCount - w.avgEliteCount).toFixed(1), m.avgEliteCount < w.avgEliteCount - 0.3],
+                                ['Starters', w.avgStarterCount, m.avgStarterCount, (m.avgStarterCount - w.avgStarterCount).toFixed(1), m.avgStarterCount < w.avgStarterCount - 0.5],
+                                ['Top 5 Conc.', pctFmt(w.topPlayerConcentration), pctFmt(m.topPlayerConcentration), ((m.topPlayerConcentration - w.topPlayerConcentration) * 100).toFixed(0) + '%', Math.abs(m.topPlayerConcentration - w.topPlayerConcentration) > 0.10],
+                                ['Bench Quality', numFmt(w.avgBenchQuality), numFmt(m.avgBenchQuality), numFmt(m.avgBenchQuality - w.avgBenchQuality), m.avgBenchQuality < w.avgBenchQuality * 0.75],
+                                ['Total DHQ', numFmt(w.avgTotalDHQ), numFmt(m.avgTotalDHQ), numFmt(m.avgTotalDHQ - w.avgTotalDHQ), m.avgTotalDHQ < w.avgTotalDHQ * 0.85],
+                            ];
+                            const allPos = [...new Set([...Object.keys(w.posInvestment || {}), ...Object.keys(m.posInvestment || {})])].filter(p => p !== 'UNK').sort();
+                            return (
+                            <React.Fragment>
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>WINNER TEMPLATE vs YOUR ROSTER</div>
+                                    <div style={{ ...tableRowStyle(0) }}>
+                                        <div>Metric</div><div>Winners</div><div>You</div><div>Gap</div>
+                                    </div>
+                                    {rows.map(([label, wVal, mVal, delta, isBad], i) => (
+                                        <div key={i} style={{ ...tableRowStyle(1), ...aValStyle }}>
+                                            <div style={{ color: 'var(--silver)' }}>{label}</div>
+                                            <div style={{ color: 'var(--gold)' }}>{wVal}</div>
+                                            <div>{mVal}</div>
+                                            <div style={{ color: isBad ? badColor : warnColor }}>{isBad ? '\uD83D\uDD34' : '\u26A0\uFE0F'} {delta > 0 ? '+' : ''}{delta}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>POSITION INVESTMENT</div>
+                                    {allPos.map(pos => {
+                                        const wPct = (w.posInvestment[pos] || 0) * 100;
+                                        const mPct = (m.posInvestment[pos] || 0) * 100;
+                                        const maxPct = Math.max(wPct, mPct, 1);
+                                        return (
+                                        <div key={pos} style={{ marginBottom: '10px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                                                <span style={{ color: 'var(--silver)', fontSize: '0.85rem', fontFamily: 'Oswald, sans-serif' }}>{pos}</span>
+                                                <span style={{ color: 'var(--silver)', fontSize: '0.75rem' }}>{wPct.toFixed(0)}% win / {mPct.toFixed(0)}% you</span>
+                                            </div>
+                                            <div style={{ position: 'relative', height: '18px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                <div style={{ position: 'absolute', top: 0, left: 0, height: '9px', width: (wPct / maxPct * 100) + '%', background: 'var(--gold)', borderRadius: '4px 4px 0 0', opacity: 0.7 }} />
+                                                <div style={{ position: 'absolute', bottom: 0, left: 0, height: '9px', width: (mPct / maxPct * 100) + '%', background: '#4ECDC4', borderRadius: '0 0 4px 4px', opacity: 0.7 }} />
+                                            </div>
+                                        </div>
+                                        );
+                                    })}
+                                    <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '0.75rem' }}>
+                                        <span style={{ color: 'var(--gold)' }}>{'\u25A0'} Winners</span>
+                                        <span style={{ color: '#4ECDC4' }}>{'\u25A0'} You</span>
+                                    </div>
+                                </div>
+
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>GAP ANALYSIS (PRIORITIZED)</div>
+                                    {(d.gaps || r.gaps || []).map((g, i) => (
+                                        <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                            <span style={{ fontSize: '1rem', flexShrink: 0 }}>{sevIcon(g.priority || g.severity)}</span>
+                                            <div>
+                                                <div style={{ color: sevColor(g.priority || g.severity), fontWeight: 700, fontSize: '0.85rem', fontFamily: 'Oswald, sans-serif' }}>
+                                                    {(g.priority || g.severity || '').toUpperCase()}: {g.action || g.area}
+                                                </div>
+                                                <div style={{ color: 'var(--silver)', fontSize: '0.8rem', marginTop: '2px' }}>
+                                                    {g.detail || (g.unit === '%' ? pctFmt(g.yours) + ' (winners: ' + pctFmt(g.winners) + ')' : numFmt(g.yours) + ' ' + g.unit + ' (winners: ' + numFmt(g.winners) + ')')}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {(d.gaps || r.gaps || []).length === 0 && <div style={{ color: goodColor, fontSize: '0.9rem' }}>{'\u2705'} Your roster matches the winner template closely!</div>}
+                                </div>
+                            </React.Fragment>
+                            );
+                        })()}
+
+                        {/* ═══ DRAFT INTELLIGENCE ═══ */}
+                        {analyticsTab === 'draft' && (() => {
+                            const dr = d.draft;
+                            if (!dr) return <div style={{ color: 'var(--silver)' }}>No draft data available.</div>;
+                            const rounds = Object.keys(dr.winnerDraftProfile || {}).map(Number).sort((a, b) => a - b);
+                            const S = window.S || window.App?.S;
+                            const myRid = S?.myRosterId;
+                            // Compute user's draft profile from draftOutcomes
+                            const draftOutcomes = (window.App?.LI || {}).draftOutcomes || [];
+                            const myDraftProfile = {};
+                            rounds.forEach(rd => {
+                                const myPicks = draftOutcomes.filter(dp => dp.round === rd && dp.roster_id === myRid);
+                                if (!myPicks.length) return;
+                                const posCounts = {};
+                                myPicks.forEach(dp => { const pos = dp.pos || 'UNK'; posCounts[pos] = (posCounts[pos] || 0) + 1; });
+                                myDraftProfile[rd] = {};
+                                Object.entries(posCounts).forEach(([pos, cnt]) => { myDraftProfile[rd][pos] = +(cnt / myPicks.length).toFixed(2); });
+                            });
+                            // Compute a simple draft grade
+                            let totalHitDiff = 0;
+                            let hitRounds = 0;
+                            rounds.forEach(rd => {
+                                const hr = dr.winnerHitRate[rd];
+                                if (!hr) return;
+                                totalHitDiff += (hr.winners - hr.league);
+                                hitRounds++;
+                            });
+                            const avgHitAdv = hitRounds > 0 ? totalHitDiff / hitRounds : 0;
+                            const grades = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D'];
+                            const gradeIdx = Math.min(grades.length - 1, Math.max(0, Math.round(4 - avgHitAdv * 20)));
+
+                            return (
+                            <React.Fragment>
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>WINNING DRAFT FORMULA</div>
+                                    {rounds.map(rd => {
+                                        const wProf = dr.winnerDraftProfile[rd] || {};
+                                        const myProf = myDraftProfile[rd] || {};
+                                        const sorted = Object.entries(wProf).sort((a, b) => b[1] - a[1]);
+                                        return (
+                                        <div key={rd} style={{ marginBottom: '10px', ...aValStyle }}>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'baseline' }}>
+                                                <span style={{ color: 'var(--gold)', fontWeight: 700, minWidth: '70px' }}>Round {rd}:</span>
+                                                <span style={{ color: 'var(--silver)' }}>Winners: {sorted.map(([pos, pct]) => pos + ' ' + pctFmt(pct)).join(' | ')}</span>
+                                            </div>
+                                            {Object.keys(myProf).length > 0 && (
+                                                <div style={{ marginLeft: '70px', color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>
+                                                    You: {Object.entries(myProf).sort((a, b) => b[1] - a[1]).map(([pos, pct]) => pos + ' ' + pctFmt(pct)).join(' | ')}
+                                                </div>
+                                            )}
+                                        </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>HIT RATES (WINNERS vs LEAGUE)</div>
+                                    {rounds.map(rd => {
+                                        const hr = dr.winnerHitRate[rd];
+                                        if (!hr) return null;
+                                        return (
+                                        <div key={rd} style={{ display: 'flex', gap: '12px', marginBottom: '8px', alignItems: 'center', ...aValStyle }}>
+                                            <span style={{ color: 'var(--gold)', fontWeight: 700, minWidth: '60px' }}>R{rd}:</span>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px', fontSize: '0.85rem' }}>
+                                                    <span style={{ color: goodColor }}>Winners {pctFmt(hr.winners)} {'\u2192'} Starter</span>
+                                                    <span style={{ color: 'var(--silver)' }}>League {pctFmt(hr.league)}</span>
+                                                </div>
+                                                <div style={{ position: 'relative', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>
+                                                    <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: pctFmt(hr.winners), background: goodColor, borderRadius: '4px', opacity: 0.7 }} />
+                                                    <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: pctFmt(hr.league), background: 'var(--silver)', borderRadius: '4px', opacity: 0.3 }} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div style={{ ...aCardStyle, textAlign: 'center', padding: '24px' }}>
+                                    <div style={{ fontFamily: 'Bebas Neue, cursive', color: 'var(--silver)', fontSize: '1rem', marginBottom: '4px' }}>YOUR DRAFT GRADE</div>
+                                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '3rem', color: gradeIdx <= 2 ? goodColor : gradeIdx <= 5 ? warnColor : badColor }}>{grades[gradeIdx]}</div>
+                                </div>
+                            </React.Fragment>
+                            );
+                        })()}
+
+                        {/* ═══ WAIVER INTELLIGENCE ═══ */}
+                        {analyticsTab === 'waivers' && (() => {
+                            const wv = d.waivers;
+                            if (!wv) return <div style={{ color: 'var(--silver)' }}>No waiver data available.</div>;
+                            const positions = [...new Set([...Object.keys(wv.winnerFaabProfile || {}), ...Object.keys(wv.leagueFaabProfile || {})])].filter(p => p !== 'UNK').sort();
+                            // Get user's FAAB data (approximation from ownerProfiles)
+                            const S = window.S || window.App?.S;
+                            const LI = window.App?.LI || {};
+                            const myRid = S?.myRosterId;
+                            const myOwnerProf = (LI.ownerProfiles || {})[myRid] || {};
+                            const myTiming = myOwnerProf.weekTiming || {};
+                            const myTimingTotal = (myTiming.early || 0) + (myTiming.mid || 0) + (myTiming.late || 0) || 1;
+                            const myTimingPcts = {
+                                early: ((myTiming.early || 0) / myTimingTotal).toFixed(2),
+                                mid: ((myTiming.mid || 0) / myTimingTotal).toFixed(2),
+                                late: ((myTiming.late || 0) / myTimingTotal).toFixed(2),
+                            };
+
+                            return (
+                            <React.Fragment>
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>WINNER FAAB PROFILE</div>
+                                    <div style={{ ...tableRowStyle(0) }}>
+                                        <div>Position</div><div>Winner Avg</div><div>League Avg</div><div>Eff.</div>
+                                    </div>
+                                    {positions.map((pos, i) => {
+                                        const wAvg = (wv.winnerFaabProfile[pos] || {}).avg || 0;
+                                        const lAvg = (wv.leagueFaabProfile[pos] || {}).avg || 0;
+                                        return (
+                                        <div key={pos} style={{ ...tableRowStyle(1), ...aValStyle }}>
+                                            <div style={{ color: 'var(--silver)' }}>{pos}</div>
+                                            <div style={{ color: 'var(--gold)' }}>${wAvg.toFixed(0)}</div>
+                                            <div>${lAvg.toFixed(0)}</div>
+                                            <div style={{ color: wAvg > lAvg ? goodColor : 'var(--silver)' }}>{wAvg > lAvg ? '+' + ((wAvg - lAvg) / Math.max(lAvg, 1) * 100).toFixed(0) + '%' : '\u2014'}</div>
+                                        </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>SPENDING TIMING</div>
+                                    {[
+                                        { label: 'Winners', data: wv.winnerTiming, color: 'var(--gold)' },
+                                        { label: 'League', data: wv.leagueTiming, color: 'var(--silver)' },
+                                        { label: 'You', data: myTimingPcts, color: '#4ECDC4' },
+                                    ].map(({ label, data, color }) => (
+                                        <div key={label} style={{ marginBottom: '10px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', fontSize: '0.85rem', color }}>
+                                                <span style={{ fontWeight: 700 }}>{label}</span>
+                                                <span>{pctFmt(data.early)} early / {pctFmt(data.mid)} mid / {pctFmt(data.late)} late</span>
+                                            </div>
+                                            <div style={{ display: 'flex', height: '12px', borderRadius: '4px', overflow: 'hidden' }}>
+                                                <div style={{ width: pctFmt(data.early), background: goodColor, opacity: 0.7 }} />
+                                                <div style={{ width: pctFmt(data.mid), background: warnColor, opacity: 0.7 }} />
+                                                <div style={{ width: pctFmt(data.late), background: badColor, opacity: 0.7 }} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {wv.winnerTiming.early > (parseFloat(myTimingPcts.early) || 0) + 0.15 && (
+                                        <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(240,165,0,0.1)', borderRadius: '8px', borderLeft: '3px solid ' + warnColor }}>
+                                            <span style={{ color: warnColor, fontWeight: 700, fontSize: '0.85rem' }}>{'\u26A0\uFE0F'} Winners front-load spending {'\u2014'} you spread too evenly</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {wv.faabEfficiency && (
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>FAAB EFFICIENCY (DHQ per $)</div>
+                                    <div style={{ display: 'flex', gap: '24px', justifyContent: 'center' }}>
+                                        {[{ label: 'Winners', val: wv.faabEfficiency.winners, color: 'var(--gold)' }, { label: 'League', val: wv.faabEfficiency.league, color: 'var(--silver)' }].map(({ label, val, color }) => (
+                                            <div key={label} style={{ textAlign: 'center' }}>
+                                                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '2rem', color }}>{val}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>{label}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                )}
+                            </React.Fragment>
+                            );
+                        })()}
+
+                        {/* ═══ TRADE INTELLIGENCE ═══ */}
+                        {analyticsTab === 'trades' && (() => {
+                            const tr = d.trades;
+                            if (!tr) return <div style={{ color: 'var(--silver)' }}>No trade data available.</div>;
+                            const wp = tr.winnerTradeProfile;
+                            const lp = tr.leagueTradeProfile;
+                            const mp = tr.myTradeProfile;
+                            const topPosBought = (prof) => {
+                                const entries = Object.entries(prof.positionsBought || {}).sort((a, b) => b[1] - a[1]);
+                                return entries.slice(0, 3).map(([p]) => p).join(', ') || '\u2014';
+                            };
+                            const rows = [
+                                ['Trades/Season', wp.avgTradesPerSeason, lp.avgTradesPerSeason, mp.avgTradesPerSeason],
+                                ['Avg DHQ Gained', (wp.avgValueGained >= 0 ? '+' : '') + wp.avgValueGained, (lp.avgValueGained >= 0 ? '+' : '') + lp.avgValueGained, (mp.avgValueGained >= 0 ? '+' : '') + mp.avgValueGained],
+                                ['Positions Bought', topPosBought(wp), topPosBought(lp), topPosBought(mp)],
+                                ['Partner Pref.', wp.partnerPreference, lp.partnerPreference, mp.partnerPreference],
+                            ];
+                            const alerts = [];
+                            if (mp.avgTradesPerSeason < lp.avgTradesPerSeason) alerts.push({ sev: 'medium', msg: 'You trade below league average volume (' + mp.avgTradesPerSeason + ' vs ' + lp.avgTradesPerSeason + ')' });
+                            if (mp.avgValueGained < 0) alerts.push({ sev: 'high', msg: 'You\'re losing value per trade (' + mp.avgValueGained + ' DHQ avg)' });
+                            if (wp.partnerPreference && wp.partnerPreference !== mp.partnerPreference) alerts.push({ sev: 'low', msg: 'Tip: Winners trade WITH ' + wp.partnerPreference + ' types, not ' + mp.partnerPreference + ' types' });
+
+                            return (
+                            <React.Fragment>
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>WINNER TRADE PROFILE</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr', gap: '8px', padding: '6px 0', fontWeight: 700, color: 'var(--gold)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                        <div>Metric</div><div>Winners</div><div>League</div><div>You</div>
+                                    </div>
+                                    {rows.map(([label, wVal, lVal, mVal], i) => (
+                                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'var(--silver)', ...aValStyle }}>
+                                            <div>{label}</div>
+                                            <div style={{ color: 'var(--gold)' }}>{wVal}</div>
+                                            <div>{lVal}</div>
+                                            <div>{mVal}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {alerts.length > 0 && (
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>TRADE INSIGHTS</div>
+                                    {alerts.map((a, i) => (
+                                        <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                            <span style={{ fontSize: '1rem', flexShrink: 0 }}>{sevIcon(a.sev)}</span>
+                                            <span style={{ color: sevColor(a.sev), fontSize: '0.85rem', fontFamily: 'Oswald, sans-serif' }}>{a.msg}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                )}
+                            </React.Fragment>
+                            );
+                        })()}
+
+                        {/* ═══ PROJECTIONS ═══ */}
+                        {analyticsTab === 'projections' && (() => {
+                            const proj = d.projection;
+                            const win = d.window;
+                            if (!proj || !proj.length) return <div style={{ color: 'var(--silver)' }}>No projection data available.</div>;
+                            const maxDHQ = Math.max(...proj.map(p => p.projectedDHQ), 1);
+                            const tierColor = (tier) => tier === 'Contender' ? goodColor : tier === 'Playoff Team' ? warnColor : badColor;
+
+                            // Aging cliff analysis
+                            const S = window.S || window.App?.S;
+                            const LI = window.App?.LI || {};
+                            const playerScores = LI.playerScores || {};
+                            const playerMeta = LI.playerMeta || {};
+                            const peakWindows = window.App?.peakWindows || { QB: [24, 34], RB: [22, 27], WR: [22, 30], TE: [23, 30] };
+                            const myRid = S?.myRosterId;
+                            const myRosterObj = (S?.rosters || []).find(r => r.roster_id === myRid);
+                            const myPlayers = myRosterObj?.players || [];
+                            let totalDHQ = 0;
+                            let atRiskDHQ = 0;
+                            const atRiskPlayers = [];
+                            myPlayers.forEach(pid => {
+                                const dhq = playerScores[pid] || 0;
+                                const meta = playerMeta[pid] || {};
+                                totalDHQ += dhq;
+                                if (!meta.age || !meta.pos) return;
+                                const peakEnd = (peakWindows[meta.pos] || [23, 29])[1];
+                                if (meta.age + 2 > peakEnd && dhq >= 2000) {
+                                    atRiskDHQ += dhq;
+                                    atRiskPlayers.push({ name: meta.name || pid, age: meta.age, dhq });
+                                }
+                            });
+                            const atRiskPct = totalDHQ > 0 ? Math.round(atRiskDHQ / totalDHQ * 100) : 0;
+                            atRiskPlayers.sort((a, b) => b.dhq - a.dhq);
+
+                            return (
+                            <React.Fragment>
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>YOUR 5-YEAR OUTLOOK</div>
+                                    {proj.map((p, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                                            <span style={{ color: 'var(--silver)', fontFamily: 'Oswald, sans-serif', minWidth: '40px', fontSize: '0.9rem' }}>{p.year}</span>
+                                            <div style={{ flex: 1, position: 'relative', height: '24px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden' }}>
+                                                <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: (p.projectedDHQ / maxDHQ * 100) + '%', background: tierColor(p.tier), borderRadius: '6px', opacity: 0.6, transition: 'width 0.5s ease' }} />
+                                                <div style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', fontFamily: 'Oswald, sans-serif', color: 'var(--white)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                                    {p.projectedDHQ.toLocaleString()} DHQ
+                                                </div>
+                                            </div>
+                                            <span style={{ color: tierColor(p.tier), fontFamily: 'Oswald, sans-serif', fontSize: '0.8rem', minWidth: '90px', textAlign: 'right' }}>
+                                                {p.tier} {p.tier === 'Rebuilding' || p.tier === 'Deep Rebuild' ? '\uD83D\uDD34' : p.tier === 'Playoff Team' ? '\u26A0\uFE0F' : ''}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {win && (
+                                <div style={{ ...aCardStyle, textAlign: 'center', padding: '24px' }}>
+                                    <div style={{ fontFamily: 'Bebas Neue, cursive', color: 'var(--silver)', fontSize: '1rem', marginBottom: '4px' }}>COMPETITIVE WINDOW</div>
+                                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.5rem', color: win.years >= 3 ? goodColor : win.years >= 1 ? warnColor : badColor }}>{win.label}</div>
+                                    <div style={{ fontSize: '0.85rem', color: 'var(--silver)', marginTop: '4px' }}>{win.years > 0 ? win.years + ' year' + (win.years > 1 ? 's' : '') + ' remaining' : 'Consider rebuilding'}</div>
+                                </div>
+                                )}
+
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>AGING CLIFF ALERT</div>
+                                    <div style={{ display: 'flex', gap: '24px', marginBottom: '12px' }}>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '2rem', color: atRiskPct > 30 ? badColor : atRiskPct > 15 ? warnColor : goodColor }}>{atRiskPct}%</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>Your DHQ past peak by {(parseInt(S?.season) || 2026) + 2}</div>
+                                        </div>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '2rem', color: 'var(--gold)' }}>18%</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>Winner avg</div>
+                                        </div>
+                                    </div>
+                                    {atRiskPlayers.length > 0 && (
+                                        <div>
+                                            <div style={{ color: 'var(--silver)', fontSize: '0.8rem', marginBottom: '6px', fontWeight: 700 }}>Players at risk:</div>
+                                            {atRiskPlayers.slice(0, 5).map((p, i) => (
+                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.85rem', fontFamily: 'Oswald, sans-serif' }}>
+                                                    <span style={{ color: 'var(--silver)' }}>{p.name} ({p.age})</span>
+                                                    <span style={{ color: badColor }}>{p.dhq.toLocaleString()} DHQ</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Actionable recommendations */}
+                                {(d.gaps || []).length > 0 && (
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>TO EXTEND YOUR WINDOW</div>
+                                    {d.gaps.slice(0, 5).map((g, i) => (
+                                        <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                            <span style={{ color: sevColor(g.priority), fontWeight: 700, fontSize: '0.85rem', flexShrink: 0 }}>{i + 1}.</span>
+                                            <div>
+                                                <span style={{ fontSize: '1rem', marginRight: '6px' }}>{sevIcon(g.priority)}</span>
+                                                <span style={{ color: sevColor(g.priority), fontWeight: 700, fontSize: '0.85rem', fontFamily: 'Oswald, sans-serif' }}>{g.action}</span>
+                                                <div style={{ color: 'var(--silver)', fontSize: '0.8rem', marginTop: '2px' }}>{g.detail}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                )}
+                            </React.Fragment>
+                            );
+                        })()}
+
+                        </React.Fragment>
+                        )}
                     </div>
-                ) : (
+                    );
+                })() : (
                 <React.Fragment>
                 {/* 3-Column Layout */}
                 <div style={{ padding: '1rem', maxWidth: '1600px', margin: '0 auto' }}>

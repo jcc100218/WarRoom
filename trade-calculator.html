@@ -862,12 +862,12 @@ async function fetchFantasyCalcValues() {
 }
 
 // Compute an internal value from stats as fallback for IDP/kickers.
-// IDP (DB/DL/LB): ranked by 2025 total season points → tiered values (Elite/T1/T2/T3).
+// IDP (DB/DL/LB): ranked by current season total points → tiered values (Elite/T1/T2/T3).
 //   - Tier base value is multiplied by an age curve (ageMultiplier) so younger players
 //     at the same production rank are valued higher, as dynasty markets price in future.
 //   - INT-tier players (rank > T3 boundary) get a rank-based linear gradient from the
 //     T3 boundary value down to INT_FLOOR rather than a single flat number.
-//   - Established IDP vets (years_exp ≥ 3) who scored 0 pts in 2025 (injured/IR) are
+//   - Established IDP vets (years_exp ≥ 3) who scored 0 pts in current season (injured/IR) are
 //     included with a floor value based on experience + age, tagged tier 'INJ'.
 // Non-IDP (kickers, etc.): linear percentile scale capped at 200 at the source.
 function buildInternalValues(playersData, statsData, scoring) {
@@ -921,7 +921,7 @@ function buildInternalValues(playersData, statsData, scoring) {
         });
     }
 
-    // Established IDP vets who scored 0 pts in 2025 (injured/IR all season).
+    // Established IDP vets who scored 0 pts in STATS_YEAR (injured/IR all season).
     // Give them a floor value based on experience + age so they aren't invisible
     // in the trade analyzer. Requires years_exp ≥ 3 to filter out unproven players.
     for (const [id, p] of Object.entries(playersData)) {
@@ -1021,7 +1021,7 @@ function normPos(pos) {
     if (!pos) return null;
     if (['DB','CB','S','SS','FS'].includes(pos))                      return 'DB';
     if (['DL','DE','DT','NT','IDL','EDGE'].includes(pos))             return 'DL';
-    if (['LB','OLB','ILB','MLB','EDGE'].includes(pos) && pos!=='EDGE')return 'LB';
+    if (['LB','OLB','ILB','MLB'].includes(pos))return 'LB';
     if (pos === 'EDGE') return 'DL'; // edge rushers slot as DL
     return pos; // QB, RB, WR, TE, K
 }
@@ -1295,7 +1295,7 @@ function assessTeam(roster, playersData, statsData, leagueInfo, users, nflStarte
             status = 'thin';
         }
 
-        // Sort display order by 2025 total season points — same signal as green/gray.
+        // Sort display order by current season total points — same signal as green/gray.
         // (Note: depth override above may have changed status from ok/surplus to thin.)
         const sortedIds = [...playerIds]
             .map(id => ({ id, score: calcSeasonPts(id, statsData, scoring) }))
@@ -1421,7 +1421,7 @@ function assessTeam(roster, playersData, statsData, leagueInfo, users, nflStarte
 //   • PPG scaled to the same 0–10 000 range is the fallback for players
 //     absent from FC (e.g., injured starters with no current-year entry)
 // Pool = LINEUP_STARTERS[pos] × 32 NFL teams (original strict sizing).
-// Rank every player in playersData by 2025 total season points and return
+// Rank every player in playersData by STATS_YEAR total season points and return
 // a Set of the top-N ids per position, where N = NFL_STARTER_POOL[pos].
 function calcNflStarterSet(playersData, valueIndex, statsData, scoring) {
     const byPos = {};

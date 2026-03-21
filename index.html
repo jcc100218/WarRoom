@@ -403,6 +403,8 @@
         justify-content: center;
         align-items: center;
         animation: fadeInUp 0.6s ease 0.3s both;
+        cursor: pointer;
+        transition: border-color 0.2s;
     }
 
     .earnings-title {
@@ -429,10 +431,6 @@
         letter-spacing: 0.1em;
     }
 
-    .earnings-box {
-        cursor: pointer;
-        transition: border-color 0.2s;
-    }
     .earnings-box:hover {
         border-color: rgba(212, 175, 55, 0.5);
     }
@@ -985,6 +983,28 @@
         .icon-button-icon { width: 13px; height: 13px; }
         .icon-button-label { font-size: 0.48rem; }
     }
+
+    /* LeagueDetail 3-column responsive layout */
+    @media (min-width: 768px) {
+        .league-detail-grid { grid-template-columns: 220px 1fr 260px !important; }
+        .league-detail-grid > div {
+            max-height: calc(100vh - 200px);
+            display: flex;
+            flex-direction: column;
+        }
+        .league-detail-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+        }
+        .league-detail-scroll::-webkit-scrollbar { width: 6px; }
+        .league-detail-scroll::-webkit-scrollbar-track { background: rgba(212,175,55,0.1); border-radius: 3px; }
+        .league-detail-scroll::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
+    }
+    @media (min-width: 1200px) {
+        .league-detail-grid { grid-template-columns: 260px 1fr 300px !important; }
+    }
 </style>
 
 </head>
@@ -1090,7 +1110,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'owner-dashboard-calendar.json';
+        a.download = 'war-room-calendar.json';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2414,29 +2434,6 @@
 
                 {/* 3-Column Layout */}
                 <div style={{ padding: '1rem', maxWidth: '1600px', margin: '0 auto' }}>
-                    <style dangerouslySetInnerHTML={{ __html: `
-                        @media (min-width: 768px) {
-                            .league-detail-grid { grid-template-columns: 220px 1fr 260px !important; }
-                            .league-detail-grid > div {
-                                max-height: calc(100vh - 200px);
-                                display: flex;
-                                flex-direction: column;
-                            }
-                            .league-detail-scroll {
-                                flex: 1;
-                                overflow-y: auto;
-                                overflow-x: hidden;
-                                min-height: 0;
-                            }
-                            .league-detail-scroll::-webkit-scrollbar { width: 6px; }
-                            .league-detail-scroll::-webkit-scrollbar-track { background: rgba(212,175,55,0.1); border-radius: 3px; }
-                            .league-detail-scroll::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
-                        }
-                        @media (min-width: 1200px) {
-                            .league-detail-grid { grid-template-columns: 260px 1fr 300px !important; }
-                        }
-                    `}} />
-
                     <div className="league-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.25rem' }}>
 
                         {/* LEFT COLUMN - Clickable Owners */}
@@ -2850,10 +2847,8 @@
                             const myRoster = rosters.find(r => r.owner_id === userId);
                             if (!myRoster) return;
 
-                            console.log(`[Trophies] ${year} ${league.name}: champion roster=${championship.w}, my roster=${myRoster.roster_id}`);
 
                             if (championship.w === myRoster.roster_id) {
-                                console.log(`[Trophies] 🏆 Found championship! ${year} - ${league.name}`);
                                 found.push({
                                     year: parseInt(year),
                                     league: league.name,
@@ -2871,7 +2866,6 @@
 
             // Sort newest first
             found.sort((a, b) => b.year - a.year);
-            console.log('[Trophies] Final trophies:', found);
             setTrophies(found);
             setTrophiesLoading(false);
         }
@@ -2881,14 +2875,10 @@
             setError(null);
 
             try {
-                console.log('Fetching Sleeper user...', sleeperUsername);
                 const user = await fetchSleeperUser(sleeperUsername);
                 setSleeperUser(user);
-                console.log('User loaded:', user);
 
-                console.log('Fetching leagues for', selectedYear);
                 const leagues = await fetchUserLeagues(user.user_id, selectedYear);
-                console.log('Leagues loaded:', leagues);
 
                 const leaguesWithDetails = await Promise.all(
                     leagues.map(async (league) => {
@@ -2922,7 +2912,6 @@
 
                 const validLeagues = leaguesWithDetails.filter(l => l !== null);
                 setSleeperLeagues(validLeagues);
-                console.log('Leagues with details:', validLeagues);
                 setLoading(false);
             } catch (err) {
                 console.error('Failed to load Sleeper data:', err);
@@ -3094,8 +3083,7 @@
                                             onClick={() => {
                                                 setActiveLeagueId(league.id);
                                                 setSelectedLeague(league);
-                                                console.log('League clicked:', league);
-                                            }}
+                                                            }}
                                         >
                                             <div className="league-item-name">
                                                 {league.name}{league.championships > 0 && <span style={{ marginLeft:'0.3rem', fontSize:'0.75rem' }}>🏆</span>}

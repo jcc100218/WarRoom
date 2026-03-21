@@ -197,7 +197,7 @@
         </div>
 
         <div class="form-group">
-            <label class="form-label" for="password">Dashboard Password</label>
+            <label class="form-label" for="password">Password</label>
             <input 
                 type="password" 
                 id="password" 
@@ -208,7 +208,7 @@
             >
         </div>
 
-        <button type="submit" class="login-btn">Access Dashboard</button>
+        <button type="submit" class="login-btn">Access War Room</button>
     </form>
 
     <p class="helper-text">
@@ -320,7 +320,7 @@
             const sleeperUser = resp.ok ? await resp.json() : null;
             if (!sleeperUser || !sleeperUser.user_id) {
                 showError('Sleeper username not found. Check spelling and try again.');
-                loginBtn.textContent = 'Access Dashboard';
+                loginBtn.textContent = 'Access War Room';
                 loginBtn.disabled = false;
                 return;
             }
@@ -331,7 +331,7 @@
             window.location.href = 'index.html';
         } catch {
             showError('Failed to verify Sleeper username. Check your connection and try again.');
-            loginBtn.textContent = 'Access Dashboard';
+            loginBtn.textContent = 'Access War Room';
             loginBtn.disabled = false;
         }
     });

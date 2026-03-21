@@ -161,10 +161,10 @@
         min-height: calc(100vh - 200px);
     }
 
-    /* Desktop/Tablet 3-column layout */
+    /* Desktop/Tablet 2-column layout (leagues + sidebar) */
     @media (min-width: 768px) {
         .main-layout {
-            grid-template-columns: 280px 1fr 80px;
+            grid-template-columns: 1fr 80px;
             gap: 1.5rem;
             padding: 1.5rem;
         }
@@ -172,7 +172,7 @@
 
     @media (min-width: 1200px) {
         .main-layout {
-            grid-template-columns: 320px 1fr 100px;
+            grid-template-columns: 1fr 100px;
             padding: 2rem;
             max-width: 1600px;
             margin: 0 auto;

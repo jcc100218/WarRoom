@@ -810,18 +810,6 @@
                 return raw !== null ? raw : -1;
             }
 
-            // FantasyPros player page URL derived from full name
-            function fpUrl(name) {
-                if (!name) return null;
-                const slug = name
-                    .toLowerCase()
-                    .replace(/['\u2019.]/g, '')
-                    .replace(/[^a-z0-9]+/g, '-')
-                    .replace(/-+/g, '-')
-                    .replace(/^-|-$/g, '');
-                return `https://www.fantasypros.com/nfl/players/${slug}.php`;
-            }
-
             function getStats(playerId) {
                 const player = playersData[playerId];
                 const s = statsData[playerId];
@@ -1235,7 +1223,7 @@
                                                     ...myGrouped[grp].map(({ id, p }) => {
                                                         const st = getStats(id);
                                                         const pName = p.full_name || `${p.first_name||''} ${p.last_name||''}`.trim() || id;
-                                                        const url = fpUrl(pName);
+
                                                         const sc = rosterStatusClass(id);
                                                         return (
                                                             <tr key={id}>
@@ -1312,7 +1300,7 @@
                                     )}
                                     {filteredFAs.map(fa => {
                                         const st = getStats(fa.id);
-                                        const url = fpUrl(fa.name);
+
                                         return (
                                             <div key={fa.id} className="player-row"
                                                 draggable="true"

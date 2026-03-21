@@ -1067,7 +1067,7 @@
     }
 
     function saveCalendarEvents(events) {
-        window.OD.saveCalendarEvents(events);
+        if(window.OD?.saveCalendarEvents) window.OD.saveCalendarEvents(events);
     }
 
     // ===== EARNINGS DATA LAYER =====
@@ -1081,7 +1081,7 @@
     }
 
     function saveEarnings(entries) {
-        window.OD.saveEarnings(entries);
+        if(window.OD?.saveEarnings) window.OD.saveEarnings(entries);
     }
 
     function exportCalendarEvents(events) {
@@ -1473,24 +1473,6 @@
         }
         return null; // All feeds failed
     }
-
-    // Mock data for trophy case and events
-    const ownerData = {
-        earnings: "$12,450",
-        trophies: [
-            { year: 2024, league: "Dynasty League", icon: "🏆" },
-            { year: 2023, league: "Redraft League", icon: "🏆" },
-            { year: 2022, league: "Dynasty League", icon: "🏆" }
-        ],
-        keyEvents: [
-            { title: "Dynasty Draft", date: "Aug 15, 2026", league: "Owner Dynasty", details: "Round 1 starts at 8 PM EST" },
-            { title: "League Dues", date: "Aug 20, 2026", league: "All Leagues", details: "$500 total across all leagues" },
-            { title: "Redraft Draft", date: "Aug 28, 2026", league: "Redraft League", details: "Snake draft, 12 teams" },
-            { title: "Season Kickoff", date: "Sep 5, 2026", league: "All Leagues", details: "Week 1 begins!" },
-            { title: "Trade Deadline", date: "Nov 4, 2026", league: "All Leagues", details: "Last day to make trades" },
-            { title: "Playoffs Start", date: "Dec 14, 2026", league: "All Leagues", details: "Championship run begins" }
-        ]
-    };
 
     // Settings Modal
     function SettingsModal({ onClose, initDisplayName, onDisplayNameSave, leagueMates }) {
@@ -2149,18 +2131,6 @@
             return colors[pos] || 'var(--silver)';
         }
 
-        function fantasyProsUrl(playerId) {
-            const player = playersData[playerId];
-            if (!player?.full_name) return null;
-            const slug = player.full_name
-                .toLowerCase()
-                .replace(/['\u2019.]/g, '')
-                .replace(/[^a-z0-9]+/g, '-')
-                .replace(/-+/g, '-')
-                .replace(/^-|-$/g, '');
-            return `https://www.fantasypros.com/nfl/players/${slug}.php`;
-        }
-
         if (error) {
             return (
                 <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--white)', padding: '2rem', textAlign: 'center' }}>
@@ -2215,7 +2185,6 @@
             const pos = getPlayerPosition(playerId);
             const stats = getPlayerStats(playerId);
             const team = getPlayerTeam(playerId);
-            const fpUrl = fantasyProsUrl(playerId);
             const borderColor = section === 'starter' ? 'var(--gold)' : section === 'ir' ? '#E74C3C' : section === 'taxi' ? '#3498DB' : 'transparent';
             const bgColor = section === 'starter' ? 'rgba(212, 175, 55, 0.05)' : section === 'ir' ? 'rgba(231, 76, 60, 0.05)' : section === 'taxi' ? 'rgba(52, 152, 219, 0.05)' : 'rgba(255, 255, 255, 0.02)';
             return (

@@ -395,12 +395,6 @@
                 return raw !== null ? raw : -1;
             }
 
-            function fpUrl(name) {
-                if (!name) return null;
-                const slug = name.toLowerCase().replace(/['\u2019.]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
-                return `https://www.fantasypros.com/nfl/players/${slug}.php`;
-            }
-
             // My roster grouped
             const myGrouped = useMemo(() => {
                 if (!myRoster?.players || !Object.keys(playersData).length) return {};
@@ -619,7 +613,7 @@
                                                         const avg = (rawPts !== null && s?.gp) ? (rawPts/s.gp).toFixed(1) : '-';
                                                         const yrs = p.years_exp != null ? p.years_exp : '-';
                                                         const pName = p.full_name || `${p.first_name||''} ${p.last_name||''}`.trim() || id;
-                                                        const url = fpUrl(pName);
+
                                                         const sc = rosterStatusClass(id);
                                                         return (
                                                             <tr key={id}>
@@ -672,7 +666,7 @@
                                         </div>
                                     )}
                                     {filteredRookies.map((r, idx) => {
-                                        const url = fpUrl(r.name);
+
                                         return (
                                             <div key={r.id} className="player-row">
                                                 <span style={{ color:'var(--silver)', opacity:0.4, fontSize:'0.6rem', width:'20px', textAlign:'right', flexShrink:0 }}>{idx+1}</span>

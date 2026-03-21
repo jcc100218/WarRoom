@@ -294,7 +294,7 @@
             They'll land on their own personalized dashboard.
         </div>
         <div class="share-url-box" id="shareUrl"></div>
-        <button class="btn btn-primary btn-full" onclick="copyLink()" style="margin-bottom:0.75rem;">Copy Link</button>
+        <button class="btn btn-primary btn-full" onclick="copyLink(event)" style="margin-bottom:0.75rem;">Copy Link</button>
         <button class="btn btn-outline btn-full" onclick="resetForm()">Create Another</button>
     </div>
 </div>
@@ -379,7 +379,7 @@
         }
     }
 
-    function copyLink() {
+    function copyLink(event) {
         navigator.clipboard.writeText(generatedUrl).then(() => {
             const btn = event.target;
             btn.textContent = '✓ Copied!';

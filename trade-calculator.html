@@ -792,10 +792,10 @@ function calcPsychTaxes(myAssessment, theirAssessment, theirDnaKey, theirPosture
         }
     }
     // 8 — Posture
-    if (theirPosture?.key === 'LOCKED') {
+    if (theirPosture?.label === 'Locked In') {
         taxes.push({ name:'Locked Roster Tax', impact:-12, type:'TAX',
             desc:'High satisfaction + attachment. Roster moves feel threatening to them.' });
-    } else if (theirPosture?.key === 'SELLER') {
+    } else if (theirPosture?.label === 'Active Seller') {
         taxes.push({ name:'Seller Momentum', impact:+10, type:'BONUS',
             desc:'Actively shopping. Trade conversations are welcomed.' });
     }
@@ -2527,186 +2527,6 @@ function TradeCalculator() {
         );
     }
 
-    // ── TRADE FINDER TAB ──────────────────────────────────────────────────────
-    function renderTradeFinder() {
-        if (loading) return <div className="center-screen"><div className="load-title">LOADING</div></div>;
-        if (!assessments.length) return <div className="no-data-msg">No roster data. Select a league above.</div>;
-
-        // Roster selector
-        const rosterOptions = assessments.map(a => ({ id: a.rosterId, label: `${a.ownerName} — ${a.teamName}` }));
-
-        return (
-            <div>
-                <div className="filter-bar" style={{ marginBottom:'1rem' }}>
-                    <span style={{ fontSize:'0.68rem', color:'var(--silver)', opacity:0.6 }}>MY TEAM</span>
-                    <select className="filter-select" value={myRosterId || ''} onChange={e => setMyRosterId(Number(e.target.value))}>
-                        {rosterOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-                    </select>
-                </div>
-
-                {myAssessment ? (
-                    <div className="tf-layout">
-                        {/* My Panel */}
-                        <div className="tf-my-panel">
-                            <div className="section-hdr">MY ROSTER</div>
-                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem' }}>
-                                <div>
-                                    <div style={{ fontWeight:700, fontSize:'0.9rem' }}>{myAssessment.ownerName}</div>
-                                    <div style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.7 }}>{myAssessment.teamName}</div>
-                                </div>
-                                <span className="tier-badge" style={{ color:myAssessment.tierColor, borderColor:myAssessment.tierColor, background:myAssessment.tierBg }}>{myAssessment.tier}</span>
-                            </div>
-
-                            <div style={{ marginBottom:'0.5rem' }}>
-                                <div style={{ fontSize:'0.62rem', color:'var(--silver)', opacity:0.6, marginBottom:'0.25rem' }}>WEEKLY PROJECTION</div>
-                                <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.6rem', color: myAssessment.weeklyPts >= WEEKLY_TARGET ? 'var(--win-green)' : 'var(--loss-red)' }}>
-                                    {myAssessment.weeklyPts > 0 ? myAssessment.weeklyPts : '—'}
-                                    <span style={{ fontSize:'0.75rem', color:'var(--silver)', marginLeft:'0.3rem', opacity:0.6 }}>/ {WEEKLY_TARGET}</span>
-                                </div>
-                            </div>
-
-                            <div className="section-hdr" style={{ fontSize:'0.72rem', marginTop:'0.5rem' }}>MY BIGGEST NEEDS</div>
-                            {myAssessment.needs.length === 0
-                                ? <div style={{ fontSize:'0.68rem', color:'var(--win-green)', opacity:0.8 }}>No major gaps — roster looks balanced</div>
-                                : myAssessment.needs.slice(0,5).map(n => (
-                                    <div key={n.pos} style={{ display:'flex', alignItems:'center', gap:'0.4rem', marginBottom:'0.3rem' }}>
-                                        <span style={{ width:28, height:28, borderRadius:'50%', background:posColor(n.pos), display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.6rem', fontWeight:700, color:'var(--black)', flexShrink:0 }}>{n.pos}</span>
-                                        <div>
-                                            <div style={{ fontSize:'0.68rem', fontWeight:700 }}>
-                                                {n.urgency==='deficit' ? 'CRITICAL SHORTAGE' : 'RUNNING THIN'}
-                                            </div>
-                                            <div style={{ fontSize:'0.58rem', color:'var(--silver)', opacity:0.7 }}>
-                                                {myAssessment.posAssessment[n.pos].actual}/{myAssessment.posAssessment[n.pos].ideal} ideal depth
-                                            </div>
-                                        </div>
-                                        <span className={`chip ${n.urgency==='deficit'?'chip-need':'chip-thin'}`} style={{ marginLeft:'auto' }}>
-                                            {n.urgency==='deficit'?'CRITICAL':'THIN'}
-                                        </span>
-                                    </div>
-                                ))
-                            }
-
-                            {myAssessment.strengths.length > 0 && (
-                                <>
-                                    <div className="section-hdr" style={{ fontSize:'0.72rem', marginTop:'0.75rem' }}>MY TRADE CURRENCY</div>
-                                    <div className="chip-row">
-                                        {myAssessment.strengths.map(s => <span key={s} className="chip chip-strength">+{s} SURPLUS</span>)}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Trade Partner List */}
-                        <div>
-                            <div className="section-hdr">TRADE PARTNERS</div>
-                            <div style={{ fontSize:'0.62rem', color:'var(--silver)', opacity:0.5, marginBottom:'0.75rem', lineHeight:1.45 }}>
-                                <strong style={{ color:'#2ECC71' }}>Optimal Partners</strong> have genuine two-way positional fit — they need what you have <em>and</em> you need what they have. All others are ranked by partial complementarity.
-                            </div>
-                            {tradePartners.length === 0
-                                ? <div className="no-data-msg">No potential partners found.</div>
-                                : (() => {
-                                    const optimal = tradePartners.filter(p => p.compat >= 50);
-                                    const others  = tradePartners.filter(p => p.compat < 50);
-
-                                    function PartnerRow({ partner }) {
-                                        const dnaKey = ownerDna[partner.ownerId] || 'NONE';
-                                        const dna    = DNA_TYPES[dnaKey] || DNA_TYPES.NONE;
-                                        const isOptimal = partner.compat >= 50;
-                                        const theyHelp = myAssessment.needs
-                                            .filter(n => partner.posAssessment[n.pos]?.status === 'surplus' || partner.posAssessment[n.pos]?.status === 'ok')
-                                            .map(n => n.pos);
-                                        const iHelp = partner.needs
-                                            .filter(n => myAssessment.posAssessment[n.pos]?.status === 'surplus' || myAssessment.posAssessment[n.pos]?.status === 'ok')
-                                            .map(n => n.pos);
-                                        const compatColor = partner.compat >= 70 ? 'var(--win-green)' : partner.compat >= 40 ? 'var(--amber)' : 'var(--loss-red)';
-                                        return (
-                                            <div className={`partner-card${isOptimal?' optimal':''}`}>
-                                                <div className="partner-header">
-                                                    <div>
-                                                        <div style={{ fontWeight:700, fontSize:'0.88rem', display:'flex', alignItems:'center', gap:'0.35rem' }}>
-                                                            {partner.ownerName}
-                                                            {isOptimal && <span className="optimal-badge">OPTIMAL</span>}
-                                                        </div>
-                                                        <div style={{ fontSize:'0.62rem', color:'var(--silver)', opacity:0.6 }}>{partner.teamName}</div>
-                                                    </div>
-                                                    <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'0.2rem' }}>
-                                                        <span className="tier-badge" style={{ color:partner.tierColor, borderColor:partner.tierColor, background:partner.tierBg }}>{partner.tier}</span>
-                                                        {dnaKey !== 'NONE' && <span className="chip chip-dna">{dna.label}</span>}
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
-                                                    <span style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.6, width:80, flexShrink:0 }}>COMPAT</span>
-                                                    <div className="compat-bar-wrap" style={{ flex:1 }}>
-                                                        <div className="compat-bar-fill" style={{ width:`${partner.compat}%` }} />
-                                                    </div>
-                                                    <span style={{ fontSize:'0.72rem', fontWeight:700, color:compatColor, width:32, textAlign:'right' }}>{partner.compat}%</span>
-                                                </div>
-
-                                                <div className="tf-exchange">
-                                                    <div className="tf-side">
-                                                        <div className="tf-side-label">They can provide</div>
-                                                        <div className="chip-row">
-                                                            {theyHelp.length > 0
-                                                                ? theyHelp.map(p => <span key={p} className="chip chip-strength">{p}</span>)
-                                                                : <span style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.4 }}>No positional overlap</span>}
-                                                        </div>
-                                                    </div>
-                                                    <div className="tf-side">
-                                                        <div className="tf-side-label">You can provide</div>
-                                                        <div className="chip-row">
-                                                            {iHelp.length > 0
-                                                                ? iHelp.map(p => <span key={p} className="chip chip-strength">{p}</span>)
-                                                                : <span style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.4 }}>No positional overlap</span>}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
-                                                    <span className="chip chip-window">{partner.window}</span>
-                                                    <span style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.5 }}>Panic: {partner.panic}/5</span>
-                                                    {partner.panic >= 3 && <span className="chip chip-need">HIGH URGENCY</span>}
-                                                </div>
-
-                                                {dnaKey !== 'NONE' && dna.strategy && (
-                                                    <div className="tax-warning">Approach: {dna.strategy}</div>
-                                                )}
-                                                {dnaKey !== 'NONE' && dna.taxes?.length > 0 && (
-                                                    <div className="dna-taxes">{dna.taxes.map((t,i) => <span key={i} className="tax-chip">{t}</span>)}</div>
-                                                )}
-                                            </div>
-                                        );
-                                    }
-
-                                    return (
-                                        <div className="partner-list">
-                                            {optimal.length > 0 && (
-                                                <>
-                                                    <div className="partner-tier-label">★ Optimal Trading Partners ({optimal.length})</div>
-                                                    {optimal.map(p => <PartnerRow key={p.rosterId} partner={p} />)}
-                                                </>
-                                            )}
-                                            {others.length > 0 && (
-                                                <>
-                                                    <div className="partner-tier-label" style={{ marginTop: optimal.length ? '0.75rem' : 0 }}>
-                                                        Other Potential Partners ({others.length})
-                                                    </div>
-                                                    {others.map(p => <PartnerRow key={p.rosterId} partner={p} />)}
-                                                </>
-                                            )}
-                                        </div>
-                                    );
-                                })()
-                            }
-                        </div>
-                    </div>
-                ) : (
-                    <div className="no-data-msg">Select your team above to find trade partners.</div>
-                )}
-            </div>
-        );
-    }
-
     // ── OWNER DNA TAB ─────────────────────────────────────────────────────────
     function renderOwnerDna() {
         if (loading) return <div className="center-screen"><div className="load-title">LOADING</div></div>;
@@ -3763,7 +3583,7 @@ function TradeCalculator() {
                 posture:     calcOwnerPosture(a, ownerDna[a.ownerId] || 'NONE'),
                 needs:       needsToStrings(a.needs).slice(0, 5),
                 strengths:   a.strengths.slice(0, 5),
-                dna:         ownerDna[a.ownerId] ? (DNA_TYPES[ownerDna[a.ownerId]]?.name || ownerDna[a.ownerId]) : 'Unknown',
+                dna:         ownerDna[a.ownerId] ? (DNA_TYPES[ownerDna[a.ownerId]]?.label || ownerDna[a.ownerId]) : 'Unknown',
                 isMyTeam:    a.rosterId === myRosterId,
             }));
 
@@ -3786,7 +3606,7 @@ function TradeCalculator() {
                 }).filter(Boolean).sort((a, b) => { const pd = (POS_ORDER[a.pos]||9) - (POS_ORDER[b.pos]||9); return pd !== 0 ? pd : b.value - a.value; });
                 const comm = teamCommentary(target, elitePlayerSet);
                 const isMyTeam = target.rosterId === myRosterId;
-                return { ...base, team: { owner: target.ownerName, teamName: target.teamName, record: `${target.wins}-${target.losses}`, weeklyPts: target.weeklyPts, tier: target.tier, healthScore: target.healthScore, panic: target.panic, posture: calcOwnerPosture(target, dnaKey), needs: needsToStrings(target.needs), strengths: target.strengths, dna: dnaDef.name || dnaKey, dnaDescription: dnaDef.desc || '', roster, picksText: comm.picksText, faabText: comm.faabText, faabRemaining: target.faabRemaining ?? 0, waiverBudget: target.waiverBudget ?? 0, picksAssessment: target.picksAssessment, isMyTeam } };
+                return { ...base, team: { owner: target.ownerName, teamName: target.teamName, record: `${target.wins}-${target.losses}`, weeklyPts: target.weeklyPts, tier: target.tier, healthScore: target.healthScore, panic: target.panic, posture: calcOwnerPosture(target, dnaKey), needs: needsToStrings(target.needs), strengths: target.strengths, dna: dnaDef.label || dnaKey, dnaDescription: dnaDef.desc || '', roster, picksText: comm.picksText, faabText: comm.faabText, faabRemaining: target.faabRemaining ?? 0, waiverBudget: target.waiverBudget ?? 0, picksAssessment: target.picksAssessment, isMyTeam } };
             }
 
             if (aiMode === 'partners') {
@@ -3795,7 +3615,7 @@ function TradeCalculator() {
                 const partners = tradePartners.slice(0, 8).map(a => {
                     const dnaKey = ownerDna[a.ownerId] || 'NONE';
                     const dnaDef = DNA_TYPES[dnaKey] || DNA_TYPES.NONE;
-                    return { owner: a.ownerName, compatibility: Math.round((a.compat || 0) * 100), tier: a.tier, record: `${a.wins}-${a.losses}`, needs: needsToStrings(a.needs).slice(0, 5), strengths: a.strengths.slice(0, 5), posture: calcOwnerPosture(a, dnaKey), dna: dnaDef.name || dnaKey, dnaDescription: dnaDef.desc || '', grudgeEntries: grudges.filter(g => g.withOwnerId === a.ownerId).length };
+                    return { owner: a.ownerName, compatibility: Math.round(a.compat || 0), tier: a.tier, record: `${a.wins}-${a.losses}`, needs: needsToStrings(a.needs).slice(0, 5), strengths: a.strengths.slice(0, 5), posture: calcOwnerPosture(a, dnaKey), dna: dnaDef.label || dnaKey, dnaDescription: dnaDef.desc || '', grudgeEntries: grudges.filter(g => g.theirOwnerId === a.ownerId).length };
                 });
                 return { ...base, myTeam: { owner: myAssessment.ownerName, record: `${myAssessment.wins}-${myAssessment.losses}`, tier: myAssessment.tier, healthScore: myAssessment.healthScore, needs: needsToStrings(myAssessment.needs), strengths: myAssessment.strengths, posture: calcOwnerPosture(myAssessment, myDnaKey) }, partners };
             }

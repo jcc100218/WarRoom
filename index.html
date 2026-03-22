@@ -1071,6 +1071,14 @@
         const [analyticsTab, setAnalyticsTab] = useState('roster');
         const [rosterFilter, setRosterFilter] = useState('All');
         const [rosterSort, setRosterSort] = useState({ key: 'dhq', dir: -1 });
+        const [visibleCols, setVisibleCols] = useState(() => {
+            try {
+                const saved = localStorage.getItem('wr_roster_cols');
+                return saved ? JSON.parse(saved) : ['pos','age','dhq','peak','trend','action','yrsExp','posRankLg','starterSzn'];
+            } catch(e) { return ['pos','age','dhq','peak','trend','action','yrsExp','posRankLg','starterSzn']; }
+        });
+        const [showColPicker, setShowColPicker] = useState(false);
+        const [colPreset, setColPreset] = useState('dynasty');
         const [heroStory, setHeroStory] = useState('');
         const [aiStories, setAiStories] = useState([]);
         const [transactions, setTransactions] = useState([]);
@@ -1107,6 +1115,10 @@
         useEffect(() => {
             try { localStorage.setItem('wr_kpi_selection_' + (currentLeague?.id || ''), JSON.stringify(selectedKpis)); } catch(e) {}
         }, [selectedKpis]);
+
+        useEffect(() => {
+            try { localStorage.setItem('wr_roster_cols', JSON.stringify(visibleCols)); } catch(e) {}
+        }, [visibleCols]);
 
         function computeKpiValue(kpiKey) {
             const LI = window.App?.LI || {};
@@ -1886,16 +1898,57 @@
             if (key === 'prev') return ((b.prevPPG||0) - (a.prevPPG||0)) * dir;
             if (key === 'trend') return ((b.trend||0) - (a.trend||0)) * dir;
             if (key === 'gp') return ((b.curGP||0) - (a.curGP||0)) * dir;
+            if (key === 'durability') return ((b.curGP||0) - (a.curGP||0)) * dir;
             if (key === 'name') { const na = getPlayerName(a.pid).toLowerCase(), nb = getPlayerName(b.pid).toLowerCase(); return (na < nb ? -1 : na > nb ? 1 : 0) * dir; }
             if (key === 'pos') return ((posOrder[a.pos]||99) - (posOrder[b.pos]||99)) * dir;
             if (key === 'peak') return ((b.peakYrsLeft||0) - (a.peakYrsLeft||0)) * dir;
-            if (key === 'rec') { const ord = {BUY:3,HOLD:2,SELL:1}; return ((ord[b.rec]||0) - (ord[a.rec]||0)) * dir; }
+            if (key === 'action') { const ord = {BUY:3,HOLD:2,SELL:1}; return ((ord[b.rec]||0) - (ord[a.rec]||0)) * dir; }
+            if (key === 'yrsExp') return ((b.p.years_exp||0) - (a.p.years_exp||0)) * dir;
+            if (key === 'college') { const ca = (a.p.college||'').toLowerCase(), cb = (b.p.college||'').toLowerCase(); return (ca < cb ? -1 : ca > cb ? 1 : 0) * dir; }
+            if (key === 'nflDraft') return ((a.p.draft_pick||999) - (b.p.draft_pick||999)) * dir;
+            if (key === 'posRankLg') return (a.dhq - b.dhq) * dir; // proxy: higher dhq = better rank
+            if (key === 'posRankNfl') return ((a.meta?.fcRank||999) - (b.meta?.fcRank||999)) * dir;
+            if (key === 'starterSzn') return ((b.meta?.starterSeasons||0) - (a.meta?.starterSeasons||0)) * dir;
+            if (key === 'height') return ((b.p.height||0) - (a.p.height||0)) * dir;
+            if (key === 'weight') return ((b.p.weight||0) - (a.p.weight||0)) * dir;
+            if (key === 'depthChart') return ((a.p.depth_chart_order||99) - (b.p.depth_chart_order||99)) * dir;
+            if (key === 'slot') { const ord = {starter:0,taxi:1,bench:2,ir:3}; return ((ord[a.section]||9) - (ord[b.section]||9)) * dir; }
             return 0;
           });
         }
 
         function renderMyTeamTab() {
           if (!myRoster) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--silver)' }}>No roster found</div>;
+
+          const ROSTER_COLUMNS = {
+            pos:        { label: 'Pos', width: '34px', group: 'core' },
+            age:        { label: 'Age', width: '32px', group: 'dynasty' },
+            dhq:        { label: 'DHQ', width: '54px', group: 'dynasty' },
+            ppg:        { label: 'PPG', width: '40px', group: 'stats' },
+            prev:       { label: 'Prev', width: '40px', group: 'stats' },
+            trend:      { label: 'Trend', width: '42px', group: 'dynasty' },
+            peak:       { label: 'Peak', width: '44px', group: 'dynasty' },
+            action:     { label: 'Action', width: '42px', group: 'dynasty' },
+            gp:         { label: 'GP', width: '28px', group: 'stats' },
+            durability: { label: 'Dur', width: '32px', group: 'stats' },
+            yrsExp:     { label: 'Exp', width: '30px', group: 'dynasty' },
+            college:    { label: 'College', width: '80px', group: 'scout' },
+            nflDraft:   { label: 'Draft', width: '40px', group: 'scout' },
+            posRankLg:  { label: 'Lg Rank', width: '46px', group: 'dynasty' },
+            posRankNfl: { label: 'NFL Rank', width: '50px', group: 'dynasty' },
+            starterSzn: { label: 'Str Szn', width: '40px', group: 'dynasty' },
+            height:     { label: 'Ht', width: '36px', group: 'scout' },
+            weight:     { label: 'Wt', width: '36px', group: 'scout' },
+            depthChart: { label: 'Depth', width: '40px', group: 'scout' },
+            slot:       { label: 'Slot', width: '34px', group: 'core' },
+          };
+
+          const COLUMN_PRESETS = {
+            dynasty: ['pos','age','dhq','peak','trend','action','yrsExp','posRankLg','starterSzn'],
+            stats:   ['pos','age','dhq','ppg','prev','trend','gp','durability'],
+            scout:   ['pos','age','college','nflDraft','height','weight','depthChart','yrsExp'],
+            full:    Object.keys(ROSTER_COLUMNS),
+          };
 
           const allPlayers = myRoster.players || [];
           const starters = new Set(myRoster.starters || []);
@@ -1973,9 +2026,56 @@
 
           const filtered = filteredAndSortedRows(rows);
 
-          const grid = '3px 26px 1fr 34px 30px 50px 38px 38px 38px 42px 26px 34px 38px 38px';
-          const cellStyle = { padding: '0 4px', display: 'flex', alignItems: 'center', fontSize: '0.68rem', overflow: 'hidden', whiteSpace: 'nowrap' };
-          const sortKeys = [null,null,'name','pos','age','dhq','ppg','prev','trend','peak','gp','gp','rec',null];
+          // renderCell — renders each data cell with FM-style coloring
+          function renderCell(colKey, r) {
+            const col = ROSTER_COLUMNS[colKey];
+            const base = { width: col.width, minWidth: col.width, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.68rem', padding: '0 3px' };
+
+            switch(colKey) {
+              case 'pos': return <div key={colKey} style={{...base}}><span style={{ fontSize: '0.58rem', fontWeight: 700, padding: '1px 4px', borderRadius: '2px', background: (posColors[r.pos]||'#666')+'22', color: posColors[r.pos]||'var(--silver)' }}>{r.pos}</span></div>;
+              case 'age': return <div key={colKey} style={{...base, background: ageBg(r.age)}}><span style={{ color: ageCol(r.age), fontWeight: 600 }}>{r.age||'\u2014'}</span></div>;
+              case 'dhq': return <div key={colKey} style={{...base, background: dhqBg(r.dhq)}}><span style={{ color: dhqCol(r.dhq), fontWeight: 700, fontFamily: 'Oswald', fontSize: '0.72rem' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span></div>;
+              case 'ppg': return <div key={colKey} style={{...base, background: ppgBg(r.curPPG, r.pos)}}><span style={{ color: r.curPPG >= (posP75[r.pos]||10) ? '#2ECC71' : 'var(--silver)' }}>{r.curPPG||'\u2014'}</span></div>;
+              case 'prev': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', opacity: 0.6 }}>{r.prevPPG||'\u2014'}</span></div>;
+              case 'trend': return <div key={colKey} style={{...base, background: trendBg(r.trend)}}><span style={{ color: r.trend>=15?'#2ECC71':r.trend<=-15?'#E74C3C':'var(--silver)', fontWeight: 600, fontSize: '0.62rem' }}>{r.trend>0?'+'+r.trend+'%':r.trend<0?r.trend+'%':'\u2014'}</span></div>;
+              case 'peak': return <div key={colKey} style={{...base, flexDirection: 'column', gap: '1px'}}>
+                <span style={{ fontSize: '0.5rem', fontWeight: 700, color: r.peakPhase==='PRIME'?'#2ECC71':r.peakPhase==='PRE'?'#3498DB':'#E74C3C' }}>{r.peakPhase}</span>
+                <div style={{ width: '30px', height: '3px', borderRadius: '1px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', position: 'relative' }}>
+                  <div style={{ position:'absolute',left:0,top:0,height:'100%',width:'30%',background:'rgba(52,152,219,0.4)' }}></div>
+                  <div style={{ position:'absolute',left:'30%',top:0,height:'100%',width:'40%',background:'rgba(46,204,113,0.4)' }}></div>
+                  <div style={{ position:'absolute',left:'70%',top:0,height:'100%',width:'30%',background:'rgba(231,76,60,0.3)' }}></div>
+                  <div style={{ position:'absolute',left:r.peakPct+'%',top:'-1px',width:'2px',height:'5px',background:'var(--white)',borderRadius:'1px' }}></div>
+                </div>
+              </div>;
+              case 'action': return <div key={colKey} style={{...base}}><span style={{ fontSize:'0.58rem',fontWeight:700,padding:'1px 6px',borderRadius:'2px',background:r.rec==='BUY'?'rgba(46,204,113,0.15)':r.rec==='HOLD'?'rgba(212,175,55,0.12)':'rgba(231,76,60,0.12)',color:r.rec==='BUY'?'#2ECC71':r.rec==='HOLD'?'var(--gold)':'#E74C3C' }}>{r.rec}</span></div>;
+              case 'gp': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', fontSize: '0.62rem' }}>{r.curGP||'\u2014'}</span></div>;
+              case 'durability': return <div key={colKey} style={{...base}}><div style={{ width:'24px',height:'4px',borderRadius:'2px',background:'rgba(255,255,255,0.06)',overflow:'hidden' }}><div style={{ width:Math.min(100,(r.curGP/17)*100)+'%',height:'100%',background:r.curGP>=15?'#2ECC71':r.curGP>=10?'#F0A500':'#E74C3C',borderRadius:'2px' }}></div></div></div>;
+              case 'yrsExp': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)' }}>{r.p.years_exp ?? '\u2014'}</span></div>;
+              case 'college': return <div key={colKey} style={{...base, justifyContent: 'flex-start'}}><span style={{ color: 'var(--silver)', fontSize: '0.6rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.p.college || '\u2014'}</span></div>;
+              case 'nflDraft': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', fontSize: '0.62rem' }}>{r.p.draft_pick ? 'Rd ' + Math.ceil(r.p.draft_pick / 32) : '\u2014'}</span></div>;
+              case 'posRankLg': {
+                const allAtPos = (currentLeague.rosters||[]).flatMap(ros => (ros.players||[]).filter(pid => {
+                  const pp = playersData[pid];
+                  return pp && (normPos(pp.position) === r.pos);
+                })).map(pid => ({pid, dhq: window.App?.LI?.playerScores?.[pid] || 0})).sort((a,b) => b.dhq - a.dhq);
+                const rank = allAtPos.findIndex(x => x.pid === r.pid) + 1;
+                return <div key={colKey} style={{...base}}><span style={{ color: rank<=3?'#2ECC71':rank<=8?'var(--gold)':'var(--silver)', fontWeight: rank<=3?700:400 }}>{rank > 0 ? '#'+rank : '\u2014'}</span></div>;
+              }
+              case 'posRankNfl': {
+                const meta = r.meta;
+                return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)' }}>{meta?.fcRank ? '#'+meta.fcRank : '\u2014'}</span></div>;
+              }
+              case 'starterSzn': return <div key={colKey} style={{...base}}><span style={{ color: (r.meta?.starterSeasons||0)>=3?'#2ECC71':(r.meta?.starterSeasons||0)>=1?'var(--gold)':'var(--silver)', fontWeight: 600 }}>{r.meta?.starterSeasons ?? '\u2014'}</span></div>;
+              case 'height': {
+                const h = r.p.height;
+                return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', fontSize: '0.6rem' }}>{h ? Math.floor(h/12)+"'"+h%12+'"' : '\u2014'}</span></div>;
+              }
+              case 'weight': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', fontSize: '0.6rem' }}>{r.p.weight || '\u2014'}</span></div>;
+              case 'depthChart': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', fontSize: '0.6rem' }}>{r.p.depth_chart_order ? '#'+r.p.depth_chart_order : '\u2014'}</span></div>;
+              case 'slot': return <div key={colKey} style={{...base}}><span style={{ fontSize:'0.52rem',color:'var(--silver)',opacity:0.5,textTransform:'uppercase' }}>{r.section==='starter'?'STR':r.section==='ir'?'IR':r.section==='taxi'?'TAX':'BN'}</span></div>;
+              default: return <div key={colKey} style={{...base}}>{'\u2014'}</div>;
+            }
+          }
 
           return (
             <div style={{ padding: '16px' }}>
@@ -2000,79 +2100,104 @@
                 <span style={{ marginLeft: 'auto', fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5 }}>{filtered.length} shown</span>
               </div>
 
-              {/* FM-style table */}
-              <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
-                {/* Sticky header */}
-                <div style={{ display: 'grid', gridTemplateColumns: grid, background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', position: 'sticky', top: 0, zIndex: 2 }}>
-                  {['','','Player','Pos','Age','DHQ','PPG','Prev','Trend','Peak','GP','Dur','Action','Slot'].map((h, i) => (
-                    <div key={i} onClick={() => {
-                      if (sortKeys[i]) setRosterSort(prev => prev.key === sortKeys[i] ? {...prev, dir: prev.dir * -1} : {key: sortKeys[i], dir: -1});
-                    }} style={{
-                      ...cellStyle, height: '28px', fontSize: '0.55rem', fontWeight: 700,
-                      color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase',
-                      letterSpacing: '0.04em', cursor: sortKeys[i] ? 'pointer' : 'default',
-                      justifyContent: i >= 4 ? 'center' : 'flex-start'
-                    }}>
-                      {h}{rosterSort.key === sortKeys[i] && sortKeys[i] ? (rosterSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
+              {/* Preset buttons + column picker */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.58rem', color: 'var(--silver)', opacity: 0.5, fontFamily: 'Oswald' }}>VIEW:</span>
+                {Object.entries(COLUMN_PRESETS).map(([key, cols]) => (
+                  <button key={key} onClick={() => { setVisibleCols(cols); setColPreset(key); }}
+                    style={{
+                      padding: '3px 10px', fontSize: '0.58rem', fontWeight: colPreset === key ? 700 : 400,
+                      fontFamily: 'Oswald', textTransform: 'uppercase',
+                      background: colPreset === key ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
+                      color: colPreset === key ? 'var(--black)' : 'var(--silver)',
+                      border: '1px solid ' + (colPreset === key ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
+                      borderRadius: '3px', cursor: 'pointer', letterSpacing: '0.03em'
+                    }}>{key}</button>
+                ))}
+                <button onClick={() => setShowColPicker(!showColPicker)} style={{
+                  marginLeft: 'auto', padding: '3px 10px', fontSize: '0.58rem',
+                  fontFamily: 'Oswald', background: showColPicker ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)',
+                  color: showColPicker ? 'var(--gold)' : 'var(--silver)',
+                  border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px', cursor: 'pointer'
+                }}>COLUMNS</button>
+              </div>
+
+              {/* Column picker dropdown */}
+              {showColPicker && (
+                <div style={{
+                  background: '#0a0a0a', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '8px',
+                  padding: '10px', marginBottom: '8px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px'
+                }}>
+                  {Object.entries(ROSTER_COLUMNS).map(([key, col]) => {
+                    const active = visibleCols.includes(key);
+                    return (
+                      <label key={key} style={{
+                        display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
+                        borderRadius: '4px', cursor: 'pointer', fontSize: '0.65rem',
+                        background: active ? 'rgba(212,175,55,0.1)' : 'transparent',
+                        color: active ? 'var(--gold)' : 'var(--silver)'
+                      }}>
+                        <input type="checkbox" checked={active} onChange={() => {
+                          if (active) setVisibleCols(prev => prev.filter(c => c !== key));
+                          else setVisibleCols(prev => [...prev, key]);
+                          setColPreset('custom');
+                        }} style={{ accentColor: 'var(--gold)' }} />
+                        {col.label}
+                        <span style={{ fontSize: '0.5rem', opacity: 0.4, marginLeft: 'auto' }}>{col.group}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Frozen left + scrollable right table */}
+              <div style={{ display: 'flex', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden', background: 'var(--black)' }}>
+                {/* Frozen columns: status + photo + name (always visible) */}
+                <div style={{ flexShrink: 0, width: '220px', borderRight: '2px solid rgba(212,175,55,0.15)' }}>
+                  {/* Header */}
+                  <div style={{ height: '30px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => setRosterSort(prev => prev.key === 'name' ? {...prev, dir: prev.dir*-1} : {key: 'name', dir: 1})}>
+                    Player{rosterSort.key === 'name' ? (rosterSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
+                  </div>
+                  {/* Rows */}
+                  {filtered.map(r => (
+                    <div key={r.pid+'f'} onClick={() => openFWPlayerModal(r.pid, playersData, statsData)} style={{
+                      height: '34px', display: 'flex', alignItems: 'center', gap: '6px', padding: '0 4px',
+                      borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer',
+                      borderLeft: '3px solid ' + statusCol(r.section),
+                      transition: 'background 0.1s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <img src={'https://sleepercdn.com/content/nfl/players/thumb/'+r.pid+'.jpg'} alt="" onError={e=>e.target.style.display='none'} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      <div style={{ overflow: 'hidden', flex: 1 }}>
+                        <div style={{ fontWeight: 600, color: 'var(--white)', fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getPlayerName(r.pid)}</div>
+                        <div style={{ fontSize: '0.5rem', color: 'var(--silver)', opacity: 0.5 }}>{r.p.team || 'FA'}{r.injury ? ' \u00B7 '+r.injury : ''}</div>
+                      </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Rows */}
-                <div style={{ maxHeight: '600px', overflow: 'auto' }}>
+                {/* Scrollable data columns */}
+                <div style={{ flex: 1, overflowX: 'auto' }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', height: '30px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)' }}>
+                    {visibleCols.map(colKey => {
+                      const col = ROSTER_COLUMNS[colKey];
+                      if (!col) return null;
+                      return (
+                        <div key={colKey} onClick={() => setRosterSort(prev => prev.key === colKey ? {...prev, dir: prev.dir*-1} : {key: colKey, dir: -1})}
+                          style={{ width: col.width, minWidth: col.width, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' }}>
+                          {col.label}{rosterSort.key === colKey ? (rosterSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Data rows */}
                   {filtered.map(r => (
-                    <div key={r.pid} onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(r.pid, playersData, statsData); }}
-                      style={{
-                        display: 'grid', gridTemplateColumns: grid, cursor: 'pointer',
-                        borderBottom: '1px solid rgba(255,255,255,0.03)',
-                        transition: 'background 0.1s', height: '32px'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      {/* Status strip */}
-                      <div style={{ background: statusCol(r.section), width: '3px', height: '100%' }}></div>
-                      {/* Photo */}
-                      <div style={{...cellStyle}}><img src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} /></div>
-                      {/* Name + Team */}
-                      <div style={{...cellStyle, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: '0px', lineHeight: 1.2 }}>
-                        <span style={{ fontWeight: 600, color: 'var(--white)', fontSize: '0.72rem' }}>{getPlayerName(r.pid)}</span>
-                        <span style={{ fontSize: '0.52rem', color: 'var(--silver)', opacity: 0.5 }}>{r.p.team || 'FA'}{r.injury ? ' \u00B7 ' + r.injury : ''}</span>
-                      </div>
-                      {/* Pos */}
-                      <div style={{...cellStyle, justifyContent: 'center'}}><span style={{ fontSize: '0.58rem', fontWeight: 700, padding: '1px 4px', borderRadius: '2px', background: (posColors[r.pos] || '#666') + '22', color: posColors[r.pos] || 'var(--silver)' }}>{r.pos}</span></div>
-                      {/* Age */}
-                      <div style={{...cellStyle, justifyContent: 'center', background: ageBg(r.age)}}><span style={{ color: ageCol(r.age), fontWeight: 600, fontFamily: 'Oswald' }}>{r.age || '\u2014'}</span></div>
-                      {/* DHQ */}
-                      <div style={{...cellStyle, justifyContent: 'center', background: dhqBg(r.dhq)}}><span style={{ color: dhqCol(r.dhq), fontWeight: 700, fontFamily: 'Oswald', fontSize: '0.72rem' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span></div>
-                      {/* PPG */}
-                      <div style={{...cellStyle, justifyContent: 'center', background: ppgBg(r.curPPG, r.pos)}}><span style={{ color: r.curPPG >= (posP75[r.pos]||10) ? '#2ECC71' : 'var(--silver)' }}>{r.curPPG || '\u2014'}</span></div>
-                      {/* Prev */}
-                      <div style={{...cellStyle, justifyContent: 'center'}}><span style={{ color: 'var(--silver)', opacity: 0.6 }}>{r.prevPPG || '\u2014'}</span></div>
-                      {/* Trend */}
-                      <div style={{...cellStyle, justifyContent: 'center', background: trendBg(r.trend)}}><span style={{ color: r.trend >= 15 ? '#2ECC71' : r.trend <= -15 ? '#E74C3C' : 'var(--silver)', fontWeight: 600, fontSize: '0.62rem' }}>{r.trend > 0 ? '+' + r.trend + '%' : r.trend < 0 ? r.trend + '%' : '\u2014'}</span></div>
-                      {/* Peak */}
-                      <div style={{...cellStyle, justifyContent: 'center', flexDirection: 'column', gap: '1px'}}>
-                        <span style={{ fontSize: '0.52rem', fontWeight: 700, color: r.peakPhase === 'PRIME' ? '#2ECC71' : r.peakPhase === 'PRE' ? '#3498DB' : '#E74C3C' }}>{r.peakPhase}</span>
-                        <div style={{ width: '30px', height: '3px', borderRadius: '1px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', position: 'relative' }}>
-                          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: '30%', background: 'rgba(52,152,219,0.4)' }}></div>
-                          <div style={{ position: 'absolute', left: '30%', top: 0, height: '100%', width: '40%', background: 'rgba(46,204,113,0.4)' }}></div>
-                          <div style={{ position: 'absolute', left: '70%', top: 0, height: '100%', width: '30%', background: 'rgba(231,76,60,0.3)' }}></div>
-                          <div style={{ position: 'absolute', left: r.peakPct + '%', top: '-1px', width: '2px', height: '5px', background: 'var(--white)', borderRadius: '1px' }}></div>
-                        </div>
-                      </div>
-                      {/* GP */}
-                      <div style={{...cellStyle, justifyContent: 'center'}}><span style={{ color: 'var(--silver)', fontSize: '0.62rem' }}>{r.curGP || '\u2014'}</span></div>
-                      {/* Durability bar */}
-                      <div style={{...cellStyle, justifyContent: 'center'}}>
-                        <div style={{ width: '24px', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                          <div style={{ width: Math.min(100, (r.curGP / 17) * 100) + '%', height: '100%', background: r.curGP >= 15 ? '#2ECC71' : r.curGP >= 10 ? '#F0A500' : '#E74C3C', borderRadius: '2px' }}></div>
-                        </div>
-                      </div>
-                      {/* Action */}
-                      <div style={{...cellStyle, justifyContent: 'center'}}><span style={{ fontSize: '0.58rem', fontWeight: 700, padding: '1px 6px', borderRadius: '2px', background: r.rec === 'BUY' ? 'rgba(46,204,113,0.15)' : r.rec === 'HOLD' ? 'rgba(212,175,55,0.12)' : 'rgba(231,76,60,0.12)', color: r.rec === 'BUY' ? '#2ECC71' : r.rec === 'HOLD' ? 'var(--gold)' : '#E74C3C' }}>{r.rec}</span></div>
-                      {/* Slot */}
-                      <div style={{...cellStyle, justifyContent: 'center'}}><span style={{ fontSize: '0.52rem', color: 'var(--silver)', opacity: 0.5, textTransform: 'uppercase' }}>{r.section === 'starter' ? 'STR' : r.section === 'ir' ? 'IR' : r.section === 'taxi' ? 'TAX' : 'BN'}</span></div>
+                    <div key={r.pid+'d'} style={{ display: 'flex', height: '34px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                      {visibleCols.map(colKey => ROSTER_COLUMNS[colKey] ? renderCell(colKey, r) : null)}
                     </div>
                   ))}
                 </div>

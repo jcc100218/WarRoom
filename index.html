@@ -2291,6 +2291,241 @@
     // END TRADE CALCULATOR TAB
     // ══════════════════════════════════════════════════════════════════════════
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // FREE AGENCY TAB — migrated from free-agency.html
+    // ══════════════════════════════════════════════════════════════════════════
+    function FreeAgencyTab({ playersData, statsData, myRoster, currentLeague, sleeperUserId }) {
+        const [faTargets, setFaTargets] = useState([]);
+        const [faFilter, setFaFilter] = useState('');
+        const [faBudget, setFaBudget] = useState({ total: 0, spent: 0 });
+
+        function normPos(pos) {
+            if (!pos) return null;
+            if (['DB','CB','S','SS','FS'].includes(pos)) return 'DB';
+            if (['DL','DE','DT','NT','IDL','EDGE'].includes(pos)) return 'DL';
+            if (['LB','OLB','ILB','MLB'].includes(pos)) return 'LB';
+            return pos;
+        }
+
+        function calcRawPts(s) {
+            if (!s) return 0;
+            const scoring = currentLeague?.scoring_settings;
+            if (scoring) {
+                let total = 0;
+                for (const [field, weight] of Object.entries(scoring)) {
+                    if (typeof weight !== 'number') continue;
+                    if (s[field] != null) total += Number(s[field]) * weight;
+                }
+                return total;
+            }
+            return Number(s.pts_half_ppr ?? s.pts_ppr ?? s.pts_std ?? 0);
+        }
+
+        // Load FA targets from Supabase/localStorage
+        useEffect(() => {
+            if (window.OD?.loadTargets) {
+                window.OD.loadTargets(currentLeague.league_id || currentLeague.id).then(data => {
+                    if (data) { setFaTargets(data.targets || []); setFaBudget({ total: data.startingBudget || 200, spent: 0 }); }
+                }).catch(() => {});
+            }
+        }, []);
+
+        // Find available (unrostered) players
+        const rostered = useMemo(() => {
+            const set = new Set();
+            (currentLeague.rosters || []).forEach(r => (r.players || []).concat(r.taxi || [], r.reserve || []).forEach(pid => set.add(String(pid))));
+            return set;
+        }, [currentLeague]);
+
+        const availablePlayers = useMemo(() => {
+            return Object.entries(playersData)
+                .filter(([pid, p]) => !rostered.has(pid) && p.team && p.status !== 'Inactive' && p.status !== 'Retired')
+                .map(([pid, p]) => ({ pid, p, dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
+                .filter(x => x.dhq > 0 || (x.p.years_exp || 0) > 0)
+                .sort((a, b) => b.dhq - a.dhq)
+                .slice(0, 200);
+        }, [playersData, rostered]);
+
+        const posColors = {QB:'#E74C3C',RB:'#2ECC71',WR:'#3498DB',TE:'#F0A500',K:'#9B59B6',DL:'#E67E22',LB:'#1ABC9C',DB:'#E91E63'};
+
+        return (
+            React.createElement('div', { style: { padding: '16px' } },
+                React.createElement('div', { style: { fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '12px' } }, 'FREE AGENCY'),
+
+                /* FAAB Bar */
+                React.createElement('div', { style: { display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' } },
+                    React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '10px 16px' } },
+                        React.createElement('div', { style: { fontSize: '0.55rem', color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' } }, 'FAAB Remaining'),
+                        React.createElement('div', { style: { fontSize: '1.4rem', fontFamily: 'Bebas Neue', color: '#2ECC71' } },
+                            '$' + (myRoster?.settings?.waiver_budget ? (myRoster.settings.waiver_budget - (myRoster.settings.waiver_budget_used || 0)) : '\u2014')
+                        )
+                    )
+                ),
+
+                /* Position filter */
+                React.createElement('div', { style: { display: 'flex', gap: '4px', marginBottom: '12px', flexWrap: 'wrap' } },
+                    ['', 'QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'].map(pos =>
+                        React.createElement('button', {
+                            key: pos, onClick: () => setFaFilter(pos),
+                            style: {
+                                padding: '4px 10px', fontSize: '0.6rem', fontFamily: 'Oswald', textTransform: 'uppercase',
+                                background: faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
+                                color: faFilter === pos ? 'var(--black)' : 'var(--silver)',
+                                border: '1px solid ' + (faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
+                                borderRadius: '3px', cursor: 'pointer'
+                            }
+                        }, pos || 'All')
+                    )
+                ),
+
+                /* Available players table */
+                React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' } },
+                    /* Header row */
+                    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '28px 1fr 36px 32px 54px 42px 42px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.04em' } },
+                        React.createElement('span', null, ''),
+                        React.createElement('span', null, 'Player'),
+                        React.createElement('span', null, 'Pos'),
+                        React.createElement('span', null, 'Age'),
+                        React.createElement('span', null, 'DHQ'),
+                        React.createElement('span', null, 'PPG'),
+                        React.createElement('span', null, 'Team')
+                    ),
+                    /* Body */
+                    React.createElement('div', { style: { maxHeight: '500px', overflow: 'auto' } },
+                        availablePlayers
+                            .filter(x => !faFilter || (normPos(x.p.position) === faFilter || x.p.position === faFilter))
+                            .slice(0, 50)
+                            .map(({ pid, p, dhq }) => {
+                                const pos = normPos(p.position) || p.position;
+                                const st = statsData[pid] || {};
+                                const ppg = st.gp > 0 ? +(calcRawPts(st) / st.gp).toFixed(1) : 0;
+                                const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)';
+                                return React.createElement('div', {
+                                    key: pid,
+                                    onClick: () => { if (window.openFWPlayerModal) openFWPlayerModal(pid, playersData, statsData); },
+                                    style: { display: 'grid', gridTemplateColumns: '28px 1fr 36px 32px 54px 42px 42px', gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.72rem', alignItems: 'center', transition: 'background 0.1s' },
+                                    onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)',
+                                    onMouseLeave: e => e.currentTarget.style.background = 'transparent'
+                                },
+                                    React.createElement('img', { src: 'https://sleepercdn.com/content/nfl/players/thumb/' + pid + '.jpg', alt: '', onError: e => e.target.style.display='none', style: { width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' } }),
+                                    React.createElement('div', { style: { overflow: 'hidden' } },
+                                        React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.full_name || (p.first_name + ' ' + p.last_name).trim())
+                                    ),
+                                    React.createElement('span', { style: { fontSize: '0.58rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' } }, pos),
+                                    React.createElement('span', { style: { color: 'var(--silver)' } }, p.age || '\u2014'),
+                                    React.createElement('span', { style: { fontWeight: 700, fontFamily: 'Oswald', color: dhqCol } }, dhq > 0 ? dhq.toLocaleString() : '\u2014'),
+                                    React.createElement('span', { style: { color: ppg > 0 ? 'var(--silver)' : 'rgba(255,255,255,0.2)' } }, ppg || '\u2014'),
+                                    React.createElement('span', { style: { fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5 } }, p.team || 'FA')
+                                );
+                            })
+                    )
+                )
+            )
+        );
+    }
+    // ══════════════════════════════════════════════════════════════════════════
+    // END FREE AGENCY TAB
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // DRAFT TAB — migrated from draft-warroom.html
+    // ══════════════════════════════════════════════════════════════════════════
+    function DraftTab({ playersData, statsData, myRoster, currentLeague, sleeperUserId }) {
+        const leagueSeason = parseInt(currentLeague.season || new Date().getFullYear());
+        const draftRounds = currentLeague.settings?.draft_rounds || 5;
+        const tradedPicks = window.S?.tradedPicks || [];
+
+        function normPos(pos) {
+            if (!pos) return null;
+            if (['DB','CB','S','SS','FS'].includes(pos)) return 'DB';
+            if (['DL','DE','DT','NT','IDL','EDGE'].includes(pos)) return 'DL';
+            if (['LB','OLB','ILB','MLB'].includes(pos)) return 'LB';
+            return pos;
+        }
+
+        // Build my picks
+        const myPicks = useMemo(() => {
+            const picks = [];
+            for (let yr = leagueSeason; yr <= leagueSeason + 2; yr++) {
+                for (let rd = 1; rd <= draftRounds; rd++) {
+                    const tradedAway = tradedPicks.find(p => parseInt(p.season) === yr && p.round === rd && p.roster_id === myRoster?.roster_id && p.owner_id !== myRoster?.roster_id);
+                    if (!tradedAway) picks.push({ year: yr, round: rd, own: true });
+                    const acquired = tradedPicks.filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === myRoster?.roster_id && p.roster_id !== myRoster?.roster_id);
+                    acquired.forEach(a => picks.push({ year: yr, round: rd, own: false, from: a.roster_id }));
+                }
+            }
+            return picks;
+        }, [tradedPicks, myRoster]);
+
+        // Find rookies
+        const rookies = useMemo(() => {
+            return Object.entries(playersData)
+                .filter(([pid, p]) => p.years_exp === 0 && (window.App?.LI?.playerScores?.[pid] || 0) > 0)
+                .map(([pid, p]) => ({ pid, p, dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
+                .sort((a, b) => b.dhq - a.dhq);
+        }, [playersData]);
+
+        const posColors = {QB:'#E74C3C',RB:'#2ECC71',WR:'#3498DB',TE:'#F0A500',K:'#9B59B6',DL:'#E67E22',LB:'#1ABC9C',DB:'#E91E63'};
+
+        return (
+            React.createElement('div', { style: { padding: '16px' } },
+                React.createElement('div', { style: { fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '12px' } }, 'DRAFT ROOM'),
+
+                /* My Picks */
+                React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' } },
+                    React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' } }, 'Your Picks'),
+                    React.createElement('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
+                        myPicks.map((pk, i) =>
+                            React.createElement('div', { key: i, style: { padding: '6px 12px', borderRadius: '6px', background: pk.own ? 'rgba(212,175,55,0.08)' : 'rgba(124,107,248,0.1)', border: '1px solid ' + (pk.own ? 'rgba(212,175,55,0.25)' : 'rgba(124,107,248,0.25)'), fontSize: '0.72rem' } },
+                                React.createElement('span', { style: { fontWeight: 700, color: pk.own ? 'var(--gold)' : '#a78bfa' } }, pk.year + ' R' + pk.round),
+                                !pk.own && React.createElement('span', { style: { fontSize: '0.58rem', color: 'var(--silver)', marginLeft: '4px' } }, 'acquired')
+                            )
+                        )
+                    )
+                ),
+
+                /* Rookie Board */
+                React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' } },
+                    /* Header row */
+                    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '24px 28px 1fr 36px 32px 54px 60px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' } },
+                        React.createElement('span', null, '#'),
+                        React.createElement('span', null, ''),
+                        React.createElement('span', null, 'Rookie'),
+                        React.createElement('span', null, 'Pos'),
+                        React.createElement('span', null, 'Age'),
+                        React.createElement('span', null, 'DHQ'),
+                        React.createElement('span', null, 'College')
+                    ),
+                    /* Body */
+                    React.createElement('div', { style: { maxHeight: '500px', overflow: 'auto' } },
+                        rookies.slice(0, 50).map(({ pid, p, dhq }, idx) => {
+                            const pos = normPos(p.position) || p.position;
+                            const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)';
+                            return React.createElement('div', {
+                                key: pid,
+                                onClick: () => { if (window.openFWPlayerModal) openFWPlayerModal(pid, playersData, statsData); },
+                                style: { display: 'grid', gridTemplateColumns: '24px 28px 1fr 36px 32px 54px 60px', gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.72rem', alignItems: 'center', transition: 'background 0.1s' },
+                                onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)',
+                                onMouseLeave: e => e.currentTarget.style.background = 'transparent'
+                            },
+                                React.createElement('span', { style: { fontFamily: 'Oswald', fontSize: '0.62rem', color: 'var(--silver)' } }, idx + 1),
+                                React.createElement('img', { src: 'https://sleepercdn.com/content/nfl/players/thumb/' + pid + '.jpg', alt: '', onError: e => e.target.style.display='none', style: { width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' } }),
+                                React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } }, p.full_name || (p.first_name + ' ' + p.last_name).trim()),
+                                React.createElement('span', { style: { fontSize: '0.58rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' } }, pos),
+                                React.createElement('span', { style: { color: 'var(--silver)' } }, p.age || '\u2014'),
+                                React.createElement('span', { style: { fontWeight: 700, fontFamily: 'Oswald', color: dhqCol } }, dhq > 0 ? dhq.toLocaleString() : '\u2014'),
+                                React.createElement('span', { style: { fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } }, p.college || '\u2014')
+                            );
+                        })
+                    )
+                )
+            )
+        );
+    }
+    // ══════════════════════════════════════════════════════════════════════════
+    // END DRAFT TAB
+    // ══════════════════════════════════════════════════════════════════════════
+
     // League Detail Component
     function LeagueDetail({ league, onBack, sleeperUserId }) {
         const [loading, setLoading] = useState(true);
@@ -2949,6 +3184,14 @@
             { label: 'Best trade targets', prompt: 'Who are my best trade targets right now based on roster needs and trade partner compatibility?' },
             { label: 'Sell high candidates', prompt: 'Which players on my roster should I sell high on in a trade?' },
           ];
+          if (activeTab === 'fa') return [...base,
+            { label: 'Best pickup?', prompt: 'Who is the best available free agent I should target right now?' },
+            { label: 'FAAB advice', prompt: 'How should I spend my remaining FAAB budget?' },
+          ];
+          if (activeTab === 'draft') return [...base,
+            { label: 'Who at my pick?', prompt: 'Who should I target with my draft picks this year?' },
+            { label: 'Draft strategy', prompt: 'What should my draft strategy be based on my roster needs?' },
+          ];
           return base;
         }
 
@@ -3554,8 +3797,8 @@
                         {label: 'My Team', tab: 'myteam'},
                         {label: 'Analytics', tab: 'analytics'},
                         {label: 'Trades', tab: 'trades'},
-                        {label: 'Free Agency', url: 'free-agency.html'},
-                        {label: 'Draft', url: 'draft-warroom.html'},
+                        {label: 'Free Agency', tab: 'fa'},
+                        {label: 'Draft', tab: 'draft'},
                         {label: 'Settings', action: () => setShowSettings(true)},
                     ].map((item, i) => {
                         const isActive = item.tab && activeTab === item.tab;
@@ -4236,7 +4479,23 @@
                         )}
                     </div>
                     );
-                })() : (
+                })() : activeTab === 'fa' ? (
+                    React.createElement(FreeAgencyTab, {
+                        playersData: playersData,
+                        statsData: statsData,
+                        myRoster: myRoster,
+                        currentLeague: currentLeague,
+                        sleeperUserId: sleeperUserId
+                    })
+                ) : activeTab === 'draft' ? (
+                    React.createElement(DraftTab, {
+                        playersData: playersData,
+                        statsData: statsData,
+                        myRoster: myRoster,
+                        currentLeague: currentLeague,
+                        sleeperUserId: sleeperUserId
+                    })
+                ) : (
                 <React.Fragment>
                 {/* THE ATHLETIC-STYLE DASHBOARD */}
                 <div style={{ padding: '16px', maxWidth: '1200px', margin: '0 auto' }}>

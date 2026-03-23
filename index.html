@@ -1134,7 +1134,7 @@
                                         <div key={username} style={{ padding: '0.5rem 0.6rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', border: `1px solid ${hasAccess ? 'rgba(46,204,113,0.3)' : 'rgba(212,175,55,0.15)'}` }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: link ? '0.4rem' : 0 }}>
                                                 {mate.avatar
-                                                    ? <img src={`https://sleepercdn.com/avatars/thumbs/${mate.avatar}`} style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0 }} onError={e => { e.target.style.display='none'; }} />
+                                                    ? <div style={{ width: 24, height: 24, flexShrink: 0 }}><img src={`https://sleepercdn.com/avatars/thumbs/${mate.avatar}`} style={{ width: 24, height: 24, borderRadius: '50%' }} onError={e => { e.target.style.display='none'; }} /></div>
                                                     : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(212,175,55,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.65rem', fontWeight:700, flexShrink: 0 }}>{(mate.display_name || username || '?')[0].toUpperCase()}</div>
                                                 }
                                                 <span style={{ flex: 1, fontSize: '0.78rem', color: 'var(--white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1181,7 +1181,42 @@
                         <div style={{ marginTop: '0.6rem', fontSize: '0.66rem', color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Manage your Dynasty HQ subscription</div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column' }}>
+                    {/* ── AI CONFIGURATION ── */}
+                    <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(212,175,55,0.2)' }}>
+                        <div style={{ fontFamily: 'Oswald', fontSize: '0.82rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>AI Configuration</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '0.5rem' }}>AI features are powered by the ReconAI panel. To configure your AI provider, visit the full ReconAI app:</div>
+                        <a href="https://jcc100218.github.io/ReconAI/" target="_blank" style={{ display: 'inline-block', padding: '6px 14px', background: 'linear-gradient(135deg, rgba(124,107,248,0.15), rgba(124,107,248,0.05))', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', color: '#a78bfa', textDecoration: 'none', fontSize: '0.72rem', fontWeight: 600 }}>
+                            Open ReconAI Settings
+                        </a>
+                    </div>
+
+                    {/* ── DATA MANAGEMENT ── */}
+                    <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(212,175,55,0.2)' }}>
+                        <div style={{ fontFamily: 'Oswald', fontSize: '0.82rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Data Management</div>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button onClick={() => {
+                                localStorage.removeItem('dhq_leagueintel_v9');
+                                Object.keys(localStorage).filter(k => k.startsWith('dhq_hist_')).forEach(k => localStorage.removeItem(k));
+                                if (window.App) { window.App.LI = {}; window.App.LI_LOADED = false; }
+                                alert('DHQ cache cleared. Reload to rebuild.');
+                            }} style={{ padding: '6px 12px', fontSize: '0.68rem', fontFamily: 'Oswald', background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '4px', color: '#E74C3C', cursor: 'pointer' }}>
+                                Clear DHQ Cache
+                            </button>
+                            <button onClick={() => { sessionStorage.clear(); alert('Session cache cleared.'); }}
+                                style={{ padding: '6px 12px', fontSize: '0.68rem', fontFamily: 'Oswald', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--silver)', cursor: 'pointer' }}>
+                                Clear Session Cache
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* ── ABOUT ── */}
+                    <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(212,175,55,0.2)' }}>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.5 }}>
+                            Fantasy War Room v2.0 &middot; Powered by DHQ Engine &middot; Part of the Fantasy Wars platform
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column', marginTop: '1.5rem' }}>
                         <button onClick={handleLogout} style={{ padding: '0.75rem', background: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)', border: 'none', borderRadius: '8px', color: 'white', fontFamily: 'Oswald, sans-serif', fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>
                             Logout
                         </button>
@@ -2298,6 +2333,7 @@
         const [faTargets, setFaTargets] = useState([]);
         const [faFilter, setFaFilter] = useState('');
         const [faBudget, setFaBudget] = useState({ total: 0, spent: 0 });
+        const [faSort, setFaSort] = useState({ key: 'dhq', dir: -1 });
 
         function normPos(pos) {
             if (!pos) return null;
@@ -2348,6 +2384,49 @@
 
         const posColors = {QB:'#E74C3C',RB:'#2ECC71',WR:'#3498DB',TE:'#F0A500',K:'#9B59B6',DL:'#E67E22',LB:'#1ABC9C',DB:'#E91E63'};
 
+        function faSortIndicator(key) { return faSort.key === key ? (faSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''; }
+        function handleFaSort(key) { setFaSort(prev => prev.key === key ? { ...prev, dir: prev.dir * -1 } : { key, dir: -1 }); }
+
+        // Sort filtered results
+        const sortedPlayers = useMemo(() => {
+            const filtered = availablePlayers.filter(x => !faFilter || (normPos(x.p.position) === faFilter || x.p.position === faFilter));
+            return filtered.sort((a, b) => {
+                const dir = faSort.dir;
+                const k = faSort.key;
+                if (k === 'name') {
+                    const na = (a.p.full_name || ((a.p.first_name || '') + ' ' + (a.p.last_name || '')).trim()).toLowerCase();
+                    const nb = (b.p.full_name || ((b.p.first_name || '') + ' ' + (b.p.last_name || '')).trim()).toLowerCase();
+                    return dir * na.localeCompare(nb);
+                }
+                if (k === 'pos') return dir * ((normPos(a.p.position) || '').localeCompare(normPos(b.p.position) || ''));
+                if (k === 'age') return dir * ((a.p.age || 0) - (b.p.age || 0));
+                if (k === 'dhq') return dir * (a.dhq - b.dhq);
+                if (k === 'ppg') {
+                    const sa = statsData[a.pid] || {}; const sb = statsData[b.pid] || {};
+                    const pa = sa.gp > 0 ? calcRawPts(sa) / sa.gp : 0;
+                    const pb = sb.gp > 0 ? calcRawPts(sb) / sb.gp : 0;
+                    return dir * (pa - pb);
+                }
+                if (k === 'team') return dir * ((a.p.team || '').localeCompare(b.p.team || ''));
+                if (k === 'trend') {
+                    const ta = window.App?.LI?.playerTrends?.[a.pid] || 0;
+                    const tb = window.App?.LI?.playerTrends?.[b.pid] || 0;
+                    return dir * (ta - tb);
+                }
+                if (k === 'peak') {
+                    const pa2 = window.App?.LI?.playerPeaks?.[a.pid] || 0;
+                    const pb2 = window.App?.LI?.playerPeaks?.[b.pid] || 0;
+                    return dir * (pa2 - pb2);
+                }
+                if (k === 'exp') return dir * ((a.p.years_exp || 0) - (b.p.years_exp || 0));
+                if (k === 'injury') return dir * ((a.p.injury_status || '').localeCompare(b.p.injury_status || ''));
+                return 0;
+            }).slice(0, 50);
+        }, [availablePlayers, faFilter, faSort, statsData]);
+
+        const faGridCols = '28px 1fr 36px 32px 54px 42px 42px 42px 36px 42px';
+        const faHeaderStyle = { fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' };
+
         return (
             React.createElement('div', { style: { padding: '16px' } },
                 React.createElement('div', { style: { fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '12px' } }, 'FREE AGENCY'),
@@ -2379,43 +2458,53 @@
                 ),
 
                 /* Available players table */
+                /* TODO: integrate shared ROSTER_COLUMNS + renderCell system */
                 React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' } },
-                    /* Header row */
-                    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '28px 1fr 36px 32px 54px 42px 42px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.04em' } },
-                        React.createElement('span', null, ''),
-                        React.createElement('span', null, 'Player'),
-                        React.createElement('span', null, 'Pos'),
-                        React.createElement('span', null, 'Age'),
-                        React.createElement('span', null, 'DHQ'),
-                        React.createElement('span', null, 'PPG'),
-                        React.createElement('span', null, 'Team')
+                    /* Header row - sortable */
+                    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: faGridCols, gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)' } },
+                        React.createElement('span', { style: faHeaderStyle }, ''),
+                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('name') }, 'Player' + faSortIndicator('name')),
+                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('pos') }, 'Pos' + faSortIndicator('pos')),
+                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('age') }, 'Age' + faSortIndicator('age')),
+                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('dhq') }, 'DHQ' + faSortIndicator('dhq')),
+                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('ppg') }, 'PPG' + faSortIndicator('ppg')),
+                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('trend') }, 'Trend' + faSortIndicator('trend')),
+                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('peak') }, 'Peak' + faSortIndicator('peak')),
+                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('exp') }, 'Exp' + faSortIndicator('exp')),
+                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('injury') }, 'Inj' + faSortIndicator('injury'))
                     ),
                     /* Body */
                     React.createElement('div', { style: { maxHeight: '500px', overflow: 'auto' } },
-                        availablePlayers
-                            .filter(x => !faFilter || (normPos(x.p.position) === faFilter || x.p.position === faFilter))
-                            .slice(0, 50)
+                        sortedPlayers
                             .map(({ pid, p, dhq }) => {
                                 const pos = normPos(p.position) || p.position;
                                 const st = statsData[pid] || {};
                                 const ppg = st.gp > 0 ? +(calcRawPts(st) / st.gp).toFixed(1) : 0;
                                 const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)';
+                                const trend = window.App?.LI?.playerTrends?.[pid] || 0;
+                                const peak = window.App?.LI?.playerPeaks?.[pid] || 0;
+                                const injStatus = p.injury_status || '';
                                 return React.createElement('div', {
                                     key: pid,
                                     onClick: () => { if (window.openFWPlayerModal) openFWPlayerModal(pid, playersData, statsData); },
-                                    style: { display: 'grid', gridTemplateColumns: '28px 1fr 36px 32px 54px 42px 42px', gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.72rem', alignItems: 'center', transition: 'background 0.1s' },
+                                    style: { display: 'grid', gridTemplateColumns: faGridCols, gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.72rem', alignItems: 'center', transition: 'background 0.1s' },
                                     onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)',
                                     onMouseLeave: e => e.currentTarget.style.background = 'transparent'
                                 },
-                                    React.createElement('img', { src: 'https://sleepercdn.com/content/nfl/players/thumb/' + pid + '.jpg', alt: '', onError: e => e.target.style.display='none', style: { width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' } }),
+                                    React.createElement('div', { style: { width: '22px', height: '22px', flexShrink: 0 } },
+                                        React.createElement('img', { src: 'https://sleepercdn.com/content/nfl/players/thumb/' + pid + '.jpg', alt: '', onError: e => e.target.style.display='none', style: { width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' } })
+                                    ),
                                     React.createElement('div', { style: { overflow: 'hidden' } },
-                                        React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.full_name || (p.first_name + ' ' + p.last_name).trim())
+                                        React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || 'Unknown')
                                     ),
                                     React.createElement('span', { style: { fontSize: '0.58rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' } }, pos),
                                     React.createElement('span', { style: { color: 'var(--silver)' } }, p.age || '\u2014'),
                                     React.createElement('span', { style: { fontWeight: 700, fontFamily: 'Oswald', color: dhqCol } }, dhq > 0 ? dhq.toLocaleString() : '\u2014'),
                                     React.createElement('span', { style: { color: ppg > 0 ? 'var(--silver)' : 'rgba(255,255,255,0.2)' } }, ppg || '\u2014'),
-                                    React.createElement('span', { style: { fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5 } }, p.team || 'FA')
+                                    React.createElement('span', { style: { fontSize: '0.6rem', color: trend > 0 ? '#2ECC71' : trend < 0 ? '#E74C3C' : 'var(--silver)', opacity: trend === 0 ? 0.3 : 1 } }, trend > 0 ? '+' + trend : trend || '\u2014'),
+                                    React.createElement('span', { style: { fontSize: '0.6rem', color: 'var(--silver)' } }, peak > 0 ? peak.toLocaleString() : '\u2014'),
+                                    React.createElement('span', { style: { fontSize: '0.58rem', color: 'var(--silver)', opacity: 0.6 } }, p.years_exp != null ? p.years_exp : '\u2014'),
+                                    React.createElement('span', { style: { fontSize: '0.55rem', color: injStatus ? '#E74C3C' : 'rgba(255,255,255,0.15)' } }, injStatus || '\u2014')
                                 );
                             })
                     )
@@ -2430,10 +2519,11 @@
     // ══════════════════════════════════════════════════════════════════════════
     // DRAFT TAB — migrated from draft-warroom.html
     // ══════════════════════════════════════════════════════════════════════════
-    function DraftTab({ playersData, statsData, myRoster, currentLeague, sleeperUserId }) {
+    function DraftTab({ playersData, statsData, myRoster, currentLeague, sleeperUserId, setReconPanelOpen, sendReconMessage }) {
         const leagueSeason = parseInt(currentLeague.season || new Date().getFullYear());
         const draftRounds = currentLeague.settings?.draft_rounds || 5;
         const tradedPicks = window.S?.tradedPicks || [];
+        const [draftSort, setDraftSort] = useState({ key: 'dhq', dir: -1 });
 
         function normPos(pos) {
             if (!pos) return null;
@@ -2457,64 +2547,117 @@
             return picks;
         }, [tradedPicks, myRoster]);
 
-        // Find rookies
+        // Find rookies — fixed filter to handle missing years_exp
         const rookies = useMemo(() => {
             return Object.entries(playersData)
-                .filter(([pid, p]) => p.years_exp === 0 && (window.App?.LI?.playerScores?.[pid] || 0) > 0)
+                .filter(([pid, p]) => {
+                    const exp = p.years_exp;
+                    const isRookie = exp === 0 || exp === null || exp === undefined;
+                    const hasValue = (window.App?.LI?.playerScores?.[pid] || 0) > 0;
+                    const hasName = p.full_name || p.first_name || p.last_name;
+                    return isRookie && hasName && (hasValue || p.team);
+                })
                 .map(([pid, p]) => ({ pid, p, dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
                 .sort((a, b) => b.dhq - a.dhq);
         }, [playersData]);
 
         const posColors = {QB:'#E74C3C',RB:'#2ECC71',WR:'#3498DB',TE:'#F0A500',K:'#9B59B6',DL:'#E67E22',LB:'#1ABC9C',DB:'#E91E63'};
 
+        function draftSortIndicator(key) { return draftSort.key === key ? (draftSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''; }
+        function handleDraftSort(key) { setDraftSort(prev => prev.key === key ? { ...prev, dir: prev.dir * -1 } : { key, dir: -1 }); }
+
+        const sortedRookies = useMemo(() => {
+            return rookies.slice().sort((a, b) => {
+                const dir = draftSort.dir;
+                const k = draftSort.key;
+                if (k === 'name') {
+                    const na = (a.p.full_name || ((a.p.first_name || '') + ' ' + (a.p.last_name || '')).trim()).toLowerCase();
+                    const nb = (b.p.full_name || ((b.p.first_name || '') + ' ' + (b.p.last_name || '')).trim()).toLowerCase();
+                    return dir * na.localeCompare(nb);
+                }
+                if (k === 'pos') return dir * ((normPos(a.p.position) || '').localeCompare(normPos(b.p.position) || ''));
+                if (k === 'age') return dir * ((a.p.age || 0) - (b.p.age || 0));
+                if (k === 'dhq') return dir * (a.dhq - b.dhq);
+                if (k === 'college') return dir * ((a.p.college || a.p.metadata?.college || '').localeCompare(b.p.college || b.p.metadata?.college || ''));
+                return 0;
+            }).slice(0, 50);
+        }, [rookies, draftSort]);
+
+        const draftGridCols = '24px 28px 1fr 36px 32px 54px 60px';
+        const draftHeaderStyle = { fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' };
+
         return (
             React.createElement('div', { style: { padding: '16px' } },
                 React.createElement('div', { style: { fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '12px' } }, 'DRAFT ROOM'),
 
-                /* My Picks */
+                /* Draft Class Preview — PFF reference (Issue #4) */
                 React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' } },
-                    React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' } }, 'Your Picks'),
-                    React.createElement('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
-                        myPicks.map((pk, i) =>
-                            React.createElement('div', { key: i, style: { padding: '6px 12px', borderRadius: '6px', background: pk.own ? 'rgba(212,175,55,0.08)' : 'rgba(124,107,248,0.1)', border: '1px solid ' + (pk.own ? 'rgba(212,175,55,0.25)' : 'rgba(124,107,248,0.25)'), fontSize: '0.72rem' } },
-                                React.createElement('span', { style: { fontWeight: 700, color: pk.own ? 'var(--gold)' : '#a78bfa' } }, pk.year + ' R' + pk.round),
-                                !pk.own && React.createElement('span', { style: { fontSize: '0.58rem', color: 'var(--silver)', marginLeft: '4px' } }, 'acquired')
-                            )
-                        )
+                    React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' } }, 'Draft Class Preview'),
+                    React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.6 } },
+                        'Based on PFF and consensus rankings, the strongest position groups in the upcoming draft class are typically available via the AI advisor. Click the ReconAI panel and ask about specific positions or prospects.'
+                    ),
+                    React.createElement('div', { style: { display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' } },
+                        React.createElement('button', {
+                            onClick: () => { if (typeof setReconPanelOpen === 'function') { setReconPanelOpen(true); sendReconMessage('What are the strongest position groups in the upcoming rookie draft class?'); } },
+                            style: { padding: '4px 10px', fontSize: '0.6rem', fontFamily: 'Oswald', background: 'rgba(124,107,248,0.1)', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '4px', color: '#a78bfa', cursor: 'pointer' }
+                        }, 'Ask ReconAI about draft class')
                     )
                 ),
 
-                /* Rookie Board */
+                /* My Picks — grouped by year (Issue #2) */
+                React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' } },
+                    React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' } }, 'Your Picks'),
+                    [leagueSeason, leagueSeason + 1, leagueSeason + 2].map(yr => {
+                        const yearPicks = myPicks.filter(pk => pk.year === yr);
+                        if (!yearPicks.length) return null;
+                        return React.createElement('div', { key: yr, style: { marginBottom: '12px' } },
+                            React.createElement('div', { style: { fontSize: '0.62rem', color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' } }, yr),
+                            React.createElement('div', { style: { display: 'flex', gap: '4px', flexWrap: 'wrap' } },
+                                yearPicks.map((pk, i) =>
+                                    React.createElement('div', { key: i, style: { padding: '4px 8px', borderRadius: '4px', background: pk.own ? 'rgba(212,175,55,0.08)' : 'rgba(124,107,248,0.1)', border: '1px solid ' + (pk.own ? 'rgba(212,175,55,0.25)' : 'rgba(124,107,248,0.25)'), fontSize: '0.65rem' } },
+                                        React.createElement('span', { style: { fontWeight: 700, color: pk.own ? 'var(--gold)' : '#a78bfa' } }, 'R' + pk.round),
+                                        !pk.own && React.createElement('span', { style: { fontSize: '0.55rem', color: 'var(--silver)', marginLeft: '4px' } }, '(acq)')
+                                    )
+                                )
+                            )
+                        );
+                    })
+                ),
+
+                /* Rookie Board — with sortable headers (Issues #3, #7, #8) */
+                /* TODO: integrate shared ROSTER_COLUMNS + renderCell system */
                 React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' } },
-                    /* Header row */
-                    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '24px 28px 1fr 36px 32px 54px 60px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' } },
-                        React.createElement('span', null, '#'),
-                        React.createElement('span', null, ''),
-                        React.createElement('span', null, 'Rookie'),
-                        React.createElement('span', null, 'Pos'),
-                        React.createElement('span', null, 'Age'),
-                        React.createElement('span', null, 'DHQ'),
-                        React.createElement('span', null, 'College')
+                    /* Header row - sortable */
+                    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: draftGridCols, gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)' } },
+                        React.createElement('span', { style: { ...draftHeaderStyle, cursor: 'default' } }, '#'),
+                        React.createElement('span', { style: draftHeaderStyle }, ''),
+                        React.createElement('span', { style: draftHeaderStyle, onClick: () => handleDraftSort('name') }, 'Rookie' + draftSortIndicator('name')),
+                        React.createElement('span', { style: draftHeaderStyle, onClick: () => handleDraftSort('pos') }, 'Pos' + draftSortIndicator('pos')),
+                        React.createElement('span', { style: draftHeaderStyle, onClick: () => handleDraftSort('age') }, 'Age' + draftSortIndicator('age')),
+                        React.createElement('span', { style: draftHeaderStyle, onClick: () => handleDraftSort('dhq') }, 'DHQ' + draftSortIndicator('dhq')),
+                        React.createElement('span', { style: draftHeaderStyle, onClick: () => handleDraftSort('college') }, 'College' + draftSortIndicator('college'))
                     ),
                     /* Body */
                     React.createElement('div', { style: { maxHeight: '500px', overflow: 'auto' } },
-                        rookies.slice(0, 50).map(({ pid, p, dhq }, idx) => {
+                        sortedRookies.map(({ pid, p, dhq }, idx) => {
                             const pos = normPos(p.position) || p.position;
                             const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)';
                             return React.createElement('div', {
                                 key: pid,
                                 onClick: () => { if (window.openFWPlayerModal) openFWPlayerModal(pid, playersData, statsData); },
-                                style: { display: 'grid', gridTemplateColumns: '24px 28px 1fr 36px 32px 54px 60px', gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.72rem', alignItems: 'center', transition: 'background 0.1s' },
+                                style: { display: 'grid', gridTemplateColumns: draftGridCols, gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.72rem', alignItems: 'center', transition: 'background 0.1s' },
                                 onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)',
                                 onMouseLeave: e => e.currentTarget.style.background = 'transparent'
                             },
                                 React.createElement('span', { style: { fontFamily: 'Oswald', fontSize: '0.62rem', color: 'var(--silver)' } }, idx + 1),
-                                React.createElement('img', { src: 'https://sleepercdn.com/content/nfl/players/thumb/' + pid + '.jpg', alt: '', onError: e => e.target.style.display='none', style: { width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' } }),
-                                React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } }, p.full_name || (p.first_name + ' ' + p.last_name).trim()),
+                                React.createElement('div', { style: { width: '22px', height: '22px', flexShrink: 0 } },
+                                    React.createElement('img', { src: 'https://sleepercdn.com/content/nfl/players/thumb/' + pid + '.jpg', alt: '', onError: e => e.target.style.display='none', style: { width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' } })
+                                ),
+                                React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } }, p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || 'Unknown'),
                                 React.createElement('span', { style: { fontSize: '0.58rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' } }, pos),
                                 React.createElement('span', { style: { color: 'var(--silver)' } }, p.age || '\u2014'),
                                 React.createElement('span', { style: { fontWeight: 700, fontFamily: 'Oswald', color: dhqCol } }, dhq > 0 ? dhq.toLocaleString() : '\u2014'),
-                                React.createElement('span', { style: { fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } }, p.college || '\u2014')
+                                React.createElement('span', { style: { fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } }, p.college || p.metadata?.college || '\u2014')
                             );
                         })
                     )
@@ -2562,6 +2705,7 @@
         const [loadStage, setLoadStage] = useState('');
         const [editingKpi, setEditingKpi] = useState(null); // index being edited, null = not editing
         const [leagueSelectedTeam, setLeagueSelectedTeam] = useState(null);
+        const [leagueSort, setLeagueSort] = useState('wins');
 
         // Default 5 KPIs — customizable per owner, saved in localStorage
         const KPI_OPTIONS = {
@@ -3055,15 +3199,20 @@
         }
 
         async function generateHeroStory() {
+            if (typeof dhqAI !== 'function' && typeof window.dhqAI !== 'function' && typeof window.callClaude !== 'function') {
+                setHeroStory('AI stories require an API key. Add one in Settings to enable AI-generated narratives.');
+                return;
+            }
             setHeroStory('Generating...');
             try {
                 const ctx = typeof dhqContext === 'function' ? dhqContext(true) : '';
                 const prompt = "Write a 3-4 sentence sports journalist narrative about the current state of this dynasty league. Focus on the biggest storyline this week — trades, injuries, power shifts, or playoff implications. Write in the style of The Athletic — dramatic, informed, specific. Use owner names and player names when possible.";
-                const reply = await dhqAI('home-chat', prompt, ctx);
+                const aiFn = typeof dhqAI === 'function' ? dhqAI : window.dhqAI;
+                const reply = await aiFn('home-chat', prompt, ctx);
                 setHeroStory(reply || 'Unable to generate story at this time.');
             } catch(e) {
                 console.warn('Hero story generation error:', e);
-                setHeroStory('Unable to generate story. Make sure League Intelligence has loaded.');
+                setHeroStory('Unable to generate story. Check your API key in Settings, or ensure League Intelligence has loaded.');
             }
         }
 
@@ -3305,12 +3454,14 @@
                         onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
                         onMouseLeave={e => e.currentTarget.style.color = 'var(--white)'}
                     >
+                        <div style={{ width: '28px', height: '28px', flexShrink: 0 }}>
                         <img
                             src={`https://sleepercdn.com/content/nfl/players/thumb/${playerId}.jpg`}
                             alt=""
                             onError={e => { e.target.style.display = 'none'; }}
-                            style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                            style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
                         />
+                        </div>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {getPlayerName(playerId)} <span style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.5 }}>{team}</span>
                         </span>
@@ -3372,6 +3523,15 @@
 
         // --- My Team Tab helpers ---
         function getAcquisitionInfo(pid, rosterId) {
+            // Check recent transactions (waiver claims, FA adds)
+            const txns = transactions || [];
+            for (const t of txns) {
+                if ((t.type === 'waiver' || t.type === 'free_agent') && t.adds && t.adds[pid] != null) {
+                    const cost = t.settings?.waiver_bid || 0;
+                    const date = t.created ? new Date(t.created * 1000).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '\u2014';
+                    return { method: t.type === 'waiver' ? 'Waiver' : 'FA', date, cost: cost > 0 ? '$' + cost : '', season: '', week: 0 };
+                }
+            }
             // Check trades
             const trades = window.App?.LI?.tradeHistory || [];
             for (const t of trades) {
@@ -3380,17 +3540,17 @@
                 if (side && side.players && side.players.includes(pid)) {
                     const season = t.season || '';
                     const week = t.week || '';
-                    return { method: 'Traded', date: season + ' W' + week, season, week };
+                    return { method: 'Traded', date: season + ' W' + week, cost: '', season, week };
                 }
             }
             // Check draft outcomes
             const drafts = window.App?.LI?.draftOutcomes || [];
             const draftPick = drafts.find(d => d.pid === pid && d.roster_id === rosterId);
             if (draftPick) {
-                return { method: 'Drafted', date: draftPick.season + ' R' + draftPick.round, season: draftPick.season, week: 0 };
+                return { method: 'Drafted', date: draftPick.season + ' R' + draftPick.round, cost: '', season: draftPick.season, week: 0 };
             }
             // Default: original/unknown
-            return { method: 'Original', date: '\u2014', season: '', week: 0 };
+            return { method: 'Original', date: '\u2014', cost: '', season: '', week: 0 };
         }
 
         function renderLeagueTab() {
@@ -3410,11 +3570,34 @@
             return renderTeamRoster(selectedTeam);
           }
 
+          const sortedStandings = [...standings].sort((a, b) => {
+            if (leagueSort === 'dhq') {
+              const rA = currentLeague.rosters.find(r => r.owner_id === a.userId);
+              const rB = currentLeague.rosters.find(r => r.owner_id === b.userId);
+              const dhqA = (rA?.players || []).reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
+              const dhqB = (rB?.players || []).reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
+              return dhqB - dhqA;
+            }
+            // default: wins
+            if (b.wins !== a.wins) return b.wins - a.wins;
+            return b.losses - a.losses;
+          });
+          const sortBtnStyle = (active) => ({
+            padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', transition: 'all 0.15s',
+            border: '1px solid ' + (active ? 'var(--gold)' : 'rgba(212,175,55,0.3)'),
+            background: active ? 'var(--gold)' : 'transparent',
+            color: active ? 'var(--black)' : 'var(--gold)',
+          });
+
           return (
             <div style={{ padding: '16px' }}>
-              <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '12px' }}>LEAGUE ROSTERS</div>
+              <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '8px' }}>LEAGUE ROSTERS</div>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+                <button onClick={() => setLeagueSort('wins')} style={sortBtnStyle(leagueSort === 'wins')}>Wins</button>
+                <button onClick={() => setLeagueSort('dhq')} style={sortBtnStyle(leagueSort === 'dhq')}>DHQ Value</button>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
-                {standings.map(team => {
+                {sortedStandings.map(team => {
                   const roster = currentLeague.rosters.find(r => r.owner_id === team.userId);
                   const totalDHQ = (roster?.players || []).reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
                   const isMe = team.userId === sleeperUserId;
@@ -3436,14 +3619,43 @@
                           <div style={{ fontSize: '0.62rem', color: 'var(--silver)' }}>{team.wins}-{team.losses} {'\u00B7'} {totalDHQ > 0 ? (totalDHQ/1000).toFixed(0) + 'k DHQ' : '\u2014'}</div>
                         </div>
                       </div>
-                      <div style={{ fontSize: '0.62rem', color: 'var(--silver)', lineHeight: 1.6 }}>
-                        {(roster?.players || []).map(pid => ({ pid, dhq: window.App?.LI?.playerScores?.[pid] || 0 })).sort((a,b) => b.dhq - a.dhq).slice(0, 3).map(x => (
-                          <div key={x.pid} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>{playersData[x.pid]?.full_name || '?'}</span>
-                            <span style={{ color: x.dhq >= 7000 ? '#2ECC71' : x.dhq >= 4000 ? '#3498DB' : 'var(--silver)', fontFamily: 'Oswald' }}>{x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'}</span>
+                      {(() => {
+                        const rPlayers = roster?.players || [];
+                        const scored = rPlayers.map(pid => ({ pid, dhq: window.App?.LI?.playerScores?.[pid] || 0, meta: window.App?.LI?.playerMeta?.[pid] }));
+                        const allScoresLg = Object.values(window.App?.LI?.playerScores || {}).filter(v => v > 0).sort((a2,b2) => b2 - a2);
+                        const eliteThr = allScoresLg.length > 20 ? allScoresLg[Math.floor(allScoresLg.length * 0.05)] : 5000;
+                        const eliteCount = scored.filter(x => x.dhq >= eliteThr).length;
+                        const ages = scored.map(x => x.meta?.age).filter(a2 => a2 && a2 > 18 && a2 < 45);
+                        const avgAge = ages.length > 0 ? (ages.reduce((s,a2) => s + a2, 0) / ages.length).toFixed(1) : '\u2014';
+                        // Positional needs: positions where team is below league avg investment
+                        const posNeeds = [];
+                        const LIx = window.App?.LI;
+                        if (LIx?.playerMeta) {
+                          const posDhq = {};
+                          scored.forEach(x => { const pos2 = x.meta?.pos || 'UNK'; posDhq[pos2] = (posDhq[pos2] || 0) + x.dhq; });
+                          const teamTotal = scored.reduce((s,x) => s + x.dhq, 0) || 1;
+                          ['QB','RB','WR','TE'].forEach(pos2 => {
+                            const pct = (posDhq[pos2] || 0) / teamTotal;
+                            if (pct < 0.10) posNeeds.push(pos2);
+                          });
+                        }
+                        return (
+                          <div style={{ fontSize: '0.62rem', color: 'var(--silver)', lineHeight: 1.6 }}>
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '4px', opacity: 0.7 }}>
+                              <span>{rPlayers.length} players</span>
+                              <span>{'\u00B7'} Avg {avgAge}yr</span>
+                              <span>{'\u00B7'} {eliteCount} elite</span>
+                            </div>
+                            {posNeeds.length > 0 && <div style={{ fontSize: '0.56rem', color: '#F0A500', marginBottom: '4px' }}>Needs: {posNeeds.join(', ')}</div>}
+                            {scored.sort((a2,b2) => b2.dhq - a2.dhq).slice(0, 3).map(x => (
+                              <div key={x.pid} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>{playersData[x.pid]?.full_name || '?'}</span>
+                                <span style={{ color: x.dhq >= eliteThr ? '#2ECC71' : x.dhq >= 4000 ? '#3498DB' : 'var(--silver)', fontFamily: 'Oswald' }}>{x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'}</span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -3473,6 +3685,7 @@
                 <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--gold)', marginBottom: '4px' }}>{team.displayName}</div>
                 <div style={{ fontSize: '0.68rem', color: 'var(--silver)', marginBottom: '16px' }}>{team.wins}-{team.losses} {'\u00B7'} {players.reduce((s,r) => s + r.dhq, 0).toLocaleString()} Total DHQ {'\u00B7'} {players.length} players</div>
 
+                {/* TODO: integrate shared ROSTER_COLUMNS + renderCell system */}
                 <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '3px 28px 1fr 36px 32px 54px 42px 60px 52px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' }}>
                     <span></span><span></span><span>Player</span><span>Pos</span><span>Age</span><span>DHQ</span><span>PPG</span><span>Acquired</span><span>Date</span>
@@ -3485,7 +3698,7 @@
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
                         <div style={{ background: r.isStarter ? 'var(--gold)' : 'transparent', width: '3px', height: '100%' }}></div>
-                        <img src={`https://sleepercdn.com/content/nfl/players/thumb/${r.pid}.jpg`} alt="" onError={e=>e.target.style.display='none'} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
+                        <div style={{ width: '22px', height: '22px', flexShrink: 0 }}><img src={`https://sleepercdn.com/content/nfl/players/thumb/${r.pid}.jpg`} alt="" onError={e=>e.target.style.display='none'} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} /></div>
                         <div style={{ overflow: 'hidden' }}>
                           <div style={{ fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.p.full_name || (r.p.first_name + ' ' + r.p.last_name).trim()}</div>
                           <div style={{ fontSize: '0.5rem', color: 'var(--silver)', opacity: 0.5 }}>{r.p.team || 'FA'}</div>
@@ -3494,7 +3707,7 @@
                         <span style={{ color: 'var(--silver)' }}>{r.p.age || '\u2014'}</span>
                         <span style={{ fontWeight: 700, fontFamily: 'Oswald', color: r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#3498DB' : r.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span>
                         <span style={{ color: 'var(--silver)' }}>{r.ppg || '\u2014'}</span>
-                        <span style={{ fontSize: '0.58rem', fontWeight: 600, color: r.acq.method === 'Drafted' ? '#a78bfa' : r.acq.method === 'Traded' ? '#F0A500' : r.acq.method === 'Waiver' ? '#2ECC71' : 'var(--silver)' }}>{r.acq.method}</span>
+                        <span style={{ fontSize: '0.58rem', fontWeight: 600, color: r.acq.method === 'Drafted' ? '#a78bfa' : r.acq.method === 'Traded' ? '#F0A500' : r.acq.method === 'Waiver' ? '#2ECC71' : r.acq.method === 'FA' ? '#1ABC9C' : 'var(--silver)' }}>{r.acq.method}{r.acq.cost ? ' ' + r.acq.cost : ''}</span>
                         <span style={{ fontSize: '0.56rem', color: 'var(--silver)', opacity: 0.5 }}>{r.acq.date}</span>
                       </div>
                     ))}
@@ -3706,8 +3919,8 @@
               case 'slot': return <div key={colKey} style={{...base}}><span style={{ fontSize:'0.52rem',color:'var(--silver)',opacity:0.5,textTransform:'uppercase' }}>{r.section==='starter'?'STR':r.section==='ir'?'IR':r.section==='taxi'?'TAX':'BN'}</span></div>;
               case 'acquired': {
                 const acq = getAcquisitionInfo(r.pid, myRoster?.roster_id);
-                const col = acq.method === 'Drafted' ? '#a78bfa' : acq.method === 'Traded' ? '#F0A500' : acq.method === 'Waiver' ? '#2ECC71' : 'var(--silver)';
-                return <div key={colKey} style={{...base}}><span style={{ fontSize: '0.58rem', fontWeight: 600, color: col }}>{acq.method}</span></div>;
+                const col = acq.method === 'Drafted' ? '#a78bfa' : acq.method === 'Traded' ? '#F0A500' : acq.method === 'Waiver' ? '#2ECC71' : acq.method === 'FA' ? '#1ABC9C' : 'var(--silver)';
+                return <div key={colKey} style={{...base}}><span style={{ fontSize: '0.58rem', fontWeight: 600, color: col }}>{acq.method}{acq.cost ? ' ' + acq.cost : ''}</span></div>;
               }
               case 'acquiredDate': {
                 const acq = getAcquisitionInfo(r.pid, myRoster?.roster_id);
@@ -3791,6 +4004,7 @@
               )}
 
               {/* Frozen left + scrollable right table */}
+              {/* TODO: integrate shared ROSTER_COLUMNS + renderCell system */}
               <div style={{ display: 'flex', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden', background: 'var(--black)' }}>
                 {/* Frozen columns: status + photo + name (always visible) */}
                 <div style={{ flexShrink: 0, width: '220px', borderRight: '2px solid rgba(212,175,55,0.15)' }}>
@@ -3810,7 +4024,7 @@
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
-                      <img src={'https://sleepercdn.com/content/nfl/players/thumb/'+r.pid+'.jpg'} alt="" onError={e=>e.target.style.display='none'} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      <div style={{ width: '24px', height: '24px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+r.pid+'.jpg'} alt="" onError={e=>e.target.style.display='none'} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} /></div>
                       <div style={{ overflow: 'hidden', flex: 1 }}>
                         <div style={{ fontWeight: 600, color: 'var(--white)', fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getPlayerName(r.pid)}</div>
                         <div style={{ fontSize: '0.5rem', color: 'var(--silver)', opacity: 0.5 }}>{r.p.team || 'FA'}{r.injury ? ' \u00B7 '+r.injury : ''}</div>
@@ -4200,12 +4414,13 @@
                         background: active ? 'var(--gold)' : 'transparent',
                         color: active ? 'var(--black)' : 'var(--gold)',
                     });
-                    const tableRowStyle = (i) => ({ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', ...(i === 0 ? { fontWeight: 700, color: 'var(--gold)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' } : { color: 'var(--silver)' }) });
+                    const tableRowStyle = (i) => ({ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', ...(i === 0 ? { fontWeight: 700, color: 'var(--gold)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' } : { color: 'var(--silver)' }) });
                     const d = analyticsData;
 
                     return (
                     <div style={{ padding: '16px' }}>
-                        <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '16px' }}>LEAGUE ANALYTICS</div>
+                        <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '4px' }}>LEAGUE ANALYTICS</div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '16px' }}>Winners = top 3 by record (championship bracket data not yet available)</div>
 
                         {/* Sub-tab navigation */}
                         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
@@ -4226,27 +4441,48 @@
                             const r = d.roster;
                             if (!r) return <div style={{ color: 'var(--silver)' }}>No roster data available.</div>;
                             const w = r.winnerProfile;
+                            const l = r.leagueProfile;
                             const m = r.myProfile;
+                            // Dynamic elite threshold: top 5% of all valued players, or 5000 if league max < 8000
+                            const allScores = Object.values(window.App?.LI?.playerScores || {}).filter(v => v > 0).sort((a,b) => b - a);
+                            const eliteThreshold = allScores.length > 20 ? allScores[Math.floor(allScores.length * 0.05)] : 5000;
+                            // Recompute elite counts with dynamic threshold
+                            const playerScores = window.App?.LI?.playerScores || {};
+                            const SS = window.S || window.App?.S;
+                            const allRosters = SS?.rosters || [];
+                            const winnerIds = new Set(d.winners || []);
+                            function countElite(rosterList) {
+                                if (!rosterList.length) return 0;
+                                let total = 0;
+                                rosterList.forEach(ros => { total += (ros.players || []).filter(pid => (playerScores[pid] || 0) >= eliteThreshold).length; });
+                                return +(total / rosterList.length).toFixed(1);
+                            }
+                            const wElite = countElite(allRosters.filter(ros => winnerIds.has(ros.roster_id)));
+                            const lElite = countElite(allRosters);
+                            const myRid = SS?.myRosterId;
+                            const mElite = countElite(allRosters.filter(ros => ros.roster_id === myRid));
+                            const eliteLabel = 'Elite (' + Math.round(eliteThreshold).toLocaleString() + '+)';
                             const rows = [
-                                ['Avg Age', w.avgAge, m.avgAge, (m.avgAge - w.avgAge).toFixed(1), m.avgAge > w.avgAge + 1],
-                                ['Elite Players', w.avgEliteCount, m.avgEliteCount, (m.avgEliteCount - w.avgEliteCount).toFixed(1), m.avgEliteCount < w.avgEliteCount - 0.3],
-                                ['Starters', w.avgStarterCount, m.avgStarterCount, (m.avgStarterCount - w.avgStarterCount).toFixed(1), m.avgStarterCount < w.avgStarterCount - 0.5],
-                                ['Top 5 Conc.', pctFmt(w.topPlayerConcentration), pctFmt(m.topPlayerConcentration), ((m.topPlayerConcentration - w.topPlayerConcentration) * 100).toFixed(0) + '%', Math.abs(m.topPlayerConcentration - w.topPlayerConcentration) > 0.10],
-                                ['Bench Quality', numFmt(w.avgBenchQuality), numFmt(m.avgBenchQuality), numFmt(m.avgBenchQuality - w.avgBenchQuality), m.avgBenchQuality < w.avgBenchQuality * 0.75],
-                                ['Total DHQ', numFmt(w.avgTotalDHQ), numFmt(m.avgTotalDHQ), numFmt(m.avgTotalDHQ - w.avgTotalDHQ), m.avgTotalDHQ < w.avgTotalDHQ * 0.85],
+                                ['Avg Age', w.avgAge, l.avgAge, m.avgAge, (m.avgAge - w.avgAge).toFixed(1), m.avgAge > w.avgAge + 1],
+                                [eliteLabel, wElite, lElite, mElite, (mElite - wElite).toFixed(1), mElite < wElite - 0.3],
+                                ['Starters', w.avgStarterCount, l.avgStarterCount, m.avgStarterCount, (m.avgStarterCount - w.avgStarterCount).toFixed(1), m.avgStarterCount < w.avgStarterCount - 0.5],
+                                ['Top 5 Conc.', pctFmt(w.topPlayerConcentration), pctFmt(l.topPlayerConcentration), pctFmt(m.topPlayerConcentration), ((m.topPlayerConcentration - w.topPlayerConcentration) * 100).toFixed(0) + '%', Math.abs(m.topPlayerConcentration - w.topPlayerConcentration) > 0.10],
+                                ['Bench Quality', numFmt(w.avgBenchQuality), numFmt(l.avgBenchQuality), numFmt(m.avgBenchQuality), numFmt(m.avgBenchQuality - w.avgBenchQuality), m.avgBenchQuality < w.avgBenchQuality * 0.75],
+                                ['Total DHQ', numFmt(w.avgTotalDHQ), numFmt(l.avgTotalDHQ), numFmt(m.avgTotalDHQ), numFmt(m.avgTotalDHQ - w.avgTotalDHQ), m.avgTotalDHQ < w.avgTotalDHQ * 0.85],
                             ];
                             const allPos = [...new Set([...Object.keys(w.posInvestment || {}), ...Object.keys(m.posInvestment || {})])].filter(p => p !== 'UNK').sort();
                             return (
                             <React.Fragment>
                                 <div style={aCardStyle}>
-                                    <div style={aHeaderStyle}>WINNER TEMPLATE vs YOUR ROSTER</div>
+                                    <div style={aHeaderStyle}>CHAMPION TEMPLATE vs YOUR ROSTER</div>
                                     <div style={{ ...tableRowStyle(0) }}>
-                                        <div>Metric</div><div>Winners</div><div>You</div><div>Gap</div>
+                                        <div>Metric</div><div>Champions</div><div>League Avg</div><div>You</div><div>Gap</div>
                                     </div>
-                                    {rows.map(([label, wVal, mVal, delta, isBad], i) => (
+                                    {rows.map(([label, wVal, lVal, mVal, delta, isBad], i) => (
                                         <div key={i} style={{ ...tableRowStyle(1), ...aValStyle }}>
                                             <div style={{ color: 'var(--silver)' }}>{label}</div>
                                             <div style={{ color: 'var(--gold)' }}>{wVal}</div>
+                                            <div style={{ color: 'var(--silver)', opacity: 0.7 }}>{lVal}</div>
                                             <div>{mVal}</div>
                                             <div style={{ color: isBad ? badColor : warnColor }}>{isBad ? '\uD83D\uDD34' : '\u26A0\uFE0F'} {delta > 0 ? '+' : ''}{delta}</div>
                                         </div>
@@ -4646,7 +4882,9 @@
                         statsData: statsData,
                         myRoster: myRoster,
                         currentLeague: currentLeague,
-                        sleeperUserId: sleeperUserId
+                        sleeperUserId: sleeperUserId,
+                        setReconPanelOpen: setReconPanelOpen,
+                        sendReconMessage: sendReconMessage
                     })
                 ) : (
                 <React.Fragment>

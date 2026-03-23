@@ -1653,6 +1653,7 @@
         const [ownerDraftDna, setOwnerDraftDna] = useState({});
         const [draftDnaSyncing, setDraftDnaSyncing] = useState(false);
         const [draftDnaSyncMsg, setDraftDnaSyncMsg] = useState(null);
+        const [expandedDnaOwner, setExpandedDnaOwner] = useState(null);
 
         const allRosters = currentLeague.rosters || [];
         const leagueUsers = currentLeague.users || [];
@@ -1670,7 +1671,20 @@
         useEffect(() => {
             if (!leagueId) return;
             if (window.OD?.loadDNA) {
-                window.OD.loadDNA(leagueId).then(d => setOwnerDna(d || {})).catch(() => setOwnerDna({}));
+                window.OD.loadDNA(leagueId).then(d => {
+                    const dnaMap = d || {};
+                    // Auto-apply AI DNA recommendations for owners without saved DNA
+                    if (allRosters.length && typeof computeWeightedDNA === 'function') {
+                        allRosters.forEach(r => {
+                            const rid = r.roster_id;
+                            if (!dnaMap[r.owner_id]) {
+                                const aiDna = computeWeightedDNA(rid);
+                                if (aiDna) dnaMap[r.owner_id] = aiDna.key;
+                            }
+                        });
+                    }
+                    setOwnerDna(dnaMap);
+                }).catch(() => setOwnerDna({}));
             }
             setGrudges(loadGrudges(leagueId));
             if (window.DraftHistory?.loadDraftDNA) setOwnerDraftDna(window.DraftHistory.loadDraftDNA(leagueId) || {});
@@ -1943,20 +1957,26 @@
                     )}
                     <div className="tc-dna-grid">
                         {assessments.map(a => {
+                            const rid = a.rosterId;
                             const dnaKey = ownerDna[a.ownerId] || 'NONE';
                             const dna = DNA_TYPES[dnaKey];
                             const isMyTeam = a.rosterId === myRosterId;
                             const avatarSrc = avatarUrl(a.avatar);
                             const draftDna = ownerDraftDna[a.ownerId] || null;
                             const posture = calcOwnerPosture(a, dnaKey);
+                            const ownerTrades = (window.App?.LI?.tradeHistory || []).filter(t => t.roster_ids?.includes(rid));
+                            const tradeCount = ownerTrades.length;
+                            const aiDna = typeof computeWeightedDNA === 'function' ? computeWeightedDNA(rid) : null;
+                            const currentDna = ownerDna[a.ownerId] || aiDna?.key || 'NONE';
+                            const isOverridden = ownerDna[a.ownerId] && aiDna && ownerDna[a.ownerId] !== aiDna.key;
                             return (
-                                <div key={a.rosterId} className={`tc-dna-card${dnaKey&&dnaKey!=='NONE'?' tc-dna-set':''}`}>
+                                <div key={a.rosterId} className={`tc-dna-card${dnaKey&&dnaKey!=='NONE'?' tc-dna-set':''}`} onClick={() => setExpandedDnaOwner(expandedDnaOwner === rid ? null : rid)} style={{ cursor:'pointer' }}>
                                     <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
                                         <div style={{ width:32, height:32, borderRadius:'50%', background:'var(--charcoal)', overflow:'hidden', flexShrink:0, border:'1.5px solid rgba(212,175,55,0.3)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                                             {avatarSrc ? <img src={avatarSrc} alt={a.ownerName} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => e.target.style.display='none'} /> : <span style={{ fontSize:'0.75rem', color:'var(--gold)', fontWeight:700 }}>{a.ownerName.charAt(0).toUpperCase()}</span>}
                                         </div>
                                         <div style={{ overflow:'hidden' }}>
-                                            <div style={{ fontWeight:700, fontSize:'0.82rem', display:'flex', alignItems:'center', gap:'0.35rem' }}>{a.ownerName}{isMyTeam && <span className="tc-my-team-badge">ME</span>}</div>
+                                            <div style={{ fontWeight:700, fontSize:'0.82rem', display:'flex', alignItems:'center', gap:'0.35rem' }}>{a.ownerName}{isMyTeam && <span className="tc-my-team-badge">ME</span>}{tradeCount > 0 && <span style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.6, fontWeight:400 }}>{tradeCount} trades</span>}</div>
                                             <div style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.6 }}>{a.teamName}</div>
                                         </div>
                                         <span className="tc-tier-badge" style={{ marginLeft:'auto', flexShrink:0, color:a.tierColor, borderColor:a.tierColor, background:a.tierBg }}>{a.tier}</span>
@@ -1965,14 +1985,24 @@
                                         <span style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.5 }}>Posture:</span>
                                         <span className="tc-posture-badge" style={{ color:posture.color, borderColor:posture.color, background:`${posture.color}18` }}>{posture.label}</span>
                                     </div>
-                                    <div>
+                                    <div onClick={e => e.stopPropagation()}>
                                         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.2rem' }}>
                                             <span style={{ fontSize:'0.58rem', color:'var(--silver)', opacity:0.5, textTransform:'uppercase', letterSpacing:'0.06em' }}>Owner DNA</span>
                                             {(() => { const derived = deriveDNAFromHistory(a.ownerId, grudges); if (!derived) return null; const d = DNA_TYPES[derived]; return (<span style={{ fontSize:'0.55rem', fontWeight:700, padding:'0.1rem 0.35rem', borderRadius:3, border:`1px solid ${d?.color}55`, color:d?.color, background:`${d?.color}10` }}>AUTO: {d?.label}</span>); })()}
                                         </div>
-                                        <select className="tc-dna-select" value={dnaKey} onChange={e => updateDna(a.ownerId, e.target.value)}>
+                                        {aiDna && (
+                                            <div style={{ fontSize:'0.65rem', marginBottom:'6px' }}>
+                                                <span style={{ color:'var(--gold)', fontWeight:600 }}>AI Recommendation: </span>
+                                                <span style={{ color: DNA_TYPES[aiDna.key]?.color || 'var(--silver)', fontWeight:700 }}>{DNA_TYPES[aiDna.key]?.label || aiDna.key}</span>
+                                                <span style={{ color:'var(--silver)', marginLeft:'4px' }}>({aiDna.confidence}% confidence)</span>
+                                                <div style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.7, marginTop:'2px' }}>{aiDna.reasoning}</div>
+                                            </div>
+                                        )}
+                                        <select className="tc-dna-select" value={currentDna} onChange={e => updateDna(a.ownerId, e.target.value)}>
+                                            {aiDna && <option value={aiDna.key}>AI: {DNA_TYPES[aiDna.key]?.label} (recommended)</option>}
                                             {Object.entries(DNA_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                                         </select>
+                                        {isOverridden && <span style={{ fontSize:'0.55rem', color:'#F0A500', marginLeft:'6px' }}>Overridden from AI suggestion</span>}
                                     </div>
                                     {dnaKey && dnaKey !== 'NONE' && dna.desc && (
                                         <div className="tc-dna-profile">
@@ -1999,6 +2029,86 @@
                                         <div style={{ textAlign:'center' }}><div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1rem', color:a.panic>=3?'var(--loss-red)':'var(--silver)' }}>{a.panic}/5</div><div style={{ fontSize:'0.52rem', color:'var(--silver)', opacity:0.5 }}>PANIC</div></div>
                                         <div style={{ textAlign:'center' }}><div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1rem', color:'var(--silver)' }}>{a.wins}-{a.losses}</div><div style={{ fontSize:'0.52rem', color:'var(--silver)', opacity:0.5 }}>RECORD</div></div>
                                     </div>
+                                    {expandedDnaOwner === rid && (() => {
+                                        const trades = (window.App?.LI?.tradeHistory || []).filter(t => t.roster_ids?.includes(rid));
+                                        const profile = window.App?.LI?.ownerProfiles?.[rid] || {};
+
+                                        if (!trades.length) return <div style={{ padding:'8px', fontSize:'0.7rem', color:'var(--silver)' }}>No trade history found</div>;
+
+                                        return (
+                                            <div style={{ marginTop:'10px', paddingTop:'10px', borderTop:'1px solid rgba(255,255,255,0.06)' }} onClick={e => e.stopPropagation()}>
+                                                <div style={{ display:'flex', gap:'12px', marginBottom:'10px', flexWrap:'wrap', fontSize:'0.65rem' }}>
+                                                    <span style={{ color:'#2ECC71' }}>Won: {profile.tradesWon || 0}</span>
+                                                    <span style={{ color:'#E74C3C' }}>Lost: {profile.tradesLost || 0}</span>
+                                                    <span style={{ color:'var(--silver)' }}>Fair: {profile.tradesFair || 0}</span>
+                                                    <span style={{ color: (profile.avgValueDiff || 0) >= 0 ? '#2ECC71' : '#E74C3C' }}>Avg: {(profile.avgValueDiff || 0) >= 0 ? '+' : ''}{Math.round(profile.avgValueDiff || 0)} DHQ</span>
+                                                </div>
+                                                {trades.sort((ta, tb) => {
+                                                    const aSeason = parseInt(ta.season) || 0;
+                                                    const bSeason = parseInt(tb.season) || 0;
+                                                    if (bSeason !== aSeason) return bSeason - aSeason;
+                                                    return (tb.week || 0) - (ta.week || 0);
+                                                }).map((t, ti) => {
+                                                    const otherRid = t.roster_ids.find(r => r !== rid);
+                                                    const otherUser = ownerNameForRosterId(otherRid) || ('Owner ' + otherRid);
+                                                    const mySide = t.sides?.[rid] || { players:[], picks:[] };
+                                                    const theirSide = t.sides?.[otherRid] || { players:[], picks:[] };
+                                                    const myValue = mySide.totalValue || 0;
+                                                    const theirValue = theirSide.totalValue || 0;
+                                                    const won = myValue > theirValue * 1.15;
+                                                    const lost = theirValue > myValue * 1.15;
+                                                    const verdict = won ? 'Won' : lost ? 'Lost' : 'Fair';
+                                                    const verdictCol = won ? '#2ECC71' : lost ? '#E74C3C' : 'var(--silver)';
+
+                                                    return (
+                                                        <div key={ti} style={{ padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,0.04)', fontSize:'0.7rem' }}>
+                                                            <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'4px' }}>
+                                                                <span style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.5 }}>{t.season} W{t.week}</span>
+                                                                <span style={{ fontSize:'0.58rem', fontWeight:700, color:verdictCol, padding:'1px 6px', borderRadius:'3px', background:verdictCol + '15' }}>{verdict}</span>
+                                                                <span style={{ fontSize:'0.6rem', color:'var(--silver)' }}>vs {otherUser}</span>
+                                                                {t.fairness != null && <span style={{ fontSize:'0.58rem', color:'var(--silver)', opacity:0.4 }}>Fairness: {t.fairness}</span>}
+                                                            </div>
+                                                            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                                                                <div>
+                                                                    <div style={{ fontSize:'0.58rem', color:'#2ECC71', marginBottom:'2px' }}>Received:</div>
+                                                                    {(mySide.players || []).map(pid => (
+                                                                        <div key={pid} style={{ fontSize:'0.65rem', color:'var(--white)' }}>
+                                                                            {playersData[pid]?.full_name || pid}
+                                                                            <span style={{ color:'var(--silver)', fontSize:'0.55rem', marginLeft:'4px' }}>
+                                                                                ({(window.App?.LI?.playerScores?.[pid] || 0).toLocaleString()} DHQ)
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                                    {(mySide.picks || []).map((pk, pi) => (
+                                                                        <div key={'pk'+pi} style={{ fontSize:'0.65rem', color:'#a78bfa' }}>{pk.season} Round {pk.round}</div>
+                                                                    ))}
+                                                                </div>
+                                                                <div>
+                                                                    <div style={{ fontSize:'0.58rem', color:'#E74C3C', marginBottom:'2px' }}>Sent:</div>
+                                                                    {(theirSide.players || []).map(pid => (
+                                                                        <div key={pid} style={{ fontSize:'0.65rem', color:'var(--white)' }}>
+                                                                            {playersData[pid]?.full_name || pid}
+                                                                            <span style={{ color:'var(--silver)', fontSize:'0.55rem', marginLeft:'4px' }}>
+                                                                                ({(window.App?.LI?.playerScores?.[pid] || 0).toLocaleString()} DHQ)
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                                    {(theirSide.picks || []).map((pk, pi) => (
+                                                                        <div key={'pk'+pi} style={{ fontSize:'0.65rem', color:'#a78bfa' }}>{pk.season} Round {pk.round}</div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display:'flex', gap:'12px', marginTop:'4px', fontSize:'0.6rem' }}>
+                                                                <span style={{ color:'#2ECC71' }}>Got: {myValue.toLocaleString()}</span>
+                                                                <span style={{ color:'#E74C3C' }}>Gave: {theirValue.toLocaleString()}</span>
+                                                                <span style={{ color:verdictCol, fontWeight:700 }}>Net: {myValue >= theirValue ? '+' : ''}{(myValue - theirValue).toLocaleString()}</span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             );
                         })}
@@ -3584,6 +3694,14 @@
               const dhqB = (rB?.players || []).reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
               return dhqB - dhqA;
             }
+            if (leagueSort === 'champs') {
+              const champs = window.App?.LI?.championships || {};
+              const rA = currentLeague.rosters.find(r => r.owner_id === a.userId);
+              const rB = currentLeague.rosters.find(r => r.owner_id === b.userId);
+              const aChamps = Object.values(champs).filter(c => c.champion === rA?.roster_id).length;
+              const bChamps = Object.values(champs).filter(c => c.champion === rB?.roster_id).length;
+              return bChamps - aChamps;
+            }
             // default: wins
             if (b.wins !== a.wins) return b.wins - a.wins;
             return b.losses - a.losses;
@@ -3607,6 +3725,7 @@
               <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
                 <button onClick={() => setLeagueSort('wins')} style={sortBtnStyle(leagueSort === 'wins')}>Wins</button>
                 <button onClick={() => setLeagueSort('dhq')} style={sortBtnStyle(leagueSort === 'dhq')}>DHQ Value</button>
+                <button onClick={() => setLeagueSort('champs')} style={sortBtnStyle(leagueSort === 'champs')}>Championships</button>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
                 {sortedStandings.map(team => {

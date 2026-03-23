@@ -2549,8 +2549,8 @@
         const [visibleCols, setVisibleCols] = useState(() => {
             try {
                 const saved = localStorage.getItem('wr_roster_cols');
-                return saved ? JSON.parse(saved) : ['pos','age','dhq','peak','trend','action','yrsExp','posRankLg','starterSzn'];
-            } catch(e) { return ['pos','age','dhq','peak','trend','action','yrsExp','posRankLg','starterSzn']; }
+                return saved ? JSON.parse(saved) : ['pos','age','dhq','peak','trend','action','yrsExp','posRankLg','starterSzn','acquired','acquiredDate'];
+            } catch(e) { return ['pos','age','dhq','peak','trend','action','yrsExp','posRankLg','starterSzn','acquired','acquiredDate']; }
         });
         const [showColPicker, setShowColPicker] = useState(false);
         const [colPreset, setColPreset] = useState('dynasty');
@@ -2561,6 +2561,7 @@
         const [dhqStatus, setDhqStatus] = useState({ loading: false, step: '', progress: 0 });
         const [loadStage, setLoadStage] = useState('');
         const [editingKpi, setEditingKpi] = useState(null); // index being edited, null = not editing
+        const [leagueSelectedTeam, setLeagueSelectedTeam] = useState(null);
 
         // Default 5 KPIs — customizable per owner, saved in localStorage
         const KPI_OPTIONS = {
@@ -3176,6 +3177,10 @@
             { label: 'Roster grade', prompt: 'Grade my roster position by position and identify the biggest weakness.' },
             { label: 'Who to sell?', prompt: 'Which players on my roster should I sell high on right now?' },
           ];
+          if (activeTab === 'league') return [...base,
+            { label: 'League overview', prompt: 'Give me a quick overview of every team in the league — strengths, weaknesses, and dynasty outlook.' },
+            { label: 'Trade partners', prompt: 'Which teams in the league are the best trade partners for me right now and why?' },
+          ];
           if (activeTab === 'analytics') return [...base,
             { label: 'Explain my gaps', prompt: 'Based on the winner analysis, what are my biggest gaps and how do I close them?' },
             { label: 'Draft strategy', prompt: 'Based on historical draft success in this league, what should my draft strategy be?' },
@@ -3366,6 +3371,140 @@
         }
 
         // --- My Team Tab helpers ---
+        function getAcquisitionInfo(pid, rosterId) {
+            // Check trades
+            const trades = window.App?.LI?.tradeHistory || [];
+            for (const t of trades) {
+                if (!t.sides) continue;
+                const side = t.sides[rosterId];
+                if (side && side.players && side.players.includes(pid)) {
+                    const season = t.season || '';
+                    const week = t.week || '';
+                    return { method: 'Traded', date: season + ' W' + week, season, week };
+                }
+            }
+            // Check draft outcomes
+            const drafts = window.App?.LI?.draftOutcomes || [];
+            const draftPick = drafts.find(d => d.pid === pid && d.roster_id === rosterId);
+            if (draftPick) {
+                return { method: 'Drafted', date: draftPick.season + ' R' + draftPick.round, season: draftPick.season, week: 0 };
+            }
+            // Default: original/unknown
+            return { method: 'Original', date: '\u2014', season: '', week: 0 };
+        }
+
+        function renderLeagueTab() {
+          const selectedTeam = leagueSelectedTeam;
+          const setSelectedTeam = setLeagueSelectedTeam;
+
+          const normPos = (pos) => {
+            if (!pos) return null;
+            const p = pos.toUpperCase();
+            if (['DE','DT','NT','IDL','EDGE'].includes(p)) return 'DL';
+            if (['ILB','OLB','MLB'].includes(p)) return 'LB';
+            if (['CB','SS','FS','S'].includes(p)) return 'DB';
+            return p;
+          };
+
+          if (selectedTeam) {
+            return renderTeamRoster(selectedTeam);
+          }
+
+          return (
+            <div style={{ padding: '16px' }}>
+              <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '12px' }}>LEAGUE ROSTERS</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+                {standings.map(team => {
+                  const roster = currentLeague.rosters.find(r => r.owner_id === team.userId);
+                  const totalDHQ = (roster?.players || []).reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
+                  const isMe = team.userId === sleeperUserId;
+                  const user = currentLeague.users?.find(u => u.user_id === team.userId);
+                  return (
+                    <div key={team.rosterId} onClick={() => setSelectedTeam({ ...team, roster })}
+                      style={{
+                        background: 'var(--black)', border: '2px solid ' + (isMe ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'),
+                        borderRadius: '10px', padding: '14px', cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = isMe ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'; e.currentTarget.style.transform = 'none'; }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                        {user?.avatar && <img src={'https://sleepercdn.com/avatars/thumbs/' + user.avatar} style={{ width: '32px', height: '32px', borderRadius: '50%' }} />}
+                        <div>
+                          <div style={{ fontWeight: 700, color: isMe ? 'var(--gold)' : 'var(--white)', fontSize: '0.85rem' }}>{team.displayName}{isMe ? ' (You)' : ''}</div>
+                          <div style={{ fontSize: '0.62rem', color: 'var(--silver)' }}>{team.wins}-{team.losses} {'\u00B7'} {totalDHQ > 0 ? (totalDHQ/1000).toFixed(0) + 'k DHQ' : '\u2014'}</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '0.62rem', color: 'var(--silver)', lineHeight: 1.6 }}>
+                        {(roster?.players || []).map(pid => ({ pid, dhq: window.App?.LI?.playerScores?.[pid] || 0 })).sort((a,b) => b.dhq - a.dhq).slice(0, 3).map(x => (
+                          <div key={x.pid} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>{playersData[x.pid]?.full_name || '?'}</span>
+                            <span style={{ color: x.dhq >= 7000 ? '#2ECC71' : x.dhq >= 4000 ? '#3498DB' : 'var(--silver)', fontFamily: 'Oswald' }}>{x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+
+          function renderTeamRoster(team) {
+            const roster = team.roster;
+            if (!roster) return null;
+            const players = (roster.players || []).map(pid => {
+              const p = playersData[pid];
+              if (!p) return null;
+              const pos = normPos(p.position) || p.position;
+              const dhq = window.App?.LI?.playerScores?.[pid] || 0;
+              const acq = getAcquisitionInfo(pid, roster.roster_id);
+              const st = statsData[pid] || {};
+              const ppg = st.gp > 0 ? +(calcRawPts(st) / st.gp).toFixed(1) : 0;
+              const posColors = {QB:'#E74C3C',RB:'#2ECC71',WR:'#3498DB',TE:'#F0A500',K:'#9B59B6',DL:'#E67E22',LB:'#1ABC9C',DB:'#E91E63'};
+              const isStarter = (roster.starters || []).includes(pid);
+              return { pid, p, pos, dhq, acq, ppg, isStarter, posCol: posColors[pos] || 'var(--silver)' };
+            }).filter(Boolean).sort((a,b) => b.dhq - a.dhq);
+
+            return (
+              <div style={{ padding: '16px' }}>
+                <button onClick={() => setSelectedTeam(null)} style={{ background: 'none', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '4px', padding: '4px 12px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'Oswald', fontSize: '0.68rem', marginBottom: '12px' }}>Back to League</button>
+                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--gold)', marginBottom: '4px' }}>{team.displayName}</div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--silver)', marginBottom: '16px' }}>{team.wins}-{team.losses} {'\u00B7'} {players.reduce((s,r) => s + r.dhq, 0).toLocaleString()} Total DHQ {'\u00B7'} {players.length} players</div>
+
+                <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '3px 28px 1fr 36px 32px 54px 42px 60px 52px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' }}>
+                    <span></span><span></span><span>Player</span><span>Pos</span><span>Age</span><span>DHQ</span><span>PPG</span><span>Acquired</span><span>Date</span>
+                  </div>
+                  <div style={{ maxHeight: '600px', overflow: 'auto' }}>
+                    {players.map(r => (
+                      <div key={r.pid} onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(r.pid, playersData, statsData); }}
+                        style={{ display: 'grid', gridTemplateColumns: '3px 28px 1fr 36px 32px 54px 42px 60px 52px', gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.72rem', alignItems: 'center', transition: 'background 0.1s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <div style={{ background: r.isStarter ? 'var(--gold)' : 'transparent', width: '3px', height: '100%' }}></div>
+                        <img src={`https://sleepercdn.com/content/nfl/players/thumb/${r.pid}.jpg`} alt="" onError={e=>e.target.style.display='none'} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
+                        <div style={{ overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.p.full_name || (r.p.first_name + ' ' + r.p.last_name).trim()}</div>
+                          <div style={{ fontSize: '0.5rem', color: 'var(--silver)', opacity: 0.5 }}>{r.p.team || 'FA'}</div>
+                        </div>
+                        <span style={{ fontSize: '0.58rem', fontWeight: 700, color: r.posCol }}>{r.pos}</span>
+                        <span style={{ color: 'var(--silver)' }}>{r.p.age || '\u2014'}</span>
+                        <span style={{ fontWeight: 700, fontFamily: 'Oswald', color: r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#3498DB' : r.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span>
+                        <span style={{ color: 'var(--silver)' }}>{r.ppg || '\u2014'}</span>
+                        <span style={{ fontSize: '0.58rem', fontWeight: 600, color: r.acq.method === 'Drafted' ? '#a78bfa' : r.acq.method === 'Traded' ? '#F0A500' : r.acq.method === 'Waiver' ? '#2ECC71' : 'var(--silver)' }}>{r.acq.method}</span>
+                        <span style={{ fontSize: '0.56rem', color: 'var(--silver)', opacity: 0.5 }}>{r.acq.date}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+        }
+
         function filteredAndSortedRows(rows) {
           const offPos = new Set(['QB','RB','WR','TE','K']);
           const idpPos = new Set(['DL','LB','DB']);
@@ -3401,6 +3540,8 @@
             if (key === 'weight') return ((b.p.weight||0) - (a.p.weight||0)) * dir;
             if (key === 'depthChart') return ((a.p.depth_chart_order||99) - (b.p.depth_chart_order||99)) * dir;
             if (key === 'slot') { const ord = {starter:0,taxi:1,bench:2,ir:3}; return ((ord[a.section]||9) - (ord[b.section]||9)) * dir; }
+            if (key === 'acquired') { const aa = getAcquisitionInfo(a.pid, myRoster?.roster_id), ab = getAcquisitionInfo(b.pid, myRoster?.roster_id); return (aa.method < ab.method ? -1 : aa.method > ab.method ? 1 : 0) * dir; }
+            if (key === 'acquiredDate') { const aa = getAcquisitionInfo(a.pid, myRoster?.roster_id), ab = getAcquisitionInfo(b.pid, myRoster?.roster_id); return (aa.date < ab.date ? -1 : aa.date > ab.date ? 1 : 0) * dir; }
             return 0;
           });
         }
@@ -3409,30 +3550,32 @@
           if (!myRoster) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--silver)' }}>No roster found</div>;
 
           const ROSTER_COLUMNS = {
-            pos:        { label: 'Pos', width: '34px', group: 'core' },
-            age:        { label: 'Age', width: '32px', group: 'dynasty' },
-            dhq:        { label: 'DHQ', width: '54px', group: 'dynasty' },
-            ppg:        { label: 'PPG', width: '40px', group: 'stats' },
-            prev:       { label: 'Prev', width: '40px', group: 'stats' },
-            trend:      { label: 'Trend', width: '42px', group: 'dynasty' },
-            peak:       { label: 'Peak', width: '44px', group: 'dynasty' },
-            action:     { label: 'Action', width: '42px', group: 'dynasty' },
-            gp:         { label: 'GP', width: '28px', group: 'stats' },
-            durability: { label: 'Dur', width: '32px', group: 'stats' },
-            yrsExp:     { label: 'Exp', width: '30px', group: 'dynasty' },
-            college:    { label: 'College', width: '80px', group: 'scout' },
-            nflDraft:   { label: 'Draft', width: '40px', group: 'scout' },
-            posRankLg:  { label: 'Lg Rank', width: '46px', group: 'dynasty' },
-            posRankNfl: { label: 'NFL Rank', width: '50px', group: 'dynasty' },
-            starterSzn: { label: 'Str Szn', width: '40px', group: 'dynasty' },
-            height:     { label: 'Ht', width: '36px', group: 'scout' },
-            weight:     { label: 'Wt', width: '36px', group: 'scout' },
-            depthChart: { label: 'Depth', width: '40px', group: 'scout' },
-            slot:       { label: 'Slot', width: '34px', group: 'core' },
+            pos:        { label: 'Position', shortLabel: 'Pos', width: '36px', group: 'core' },
+            age:        { label: 'Age', shortLabel: 'Age', width: '32px', group: 'dynasty' },
+            dhq:        { label: 'DHQ Dynasty Value', shortLabel: 'DHQ', width: '56px', group: 'dynasty' },
+            ppg:        { label: 'Points Per Game', shortLabel: 'PPG', width: '42px', group: 'stats' },
+            prev:       { label: 'Previous Season PPG', shortLabel: 'Prev', width: '42px', group: 'stats' },
+            trend:      { label: 'Year-over-Year Trend %', shortLabel: 'Trend', width: '44px', group: 'dynasty' },
+            peak:       { label: 'Peak Window Phase', shortLabel: 'Peak', width: '46px', group: 'dynasty' },
+            action:     { label: 'Trade Recommendation', shortLabel: 'Action', width: '44px', group: 'dynasty' },
+            gp:         { label: 'Games Played', shortLabel: 'GP', width: '30px', group: 'stats' },
+            durability: { label: 'Durability Rating', shortLabel: 'Dur', width: '34px', group: 'stats' },
+            yrsExp:     { label: 'Years of Experience', shortLabel: 'Exp', width: '32px', group: 'dynasty' },
+            college:    { label: 'College', shortLabel: 'College', width: '80px', group: 'scout' },
+            nflDraft:   { label: 'NFL Draft Round', shortLabel: 'Draft', width: '42px', group: 'scout' },
+            posRankLg:  { label: 'League Position Rank', shortLabel: 'Lg Rank', width: '48px', group: 'dynasty' },
+            posRankNfl: { label: 'NFL Position Rank', shortLabel: 'NFL Rank', width: '52px', group: 'dynasty' },
+            starterSzn: { label: 'Starter Seasons', shortLabel: 'Str Szn', width: '42px', group: 'dynasty' },
+            height:     { label: 'Height', shortLabel: 'Ht', width: '38px', group: 'scout' },
+            weight:     { label: 'Weight (lbs)', shortLabel: 'Wt', width: '38px', group: 'scout' },
+            depthChart: { label: 'Depth Chart Position', shortLabel: 'Depth', width: '42px', group: 'scout' },
+            slot:       { label: 'Roster Slot', shortLabel: 'Slot', width: '36px', group: 'core' },
+            acquired:   { label: 'Acquisition Method', shortLabel: 'Acquired', width: '60px', group: 'core' },
+            acquiredDate: { label: 'Date Acquired', shortLabel: 'Date', width: '52px', group: 'core' },
           };
 
           const COLUMN_PRESETS = {
-            dynasty: ['pos','age','dhq','peak','trend','action','yrsExp','posRankLg','starterSzn'],
+            dynasty: ['pos','age','dhq','peak','trend','action','yrsExp','posRankLg','starterSzn','acquired','acquiredDate'],
             stats:   ['pos','age','dhq','ppg','prev','trend','gp','durability'],
             scout:   ['pos','age','college','nflDraft','height','weight','depthChart','yrsExp'],
             full:    Object.keys(ROSTER_COLUMNS),
@@ -3561,6 +3704,15 @@
               case 'weight': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', fontSize: '0.6rem' }}>{r.p.weight || '\u2014'}</span></div>;
               case 'depthChart': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', fontSize: '0.6rem' }}>{r.p.depth_chart_order ? '#'+r.p.depth_chart_order : '\u2014'}</span></div>;
               case 'slot': return <div key={colKey} style={{...base}}><span style={{ fontSize:'0.52rem',color:'var(--silver)',opacity:0.5,textTransform:'uppercase' }}>{r.section==='starter'?'STR':r.section==='ir'?'IR':r.section==='taxi'?'TAX':'BN'}</span></div>;
+              case 'acquired': {
+                const acq = getAcquisitionInfo(r.pid, myRoster?.roster_id);
+                const col = acq.method === 'Drafted' ? '#a78bfa' : acq.method === 'Traded' ? '#F0A500' : acq.method === 'Waiver' ? '#2ECC71' : 'var(--silver)';
+                return <div key={colKey} style={{...base}}><span style={{ fontSize: '0.58rem', fontWeight: 600, color: col }}>{acq.method}</span></div>;
+              }
+              case 'acquiredDate': {
+                const acq = getAcquisitionInfo(r.pid, myRoster?.roster_id);
+                return <div key={colKey} style={{...base}}><span style={{ fontSize: '0.56rem', color: 'var(--silver)', opacity: 0.6 }}>{acq.date}</span></div>;
+              }
               default: return <div key={colKey} style={{...base}}>{'\u2014'}</div>;
             }
           }
@@ -3677,7 +3829,7 @@
                       return (
                         <div key={colKey} onClick={() => setRosterSort(prev => prev.key === colKey ? {...prev, dir: prev.dir*-1} : {key: colKey, dir: -1})}
                           style={{ width: col.width, minWidth: col.width, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' }}>
-                          {col.label}{rosterSort.key === colKey ? (rosterSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
+                          {col.shortLabel || col.label}{rosterSort.key === colKey ? (rosterSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
                         </div>
                       );
                     })}
@@ -3795,6 +3947,7 @@
                     {[
                         {label: 'Home', tab: 'dashboard'},
                         {label: 'My Team', tab: 'myteam'},
+                        {label: 'League', tab: 'league'},
                         {label: 'Analytics', tab: 'analytics'},
                         {label: 'Trades', tab: 'trades'},
                         {label: 'Free Agency', tab: 'fa'},
@@ -4023,7 +4176,7 @@
                         currentLeague={currentLeague}
                         sleeperUserId={sleeperUserId}
                     />
-                ) : activeTab === 'myteam' ? renderMyTeamTab() : activeTab === 'analytics' ? (() => {
+                ) : activeTab === 'myteam' ? renderMyTeamTab() : activeTab === 'league' ? renderLeagueTab() : activeTab === 'analytics' ? (() => {
                     const aCardStyle = { background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', marginBottom: '16px' };
                     const aHeaderStyle = { fontFamily: 'Bebas Neue, cursive', color: 'var(--gold)', fontSize: '1.2rem', letterSpacing: '0.08em', marginBottom: '12px', borderBottom: '1px solid rgba(212,175,55,0.2)', paddingBottom: '8px' };
                     const aValStyle = { fontFamily: 'Oswald, sans-serif', fontSize: '0.95rem' };

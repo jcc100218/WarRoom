@@ -3615,8 +3615,26 @@
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                         {user?.avatar && <img src={'https://sleepercdn.com/avatars/thumbs/' + user.avatar} style={{ width: '32px', height: '32px', borderRadius: '50%' }} />}
                         <div>
-                          <div style={{ fontWeight: 700, color: isMe ? 'var(--gold)' : 'var(--white)', fontSize: '0.85rem' }}>{team.displayName}{isMe ? ' (You)' : ''}</div>
-                          <div style={{ fontSize: '0.62rem', color: 'var(--silver)' }}>{team.wins}-{team.losses} {'\u00B7'} {totalDHQ > 0 ? (totalDHQ/1000).toFixed(0) + 'k DHQ' : '\u2014'}</div>
+                          <div style={{ fontWeight: 700, color: isMe ? 'var(--gold)' : 'var(--white)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            {team.displayName}{isMe ? ' (You)' : ''}
+                            {(() => {
+                              const champs = window.App?.LI?.championships || {};
+                              const champCount = Object.values(champs).filter(c => c.champion === roster?.roster_id).length;
+                              if (champCount > 0) return <span style={{ fontSize: '0.58rem', color: 'var(--gold)', fontWeight: 700 }}>{champCount > 1 ? champCount + 'x ' : ''}Champion</span>;
+                              return null;
+                            })()}
+                          </div>
+                          <div style={{ fontSize: '0.62rem', color: 'var(--silver)', display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            {team.wins}-{team.losses} {'\u00B7'} {totalDHQ > 0 ? (totalDHQ/1000).toFixed(0) + 'k DHQ' : '\u2014'}
+                            {(() => {
+                              const hist = window.App?.LI?.leagueUsersHistory || {};
+                              let yrs = 0;
+                              Object.values(hist).forEach(users => { (users || []).forEach(u => { if (u.user_id === team.userId) yrs++; }); });
+                              if (yrs <= 1) return <span style={{ fontSize: '0.52rem', color: '#F0A500', fontWeight: 700, marginLeft: '4px' }}>NEW</span>;
+                              if (yrs >= 4) return <span style={{ fontSize: '0.52rem', color: 'var(--silver)', opacity: 0.6, marginLeft: '4px' }}>{yrs}yr</span>;
+                              return null;
+                            })()}
+                          </div>
                         </div>
                       </div>
                       {(() => {
@@ -3934,6 +3952,12 @@
             <div style={{ padding: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '12px' }}>
                 <span style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', letterSpacing: '0.05em' }}>MY TEAM</span>
+                {(() => {
+                  const champs = window.App?.LI?.championships || {};
+                  const myChampCount = Object.values(champs).filter(c => c.champion === myRoster?.roster_id).length;
+                  if (myChampCount > 0) return <span style={{ fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 700 }}>{myChampCount > 1 ? myChampCount + 'x ' : ''}Champion</span>;
+                  return null;
+                })()}
                 <span style={{ fontSize: '0.68rem', color: 'var(--silver)' }}>{allPlayers.length} players</span>
                 <span style={{ fontSize: '0.68rem', color: 'var(--silver)' }}>Total DHQ: <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{rows.reduce((s,r) => s+r.dhq, 0).toLocaleString()}</span></span>
               </div>
@@ -4155,7 +4179,15 @@
                     padding: '16px 0', zIndex: 100
                 }}>
                     {/* Logo */}
-                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.3rem', color: 'var(--gold)', letterSpacing: '0.06em', padding: '0 16px', marginBottom: '20px' }}>WAR ROOM</div>
+                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.3rem', color: 'var(--gold)', letterSpacing: '0.06em', padding: '0 16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      WAR ROOM
+                      {(() => {
+                        const champs = window.App?.LI?.championships || {};
+                        const cnt = Object.values(champs).filter(c => c.champion === myRoster?.roster_id).length;
+                        if (cnt > 0) return <span style={{ fontSize: '0.7rem', color: 'var(--gold)' }} title={cnt + 'x Champion'}>{'\uD83C\uDFC6'}</span>;
+                        return null;
+                      })()}
+                    </div>
 
                     {/* Nav items */}
                     {[
@@ -4407,6 +4439,7 @@
                         { key: 'waivers', label: 'Waivers' },
                         { key: 'trades', label: 'Trades' },
                         { key: 'projections', label: 'Projections' },
+                        { key: 'playoffs', label: 'Playoffs' },
                     ];
                     const subTabBtnStyle = (active) => ({
                         padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontFamily: 'Bebas Neue, cursive', fontSize: '1rem', letterSpacing: '0.06em', transition: 'all 0.2s',
@@ -4864,6 +4897,63 @@
                             );
                         })()}
 
+                        {/* ═══ PLAYOFF HISTORY ═══ */}
+                        {analyticsTab === 'playoffs' && (() => {
+                            const championships = window.App?.LI?.championships || {};
+                            const seasons = Object.entries(championships).sort(([a],[b]) => b.localeCompare(a));
+                            if (!seasons.length) return <div style={{ ...aCardStyle, color: 'var(--silver)', textAlign: 'center', padding: '40px' }}>No championship history available yet.</div>;
+                            return (
+                            <React.Fragment>
+                                <div style={aCardStyle}>
+                                    <div style={aHeaderStyle}>PLAYOFF HISTORY</div>
+                                    {seasons.map(([season, data]) => {
+                                        const champName = getOwnerName(data.champion);
+                                        const runnerName = getOwnerName(data.runnerUp);
+                                        const isMyChamp = data.champion === myRoster?.roster_id;
+                                        const isMyRunner = data.runnerUp === myRoster?.roster_id;
+                                        return (
+                                            <div key={season} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', minWidth: '40px' }}>{season}</span>
+                                                <div>
+                                                    <div style={{ fontSize: '0.78rem', color: isMyChamp ? 'var(--gold)' : 'var(--white)', fontWeight: isMyChamp ? 700 : 400 }}>
+                                                        Champion: {champName}{isMyChamp ? ' (You!)' : ''}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.68rem', color: 'var(--silver)' }}>
+                                                        Runner-up: {runnerName}{isMyRunner ? ' (You)' : ''}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Rivalry Detection */}
+                                {(() => {
+                                    const detectRivalries = window.App?.detectRivalries;
+                                    if (!detectRivalries || !myRoster) return null;
+                                    const rivals = detectRivalries(myRoster.roster_id);
+                                    if (!rivals || !rivals.length) return null;
+                                    return (
+                                        <div style={aCardStyle}>
+                                            <div style={aHeaderStyle}>YOUR PLAYOFF RIVALRIES</div>
+                                            {rivals.map((r, i) => {
+                                                const rivalName = getOwnerName(r.rosterId);
+                                                return (
+                                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                        <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.85rem', color: 'var(--white)', fontWeight: 600, flex: 1 }}>{rivalName}</span>
+                                                        <span style={{ fontSize: '0.78rem', color: r.wins > r.losses ? goodColor : r.wins < r.losses ? badColor : warnColor, fontWeight: 700, fontFamily: 'Oswald' }}>{r.wins}-{r.losses}</span>
+                                                        <span style={{ fontSize: '0.62rem', color: 'var(--silver)' }}>{r.total} meetings</span>
+                                                        <span style={{ fontSize: '0.58rem', color: 'var(--silver)', opacity: 0.5 }}>{r.seasons.join(', ')}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })()}
+                            </React.Fragment>
+                            );
+                        })()}
+
                         </React.Fragment>
                         )}
                     </div>
@@ -4974,7 +5064,18 @@
                               <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--charcoal)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--silver)' }}>{team.displayName.charAt(0)}</div>
                             )}
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.displayName}</div>
+                              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {team.displayName}
+                                {(() => {
+                                  const champs = window.App?.LI?.championships || {};
+                                  const cnt = Object.values(champs).filter(c => {
+                                    const r = currentLeague.rosters?.find(ros => ros.owner_id === team.userId);
+                                    return c.champion === r?.roster_id;
+                                  }).length;
+                                  if (cnt > 0) return <span style={{ fontSize: '0.52rem', color: 'var(--gold)', fontWeight: 700, flexShrink: 0 }}>{cnt > 1 ? cnt + 'x' : ''}{'\uD83C\uDFC6'}</span>;
+                                  return null;
+                                })()}
+                              </div>
                               <div style={{ fontSize: '0.62rem', color: 'var(--silver)' }}>{team.wins}-{team.losses} {'\u00B7'} {team.totalDHQ?.toLocaleString()} DHQ</div>
                             </div>
                             <div style={{ width: '60px' }}>

@@ -2840,6 +2840,13 @@
             'partner-wr':     { label: 'Partner Win Rate', icon: '', category: 'Trades' },
             'elite-count':    { label: 'Elite Players', icon: '', category: 'Roster' },
             'bench-quality':  { label: 'Bench Quality', icon: '', category: 'Roster' },
+            'championships':    { label: 'Championships Won', icon: '', category: 'History' },
+            'playoff-record':   { label: 'Playoff Win-Loss', icon: '', category: 'History' },
+            'playoff-winpct':   { label: 'Playoff Win %', icon: '', category: 'History' },
+            'champ-appearances':{ label: 'Championship Appearances', icon: '', category: 'History' },
+            'dynasty-score':    { label: 'Dynasty Score', icon: '', category: 'History' },
+            'draft-roi':        { label: 'Draft ROI', icon: '', category: 'Draft' },
+            'roster-turnover':  { label: 'Roster Turnover', icon: '', category: 'Roster' },
         };
         const DEFAULT_KPIS = ['starter-gap', 'hit-rate', 'faab-efficiency', 'net-trade', 'window'];
         const [selectedKpis, setSelectedKpis] = useState(() => {
@@ -2948,6 +2955,65 @@
                     const benchVals = myPlayers.filter(pid => !starters.has(pid)).map(pid => scores[pid] || 0).filter(v => v > 0);
                     const avg = benchVals.length ? Math.round(benchVals.reduce((s,v) => s + v, 0) / benchVals.length) : 0;
                     return { value: avg.toLocaleString(), sub: 'Avg bench DHQ', color: avg >= 2500 ? '#2ECC71' : avg >= 1500 ? 'var(--gold)' : 'var(--silver)' };
+                }
+                case 'championships': {
+                    const champs = window.App?.LI?.championships || {};
+                    const count = Object.values(champs).filter(c => c.champion === myRoster?.roster_id).length;
+                    return { value: count, sub: count === 1 ? 'title' : 'titles', color: count > 0 ? '#D4AF37' : 'var(--silver)' };
+                }
+                case 'playoff-record': {
+                    const brackets = window.App?.LI?.bracketData || {};
+                    let pw = 0, pl = 0;
+                    Object.values(brackets).forEach(({ winners }) => {
+                        (winners || []).forEach(m => {
+                            if (m.w === myRoster?.roster_id) pw++;
+                            if (m.l === myRoster?.roster_id) pl++;
+                        });
+                    });
+                    return { value: pw + '-' + pl, sub: 'Playoff W-L', color: pw > pl ? '#2ECC71' : pw < pl ? '#E74C3C' : 'var(--silver)' };
+                }
+                case 'playoff-winpct': {
+                    const brackets2 = window.App?.LI?.bracketData || {};
+                    let pw2 = 0, pl2 = 0;
+                    Object.values(brackets2).forEach(({ winners }) => {
+                        (winners || []).forEach(m => {
+                            if (m.w === myRoster?.roster_id) pw2++;
+                            if (m.l === myRoster?.roster_id) pl2++;
+                        });
+                    });
+                    const total = pw2 + pl2;
+                    const pct = total > 0 ? Math.round(pw2 / total * 100) : 0;
+                    return { value: pct + '%', sub: 'Win rate (' + total + ' games)', color: pct >= 60 ? '#2ECC71' : pct >= 40 ? 'var(--gold)' : '#E74C3C' };
+                }
+                case 'champ-appearances': {
+                    const champs2 = window.App?.LI?.championships || {};
+                    const apps = Object.values(champs2).filter(c => c.champion === myRoster?.roster_id || c.runnerUp === myRoster?.roster_id).length;
+                    return { value: apps, sub: 'Finals appearances', color: apps > 0 ? '#D4AF37' : 'var(--silver)' };
+                }
+                case 'dynasty-score': {
+                    const champs3 = window.App?.LI?.championships || {};
+                    const brackets3 = window.App?.LI?.bracketData || {};
+                    let titles = 0, runners = 0, playoffApps = 0;
+                    Object.values(champs3).forEach(c => {
+                        if (c.champion === myRoster?.roster_id) titles++;
+                        if (c.runnerUp === myRoster?.roster_id) runners++;
+                        if (c.champion === myRoster?.roster_id || c.runnerUp === myRoster?.roster_id || (c.semiFinals||[]).includes(myRoster?.roster_id)) playoffApps++;
+                    });
+                    const score = titles * 3 + runners + playoffApps;
+                    return { value: score, sub: titles + ' titles, ' + runners + ' runner-ups', color: score >= 5 ? '#D4AF37' : score >= 2 ? '#2ECC71' : 'var(--silver)' };
+                }
+                case 'draft-roi': {
+                    const profile3 = window.App?.LI?.ownerProfiles?.[myRoster?.roster_id];
+                    const draftPicks = (window.App?.LI?.draftOutcomes || []).filter(d => d.roster_id === myRoster?.roster_id);
+                    const hits = draftPicks.filter(d => d.isStarter).length;
+                    const total = draftPicks.length;
+                    const rate = total > 0 ? Math.round(hits / total * 100) : 0;
+                    return { value: rate + '%', sub: hits + '/' + total + ' became starters', color: rate >= 50 ? '#2ECC71' : rate >= 30 ? 'var(--gold)' : '#E74C3C' };
+                }
+                case 'roster-turnover': {
+                    const profile4 = window.App?.LI?.ownerProfiles?.[myRoster?.roster_id];
+                    const trades = profile4?.trades || 0;
+                    return { value: trades, sub: 'Trades this cycle', color: trades >= 5 ? '#2ECC71' : trades >= 2 ? 'var(--gold)' : 'var(--silver)' };
                 }
                 default: return { value: '\u2014', sub: '', color: 'var(--silver)' };
             }
@@ -3894,61 +3960,70 @@
                 );
               })()}
               {leagueSubView === 'picks' && (() => {
-                const tradedPicks = window.S?.tradedPicks || [];
-                const leagueSeason = parseInt(currentLeague.season || '2026');
-                const draftRounds = currentLeague.settings?.draft_rounds || 5;
-                const years = [leagueSeason, leagueSeason + 1, leagueSeason + 2];
-                const allPicks = [];
-                years.forEach(yr => {
-                    (currentLeague.rosters || []).forEach(r => {
-                        for (let rd = 1; rd <= draftRounds; rd++) {
-                            const tradedAway = tradedPicks.find(p => parseInt(p.season) === yr && p.round === rd && p.roster_id === r.roster_id && p.owner_id !== r.roster_id);
-                            if (!tradedAway) {
-                                allPicks.push({ year: yr, round: rd, originalRosterId: r.roster_id, currentOwnerId: r.roster_id, traded: false });
-                            }
-                        }
-                    });
-                    tradedPicks.filter(p => parseInt(p.season) === yr && p.round <= draftRounds).forEach(tp => {
-                        allPicks.push({ year: yr, round: tp.round, originalRosterId: tp.roster_id, currentOwnerId: tp.owner_id, traded: true });
-                    });
-                });
-                const getOwner = (rid) => {
-                    const roster = currentLeague.rosters?.find(r => r.roster_id === rid);
-                    const user = currentLeague.users?.find(u => u.user_id === roster?.owner_id);
-                    return user?.display_name || user?.username || 'Team ' + rid;
-                };
-                return (
-                    <div>
-                        {years.map(yr => (
-                            <div key={yr} style={{ marginBottom: '16px' }}>
-                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.2rem', color: 'var(--gold)', marginBottom: '8px' }}>{yr} DRAFT PICKS</div>
-                                <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 60px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' }}>
-                                        <span>Pick</span><span>Current Owner</span><span>Original Owner</span><span>Status</span>
-                                    </div>
-                                    {Array.from({ length: draftRounds }, (_, rd) => rd + 1).map(rd => {
-                                        const roundPicks = allPicks.filter(p => p.year === yr && p.round === rd).sort((a, b) => a.originalRosterId - b.originalRosterId);
-                                        return roundPicks.map((pk, i) => {
-                                            const currentOwner = getOwner(pk.currentOwnerId);
-                                            const originalOwner = getOwner(pk.originalRosterId);
-                                            const isMyPick = pk.currentOwnerId === myRoster?.roster_id;
-                                            const isMyOriginal = pk.originalRosterId === myRoster?.roster_id;
-                                            return (
-                                                <div key={yr+'-'+rd+'-'+i} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 60px', gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '0.72rem', alignItems: 'center', background: isMyPick ? 'rgba(212,175,55,0.04)' : 'transparent' }}>
-                                                    <span style={{ fontFamily: 'Oswald', fontWeight: 700, color: rd === 1 ? 'var(--gold)' : 'var(--silver)' }}>R{rd}</span>
-                                                    <span style={{ color: isMyPick ? 'var(--gold)' : 'var(--white)', fontWeight: isMyPick ? 700 : 400 }}>{currentOwner}{isMyPick ? ' (You)' : ''}</span>
-                                                    <span style={{ color: 'var(--silver)', opacity: pk.traded ? 1 : 0.4 }}>{originalOwner}{isMyOriginal ? ' (You)' : ''}</span>
-                                                    <span style={{ fontSize: '0.58rem', fontWeight: 600, color: pk.traded ? '#F0A500' : '#2ECC71' }}>{pk.traded ? 'Traded' : 'Own'}</span>
-                                                </div>
-                                            );
-                                        });
-                                    })}
-                                </div>
-                            </div>
-                        ))}
+    const tradedPicks = window.S?.tradedPicks || [];
+    const leagueSeason = parseInt(currentLeague.season || activeYear);
+    const draftRounds = currentLeague.settings?.draft_rounds || 5;
+    const years = [leagueSeason, leagueSeason + 1, leagueSeason + 2];
+
+    const getOwner = (rid) => {
+        const roster = (currentLeague.rosters || []).find(r => r.roster_id === rid);
+        const user = (currentLeague.users || []).find(u => u.user_id === roster?.owner_id);
+        return user?.display_name || user?.username || 'Team ' + rid;
+    };
+
+    return (
+        <div>
+            {years.map(yr => (
+                <div key={yr} style={{ marginBottom: '16px' }}>
+                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.2rem', color: 'var(--gold)', marginBottom: '8px' }}>{yr} DRAFT PICKS</div>
+                    <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 60px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' }}>
+                            <span>Pick</span><span>Current Owner</span><span>Original Owner</span><span>Status</span>
+                        </div>
+                        <div style={{ maxHeight: '500px', overflow: 'auto' }}>
+                            {Array.from({ length: draftRounds }, (_, rd) => rd + 1).flatMap(rd => {
+                                // For each round, build one row per roster
+                                return (currentLeague.rosters || []).map(r => {
+                                    const originalRid = r.roster_id;
+                                    // Check if this pick was traded
+                                    const trade = tradedPicks.find(tp =>
+                                        String(tp.season) === String(yr) &&
+                                        tp.round === rd &&
+                                        tp.roster_id === originalRid
+                                    );
+                                    const currentOwnerRid = trade ? trade.owner_id : originalRid;
+                                    const traded = trade && trade.owner_id !== originalRid;
+                                    const isMyPick = currentOwnerRid === myRoster?.roster_id;
+                                    const isMyOriginal = originalRid === myRoster?.roster_id;
+
+                                    return (
+                                        <div key={yr+'-'+rd+'-'+originalRid} style={{
+                                            display: 'grid', gridTemplateColumns: '60px 1fr 1fr 60px', gap: '4px',
+                                            padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                            fontSize: '0.72rem', alignItems: 'center',
+                                            background: isMyPick ? 'rgba(212,175,55,0.04)' : 'transparent'
+                                        }}>
+                                            <span style={{ fontFamily: 'Oswald', fontWeight: 700, color: rd === 1 ? 'var(--gold)' : 'var(--silver)' }}>R{rd}</span>
+                                            <span style={{ color: isMyPick ? 'var(--gold)' : 'var(--white)', fontWeight: isMyPick ? 700 : 400 }}>
+                                                {getOwner(currentOwnerRid)}{isMyPick ? ' (You)' : ''}
+                                            </span>
+                                            <span style={{ color: 'var(--silver)', opacity: traded ? 1 : 0.4 }}>
+                                                {getOwner(originalRid)}{isMyOriginal ? ' (You)' : ''}
+                                            </span>
+                                            <span style={{ fontSize: '0.58rem', fontWeight: 600, color: traded ? '#F0A500' : '#2ECC71' }}>
+                                                {traded ? 'Traded' : 'Own'}
+                                            </span>
+                                        </div>
+                                    );
+                                });
+                            })}
+                        </div>
                     </div>
-                );
-              })()}
+                </div>
+            ))}
+        </div>
+    );
+})()}
             </div>
           );
 
@@ -4442,30 +4517,54 @@
                             <div style={{ fontFamily: 'Bebas Neue', color: theirTotal >= myTotal ? '#2ECC71' : 'var(--silver)', fontSize: '1.1rem' }}>{theirTotal.toLocaleString()}</div>
                           </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
-                          {['You', theirUser?.display_name || 'Opponent'].map((label, side) => {
-                            const pids = side === 0 ? myPlayers : theirPlayers;
-                            const sorted = pids.map(pid => ({ pid, dhq: window.App?.LI?.playerScores?.[pid] || 0 })).sort((a,b) => b.dhq - a.dhq).slice(0, 10);
-                            return (
-                              <div key={side} style={{ background: 'var(--black)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px' }}>
-                                <div style={{ fontFamily: 'Oswald', fontSize: '0.68rem', color: side === 0 ? 'var(--gold)' : 'var(--silver)', textTransform: 'uppercase', marginBottom: '8px' }}>{label} {'\u2014'} Top 10</div>
-                                {sorted.map(({ pid, dhq }, i) => {
-                                  const p = playersData[pid]; if (!p) return null;
-                                  const pos = normPos(p.position);
-                                  return (
-                                    <div key={pid} onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(pid, playersData, statsData); }}
-                                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', cursor: 'pointer', fontSize: '0.7rem', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                      <span style={{ color: 'var(--silver)', minWidth: '14px', fontSize: '0.6rem' }}>{i+1}</span>
-                                      <div style={{ width: '18px', height: '18px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+pid+'.jpg'} onError={e=>e.target.style.display='none'} style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} /></div>
-                                      <span style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: 'var(--white)' }}>{p.full_name || (p.first_name+' '+p.last_name).trim()}</span>
-                                      <span style={{ fontSize: '0.58rem', color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
-                                      <span style={{ fontFamily: 'Oswald', fontWeight: 700, fontSize: '0.68rem', color: dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : 'var(--silver)' }}>{dhq > 0 ? dhq.toLocaleString() : '\u2014'}</span>
+                        {/* Full roster comparison by position */}
+                        <div style={{ marginTop: '16px' }}>
+                            <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>Full Roster by Position</div>
+                            {['QB','RB','WR','TE','K','DL','LB','DB'].map(pos => {
+                                const myAtPos = myPlayers.filter(pid => normPos(playersData[pid]?.position) === pos)
+                                    .map(pid => ({ pid, p: playersData[pid], dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
+                                    .sort((a,b) => b.dhq - a.dhq);
+                                const theirAtPos = theirPlayers.filter(pid => normPos(playersData[pid]?.position) === pos)
+                                    .map(pid => ({ pid, p: playersData[pid], dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
+                                    .sort((a,b) => b.dhq - a.dhq);
+                                if (!myAtPos.length && !theirAtPos.length) return null;
+                                const maxLen = Math.max(myAtPos.length, theirAtPos.length);
+
+                                return (
+                                    <div key={pos} style={{ marginBottom: '12px', background: 'var(--black)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', overflow: 'hidden' }}>
+                                        <div style={{ padding: '6px 10px', background: (posColors[pos] || '#666') + '15', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <span style={{ fontFamily: 'Oswald', fontSize: '0.72rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
+                                            <span style={{ fontSize: '0.6rem', color: 'var(--silver)' }}>{myAtPos.length} vs {theirAtPos.length}</span>
+                                        </div>
+                                        {Array.from({ length: maxLen }).map((_, i) => {
+                                            const my = myAtPos[i];
+                                            const their = theirAtPos[i];
+                                            return (
+                                                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                                    {/* My player */}
+                                                    <div style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.68rem', borderRight: '1px solid rgba(255,255,255,0.04)', background: my && their && my.dhq > their.dhq ? 'rgba(46,204,113,0.04)' : 'transparent', cursor: my ? 'pointer' : 'default' }}
+                                                        onClick={() => { if (my && window.openFWPlayerModal) openFWPlayerModal(my.pid, playersData, statsData); }}>
+                                                        {my ? (<>
+                                                            <div style={{ width: '18px', height: '18px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+my.pid+'.jpg'} onError={e=>e.target.style.display='none'} style={{ width:'18px',height:'18px',borderRadius:'50%',objectFit:'cover' }} /></div>
+                                                            <span style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: 'var(--white)', cursor: 'pointer' }}>{my.p?.full_name || '?'}</span>
+                                                            <span style={{ fontFamily: 'Oswald', fontWeight: 700, fontSize: '0.65rem', color: my.dhq >= 7000 ? '#2ECC71' : my.dhq >= 4000 ? '#3498DB' : 'var(--silver)' }}>{my.dhq > 0 ? my.dhq.toLocaleString() : '\u2014'}</span>
+                                                        </>) : <span style={{ color: 'var(--silver)', opacity: 0.3, fontSize: '0.6rem' }}>{'\u2014'}</span>}
+                                                    </div>
+                                                    {/* Their player */}
+                                                    <div style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.68rem', background: their && my && their.dhq > my.dhq ? 'rgba(46,204,113,0.04)' : 'transparent', cursor: their ? 'pointer' : 'default' }}
+                                                        onClick={() => { if (their && window.openFWPlayerModal) openFWPlayerModal(their.pid, playersData, statsData); }}>
+                                                        {their ? (<>
+                                                            <div style={{ width: '18px', height: '18px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+their.pid+'.jpg'} onError={e=>e.target.style.display='none'} style={{ width:'18px',height:'18px',borderRadius:'50%',objectFit:'cover' }} /></div>
+                                                            <span style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: 'var(--white)', cursor: 'pointer' }}>{their.p?.full_name || '?'}</span>
+                                                            <span style={{ fontFamily: 'Oswald', fontWeight: 700, fontSize: '0.65rem', color: their.dhq >= 7000 ? '#2ECC71' : their.dhq >= 4000 ? '#3498DB' : 'var(--silver)' }}>{their.dhq > 0 ? their.dhq.toLocaleString() : '\u2014'}</span>
+                                                        </>) : <span style={{ color: 'var(--silver)', opacity: 0.3, fontSize: '0.6rem' }}>{'\u2014'}</span>}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          })}
+                                );
+                            })}
                         </div>
                       </div>
                     );

@@ -1195,7 +1195,7 @@
                         <div style={{ fontFamily: 'Oswald', fontSize: '0.82rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Data Management</div>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                             <button onClick={() => {
-                                localStorage.removeItem('dhq_leagueintel_v9');
+                                localStorage.removeItem('dhq_leagueintel_v10');
                                 Object.keys(localStorage).filter(k => k.startsWith('dhq_hist_')).forEach(k => localStorage.removeItem(k));
                                 if (window.App) { window.App.LI = {}; window.App.LI_LOADED = false; }
                                 alert('DHQ cache cleared. Reload to rebuild.');
@@ -2485,11 +2485,10 @@
 
         const availablePlayers = useMemo(() => {
             return Object.entries(playersData)
-                .filter(([pid, p]) => !rostered.has(pid) && p.team && p.status !== 'Inactive' && p.status !== 'Retired')
-                .map(([pid, p]) => ({ pid, p, dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
-                .filter(x => x.dhq > 0 || (x.p.years_exp || 0) > 0)
+                .filter(([pid, p]) => !rostered.has(pid) && p.team && p.status !== 'Inactive' && p.status !== 'Retired' && p.active !== false)
+                .map(([pid, p]) => ({ pid, p, dhq: window.App?.LI?.playerScores?.[pid] || 0, pos: normPos(p.position) || p.position }))
                 .sort((a, b) => b.dhq - a.dhq)
-                .slice(0, 200);
+                .slice(0, 300);
         }, [playersData, rostered]);
 
         const posColors = {QB:'#E74C3C',RB:'#2ECC71',WR:'#3498DB',TE:'#F0A500',K:'#9B59B6',DL:'#E67E22',LB:'#1ABC9C',DB:'#E91E63'};
@@ -2542,14 +2541,25 @@
                 React.createElement('div', { style: { fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '12px' } }, 'FREE AGENCY'),
 
                 /* FAAB Bar */
-                React.createElement('div', { style: { display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' } },
-                    React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '10px 16px' } },
-                        React.createElement('div', { style: { fontSize: '0.55rem', color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' } }, 'FAAB Remaining'),
-                        React.createElement('div', { style: { fontSize: '1.4rem', fontFamily: 'Bebas Neue', color: '#2ECC71' } },
-                            '$' + (myRoster?.settings?.waiver_budget ? (myRoster.settings.waiver_budget - (myRoster.settings.waiver_budget_used || 0)) : '\u2014')
+                (() => {
+                    const budget = myRoster?.settings?.waiver_budget || 0;
+                    const spent = myRoster?.settings?.waiver_budget_used || 0;
+                    const remaining = Math.max(0, budget - spent);
+                    const hasFAAB = budget > 0;
+                    if (!hasFAAB) return null;
+                    return React.createElement('div', { style: { display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' } },
+                        React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '10px 16px' } },
+                            React.createElement('div', { style: { fontSize: '0.55rem', color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' } }, 'FAAB Remaining'),
+                            React.createElement('div', { style: { fontSize: '1.4rem', fontFamily: 'Bebas Neue', color: remaining > budget * 0.5 ? '#2ECC71' : remaining > budget * 0.25 ? '#F0A500' : '#E74C3C' } }, '$' + remaining),
+                            React.createElement('div', { style: { fontSize: '0.58rem', color: 'var(--silver)' } }, '$' + budget + ' total budget')
+                        ),
+                        React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 16px' } },
+                            React.createElement('div', { style: { fontSize: '0.55rem', color: 'var(--silver)', fontFamily: 'Oswald', textTransform: 'uppercase' } }, 'Spent'),
+                            React.createElement('div', { style: { fontSize: '1.4rem', fontFamily: 'Bebas Neue', color: 'var(--silver)' } }, '$' + spent),
+                            React.createElement('div', { style: { fontSize: '0.58rem', color: 'var(--silver)' } }, Math.round(spent / Math.max(1, budget) * 100) + '% used')
                         )
-                    )
-                ),
+                    );
+                })(),
 
                 /* Position filter */
                 React.createElement('div', { style: { display: 'flex', gap: '4px', marginBottom: '12px', flexWrap: 'wrap' } },
@@ -2820,7 +2830,7 @@
         const [myTeamView, setMyTeamView] = useState('roster');
         const [compareTeamId, setCompareTeamId] = useState(null);
         const [leagueSubView, setLeagueSubView] = useState('teams');
-        const [lpSort, setLpSort] = useState({ key: 'dhq', dir: -1 });
+        const [lpSort, setLpSort] = useState({ key: 'dhq', dir: 1 });
         const [lpFilter, setLpFilter] = useState('');
 
         // Default 5 KPIs — customizable per owner, saved in localStorage
@@ -4460,61 +4470,75 @@
                     const theirPlayers = (theirRoster.players || []);
                     const myTotal = myPlayers.reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
                     const theirTotal = theirPlayers.reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
-                    const myAvgAge = myPlayers.length > 0 ? myPlayers.reduce((s, pid) => s + (playersData[pid]?.age || 26), 0) / myPlayers.length : 0;
-                    const theirAvgAge = theirPlayers.length > 0 ? theirPlayers.reduce((s, pid) => s + (playersData[pid]?.age || 26), 0) / theirPlayers.length : 0;
-                    const positions = ['QB','RB','WR','TE','DL','LB','DB','K'];
-                    const posComp = positions.map(pos => {
-                      const myAtPos = myPlayers.filter(pid => normPos(playersData[pid]?.position) === pos);
-                      const theirAtPos = theirPlayers.filter(pid => normPos(playersData[pid]?.position) === pos);
-                      const myDHQ = myAtPos.reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
-                      const theirDHQ = theirAtPos.reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
-                      return { pos, myCount: myAtPos.length, theirCount: theirAtPos.length, myDHQ, theirDHQ };
-                    }).filter(p => p.myCount > 0 || p.theirCount > 0);
+                    // Head-to-head from matchups (current season)
+                    const myWins = myRoster.settings?.wins || 0;
+                    const myLosses = myRoster.settings?.losses || 0;
+                    const theirWins = theirRoster.settings?.wins || 0;
+                    const theirLosses = theirRoster.settings?.losses || 0;
+
+                    // Championships
+                    const champs = window.App?.LI?.championships || {};
+                    const myChamps = Object.values(champs).filter(c => c.champion === myRoster.roster_id).length;
+                    const theirChamps = Object.values(champs).filter(c => c.champion === compareTeamId).length;
+
+                    // Playoff records
+                    const brackets = window.App?.LI?.bracketData || {};
+                    let myPW = 0, myPL = 0, theirPW = 0, theirPL = 0;
+                    Object.values(brackets).forEach(({ winners }) => {
+                        (winners || []).forEach(m => {
+                            if (m.w === myRoster.roster_id) myPW++;
+                            if (m.l === myRoster.roster_id) myPL++;
+                            if (m.w === compareTeamId) theirPW++;
+                            if (m.l === compareTeamId) theirPL++;
+                        });
+                    });
+
+                    // Head-to-head in playoffs
+                    let h2hWins = 0, h2hLosses = 0;
+                    Object.values(brackets).forEach(({ winners }) => {
+                        (winners || []).forEach(m => {
+                            if ((m.t1 === myRoster.roster_id && m.t2 === compareTeamId) || (m.t2 === myRoster.roster_id && m.t1 === compareTeamId)) {
+                                if (m.w === myRoster.roster_id) h2hWins++;
+                                else if (m.w === compareTeamId) h2hLosses++;
+                            }
+                        });
+                    });
+
                     return (
                       <div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '16px', marginBottom: '16px', alignItems: 'center' }}>
-                          <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px' }}>
-                            <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '4px' }}>You</div>
-                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--white)' }}>{myTotal.toLocaleString()}</div>
-                            <div style={{ fontSize: '0.62rem', color: 'var(--silver)' }}>{myPlayers.length} players {'\u00B7'} Avg {myAvgAge.toFixed(1)}</div>
+                        {/* Matchup header */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', marginBottom: '16px', alignItems: 'start' }}>
+                          {/* You */}
+                          <div style={{ textAlign: 'center', padding: '14px', background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px' }}>
+                            <div style={{ fontFamily: 'Oswald', fontSize: '0.68rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '6px' }}>You</div>
+                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)', marginBottom: '4px' }}>{myWins}-{myLosses}</div>
+                            <div style={{ fontSize: '0.6rem', color: 'var(--silver)', lineHeight: 1.6 }}>
+                              {myTotal.toLocaleString()} DHQ<br/>
+                              Playoffs: {myPW}-{myPL}<br/>
+                              {myChamps > 0 ? myChamps + 'x Champion' : 'No titles'}
+                            </div>
                           </div>
-                          <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.2rem', color: 'var(--gold)' }}>VS</div>
-                          <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }}>
-                            <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--silver)', textTransform: 'uppercase', marginBottom: '4px' }}>{theirUser?.display_name || 'Opponent'}</div>
-                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--white)' }}>{theirTotal.toLocaleString()}</div>
-                            <div style={{ fontSize: '0.62rem', color: 'var(--silver)' }}>{theirPlayers.length} players {'\u00B7'} Avg {theirAvgAge.toFixed(1)}</div>
-                          </div>
-                        </div>
-                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 50px 1fr', gap: '0', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.55rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' }}>
-                            <span style={{ textAlign: 'right' }}>Your DHQ</span>
-                            <span style={{ textAlign: 'center' }}>Pos</span>
-                            <span>Their DHQ</span>
-                          </div>
-                          {posComp.map(pc => {
-                            const myWins = pc.myDHQ > pc.theirDHQ;
-                            const diff = pc.myDHQ - pc.theirDHQ;
-                            return (
-                              <div key={pc.pos} style={{ display: 'grid', gridTemplateColumns: '1fr 50px 1fr', gap: '0', padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
-                                <div style={{ textAlign: 'right' }}>
-                                  <span style={{ fontFamily: 'Oswald', fontWeight: 700, color: myWins ? '#2ECC71' : 'var(--silver)', fontSize: '0.82rem' }}>{pc.myDHQ.toLocaleString()}</span>
-                                  <span style={{ fontSize: '0.58rem', color: 'var(--silver)', marginLeft: '6px' }}>({pc.myCount}p)</span>
-                                </div>
-                                <div style={{ textAlign: 'center' }}>
-                                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: posColors[pc.pos] || 'var(--silver)' }}>{pc.pos}</span>
-                                </div>
-                                <div>
-                                  <span style={{ fontFamily: 'Oswald', fontWeight: 700, color: !myWins ? '#2ECC71' : 'var(--silver)', fontSize: '0.82rem' }}>{pc.theirDHQ.toLocaleString()}</span>
-                                  <span style={{ fontSize: '0.58rem', color: 'var(--silver)', marginLeft: '6px' }}>({pc.theirCount}p)</span>
-                                  <span style={{ fontSize: '0.58rem', fontWeight: 700, marginLeft: '8px', color: diff > 0 ? '#2ECC71' : diff < 0 ? '#E74C3C' : 'var(--silver)' }}>{diff > 0 ? '+' : ''}{diff.toLocaleString()}</span>
-                                </div>
+                          {/* VS + H2H */}
+                          <div style={{ textAlign: 'center', paddingTop: '10px' }}>
+                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', marginBottom: '6px' }}>VS</div>
+                            {(h2hWins > 0 || h2hLosses > 0) ? (
+                              <div style={{ fontSize: '0.62rem', color: 'var(--silver)' }}>
+                                <div style={{ fontWeight: 700, color: h2hWins > h2hLosses ? '#2ECC71' : h2hWins < h2hLosses ? '#E74C3C' : 'var(--silver)' }}>H2H: {h2hWins}-{h2hLosses}</div>
+                                <div style={{ opacity: 0.5, marginTop: '2px' }}>in playoffs</div>
                               </div>
-                            );
-                          })}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 50px 1fr', gap: '0', padding: '10px', background: 'rgba(212,175,55,0.04)', fontSize: '0.85rem' }}>
-                            <div style={{ textAlign: 'right', fontFamily: 'Bebas Neue', color: myTotal >= theirTotal ? '#2ECC71' : 'var(--silver)', fontSize: '1.1rem' }}>{myTotal.toLocaleString()}</div>
-                            <div style={{ textAlign: 'center', fontFamily: 'Oswald', color: 'var(--gold)', fontWeight: 700 }}>TOTAL</div>
-                            <div style={{ fontFamily: 'Bebas Neue', color: theirTotal >= myTotal ? '#2ECC71' : 'var(--silver)', fontSize: '1.1rem' }}>{theirTotal.toLocaleString()}</div>
+                            ) : (
+                              <div style={{ fontSize: '0.58rem', color: 'var(--silver)', opacity: 0.4 }}>No playoff H2H</div>
+                            )}
+                          </div>
+                          {/* Them */}
+                          <div style={{ textAlign: 'center', padding: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }}>
+                            <div style={{ fontFamily: 'Oswald', fontSize: '0.68rem', color: 'var(--silver)', textTransform: 'uppercase', marginBottom: '6px' }}>{theirUser?.display_name || 'Opponent'}</div>
+                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)', marginBottom: '4px' }}>{theirWins}-{theirLosses}</div>
+                            <div style={{ fontSize: '0.6rem', color: 'var(--silver)', lineHeight: 1.6 }}>
+                              {theirTotal.toLocaleString()} DHQ<br/>
+                              Playoffs: {theirPW}-{theirPL}<br/>
+                              {theirChamps > 0 ? theirChamps + 'x Champion' : 'No titles'}
+                            </div>
                           </div>
                         </div>
                         {/* Full roster comparison by position */}
@@ -4530,11 +4554,18 @@
                                 if (!myAtPos.length && !theirAtPos.length) return null;
                                 const maxLen = Math.max(myAtPos.length, theirAtPos.length);
 
+                                const myPosDHQ = myAtPos.reduce((s, x) => s + x.dhq, 0);
+                                const theirPosDHQ = theirAtPos.reduce((s, x) => s + x.dhq, 0);
+                                const posDiff = myPosDHQ - theirPosDHQ;
                                 return (
                                     <div key={pos} style={{ marginBottom: '12px', background: 'var(--black)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', overflow: 'hidden' }}>
                                         <div style={{ padding: '6px 10px', background: (posColors[pos] || '#666') + '15', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <span style={{ fontFamily: 'Oswald', fontSize: '0.72rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
-                                            <span style={{ fontSize: '0.6rem', color: 'var(--silver)' }}>{myAtPos.length} vs {theirAtPos.length}</span>
+                                            <div style={{ display: 'flex', gap: '12px', fontSize: '0.6rem' }}>
+                                                <span style={{ color: myPosDHQ >= theirPosDHQ ? '#2ECC71' : 'var(--silver)' }}>You: {myPosDHQ.toLocaleString()}</span>
+                                                <span style={{ color: theirPosDHQ >= myPosDHQ ? '#2ECC71' : 'var(--silver)' }}>Them: {theirPosDHQ.toLocaleString()}</span>
+                                                <span style={{ fontWeight: 700, color: posDiff > 0 ? '#2ECC71' : posDiff < 0 ? '#E74C3C' : 'var(--silver)' }}>{posDiff > 0 ? '+' : ''}{posDiff.toLocaleString()}</span>
+                                            </div>
                                         </div>
                                         {Array.from({ length: maxLen }).map((_, i) => {
                                             const my = myAtPos[i];

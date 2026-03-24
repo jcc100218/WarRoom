@@ -1659,6 +1659,8 @@
         const leagueUsers = currentLeague.users || [];
         const leagueId = currentLeague.id || currentLeague.league_id;
 
+        function ownerNameForRosterId(rid) { const r = allRosters.find(x => String(x.roster_id) === String(rid)); if (!r) return null; const u = leagueUsers.find(x => x.user_id === r.owner_id); return u?.display_name || null; }
+
         // Compute WEEKLY_TARGET
         const wt = useMemo(() => {
             if (!allRosters.length || !Object.keys(playersData).length) return 243;
@@ -1959,7 +1961,7 @@
                         {assessments.map(a => {
                             const rid = a.rosterId;
                             const dnaKey = ownerDna[a.ownerId] || 'NONE';
-                            const dna = DNA_TYPES[dnaKey];
+                            const dna = DNA_TYPES[dnaKey] || DNA_TYPES.NONE;
                             const isMyTeam = a.rosterId === myRosterId;
                             const avatarSrc = avatarUrl(a.avatar);
                             const draftDna = ownerDraftDna[a.ownerId] || null;
@@ -2180,8 +2182,6 @@
             function removePick(side, pickId) { setTradePickIds(prev => ({ ...prev, [side]: prev[side].filter(id => id !== pickId) })); }
             function makePickId(year, round, fromRosterId) { return `PICK-${year}-${round}-${fromRosterId}`; }
             function pickLabel(round) { const s=['th','st','nd','rd']; const v=round%100; return round+(s[(v-20)%10]||s[v]||s[0])+' Round'; }
-            function ownerNameForRosterId(rid) { const r = allRosters.find(x => String(x.roster_id) === String(rid)); if (!r) return null; const u = leagueUsers.find(x => x.user_id === r.owner_id); return u?.display_name || null; }
-
             const ownerOptions = [{ id: null, label: '-- None --' }, ...assessments.map(a => ({ id: a.ownerId, label: `${a.ownerName} (${a.teamName})` }))];
 
             function TradeSide({ side, color, label }) {
@@ -2347,7 +2347,7 @@
                                         </div>
                                         {a.needs.length > 0 && <div style={{ display:'flex', flexWrap:'wrap', gap:'0.2rem' }}><span style={{ fontSize:'0.58rem', color:'var(--silver)', opacity:0.4 }}>NEEDS:</span>{a.needs.slice(0,4).map(n => <span key={n.pos} className={`tc-chip ${n.urgency==='deficit'?'tc-chip-need':'tc-chip-thin'}`} style={{ fontSize:'0.55rem' }}>{n.pos}</span>)}</div>}
                                         {a.strengths.length > 0 && <div style={{ display:'flex', flexWrap:'wrap', gap:'0.2rem' }}><span style={{ fontSize:'0.58rem', color:'var(--silver)', opacity:0.4 }}>HAS:</span>{a.strengths.map(s => <span key={s} className="tc-chip tc-chip-strength" style={{ fontSize:'0.55rem' }}>+{s}</span>)}</div>}
-                                        {dnaKey2 !== 'NONE' && <div style={{ fontSize:'0.6rem', color:dna2.color, opacity:0.85, fontStyle:'italic' }}>{dna2.label}</div>}
+                                        {dnaKey2 !== 'NONE' && dna2 && <div style={{ fontSize:'0.6rem', color:dna2.color, opacity:0.85, fontStyle:'italic' }}>{dna2.label}</div>}
                                     </div>
                                 );
                             })}
@@ -2790,7 +2790,7 @@
     // ══════════════════════════════════════════════════════════════════════════
 
     // League Detail Component
-    function LeagueDetail({ league, onBack, sleeperUserId }) {
+    function LeagueDetail({ league, onBack, sleeperUserId, onOpenSettings }) {
         const [loading, setLoading] = useState(true);
         const [error, setError] = useState(null);
         const [playersData, setPlayersData] = useState({});
@@ -2804,7 +2804,6 @@
         const [activeYear, setActiveYear] = useState(league.season);
         const [trending, setTrending] = useState({ adds: [], drops: [] });
         const [activeTab, setActiveTab] = useState('dashboard');
-        const [showSettings, setShowSettings] = useState(false);
         const [analyticsData, setAnalyticsData] = useState(null);
         const [analyticsTab, setAnalyticsTab] = useState('roster');
         const [rosterFilter, setRosterFilter] = useState('All');
@@ -4841,7 +4840,7 @@
                         {label: 'Trades', tab: 'trades'},
                         {label: 'Free Agency', tab: 'fa'},
                         {label: 'Draft', tab: 'draft'},
-                        {label: 'Settings', action: () => setShowSettings(true)},
+                        {label: 'Settings', action: () => onOpenSettings && onOpenSettings()},
                     ].map((item, i) => {
                         const isActive = item.tab && activeTab === item.tab;
                         return (
@@ -5503,8 +5502,26 @@
                                             <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>Your DHQ past peak by {(parseInt(S?.season) || 2026) + 2}</div>
                                         </div>
                                         <div style={{ textAlign: 'center' }}>
-                                            <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '2rem', color: 'var(--gold)' }}>18%</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>Winner avg</div>
+                                            {(() => {
+                                                // Compute league-wide avg at-risk %
+                                                let lgTotal = 0, lgAtRisk = 0;
+                                                (S?.rosters || []).forEach(r => {
+                                                    (r.players || []).forEach(pid => {
+                                                        const d = playerScores[pid] || 0;
+                                                        const m = playerMeta[pid] || {};
+                                                        lgTotal += d;
+                                                        if (m.age && m.pos) {
+                                                            const pe = (peakWindows[m.pos] || [23,29])[1];
+                                                            if (m.age + 2 > pe && d >= 2000) lgAtRisk += d;
+                                                        }
+                                                    });
+                                                });
+                                                const lgPct = lgTotal > 0 ? Math.round(lgAtRisk / lgTotal * 100) : 0;
+                                                return <>
+                                                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '2rem', color: 'var(--gold)' }}>{lgPct}%</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>League avg</div>
+                                                </>;
+                                            })()}
                                         </div>
                                     </div>
                                     {atRiskPlayers.length > 0 && (
@@ -6037,11 +6054,25 @@
 
         // Show league detail if selected
         if (selectedLeague) {
-            return <LeagueDetail
-                league={selectedLeague}
-                onBack={() => setSelectedLeague(null)}
-                sleeperUserId={sleeperUser?.user_id}
-            />;
+            return <>
+                <LeagueDetail
+                    league={selectedLeague}
+                    onBack={() => setSelectedLeague(null)}
+                    sleeperUserId={sleeperUser?.user_id}
+                    onOpenSettings={() => setShowSettings(true)}
+                />
+                {showSettings && (
+                    <SettingsModal
+                        onClose={() => setShowSettings(false)}
+                        initDisplayName={customDisplayName}
+                        onDisplayNameSave={(name) => {
+                            setCustomDisplayName(name);
+                            window.OD.saveDisplayName(name);
+                        }}
+                        leagueMates={leagueMates}
+                    />
+                )}
+            </>;
         }
 
         return (

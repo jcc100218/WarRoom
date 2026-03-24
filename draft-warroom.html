@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>Draft War Room - Fantasy War Room</title>
+    <title>Draft Command Center - Fantasy War Room</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -532,7 +532,7 @@
             // ---- Render states ----
             if (phase === 'boot') return (
                 <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'0.75rem' }}>
-                    <div style={{ color:'var(--gold)', fontFamily:'Bebas Neue,cursive', fontSize:'1.4rem', letterSpacing:'0.12em' }}>LOADING DRAFT WAR ROOM</div>
+                    <div style={{ color:'var(--gold)', fontFamily:'Bebas Neue,cursive', fontSize:'1.4rem', letterSpacing:'0.12em' }}>LOADING DRAFT COMMAND CENTER</div>
                     <div style={{ color:'var(--silver)', fontSize:'0.75rem', opacity:0.6 }}>Connecting to Sleeper API...</div>
                 </div>
             );
@@ -548,13 +548,122 @@
                 </div>
             );
 
+            // ---- Computed data for new panels ----
+            const PICK_VALUES = { 1:6250, 2:3150, 3:1650, 4:850, 5:450, 6:225, 7:125 };
+            function getPickDHQ(season, round, totalTeams) {
+                if (window.App?.LI?.dhqPickValueFn) {
+                    const val = window.App.LI.dhqPickValueFn(season, round, Math.ceil((totalTeams || 12) / 2));
+                    if (val != null) return val;
+                }
+                return PICK_VALUES[round] || 100;
+            }
+
+            const leagueSeason = parseInt(leagueInfo?.season || SEASON);
+            const totalTeams = allRosters.length || 12;
+            const picksByOwner = useMemo(() => {
+                if (!allRosters.length) return {};
+                return buildPicksByOwner(allRosters, tradedPicks, leagueSeason);
+            }, [allRosters, tradedPicks, leagueSeason]);
+            const myPicks = picksByOwner[String(userId)] || [];
+
+            const myPicksWithValue = useMemo(() => {
+                return myPicks.map(pk => ({
+                    ...pk,
+                    dhq: getPickDHQ(pk.year, pk.round, totalTeams),
+                    label: `${pk.year} Rd ${pk.round}`,
+                }));
+            }, [myPicks, totalTeams]);
+
+            const totalDraftCapital = useMemo(() => myPicksWithValue.reduce((s, p) => s + p.dhq, 0), [myPicksWithValue]);
+
+            // Next pick: earliest pick in current season
+            const nextPick = useMemo(() => {
+                const currentYearPicks = myPicksWithValue.filter(p => p.year === leagueSeason).sort((a,b) => a.round - b.round);
+                return currentYearPicks[0] || null;
+            }, [myPicksWithValue, leagueSeason]);
+
+            // Positional needs analysis
+            const positionalNeeds = useMemo(() => {
+                const rp = leagueInfo?.roster_positions || [];
+                const required = {};
+                for (const pos of rp) {
+                    if (pos === 'BN' || pos === 'IR') continue;
+                    const norm = (pos === 'FLEX' || pos === 'SUPER_FLEX' || pos === 'REC_FLEX' || pos === 'WRRB_FLEX') ? null : normPos(pos);
+                    if (norm) {
+                        required[norm] = (required[norm] || 0) + 1;
+                    }
+                }
+                // Count FLEX slots as fractional needs for RB/WR/TE
+                const flexCount = rp.filter(p => p === 'FLEX').length;
+                const sfCount = rp.filter(p => p === 'SUPER_FLEX').length;
+
+                const have = {};
+                for (const grp of myGroups) {
+                    have[grp] = myGrouped[grp]?.length || 0;
+                }
+
+                const positions = ['QB','RB','WR','TE'];
+                if (isIDP) positions.push('LB','DL','DB');
+
+                return positions.map(pos => {
+                    const req = required[pos] || 0;
+                    const got = have[pos] || 0;
+                    const starterGap = req - got;
+                    let depth = got - req;
+                    let level, color;
+                    if (starterGap > 0) { level = 'CRITICAL'; color = '#E74C3C'; }
+                    else if (depth <= 1) { level = 'HIGH'; color = '#F39C12'; }
+                    else if (depth <= 3) { level = 'MODERATE'; color = '#F7DC6F'; }
+                    else { level = 'CAN WAIT'; color = '#58D68D'; }
+                    return { pos, required: req, have: got, level, color, priority: starterGap > 0 ? 3 : depth <= 1 ? 2 : depth <= 3 ? 1 : 0 };
+                }).sort((a,b) => b.priority - a.priority || a.pos.localeCompare(b.pos));
+            }, [leagueInfo, myGrouped, myGroups, isIDP]);
+
+            // Fit score for prospect
+            const getFitScore = (rookiePos) => {
+                const need = positionalNeeds.find(n => n.pos === normPos(rookiePos));
+                if (!need) return 40;
+                if (need.level === 'CRITICAL') return 100;
+                if (need.level === 'HIGH') return 85;
+                if (need.level === 'MODERATE') return 60;
+                return 35;
+            };
+
+            const fitColor = (score) => score >= 80 ? '#58D68D' : score >= 50 ? '#F7DC6F' : '#888';
+
+            // Tiered rookies for center panel
+            const tieredRookies = useMemo(() => {
+                const withFit = allRookies.map((r, idx) => ({ ...r, fit: getFitScore(r.pos), rank: idx }));
+                return {
+                    elite: withFit.slice(0, 5),
+                    solid: withFit.slice(5, 15),
+                    depth: withFit.slice(15, 40),
+                };
+            }, [allRookies, positionalNeeds]);
+
+            // Team health
+            const teamHealth = useMemo(() => {
+                if (!myRoster || !window.assessTeamFromGlobal) return null;
+                try { return window.assessTeamFromGlobal(myRoster.roster_id); } catch(e) { return null; }
+            }, [myRoster]);
+
+            // Auto recommendations for AI panel
+            const autoRecs = useMemo(() => {
+                if (!nextPick || !allRookies.length || !positionalNeeds.length) return [];
+                const topNeeds = positionalNeeds.filter(n => n.priority >= 2).map(n => n.pos);
+                const candidates = allRookies.slice(0, 20).map(r => ({ ...r, fit: getFitScore(r.pos) }));
+                // Sort by fit then rank
+                candidates.sort((a,b) => b.fit - a.fit || a.searchRank - b.searchRank);
+                return candidates.slice(0, 5);
+            }, [nextPick, allRookies, positionalNeeds]);
+
             return (
                 <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
 
                     {/* HEADER */}
                     <div className="wr-header">
                         <button className="back-btn" onClick={() => window.location.href='index.html'}>&larr; Dashboard</button>
-                        <div className="wr-title">&#9965; {selectedYear} DRAFT WAR ROOM</div>
+                        <div className="wr-title">&#9965; {selectedYear} DRAFT COMMAND CENTER</div>
                         <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)}
                             style={{ background:'var(--charcoal)', border:'1px solid rgba(212,175,55,0.4)', borderRadius:'4px', color:'var(--gold)', fontFamily:'Oswald,sans-serif', fontWeight:'700', fontSize:'0.72rem', padding:'0.18rem 0.45rem', cursor:'pointer', outline:'none', flexShrink:0 }}>
                             {AVAILABLE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
@@ -562,6 +671,16 @@
                         <select className="league-select" value={leagueId} onChange={e => setLeagueId(e.target.value)}>
                             {leagues.map(l => <option key={l.league_id} value={l.league_id}>{l.name}</option>)}
                         </select>
+                        {nextPick && (
+                            <span style={{ fontFamily:'Oswald,sans-serif', fontSize:'0.7rem', fontWeight:600, color:'var(--white)', background:'rgba(212,175,55,0.12)', border:'1px solid rgba(212,175,55,0.3)', borderRadius:'4px', padding:'0.2rem 0.55rem', whiteSpace:'nowrap' }}>
+                                Next pick: <span style={{ color:'var(--gold)', fontWeight:700 }}>{nextPick.year} Rd {nextPick.round}</span>
+                            </span>
+                        )}
+                        {totalDraftCapital > 0 && (
+                            <span style={{ fontFamily:'Oswald,sans-serif', fontSize:'0.65rem', fontWeight:600, color:'var(--silver)', whiteSpace:'nowrap' }}>
+                                Capital: <span style={{ color:'var(--gold)' }}>{totalDraftCapital.toLocaleString()} DHQ</span>
+                            </span>
+                        )}
                         {userAvatar && <img src={`https://sleepercdn.com/avatars/thumbs/${userAvatar}`} alt="" style={{ width:'28px', height:'28px', borderRadius:'4px', flexShrink:0 }} />}
                     </div>
 
@@ -570,103 +689,85 @@
                     ) : (
                         <div className="wr-grid">
 
-                            {/* ===== LEFT: MY ROSTER ===== */}
+                            {/* ===== LEFT: DRAFT STRATEGY ===== */}
                             <div className="panel">
                                 <div className="panel-header">
                                     <div className="ph-title">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
+                                            <path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M9 3v18"/>
                                         </svg>
-                                        MY ROSTER
-                                        {myRoster && (
-                                            <span style={{ color:'var(--silver)', fontSize:'1.3rem', marginLeft:'0.4rem' }}>
-                                                ({myRoster.settings?.wins||0}-{myRoster.settings?.losses||0})
-                                            </span>
-                                        )}
+                                        DRAFT STRATEGY
                                         {myRoster && (
                                             <span style={{ marginLeft:'auto', color:'var(--silver)', fontSize:'0.58rem', opacity:0.5 }}>
-                                                {myRoster.players?.length||0} players
+                                                {myRoster.players?.length||0} rostered
                                             </span>
                                         )}
                                     </div>
                                     <div className="ph-sub"></div>
                                 </div>
-                                {myGroups.length > 0 && (
-                                    <table className="roster-table" style={{flexShrink:0}}>
-                                        <thead>
-                                            <tr>
-                                                <th className="rth-pos">POS</th>
-                                                <th className="rth-player">PLAYER</th>
-                                                <th className="rth-yrs">YRS</th>
-                                                <th className="rth-pts">PTS</th>
-                                                <th className="rth-gp">GP</th>
-                                                <th className="rth-avg">AVG</th>
-                                            </tr>
-                                        </thead>
-                                    </table>
-                                )}
-                                <div className="panel-body" style={{padding:0}}>
-                                    {myGroups.length === 0 && <div className="center-msg">No roster data</div>}
-                                    {myGroups.length > 0 && (
-                                        <table className="roster-table">
-                                            <colgroup>
-                                                <col style={{width:'44px'}}/><col/>
-                                                <col style={{width:'40px'}}/><col style={{width:'56px'}}/>
-                                                <col style={{width:'36px'}}/><col style={{width:'52px'}}/>
-                                            </colgroup>
-                                            <tbody>
-                                                {myGroups.flatMap(grp => [
-                                                    <tr key={`${grp}-hdr`} className="rt-group">
-                                                        <td colSpan={6}>
-                                                            <div className="rt-gw">
-                                                                <span>{grp}</span>
-                                                                <span>({myGrouped[grp].length})</span>
-                                                            </div>
-                                                        </td>
-                                                    </tr>,
-                                                    ...myGrouped[grp].map(({ id, p }) => {
-                                                        const s = statsData[id];
-                                                        const rawPts = calcRawPts(s);
-                                                        const pts = rawPts !== null ? Number(rawPts).toFixed(1) : '-';
-                                                        const gp  = s?.gp ?? '-';
-                                                        const avg = (rawPts !== null && s?.gp) ? (rawPts/s.gp).toFixed(1) : '-';
-                                                        const yrs = p.years_exp != null ? p.years_exp : '-';
-                                                        const pName = p.full_name || `${p.first_name||''} ${p.last_name||''}`.trim() || id;
+                                <div className="panel-body" style={{ padding:'0.5rem 0.6rem' }}>
+                                    {!myRoster && <div className="center-msg">No roster data</div>}
 
-                                                        const sc = rosterStatusClass(id);
-                                                        return (
-                                                            <tr key={id}>
-                                                                <td className="rtd-pos">{p.position||'?'}</td>
-                                                                <td className={`rtd-player${sc?' '+sc:''}`}>
-                                                                    <a href="#" onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(id, playersData, statsData); }} style={{cursor:'pointer'}}>
-                                                                        {pName}
-                                                                        {p.years_exp === 0 && <span style={{marginLeft:'0.3rem', background:'rgba(212,175,55,0.2)', color:'var(--gold)', fontSize:'0.56rem', padding:'1px 3px', borderRadius:'2px', fontFamily:'Bebas Neue,cursive', letterSpacing:'0.04em'}}>RK</span>}
-                                                                        <span style={{fontSize:'0.65rem',color:'var(--silver)',opacity:0.55,marginLeft:'0.3rem'}}>{p.team||''}</span>
-                                                                    </a>
-                                                                </td>
-                                                                <td className="rtd-num">{yrs}</td>
-                                                                <td className="rtd-num rtd-pts">{pts}</td>
-                                                                <td className="rtd-num">{gp}</td>
-                                                                <td className="rtd-num">{avg}</td>
-                                                            </tr>
-                                                        );
-                                                    }),
-                                                    <tr key={`${grp}-sep`} className="rt-sep"><td colSpan={6}></td></tr>,
-                                                ])}
-                                            </tbody>
-                                        </table>
-                                    )}
+                                    {myRoster && (<>
+                                        {/* Positional Priority Stack */}
+                                        <div style={{ marginBottom:'0.9rem' }}>
+                                            <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.85rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'0.4rem' }}>POSITIONAL PRIORITY</div>
+                                            {positionalNeeds.map((n, i) => (
+                                                <div key={n.pos} style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.25rem 0.35rem', marginBottom:'0.15rem', background:'rgba(255,255,255,0.02)', borderRadius:'4px', borderLeft:`3px solid ${n.color}` }}>
+                                                    <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.75rem', color:'var(--silver)', width:'18px', textAlign:'right' }}>{i+1}.</span>
+                                                    <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.8rem', color: posColor(n.pos), width:'30px' }}>{n.pos}</span>
+                                                    <span style={{ fontSize:'0.65rem', fontWeight:700, color: n.color, textTransform:'uppercase', letterSpacing:'0.04em' }}>{n.level}</span>
+                                                    <span style={{ marginLeft:'auto', fontSize:'0.6rem', color:'var(--silver)', opacity:0.5 }}>{n.have} on roster / {n.required} starter slots</span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Your Picks */}
+                                        <div style={{ marginBottom:'0.9rem' }}>
+                                            <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.85rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'0.4rem' }}>YOUR PICKS</div>
+                                            {myPicksWithValue.length === 0 && <div style={{ fontSize:'0.7rem', color:'var(--silver)', opacity:0.4 }}>No picks found</div>}
+                                            {myPicksWithValue.map((pk, i) => (
+                                                <div key={`${pk.year}-${pk.round}-${pk.fromRosterId}`} style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.2rem 0.35rem', marginBottom:'0.1rem', background: pk.year === leagueSeason ? 'rgba(212,175,55,0.06)' : 'rgba(255,255,255,0.02)', borderRadius:'4px' }}>
+                                                    <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.72rem', color: pk.year === leagueSeason ? 'var(--gold)' : 'var(--silver)', width:'68px' }}>{pk.year} RD {pk.round}</span>
+                                                    <span style={{ fontSize:'0.62rem', color:'var(--silver)', opacity:0.5, flex:1 }}>
+                                                        {pk.fromRosterId !== String(myRoster?.roster_id) ? '(acquired)' : '(own)'}
+                                                    </span>
+                                                    <span style={{ fontSize:'0.65rem', fontWeight:700, color:'var(--gold)' }}>{pk.dhq.toLocaleString()} DHQ</span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Pick Value Summary */}
+                                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0.4rem 0.5rem', background:'rgba(212,175,55,0.08)', border:'1px solid rgba(212,175,55,0.2)', borderRadius:'6px', marginBottom:'0.9rem' }}>
+                                            <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.8rem', color:'var(--gold)', letterSpacing:'0.06em' }}>TOTAL DRAFT CAPITAL</span>
+                                            <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1rem', color:'var(--gold)' }}>{totalDraftCapital.toLocaleString()} DHQ</span>
+                                        </div>
+
+                                        {/* Current Roster Health */}
+                                        {teamHealth && (
+                                            <div style={{ marginBottom:'0.5rem' }}>
+                                                <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.85rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'0.4rem' }}>ROSTER HEALTH</div>
+                                                <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', padding:'0.35rem 0.5rem', background:'rgba(255,255,255,0.03)', borderRadius:'6px', border:'1px solid rgba(212,175,55,0.12)' }}>
+                                                    <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.3rem', color: (teamHealth.score||teamHealth.overall||0) >= 70 ? '#58D68D' : (teamHealth.score||teamHealth.overall||0) >= 45 ? '#F7DC6F' : '#E74C3C' }}>
+                                                        {Math.round(teamHealth.score ?? teamHealth.overall ?? 0)}
+                                                    </span>
+                                                    <span style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.6 }}>/ 100</span>
+                                                    {teamHealth.grade && <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.85rem', color:'var(--gold)', marginLeft:'auto' }}>{teamHealth.grade}</span>}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>)}
                                 </div>
                             </div>
 
-                            {/* ===== CENTER: AVAILABLE ROOKIES ===== */}
+                            {/* ===== CENTER: PROSPECT BOARD ===== */}
                             <div className="panel">
                                 <div className="panel-header">
                                     <div className="ph-title">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style={{color:'var(--gold)'}}>
                                             <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
                                         </svg>
-                                        AVAILABLE ROOKIES
+                                        PROSPECT BOARD
                                         <span style={{ color:'var(--silver)', fontSize:'0.65rem', opacity:0.55, marginLeft:'auto' }}>{filteredRookies.length}</span>
                                     </div>
                                     <div className="ph-sub">
@@ -678,41 +779,125 @@
                                             value={search} onChange={e => setSearch(e.target.value)} />
                                     </div>
                                 </div>
-                                <div className="panel-body">
-                                    {filteredRookies.length === 0 && (
-                                        <div className="center-msg">
-                                            {Object.keys(playersData).length === 0 ? 'Loading player data...' : 'No rookies found'}
-                                        </div>
-                                    )}
-                                    {filteredRookies.map((r, idx) => {
+                                <div className="panel-body" style={{ padding:'0.4rem' }}>
+                                    {Object.keys(playersData).length === 0 && <div className="center-msg">Loading player data...</div>}
 
-                                        return (
-                                            <div key={r.id} className="player-row">
-                                                <span style={{ color:'var(--silver)', opacity:0.4, fontSize:'0.6rem', width:'20px', textAlign:'right', flexShrink:0 }}>{idx+1}</span>
-                                                <span className="pos-badge" style={{ color: posColor(r.pos) }}>{r.pos}</span>
-                                                <a className="player-name" href="#"
-                                                    onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData); }}
-                                                    style={{ color:'inherit', textDecoration:'none', cursor:'pointer' }}
-                                                    onMouseEnter={e=>e.currentTarget.style.color='var(--gold)'}
-                                                    onMouseLeave={e=>e.currentTarget.style.color='inherit'}>
-                                                    {r.name}
-                                                    <span className="player-team"> {r.team||'UFA'}</span>
-                                                </a>
-                                                <span className="rk-badge">ROOKIE</span>
+                                    {Object.keys(playersData).length > 0 && posFilter === 'ALL' && !search && (<>
+                                        {/* TIER 1: ELITE */}
+                                        {tieredRookies.elite.length > 0 && (
+                                            <div style={{ border:'1.5px solid var(--gold)', borderRadius:'8px', padding:'0.4rem', marginBottom:'0.5rem', background:'rgba(212,175,55,0.04)' }}>
+                                                <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.8rem', color:'var(--gold)', letterSpacing:'0.1em', marginBottom:'0.3rem', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                                                    <span style={{ background:'var(--gold)', color:'var(--black)', fontSize:'0.55rem', fontWeight:700, padding:'1px 5px', borderRadius:'3px', fontFamily:'Oswald,sans-serif' }}>TIER 1</span>
+                                                    ELITE PROSPECTS
+                                                </div>
+                                                {tieredRookies.elite.map(r => {
+                                                    const fit = r.fit;
+                                                    return (
+                                                        <div key={r.id} className="player-row" style={{ borderLeft:`3px solid var(--gold)` }}>
+                                                            <span className="pos-badge" style={{ color: posColor(r.pos), borderColor: posColor(r.pos) }}>{r.pos}</span>
+                                                            <a className="player-name" href="#"
+                                                                onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData); }}
+                                                                style={{ color:'inherit', textDecoration:'none', cursor:'pointer' }}
+                                                                onMouseEnter={e=>e.currentTarget.style.color='var(--gold)'}
+                                                                onMouseLeave={e=>e.currentTarget.style.color='inherit'}>
+                                                                {r.name}
+                                                                <span className="player-team"> {r.team||'UFA'}</span>
+                                                            </a>
+                                                            <span style={{ fontSize:'0.6rem', fontWeight:700, color: fitColor(fit), flexShrink:0 }}>FIT {fit}%</span>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
-                                        );
-                                    })}
+                                        )}
+
+                                        {/* TIER 2: SOLID STARTERS */}
+                                        {tieredRookies.solid.length > 0 && (
+                                            <div style={{ border:'1.5px solid var(--silver)', borderRadius:'8px', padding:'0.4rem', marginBottom:'0.5rem', background:'rgba(192,192,192,0.03)' }}>
+                                                <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.8rem', color:'var(--silver)', letterSpacing:'0.1em', marginBottom:'0.3rem', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                                                    <span style={{ background:'var(--silver)', color:'var(--black)', fontSize:'0.55rem', fontWeight:700, padding:'1px 5px', borderRadius:'3px', fontFamily:'Oswald,sans-serif' }}>TIER 2</span>
+                                                    SOLID STARTERS
+                                                </div>
+                                                {tieredRookies.solid.map(r => {
+                                                    const fit = r.fit;
+                                                    return (
+                                                        <div key={r.id} className="player-row">
+                                                            <span className="pos-badge" style={{ color: posColor(r.pos), borderColor: posColor(r.pos) }}>{r.pos}</span>
+                                                            <a className="player-name" href="#"
+                                                                onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData); }}
+                                                                style={{ color:'inherit', textDecoration:'none', cursor:'pointer' }}
+                                                                onMouseEnter={e=>e.currentTarget.style.color='var(--gold)'}
+                                                                onMouseLeave={e=>e.currentTarget.style.color='inherit'}>
+                                                                {r.name}
+                                                                <span className="player-team"> {r.team||'UFA'}</span>
+                                                            </a>
+                                                            <span style={{ fontSize:'0.6rem', fontWeight:700, color: fitColor(fit), flexShrink:0 }}>FIT {fit}%</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {/* TIER 3: DEPTH / UPSIDE */}
+                                        {tieredRookies.depth.length > 0 && (
+                                            <div style={{ border:'1.5px solid rgba(192,192,192,0.25)', borderRadius:'8px', padding:'0.4rem', marginBottom:'0.5rem', background:'rgba(255,255,255,0.01)' }}>
+                                                <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.8rem', color:'rgba(192,192,192,0.5)', letterSpacing:'0.1em', marginBottom:'0.3rem', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                                                    <span style={{ background:'rgba(192,192,192,0.3)', color:'var(--black)', fontSize:'0.55rem', fontWeight:700, padding:'1px 5px', borderRadius:'3px', fontFamily:'Oswald,sans-serif' }}>TIER 3</span>
+                                                    DEPTH / UPSIDE
+                                                </div>
+                                                {tieredRookies.depth.map(r => {
+                                                    const fit = r.fit;
+                                                    return (
+                                                        <div key={r.id} className="player-row" style={{ opacity:0.75 }}>
+                                                            <span className="pos-badge" style={{ color: posColor(r.pos), borderColor: posColor(r.pos) }}>{r.pos}</span>
+                                                            <a className="player-name" href="#"
+                                                                onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData); }}
+                                                                style={{ color:'inherit', textDecoration:'none', cursor:'pointer' }}
+                                                                onMouseEnter={e=>e.currentTarget.style.color='var(--gold)'}
+                                                                onMouseLeave={e=>e.currentTarget.style.color='inherit'}>
+                                                                {r.name}
+                                                                <span className="player-team"> {r.team||'UFA'}</span>
+                                                            </a>
+                                                            <span style={{ fontSize:'0.6rem', fontWeight:700, color: fitColor(fit), flexShrink:0 }}>FIT {fit}%</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </>)}
+
+                                    {/* Full filtered list (shown when filtering/searching, or below tiers) */}
+                                    {(posFilter !== 'ALL' || search) && (<>
+                                        {filteredRookies.length === 0 && <div className="center-msg">No rookies found</div>}
+                                        {filteredRookies.map((r, idx) => {
+                                            const fit = getFitScore(r.pos);
+                                            return (
+                                                <div key={r.id} className="player-row">
+                                                    <span style={{ color:'var(--silver)', opacity:0.4, fontSize:'0.6rem', width:'20px', textAlign:'right', flexShrink:0 }}>{idx+1}</span>
+                                                    <span className="pos-badge" style={{ color: posColor(r.pos), borderColor: posColor(r.pos) }}>{r.pos}</span>
+                                                    <a className="player-name" href="#"
+                                                        onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData); }}
+                                                        style={{ color:'inherit', textDecoration:'none', cursor:'pointer' }}
+                                                        onMouseEnter={e=>e.currentTarget.style.color='var(--gold)'}
+                                                        onMouseLeave={e=>e.currentTarget.style.color='inherit'}>
+                                                        {r.name}
+                                                        <span className="player-team"> {r.team||'UFA'}</span>
+                                                    </a>
+                                                    <span style={{ fontSize:'0.6rem', fontWeight:700, color: fitColor(fit), flexShrink:0 }}>FIT {fit}%</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </>)}
                                 </div>
                             </div>
 
-                            {/* ===== RIGHT: AI SCOUT ===== */}
+                            {/* ===== RIGHT: DRAFT AI ===== */}
                             <div className="panel">
                                 <div className="panel-header">
                                     <div className="ph-title">
                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style={{color:'var(--gold)',flexShrink:0}}>
                                             <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
                                         </svg>
-                                        AI SCOUT
+                                        DRAFT AI
                                         <span style={{ background:'var(--gold)', color:'var(--black)', fontFamily:'Oswald,sans-serif', fontSize:'0.52rem', fontWeight:700, padding:'0.1rem 0.35rem', borderRadius:'3px', letterSpacing:'0.06em', marginLeft:'0.4rem' }}>BETA</span>
                                     </div>
                                     <div className="ph-sub" style={{ gap:'0.35rem' }}>
@@ -724,6 +909,36 @@
                                 </div>
 
                                 <div className="panel-body" style={{ padding:'0.85rem 0.8rem' }}>
+
+                                    {/* Auto-generated pick recommendations */}
+                                    {nextPick && autoRecs.length > 0 && (
+                                        <div style={{ marginBottom:'0.9rem', padding:'0.5rem', background:'rgba(212,175,55,0.05)', border:'1px solid rgba(212,175,55,0.18)', borderRadius:'6px' }}>
+                                            <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.82rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'0.15rem' }}>
+                                                AT YOUR NEXT PICK ({nextPick.year} Rd {nextPick.round})
+                                            </div>
+                                            <div style={{ fontSize:'0.62rem', color:'var(--silver)', opacity:0.5, marginBottom:'0.4rem' }}>
+                                                Pick value: <span style={{ color:'var(--gold)', fontWeight:700 }}>{getPickDHQ(nextPick.year, nextPick.round, totalTeams).toLocaleString()} DHQ</span>
+                                            </div>
+                                            {autoRecs.map((r, i) => (
+                                                <div key={r.id} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.18rem 0.25rem', marginBottom:'0.1rem', borderRadius:'3px', background: i === 0 ? 'rgba(212,175,55,0.08)' : 'transparent' }}>
+                                                    <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.68rem', color: i === 0 ? 'var(--gold)' : 'var(--silver)', width:'16px' }}>{i+1}.</span>
+                                                    <span className="pos-badge" style={{ color: posColor(r.pos), borderColor: posColor(r.pos), transform:'scale(0.9)' }}>{r.pos}</span>
+                                                    <span style={{ fontSize:'0.75rem', fontWeight:600, flex:1, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{r.name}</span>
+                                                    <span style={{ fontSize:'0.58rem', fontWeight:700, color: fitColor(r.fit) }}>FIT {r.fit}%</span>
+                                                </div>
+                                            ))}
+                                            <div style={{ fontSize:'0.58rem', color:'var(--silver)', opacity:0.35, marginTop:'0.3rem', fontStyle:'italic' }}>Based on roster needs and prospect rankings</div>
+                                        </div>
+                                    )}
+
+                                    {/* Pick trade value */}
+                                    {nextPick && (
+                                        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.3rem 0.45rem', marginBottom:'0.75rem', background:'rgba(255,255,255,0.02)', borderRadius:'4px', border:'1px solid rgba(212,175,55,0.1)' }}>
+                                            <span style={{ fontSize:'0.68rem', color:'var(--silver)' }}>Your {nextPick.year} Rd {nextPick.round} is worth</span>
+                                            <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.9rem', color:'var(--gold)', marginLeft:'auto' }}>{getPickDHQ(nextPick.year, nextPick.round, totalTeams).toLocaleString()} DHQ</span>
+                                        </div>
+                                    )}
+
                                     <div style={{ fontSize:'0.68rem', color:'var(--silver)', opacity:0.55, marginBottom:'0.75rem', lineHeight:1.5 }}>
                                         {AI_MODES.find(m => m.id === aiMode)?.desc}
                                     </div>
@@ -739,12 +954,12 @@
                                             ? <><span className="ai-spinner"/>&nbsp;Analyzing...</>
                                             : '✦ Run Analysis'}
                                     </button>
-                                    {aiError && <div className="ai-error-msg">⚠ {aiError}</div>}
+                                    {aiError && <div className="ai-error-msg">Error: {aiError}</div>}
                                     {aiAnalysis && (
                                         <div className="ai-output"
                                             dangerouslySetInnerHTML={{ __html: renderMarkdown(aiAnalysis) }} />
                                     )}
-                                    {!aiAnalysis && !aiLoading && !aiError && (
+                                    {!aiAnalysis && !aiLoading && !aiError && !autoRecs.length && (
                                         <div style={{ textAlign:'center', padding:'2.5rem 1rem', color:'var(--silver)', opacity:0.28, fontSize:'0.73rem' }}>
                                             Select a mode and run analysis
                                         </div>

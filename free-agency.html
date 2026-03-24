@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>Free Agency Tracker - Fantasy War Room</title>
+    <title>Waiver War Room - Fantasy War Room</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -1114,7 +1114,7 @@
             // ---- Boot/error states ----
             if (phase === 'boot') return (
                 <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'0.75rem' }}>
-                    <div style={{ color:'var(--gold)', fontFamily:'Bebas Neue,cursive', fontSize:'1.4rem', letterSpacing:'0.12em' }}>LOADING FREE AGENCY TRACKER</div>
+                    <div style={{ color:'var(--gold)', fontFamily:'Bebas Neue,cursive', fontSize:'1.4rem', letterSpacing:'0.12em' }}>LOADING WAIVER WAR ROOM</div>
                     <div style={{ color:'var(--silver)', fontSize:'0.75rem', opacity:0.6 }}>Connecting to Sleeper API...</div>
                 </div>
             );
@@ -1152,20 +1152,40 @@
                 <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
 
                     {/* HEADER */}
-                    <div className="tracker-header">
-                        <button className="back-btn" onClick={() => window.location.href='index.html'}>&larr; Dashboard</button>
-                        <div className="tracker-title">&#9889; FREE AGENCY TRACKER</div>
-                        <select
-                            value={selectedYear}
-                            onChange={e => setSelectedYear(e.target.value)}
-                            style={{ background:'var(--charcoal)', border:'1px solid rgba(212,175,55,0.4)', borderRadius:'4px', color:'var(--gold)', fontFamily:'Oswald,sans-serif', fontWeight:'700', fontSize:'0.72rem', padding:'0.18rem 0.45rem', cursor:'pointer', outline:'none', flexShrink:0 }}
-                        >
-                            {AVAILABLE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                        </select>
-                        <select className="league-select" value={leagueId} onChange={e => setLeagueId(e.target.value)}>
-                            {leagues.map(l => <option key={l.league_id} value={l.league_id}>{l.name}</option>)}
-                        </select>
-                        <button className="back-btn" onClick={() => window.open('team-comps/', '_blank')}>Team Comp</button>
+                    <div className="tracker-header" style={{ flexDirection:'column', gap:'0.3rem', padding:'0.4rem 1rem' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'0.7rem', width:'100%', flexWrap:'wrap' }}>
+                            <button className="back-btn" onClick={() => window.location.href='index.html'}>&larr; Dashboard</button>
+                            <div className="tracker-title" style={{ fontSize:'1.35rem' }}>&#9881; WAIVER WAR ROOM</div>
+                            <select
+                                value={selectedYear}
+                                onChange={e => setSelectedYear(e.target.value)}
+                                style={{ background:'var(--charcoal)', border:'1px solid rgba(212,175,55,0.4)', borderRadius:'4px', color:'var(--gold)', fontFamily:'Oswald,sans-serif', fontWeight:'700', fontSize:'0.72rem', padding:'0.18rem 0.45rem', cursor:'pointer', outline:'none', flexShrink:0 }}
+                            >
+                                {AVAILABLE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                            <select className="league-select" value={leagueId} onChange={e => setLeagueId(e.target.value)}>
+                                {leagues.map(l => <option key={l.league_id} value={l.league_id}>{l.name}</option>)}
+                            </select>
+                            <button className="back-btn" onClick={() => window.open('team-comps/', '_blank')}>Team Comp</button>
+                        </div>
+                        {/* FAAB Gauge Bar */}
+                        {leagueInfo && startingBudget > 0 && (
+                            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', width:'100%' }}>
+                                <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.68rem', color:'var(--gold)', letterSpacing:'0.06em', flexShrink:0 }}>FAAB</span>
+                                <div style={{ flex:1, height:'10px', background:'rgba(255,255,255,0.06)', borderRadius:'5px', overflow:'hidden', border:'1px solid rgba(212,175,55,0.2)' }}>
+                                    <div style={{
+                                        width: `${Math.max(0, Math.min(100, (finalBalance / startingBudget) * 100))}%`,
+                                        height:'100%',
+                                        background: finalBalance < startingBudget * 0.1 ? '#E74C3C' : finalBalance < startingBudget * 0.25 ? '#F0A500' : 'linear-gradient(90deg, #D4AF37, #2ECC71)',
+                                        borderRadius:'5px',
+                                        transition:'width 0.3s'
+                                    }} />
+                                </div>
+                                <span style={{ fontFamily:'monospace', fontSize:'0.7rem', color: remColor(finalBalance), fontWeight:700, flexShrink:0 }}>
+                                    ${finalBalance.toLocaleString()} / ${startingBudget.toLocaleString()}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {leagueLoading ? (
@@ -1173,14 +1193,14 @@
                     ) : (
                         <div className="tracker-grid">
 
-                            {/* ===== LEFT: MY ROSTER ===== */}
+                            {/* ===== LEFT: YOUR NEEDS ===== */}
                             <div className="panel roster-panel">
                                 <div className="panel-header">
                                     <div className="ph-title">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
+                                            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
                                         </svg>
-                                        MY ROSTER
+                                        YOUR NEEDS
                                         {myRoster && (
                                             <span style={{ color:'var(--silver)', fontSize:'1.3rem', marginLeft:'0.4rem' }}>
                                                 ({myRoster.settings?.wins || 0}-{myRoster.settings?.losses || 0}{(myRoster.settings?.ties || 0) > 0 ? `-${myRoster.settings.ties}` : ''})
@@ -1201,82 +1221,218 @@
                                     </div>
                                     <div className="ph-sub"></div>
                                 </div>
-                                {myGroups.length > 0 && (
-                                    <table className="roster-table" style={{flexShrink:0}}>
-                                        <thead>
-                                            <tr>
-                                                <th className="rth-pos">POS</th>
-                                                <th className="rth-player">PLAYER</th>
-                                                <th className="rth-yrs">YRS</th>
-                                                <th className="rth-pts">PTS</th>
-                                                <th className="rth-gp">GP</th>
-                                                <th className="rth-avg">AVG</th>
-                                                <th className="rth-proj">PROJ</th>
-                                            </tr>
-                                        </thead>
-                                    </table>
-                                )}
-                                <div className="panel-body" style={{padding:0}}>
+                                <div className="panel-body" style={{padding:'0.5rem 0.6rem'}}>
                                     {myGroups.length === 0 && <div className="center-msg">No roster data</div>}
-                                    {myGroups.length > 0 && (
-                                        <table className="roster-table">
-                                            <colgroup>
-                                                <col style={{width:'44px'}}/>
-                                                <col/>
-                                                <col style={{width:'40px'}}/>
-                                                <col style={{width:'56px'}}/>
-                                                <col style={{width:'36px'}}/>
-                                                <col style={{width:'52px'}}/>
-                                                <col style={{width:'48px'}}/>
-                                            </colgroup>
-                                            <tbody>
-                                                {myGroups.flatMap(grp => [
-                                                    <tr key={`${grp}-hdr`} className="rt-group">
-                                                        <td colSpan={7}>
-                                                            <div className="rt-gw">
-                                                                <span>{grp}</span>
-                                                                <span>({myGrouped[grp].length})</span>
-                                                            </div>
-                                                        </td>
-                                                    </tr>,
-                                                    ...myGrouped[grp].map(({ id, p }) => {
-                                                        const st = getStats(id);
-                                                        const pName = p.full_name || `${p.first_name||''} ${p.last_name||''}`.trim() || id;
+                                    {myGroups.length > 0 && (() => {
+                                        // Compute position requirements from league roster_positions
+                                        const rp = leagueInfo?.roster_positions || [];
+                                        const posReqs = {};
+                                        rp.forEach(p => {
+                                            const n = normPos(p);
+                                            if (n && n !== 'BN' && n !== 'IR' && n !== 'TAXI') {
+                                                posReqs[n] = (posReqs[n] || 0) + 1;
+                                            }
+                                        });
+                                        // FLEX counts toward RB/WR/TE
+                                        const flexCount = rp.filter(p => p === 'FLEX').length;
+                                        const sfCount = rp.filter(p => p === 'SUPER_FLEX' || p === 'SUPERFLEX').length;
 
-                                                        const sc = rosterStatusClass(id);
+                                        // Peak age thresholds
+                                        const peakAge = { QB: 33, RB: 26, WR: 29, TE: 30, K: 36, DEF: 99, DL: 30, LB: 29, DB: 29 };
+
+                                        // Grade calculation
+                                        function getGrade(grp) {
+                                            const count = (myGrouped[grp] || []).length;
+                                            const needed = posReqs[grp] || 0;
+                                            // Include FLEX eligibility for RB/WR/TE
+                                            const flexEligible = ['RB','WR','TE'].includes(grp);
+                                            const effectiveNeed = needed + (flexEligible ? Math.ceil(flexCount / 3) : 0) + (['QB'].includes(grp) ? sfCount : 0);
+                                            const surplus = count - effectiveNeed;
+                                            // Check starter quality (avg PPG of top starters)
+                                            const starters = (myGrouped[grp] || []).slice(0, Math.max(effectiveNeed, 1));
+                                            const avgPpg = starters.reduce((sum, { id }) => {
+                                                const s = statsData[id];
+                                                const raw = calcRawPts(s);
+                                                const gp = s?.gp || 1;
+                                                return sum + (raw ? raw / gp : 0);
+                                            }, 0) / (starters.length || 1);
+
+                                            if (surplus >= 2 && avgPpg > 12) return { grade: 'A', color: '#2ECC71' };
+                                            if (surplus >= 1 && avgPpg > 8)  return { grade: 'B', color: '#2ECC71' };
+                                            if (surplus >= 0 && avgPpg > 5)  return { grade: 'C', color: '#D4AF37' };
+                                            if (surplus >= -1)               return { grade: 'D', color: '#E67E22' };
+                                            return { grade: 'F', color: '#E74C3C' };
+                                        }
+
+                                        // Aging risks
+                                        const agingPlayers = [];
+                                        Object.entries(myGrouped).forEach(([grp, players]) => {
+                                            players.forEach(({ id, p }) => {
+                                                const age = p.age || (p.birth_date ? Math.floor((Date.now() - new Date(p.birth_date).getTime()) / 31557600000) : null);
+                                                const threshold = peakAge[grp] || 30;
+                                                if (age && age > threshold) {
+                                                    agingPlayers.push({ id, p, age, grp, overBy: age - threshold });
+                                                }
+                                            });
+                                        });
+                                        agingPlayers.sort((a, b) => b.overBy - a.overBy);
+
+                                        // Upgrade opportunities: weakest starter vs best FA
+                                        const upgrades = [];
+                                        Object.entries(myGrouped).forEach(([grp, players]) => {
+                                            const { grade } = getGrade(grp);
+                                            if (grade === 'A' || grade === 'B') return;
+                                            const worst = players[players.length - 1];
+                                            if (!worst) return;
+                                            const worstS = statsData[worst.id];
+                                            const worstRaw = calcRawPts(worstS);
+                                            const worstAvg = (worstRaw && worstS?.gp) ? worstRaw / worstS.gp : 0;
+                                            // Find best FA at this position
+                                            const bestFA = freeAgents.find(fa => fa.norm === grp || fa.pos === grp);
+                                            if (!bestFA) return;
+                                            const bestS = statsData[bestFA.id];
+                                            const bestRaw = calcRawPts(bestS);
+                                            const bestAvg = (bestRaw && bestS?.gp) ? bestRaw / bestS.gp : 0;
+                                            if (bestAvg > worstAvg) {
+                                                upgrades.push({
+                                                    grp, grade,
+                                                    worstName: worst.p.full_name || `${worst.p.first_name||''} ${worst.p.last_name||''}`.trim(),
+                                                    worstAvg: worstAvg.toFixed(1),
+                                                    bestFA,
+                                                    bestAvg: bestAvg.toFixed(1),
+                                                    diff: (bestAvg - worstAvg).toFixed(1)
+                                                });
+                                            }
+                                        });
+
+                                        return (
+                                            <>
+                                                {/* FAAB Budget Bar */}
+                                                <div style={{ marginBottom:'0.7rem', padding:'0.5rem', background:'rgba(212,175,55,0.05)', borderRadius:'6px', border:'1px solid rgba(212,175,55,0.15)' }}>
+                                                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.3rem' }}>
+                                                        <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.78rem', color:'var(--gold)', letterSpacing:'0.08em' }}>FAAB BUDGET</span>
+                                                        <span style={{ fontFamily:'monospace', fontSize:'0.82rem', color: remColor(finalBalance), fontWeight:700 }}>
+                                                            ${finalBalance.toLocaleString()} / ${startingBudget.toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ height:'14px', background:'rgba(255,255,255,0.06)', borderRadius:'7px', overflow:'hidden', border:'1px solid rgba(212,175,55,0.15)' }}>
+                                                        <div style={{
+                                                            width: `${Math.max(0, Math.min(100, (finalBalance / startingBudget) * 100))}%`,
+                                                            height:'100%',
+                                                            background: finalBalance < startingBudget * 0.1 ? '#E74C3C' : finalBalance < startingBudget * 0.25 ? '#F0A500' : 'linear-gradient(90deg, #D4AF37, #2ECC71)',
+                                                            borderRadius:'7px',
+                                                            transition:'width 0.3s'
+                                                        }} />
+                                                    </div>
+                                                    <div style={{ display:'flex', justifyContent:'space-between', marginTop:'0.2rem', fontSize:'0.6rem', color:'var(--silver)', opacity:0.5 }}>
+                                                        <span>{startingBudget > 0 ? Math.round((finalBalance / startingBudget) * 100) : 0}% remaining</span>
+                                                        <span>{targets.length} bid{targets.length !== 1 ? 's' : ''} placed</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Position Grades */}
+                                                <div style={{ marginBottom:'0.7rem' }}>
+                                                    <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.82rem', color:'var(--gold)', letterSpacing:'0.1em', marginBottom:'0.35rem', borderBottom:'1px solid rgba(212,175,55,0.15)', paddingBottom:'0.2rem' }}>
+                                                        POSITION GRADES
+                                                    </div>
+                                                    {myGroups.map(grp => {
+                                                        const { grade, color } = getGrade(grp);
+                                                        const count = (myGrouped[grp] || []).length;
+                                                        const needed = posReqs[grp] || 0;
                                                         return (
-                                                            <tr key={id}>
-                                                                <td className="rtd-pos">{p.position || '?'}</td>
-                                                                <td className={`rtd-player${sc ? ' '+sc : ''}`}>
-                                                                    <a href="#" onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(id, playersData, statsData); }} style={{cursor:'pointer'}}>
-                                                                        {pName}
-                                                                        <span style={{fontSize:'0.65rem', color:'var(--silver)', opacity:0.55, marginLeft:'0.3rem'}}>{p.team||''}</span>
-                                                                    </a>
-                                                                </td>
-                                                                <td className="rtd-num">{st.yrs}</td>
-                                                                <td className="rtd-num rtd-pts">{st.pts}</td>
-                                                                <td className="rtd-num">{st.gp}</td>
-                                                                <td className="rtd-num">{st.avg}</td>
-                                                                <td className="rtd-num rtd-proj">{getProj(id)}</td>
-                                                            </tr>
+                                                            <div key={grp} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.22rem 0.1rem', borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                                                                <span style={{
+                                                                    fontFamily:'Bebas Neue,cursive', fontSize:'1.1rem', fontWeight:700,
+                                                                    color: color, width:'22px', textAlign:'center', flexShrink:0
+                                                                }}>{grade}</span>
+                                                                <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.76rem', color:'var(--gold)', width:'28px', flexShrink:0 }}>{grp}</span>
+                                                                <span style={{ fontSize:'0.68rem', color:'var(--silver)', opacity:0.7, flex:1 }}>
+                                                                    {count} rostered {needed > 0 ? `(need ${needed} starter${needed > 1 ? 's' : ''})` : ''}
+                                                                </span>
+                                                                <span style={{
+                                                                    fontSize:'0.58rem', padding:'0.1rem 0.35rem', borderRadius:'3px',
+                                                                    background: grade === 'A' || grade === 'B' ? 'rgba(46,204,113,0.12)' : grade === 'C' ? 'rgba(212,175,55,0.12)' : 'rgba(231,76,60,0.12)',
+                                                                    color: color, fontWeight:600
+                                                                }}>
+                                                                    {grade === 'A' ? 'SURPLUS' : grade === 'B' ? 'SOLID' : grade === 'C' ? 'ADEQUATE' : grade === 'D' ? 'THIN' : 'CRITICAL'}
+                                                                </span>
+                                                            </div>
                                                         );
-                                                    }),
-                                                    <tr key={`${grp}-sep`} className="rt-sep"><td colSpan={7}></td></tr>,
-                                                ])}
-                                            </tbody>
-                                        </table>
-                                    )}
+                                                    })}
+                                                </div>
+
+                                                {/* Aging Risks */}
+                                                {agingPlayers.length > 0 && (
+                                                    <div style={{ marginBottom:'0.7rem' }}>
+                                                        <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.82rem', color:'#E74C3C', letterSpacing:'0.1em', marginBottom:'0.35rem', borderBottom:'1px solid rgba(231,76,60,0.15)', paddingBottom:'0.2rem' }}>
+                                                            &#9888; AGING RISKS
+                                                        </div>
+                                                        {agingPlayers.slice(0, 8).map(({ id, p, age, grp, overBy }) => {
+                                                            const pName = p.full_name || `${p.first_name||''} ${p.last_name||''}`.trim();
+                                                            return (
+                                                                <div key={id} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.18rem 0.1rem', borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                                                                    <span style={{ fontSize:'0.72rem', color: overBy >= 3 ? '#E74C3C' : '#E67E22', flexShrink:0 }}>&#9888;</span>
+                                                                    <span className="pos-badge" style={{ color: posColor(grp), width:'26px', fontSize:'0.55rem' }}>{grp}</span>
+                                                                    <a href="#" onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(id, playersData, statsData); }}
+                                                                       style={{ flex:1, fontSize:'0.72rem', color:'var(--white)', textDecoration:'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
+                                                                       onMouseEnter={e => e.currentTarget.style.color='var(--gold)'}
+                                                                       onMouseLeave={e => e.currentTarget.style.color='var(--white)'}>
+                                                                        {pName}
+                                                                        <span style={{ color:'var(--silver)', opacity:0.5, marginLeft:'3px', fontSize:'0.6rem' }}>{p.team||''}</span>
+                                                                    </a>
+                                                                    <span style={{ fontSize:'0.65rem', color: overBy >= 3 ? '#E74C3C' : '#E67E22', fontWeight:600, flexShrink:0 }}>
+                                                                        Age {age}
+                                                                    </span>
+                                                                    <span style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.5, flexShrink:0 }}>
+                                                                        (+{overBy}yr)
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {/* Upgrade Available */}
+                                                {upgrades.length > 0 && (
+                                                    <div style={{ marginBottom:'0.5rem' }}>
+                                                        <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.82rem', color:'#2ECC71', letterSpacing:'0.1em', marginBottom:'0.35rem', borderBottom:'1px solid rgba(46,204,113,0.15)', paddingBottom:'0.2rem' }}>
+                                                            &#8593; UPGRADE AVAILABLE
+                                                        </div>
+                                                        {upgrades.map(u => (
+                                                            <div key={u.grp} style={{ padding:'0.3rem 0.15rem', marginBottom:'0.25rem', background:'rgba(46,204,113,0.04)', borderRadius:'4px', border:'1px solid rgba(46,204,113,0.1)' }}>
+                                                                <div style={{ display:'flex', alignItems:'center', gap:'0.3rem', marginBottom:'0.15rem' }}>
+                                                                    <span className="pos-badge" style={{ color: posColor(u.grp), width:'26px', fontSize:'0.55rem' }}>{u.grp}</span>
+                                                                    <span style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.6 }}>Grade:</span>
+                                                                    <span style={{ fontSize:'0.72rem', fontWeight:700, color: u.grade === 'D' ? '#E67E22' : '#E74C3C' }}>{u.grade}</span>
+                                                                </div>
+                                                                <div style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.7, paddingLeft:'0.2rem' }}>
+                                                                    <span style={{ color:'#E74C3C' }}>{u.worstName}</span>
+                                                                    <span style={{ opacity:0.5 }}> ({u.worstAvg} PPG)</span>
+                                                                    <span style={{ color:'var(--gold)', margin:'0 0.25rem' }}>&#8594;</span>
+                                                                    <span style={{ color:'#2ECC71', cursor:'pointer' }} onClick={() => { setQuickPlayer(u.bestFA); setQuickCost(''); }}>
+                                                                        {u.bestFA.name}
+                                                                    </span>
+                                                                    <span style={{ opacity:0.5 }}> ({u.bestAvg} PPG)</span>
+                                                                    <span style={{ color:'#2ECC71', fontWeight:700, marginLeft:'0.3rem' }}>+{u.diff}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
 
-                            {/* ===== CENTER: FREE AGENTS ===== */}
+                            {/* ===== CENTER: SMART TARGETS ===== */}
                             <div className="panel">
                                 <div className="panel-header">
                                     <div className="ph-title">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                                         </svg>
-                                        AVAILABLE FREE AGENTS
+                                        SMART TARGETS
                                         <span style={{ color:'var(--silver)', fontSize:'0.65rem', opacity:0.55, marginLeft:'auto' }}>{filteredFAs.length}</span>
                                     </div>
                                     <div className="ph-sub">
@@ -1312,6 +1468,180 @@
                                 <StatHeader addBtn={true} />
 
                                 <div className="panel-body">
+                                    {/* --- CURATED SECTIONS --- */}
+                                    {posFilter === 'ALL' && !search && myGroups.length > 0 && freeAgents.length > 0 && (() => {
+                                        // Compute weak positions
+                                        const rp = leagueInfo?.roster_positions || [];
+                                        const posReqs = {};
+                                        rp.forEach(p => { const n = normPos(p); if (n && n !== 'BN' && n !== 'IR' && n !== 'TAXI') posReqs[n] = (posReqs[n] || 0) + 1; });
+                                        const flexCount = rp.filter(p => p === 'FLEX').length;
+                                        const sfCount = rp.filter(p => p === 'SUPER_FLEX' || p === 'SUPERFLEX').length;
+
+                                        const weakPositions = [];
+                                        myGroups.forEach(grp => {
+                                            const count = (myGrouped[grp] || []).length;
+                                            const needed = (posReqs[grp] || 0) + (['RB','WR','TE'].includes(grp) ? Math.ceil(flexCount / 3) : 0) + (grp === 'QB' ? sfCount : 0);
+                                            const starters = (myGrouped[grp] || []).slice(0, Math.max(needed, 1));
+                                            const avgPpg = starters.reduce((sum, { id }) => {
+                                                const s = statsData[id]; const raw = calcRawPts(s); const gp = s?.gp || 1;
+                                                return sum + (raw ? raw / gp : 0);
+                                            }, 0) / (starters.length || 1);
+                                            const surplus = count - needed;
+                                            if (surplus < 1 || avgPpg < 8) weakPositions.push({ grp, needed, count, avgPpg, severity: surplus < 0 ? 2 : surplus === 0 ? 1 : 0 });
+                                        });
+                                        weakPositions.sort((a, b) => b.severity - a.severity || a.avgPpg - b.avgPpg);
+                                        const weakPosSet = new Set(weakPositions.map(w => w.grp));
+
+                                        // Recommended FAs at weak positions
+                                        const recommended = [];
+                                        const seenRec = new Set();
+                                        weakPositions.forEach(({ grp }) => {
+                                            freeAgents.filter(fa => fa.norm === grp || fa.pos === grp).slice(0, 3).forEach(fa => {
+                                                if (!seenRec.has(fa.id) && recommended.length < 8) {
+                                                    const s = statsData[fa.id]; const raw = calcRawPts(s); const gp = s?.gp || 1;
+                                                    const ppg = raw ? (raw / gp).toFixed(1) : '0.0';
+                                                    const p = playersData[fa.id];
+                                                    const age = p?.age || (p?.birth_date ? Math.floor((Date.now() - new Date(p.birth_date).getTime()) / 31557600000) : null);
+                                                    recommended.push({ ...fa, ppg, age, reason: `Fills ${grp} need` + (parseFloat(ppg) > 10 ? ' - elite PPG' : '') });
+                                                    seenRec.add(fa.id);
+                                                }
+                                            });
+                                        });
+
+                                        // Competition alert: count other teams that also need each weak position
+                                        const competition = weakPositions.map(({ grp, needed }) => {
+                                            let teamsNeeding = 0;
+                                            allRosters.forEach(r => {
+                                                if (r.owner_id === userId) return;
+                                                const rPlayers = (r.players || []).filter(id => {
+                                                    const p = playersData[id];
+                                                    return p && (normPos(p.position) === grp);
+                                                });
+                                                if (rPlayers.length < needed) teamsNeeding++;
+                                            });
+                                            return { grp, teamsNeeding, totalTeams: allRosters.length - 1 };
+                                        }).filter(c => c.teamsNeeding > 0);
+
+                                        // Dynasty stashes: young players with low experience
+                                        const stashes = freeAgents.filter(fa => {
+                                            const p = playersData[fa.id];
+                                            if (!p) return false;
+                                            const age = p.age || (p.birth_date ? Math.floor((Date.now() - new Date(p.birth_date).getTime()) / 31557600000) : null);
+                                            return age && age <= 25 && (p.years_exp != null && p.years_exp <= 2);
+                                        }).slice(0, 6).map(fa => {
+                                            const p = playersData[fa.id];
+                                            const s = statsData[fa.id]; const raw = calcRawPts(s); const gp = s?.gp || 1;
+                                            const ppg = raw ? (raw / gp).toFixed(1) : '0.0';
+                                            const age = p?.age || (p?.birth_date ? Math.floor((Date.now() - new Date(p.birth_date).getTime()) / 31557600000) : null);
+                                            return { ...fa, ppg, age, yrsExp: p.years_exp };
+                                        });
+
+                                        return (
+                                            <>
+                                                {/* RECOMMENDED FOR YOU */}
+                                                {recommended.length > 0 && (
+                                                    <div style={{ marginBottom:'0.6rem', border:'1.5px solid #D4AF37', borderRadius:'6px', overflow:'hidden' }}>
+                                                        <div style={{ background:'rgba(212,175,55,0.1)', padding:'0.3rem 0.5rem', fontFamily:'Bebas Neue,cursive', fontSize:'0.78rem', color:'#D4AF37', letterSpacing:'0.08em', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+                                                            &#9733; RECOMMENDED FOR YOU
+                                                        </div>
+                                                        {recommended.map(fa => {
+                                                            const st = getStats(fa.id);
+                                                            return (
+                                                                <div key={`rec-${fa.id}`} className="player-row" style={{ padding:'0.2rem 0.35rem', borderBottom:'1px solid rgba(212,175,55,0.08)' }}
+                                                                    draggable="true"
+                                                                    onDragStart={e => { e.dataTransfer.effectAllowed='copy'; e.dataTransfer.setData('fa-id', fa.id); }}
+                                                                    onClick={() => { setQuickPlayer(fa); setQuickCost(''); }}>
+                                                                    <span className="pos-badge" style={{ color: posColor(fa.pos), width:'28px', fontSize:'0.55rem' }}>{fa.pos}</span>
+                                                                    <div style={{ flex:1, minWidth:0 }}>
+                                                                        <a href="#" onClick={e => { e.preventDefault(); e.stopPropagation(); if(window.openFWPlayerModal) openFWPlayerModal(fa.id, playersData, statsData); }}
+                                                                           style={{ fontSize:'0.78rem', color:'var(--white)', textDecoration:'none', display:'flex', alignItems:'center', gap:'5px' }}
+                                                                           onMouseEnter={e => e.currentTarget.style.color='var(--gold)'}
+                                                                           onMouseLeave={e => e.currentTarget.style.color='var(--white)'}>
+                                                                            <img src={`https://sleepercdn.com/content/nfl/players/thumb/${fa.id}.jpg`} alt=""
+                                                                                onError={e => { e.target.style.display='none'; }}
+                                                                                style={{ width:'24px', height:'24px', borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+                                                                            <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                                                                {fa.name} <span style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.5 }}>{fa.team}</span>
+                                                                            </span>
+                                                                        </a>
+                                                                        <div style={{ fontSize:'0.55rem', color:'#D4AF37', opacity:0.7, paddingLeft:'29px', marginTop:'-1px' }}>{fa.reason}</div>
+                                                                    </div>
+                                                                    <span className="sc" style={{ width:'30px', color:'var(--gold)', fontSize:'0.68rem' }}>{fa.ppg}</span>
+                                                                    <span style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.4, width:'22px', textAlign:'right' }}>{fa.age || '-'}</span>
+                                                                    <span className="add-circle" style={{ width:'22px', height:'22px', fontSize:'0.9rem' }} title="Add to targets">+</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {/* COMPETITION ALERT */}
+                                                {competition.length > 0 && (
+                                                    <div style={{ marginBottom:'0.6rem', border:'1px solid rgba(231,76,60,0.3)', borderRadius:'6px', overflow:'hidden' }}>
+                                                        <div style={{ background:'rgba(231,76,60,0.08)', padding:'0.3rem 0.5rem', fontFamily:'Bebas Neue,cursive', fontSize:'0.72rem', color:'#E74C3C', letterSpacing:'0.08em', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+                                                            &#9888; COMPETITION ALERT
+                                                        </div>
+                                                        <div style={{ padding:'0.25rem 0.45rem' }}>
+                                                            {competition.map(c => (
+                                                                <div key={`comp-${c.grp}`} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.15rem 0', fontSize:'0.68rem' }}>
+                                                                    <span className="pos-badge" style={{ color: posColor(c.grp), width:'26px', fontSize:'0.52rem' }}>{c.grp}</span>
+                                                                    <span style={{ color:'var(--silver)', flex:1 }}>
+                                                                        <span style={{ color: c.teamsNeeding >= 4 ? '#E74C3C' : '#E67E22', fontWeight:700 }}>{c.teamsNeeding}</span> of {c.totalTeams} teams also need {c.grp}
+                                                                    </span>
+                                                                    <span style={{
+                                                                        fontSize:'0.52rem', padding:'0.08rem 0.3rem', borderRadius:'3px', fontWeight:700,
+                                                                        background: c.teamsNeeding >= 4 ? 'rgba(231,76,60,0.15)' : 'rgba(230,126,34,0.15)',
+                                                                        color: c.teamsNeeding >= 4 ? '#E74C3C' : '#E67E22'
+                                                                    }}>
+                                                                        {c.teamsNeeding >= 4 ? 'HIGH' : c.teamsNeeding >= 2 ? 'MED' : 'LOW'}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* DYNASTY STASHES */}
+                                                {stashes.length > 0 && (
+                                                    <div style={{ marginBottom:'0.6rem', border:'1px solid rgba(52,152,219,0.3)', borderRadius:'6px', overflow:'hidden' }}>
+                                                        <div style={{ background:'rgba(52,152,219,0.08)', padding:'0.3rem 0.5rem', fontFamily:'Bebas Neue,cursive', fontSize:'0.72rem', color:'#3498DB', letterSpacing:'0.08em', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+                                                            &#9830; DYNASTY STASHES
+                                                            <span style={{ fontSize:'0.52rem', opacity:0.6, fontFamily:'Oswald,sans-serif' }}>&mdash; Under 25, low experience</span>
+                                                        </div>
+                                                        {stashes.map(fa => (
+                                                            <div key={`stash-${fa.id}`} className="player-row" style={{ padding:'0.18rem 0.35rem', borderBottom:'1px solid rgba(52,152,219,0.06)' }}
+                                                                draggable="true"
+                                                                onDragStart={e => { e.dataTransfer.effectAllowed='copy'; e.dataTransfer.setData('fa-id', fa.id); }}
+                                                                onClick={() => { setQuickPlayer(fa); setQuickCost(''); }}>
+                                                                <span className="pos-badge" style={{ color: posColor(fa.pos), width:'26px', fontSize:'0.52rem' }}>{fa.pos}</span>
+                                                                <a href="#" onClick={e => { e.preventDefault(); e.stopPropagation(); if(window.openFWPlayerModal) openFWPlayerModal(fa.id, playersData, statsData); }}
+                                                                   className="player-name" style={{ fontSize:'0.75rem', display:'inline-flex', alignItems:'center', gap:'5px' }}
+                                                                   onMouseEnter={e => e.currentTarget.style.color='var(--gold)'}
+                                                                   onMouseLeave={e => e.currentTarget.style.color='inherit'}>
+                                                                    <img src={`https://sleepercdn.com/content/nfl/players/thumb/${fa.id}.jpg`} alt=""
+                                                                        onError={e => { e.target.style.display='none'; }}
+                                                                        style={{ width:'22px', height:'22px', borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+                                                                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                                                        {fa.name} <span style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.5 }}>{fa.team}</span>
+                                                                    </span>
+                                                                </a>
+                                                                <span style={{ fontSize:'0.55rem', color:'#3498DB', opacity:0.7, flexShrink:0 }}>Age {fa.age || '?'}</span>
+                                                                <span className="sc" style={{ width:'28px', color:'var(--gold)', fontSize:'0.65rem' }}>{fa.ppg}</span>
+                                                                <span className="add-circle" style={{ width:'20px', height:'20px', fontSize:'0.82rem' }} title="Add to targets">+</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Section divider before full list */}
+                                                <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.72rem', color:'var(--silver)', opacity:0.4, letterSpacing:'0.1em', padding:'0.3rem 0 0.15rem', borderTop:'1px solid rgba(212,175,55,0.1)', marginTop:'0.2rem' }}>
+                                                    ALL FREE AGENTS
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+
+                                    {/* --- FULL FA LIST --- */}
                                     {filteredFAs.length === 0 && (
                                         <div className="center-msg">
                                             {Object.keys(playersData).length === 0 ? 'Loading player data...' : 'No free agents found'}
@@ -1355,13 +1685,13 @@
                                 </div>
                             </div>
 
-                            {/* ===== RIGHT: FA TARGETS / AI SCOUT ===== */}
+                            {/* ===== RIGHT: BID BOARD / AI SCOUT ===== */}
                             <div className="panel">
                                 <div className="panel-header">
                                     <div className="ph-title">
                                         {faTab === 'targets' ? (
                                             <>
-                                                FA TARGETS
+                                                BID BOARD
                                                 {editingBudget ? (
                                                     <input className="budget-input-inline"
                                                         style={{ marginLeft:'auto', fontSize:'0.78rem', width:'90px' }}
@@ -1458,50 +1788,106 @@
                                             {targetRows.length === 0 && (
                                                 <div className="center-msg">{dropTarget ? 'Drop to add target' : 'Drag a free agent here or use the form above'}</div>
                                             )}
-                                            {targetRows.map(row => (
-                                                <div key={row.id} className="player-row">
-                                                    <span className="pos-badge"
-                                                        style={{ color:posColor(row.pos), width:'30px', fontSize:'0.58rem', flexShrink:0 }}>
-                                                        {row.pos}
-                                                    </span>
-                                                    <span className="player-name" style={{ fontSize:'0.82rem', display:'inline-flex', alignItems:'center', gap:'5px' }} title={row.name}>
-                                                        {row.playerId && (
-                                                            <img
-                                                                src={`https://sleepercdn.com/content/nfl/players/thumb/${row.playerId}.jpg`}
-                                                                alt=""
-                                                                onError={e => { e.target.style.display='none'; }}
-                                                                style={{ width:'24px', height:'24px', borderRadius:'50%', objectFit:'cover', flexShrink:0 }}
-                                                            />
+                                            {targetRows.map(row => {
+                                                // Smart FAAB suggestion based on PPG and position scarcity
+                                                let suggestedBid = null;
+                                                let confidence = null;
+                                                if (row.playerId && playersData[row.playerId]) {
+                                                    const tp = playersData[row.playerId];
+                                                    const ts = statsData[row.playerId];
+                                                    const tRaw = calcRawPts(ts);
+                                                    const tGp = ts?.gp || 1;
+                                                    const tPpg = tRaw ? tRaw / tGp : 0;
+                                                    const tNorm = normPos(tp.position);
+                                                    // Count FAs at this position (scarcity)
+                                                    const posAvail = freeAgents.filter(fa => fa.norm === tNorm).length;
+                                                    const scarcityMult = posAvail < 10 ? 1.5 : posAvail < 25 ? 1.2 : posAvail < 50 ? 1.0 : 0.8;
+                                                    // Base bid: PPG-based percentage of budget
+                                                    const basePct = Math.min(0.25, Math.max(0.01, tPpg / 100));
+                                                    suggestedBid = Math.round(startingBudget * basePct * scarcityMult);
+                                                    suggestedBid = Math.max(1, Math.min(suggestedBid, finalBalance));
+                                                    // Confidence: how many other teams need this position
+                                                    const rp2 = leagueInfo?.roster_positions || [];
+                                                    const posNeeded = rp2.filter(p => normPos(p) === tNorm).length;
+                                                    let teamsCompeting = 0;
+                                                    allRosters.forEach(r => {
+                                                        if (r.owner_id === userId) return;
+                                                        const rCount = (r.players || []).filter(id => { const pp = playersData[id]; return pp && normPos(pp.position) === tNorm; }).length;
+                                                        if (rCount < posNeeded) teamsCompeting++;
+                                                    });
+                                                    confidence = teamsCompeting >= 4 ? 'LOW' : teamsCompeting >= 2 ? 'MED' : 'HIGH';
+                                                }
+                                                return (
+                                                    <div key={row.id} style={{ marginBottom:'0.25rem', background:'rgba(255,255,255,0.02)', borderRadius:'5px', border:'1px solid rgba(212,175,55,0.06)' }}>
+                                                        <div className="player-row" style={{ marginBottom:0 }}>
+                                                            <span className="pos-badge"
+                                                                style={{ color:posColor(row.pos), width:'30px', fontSize:'0.58rem', flexShrink:0 }}>
+                                                                {row.pos}
+                                                            </span>
+                                                            <span className="player-name" style={{ fontSize:'0.82rem', display:'inline-flex', alignItems:'center', gap:'5px' }} title={row.name}>
+                                                                {row.playerId && (
+                                                                    <img
+                                                                        src={`https://sleepercdn.com/content/nfl/players/thumb/${row.playerId}.jpg`}
+                                                                        alt=""
+                                                                        onError={e => { e.target.style.display='none'; }}
+                                                                        style={{ width:'24px', height:'24px', borderRadius:'50%', objectFit:'cover', flexShrink:0 }}
+                                                                    />
+                                                                )}
+                                                                <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                                                    {row.name}{row.playerId && playersData[row.playerId]?.team ? <span style={{ fontSize:'0.6rem', opacity:0.5, marginLeft:'3px' }}>{playersData[row.playerId].team}</span> : null}
+                                                                </span>
+                                                            </span>
+                                                            {editingCostId === row.id ? (
+                                                                <input type="number" min="0" autoFocus
+                                                                    value={editingCostVal}
+                                                                    onChange={e => setEditingCostVal(e.target.value)}
+                                                                    onBlur={() => { updateTargetCost(row.id, editingCostVal || '0'); setEditingCostId(null); }}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === 'Enter') { updateTargetCost(row.id, editingCostVal || '0'); setEditingCostId(null); }
+                                                                        if (e.key === 'Escape') setEditingCostId(null);
+                                                                    }}
+                                                                    style={{ width:'30px', background:'transparent', border:'1px solid rgba(212,175,55,0.5)',
+                                                                             borderRadius:'3px', color:'var(--gold)', fontSize:'0.72rem',
+                                                                             textAlign:'right', padding:'0 2px', outline:'none' }} />
+                                                            ) : (
+                                                                <span className="sc" title="Click to edit bid"
+                                                                    onClick={() => { setEditingCostId(row.id); setEditingCostVal(String(row.cost)); }}
+                                                                    style={{ width:'30px', color: row.cost === 0 ? 'rgba(212,175,55,0.4)' : 'var(--silver)',
+                                                                             opacity: row.cost === 0 ? 1 : 0.65, cursor:'pointer' }}>
+                                                                    {row.cost === 0 ? '$?' : row.cost}
+                                                                </span>
+                                                            )}
+                                                            <span className="sc mob-hide-fa" style={{ width:'32px', color:'var(--silver)', opacity:0.65 }}>{row.faDollar.toLocaleString()}</span>
+                                                            <span className="sc" style={{ width:'38px', color:remColor(row.remaining), fontWeight:700 }}>{row.remaining.toLocaleString()}</span>
+                                                            <button className="del-btn" onClick={() => deleteTarget(row.id)} title="Remove">&times;</button>
+                                                        </div>
+                                                        {/* Smart suggestion row */}
+                                                        {(suggestedBid !== null || confidence) && (
+                                                            <div style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.1rem 0.35rem 0.2rem', fontSize:'0.55rem' }}>
+                                                                {suggestedBid !== null && (
+                                                                    <span style={{ color:'var(--silver)', opacity:0.6 }}>
+                                                                        Suggested: <span style={{ color:'#D4AF37', fontWeight:700, cursor:'pointer' }}
+                                                                            onClick={() => { updateTargetCost(row.id, String(suggestedBid)); }}
+                                                                            title="Click to apply suggested bid">${suggestedBid}</span>
+                                                                    </span>
+                                                                )}
+                                                                {confidence && (
+                                                                    <span style={{
+                                                                        marginLeft:'auto',
+                                                                        padding:'0.06rem 0.3rem', borderRadius:'3px', fontWeight:700, fontSize:'0.5rem',
+                                                                        letterSpacing:'0.04em',
+                                                                        background: confidence === 'HIGH' ? 'rgba(46,204,113,0.15)' : confidence === 'MED' ? 'rgba(212,175,55,0.15)' : 'rgba(231,76,60,0.15)',
+                                                                        color: confidence === 'HIGH' ? '#2ECC71' : confidence === 'MED' ? '#D4AF37' : '#E74C3C',
+                                                                        border: `1px solid ${confidence === 'HIGH' ? 'rgba(46,204,113,0.3)' : confidence === 'MED' ? 'rgba(212,175,55,0.3)' : 'rgba(231,76,60,0.3)'}`
+                                                                    }}>
+                                                                        {confidence} CONF
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         )}
-                                                        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                                                            {row.name}{row.playerId && playersData[row.playerId]?.team ? <span style={{ fontSize:'0.6rem', opacity:0.5, marginLeft:'3px' }}>{playersData[row.playerId].team}</span> : null}
-                                                        </span>
-                                                    </span>
-                                                    {editingCostId === row.id ? (
-                                                        <input type="number" min="0" autoFocus
-                                                            value={editingCostVal}
-                                                            onChange={e => setEditingCostVal(e.target.value)}
-                                                            onBlur={() => { updateTargetCost(row.id, editingCostVal || '0'); setEditingCostId(null); }}
-                                                            onKeyDown={e => {
-                                                                if (e.key === 'Enter') { updateTargetCost(row.id, editingCostVal || '0'); setEditingCostId(null); }
-                                                                if (e.key === 'Escape') setEditingCostId(null);
-                                                            }}
-                                                            style={{ width:'30px', background:'transparent', border:'1px solid rgba(212,175,55,0.5)',
-                                                                     borderRadius:'3px', color:'var(--gold)', fontSize:'0.72rem',
-                                                                     textAlign:'right', padding:'0 2px', outline:'none' }} />
-                                                    ) : (
-                                                        <span className="sc" title="Click to edit bid"
-                                                            onClick={() => { setEditingCostId(row.id); setEditingCostVal(String(row.cost)); }}
-                                                            style={{ width:'30px', color: row.cost === 0 ? 'rgba(212,175,55,0.4)' : 'var(--silver)',
-                                                                     opacity: row.cost === 0 ? 1 : 0.65, cursor:'pointer' }}>
-                                                            {row.cost === 0 ? '$?' : row.cost}
-                                                        </span>
-                                                    )}
-                                                    <span className="sc mob-hide-fa" style={{ width:'32px', color:'var(--silver)', opacity:0.65 }}>{row.faDollar.toLocaleString()}</span>
-                                                    <span className="sc" style={{ width:'38px', color:remColor(row.remaining), fontWeight:700 }}>{row.remaining.toLocaleString()}</span>
-                                                    <button className="del-btn" onClick={() => deleteTarget(row.id)} title="Remove">&times;</button>
-                                                </div>
-                                            ))}
+                                                    </div>
+                                                );
+                                            })}
                                             {targetRows.length > 0 && (
                                                 <div style={{ display:'flex', alignItems:'center', gap:'0.35rem',
                                                               padding:'0.26rem 0.3rem', marginTop:'0.2rem',

@@ -968,6 +968,119 @@
     window.getMatchupAnnotation = getMatchupAnnotation;
     window.getKpiAnnotation = getKpiAnnotation;
 
+    // ===== TRADE FINDER COMPONENT =====
+    function TradeFinderTab({ allRosters, myRosterId, assessments, ownerDna, playersData, picksByOwner, getPlayerValue, getPickValue, calcOwnerPosture, calcPsychTaxes, calcAcceptanceLikelihood, DNA_TYPES }) {
+        const [finderMode, setFinderMode] = React.useState('my');
+        const [finderAsset, setFinderAsset] = React.useState(null);
+        const [finderResults, setFinderResults] = React.useState(null);
+
+        const myPlayers = React.useMemo(() => (allRosters.find(r => r.roster_id === myRosterId)?.players || [])
+            .map(pid => ({ pid, name: playersData[pid]?.full_name || pid, pos: playersData[pid]?.position || '?', val: getPlayerValue(pid).value }))
+            .filter(p => p.val > 0).sort((a,b) => b.val - a.val), [allRosters, playersData]);
+
+        const allLeaguePlayers = React.useMemo(() => {
+            const list = [];
+            allRosters.forEach(r => { if (r.roster_id === myRosterId) return; (r.players || []).forEach(pid => { const p = playersData[pid]; if (!p) return; const val = getPlayerValue(pid).value; if (val > 0) list.push({ pid, name: p.full_name || pid, pos: p.position || '?', val, rosterId: r.roster_id }); }); });
+            return list.sort((a,b) => b.val - a.val);
+        }, [allRosters, playersData]);
+
+        function generateTrades(pid, mode) {
+            const val = getPlayerValue(pid).value;
+            if (!val) { setFinderResults([]); return; }
+            const tolerance = 0.20, minVal = val*(1-tolerance), maxVal = val*(1+tolerance);
+            const myAssess = assessments.find(a => a.rosterId === myRosterId);
+            const results = [];
+
+            if (mode === 'my') {
+                allRosters.forEach(r => {
+                    if (r.roster_id === myRosterId) return;
+                    const ta = assessments.find(a => a.rosterId === r.roster_id); if (!ta) return;
+                    const dk = ownerDna[ta.ownerId] || 'NONE';
+                    const tp = calcOwnerPosture(ta, dk);
+                    const theirP = (r.players||[]).map(p=>({pid:p,val:getPlayerValue(p).value})).filter(p=>p.val>0).sort((a,b)=>b.val-a.val);
+                    const trades = [];
+                    // 1-for-1
+                    theirP.forEach(tp2 => { if (tp2.val >= minVal && tp2.val <= maxVal) { const taxes = calcPsychTaxes(myAssess,ta,dk,tp); const lk = calcAcceptanceLikelihood(val,tp2.val,dk,taxes,myAssess,ta); trades.push({give:[{pid,val}],receive:[{pid:tp2.pid,val:tp2.val}],givePicks:[],receivePicks:[],diff:tp2.val-val,likelihood:lk,type:'1-for-1'}); }});
+                    // 2-for-1
+                    for(let i=0;i<Math.min(theirP.length,12);i++){for(let j=i+1;j<Math.min(theirP.length,12);j++){const c=theirP[i].val+theirP[j].val;if(c>=minVal&&c<=maxVal){const taxes=calcPsychTaxes(myAssess,ta,dk,tp);const lk=calcAcceptanceLikelihood(val,c,dk,taxes,myAssess,ta);trades.push({give:[{pid,val}],receive:[{pid:theirP[i].pid,val:theirP[i].val},{pid:theirP[j].pid,val:theirP[j].val}],givePicks:[],receivePicks:[],diff:c-val,likelihood:lk,type:'2-for-1'});break;}}}
+                    // Player + pick
+                    const theirPicks = picksByOwner[ta.ownerId]||[];
+                    theirP.slice(0,8).forEach(tp2=>{if(tp2.val>=val)return;const gap=val-tp2.val;const bp=theirPicks.find(pk=>{const pv=getPickValue(pk.year||pk.season,pk.round,allRosters.length);return Math.abs(pv-gap)<=val*tolerance;});if(bp){const pv=getPickValue(bp.year||bp.season,bp.round,allRosters.length);const total=tp2.val+pv;const taxes=calcPsychTaxes(myAssess,ta,dk,tp);const lk=calcAcceptanceLikelihood(val,total,dk,taxes,myAssess,ta);trades.push({give:[{pid,val}],receive:[{pid:tp2.pid,val:tp2.val}],givePicks:[],receivePicks:[{...bp,val:pv}],diff:total-val,likelihood:lk,type:'Player + Pick'});}});
+                    trades.sort((a,b)=>b.likelihood-a.likelihood);
+                    if(trades.length) results.push({team:ta,dnaKey:dk,trades:trades.slice(0,3)});
+                });
+            } else {
+                const ownerR = allRosters.find(r=>(r.players||[]).includes(pid));
+                if(!ownerR){setFinderResults([]);return;}
+                const ta=assessments.find(a=>a.rosterId===ownerR.roster_id);if(!ta){setFinderResults([]);return;}
+                const dk=ownerDna[ta.ownerId]||'NONE';const tp=calcOwnerPosture(ta,dk);
+                const myR=allRosters.find(r=>r.roster_id===myRosterId);
+                const myP2=(myR?.players||[]).filter(p=>p!==pid).map(p=>({pid:p,val:getPlayerValue(p).value})).filter(p=>p.val>0).sort((a,b)=>b.val-a.val);
+                const trades=[];
+                myP2.forEach(mp=>{if(mp.val>=minVal&&mp.val<=maxVal){const taxes=calcPsychTaxes(myAssess,ta,dk,tp);const lk=calcAcceptanceLikelihood(mp.val,val,dk,taxes,myAssess,ta);trades.push({give:[{pid:mp.pid,val:mp.val}],receive:[{pid,val}],givePicks:[],receivePicks:[],diff:val-mp.val,likelihood:lk,type:'1-for-1'});}});
+                for(let i=0;i<Math.min(myP2.length,12);i++){for(let j=i+1;j<Math.min(myP2.length,12);j++){const c=myP2[i].val+myP2[j].val;if(c>=minVal&&c<=maxVal){const taxes=calcPsychTaxes(myAssess,ta,dk,tp);const lk=calcAcceptanceLikelihood(c,val,dk,taxes,myAssess,ta);trades.push({give:[{pid:myP2[i].pid,val:myP2[i].val},{pid:myP2[j].pid,val:myP2[j].val}],receive:[{pid,val}],givePicks:[],receivePicks:[],diff:val-c,likelihood:lk,type:'2-for-1'});break;}}}
+                trades.sort((a,b)=>b.likelihood-a.likelihood);
+                if(trades.length) results.push({team:ta,dnaKey:dk,trades:trades.slice(0,3)});
+            }
+            results.sort((a,b)=>Math.max(...b.trades.map(t=>t.likelihood))-Math.max(...a.trades.map(t=>t.likelihood)));
+            setFinderResults(results);
+        }
+
+        const pName=pid=>playersData[pid]?.full_name||pid;
+        const pPos=pid=>playersData[pid]?.position||'?';
+
+        return React.createElement('div', null,
+            React.createElement('div', {style:{fontSize:'0.78rem',color:'var(--silver)',opacity:0.65,marginBottom:'0.75rem',lineHeight:1.5}}, 'Select any player to generate trade proposals. Shows offers within 20% value variance ranked by acceptance likelihood. ', React.createElement(Tip, null, 'Builds 1-for-1, 2-for-1, and player+pick combos. Acceptance % uses DNA type, psychological taxes, and trade posture.')),
+            React.createElement('div', {style:{display:'flex',gap:'0.5rem',marginBottom:'1rem'}},
+                React.createElement('button', {onClick:()=>{setFinderMode('my');setFinderAsset(null);setFinderResults(null);},style:{padding:'7px 16px',fontSize:'0.78rem',fontFamily:'Oswald',textTransform:'uppercase',background:finderMode==='my'?'var(--gold)':'rgba(255,255,255,0.04)',color:finderMode==='my'?'var(--black)':'var(--silver)',border:'1px solid '+(finderMode==='my'?'var(--gold)':'rgba(255,255,255,0.08)'),borderRadius:'4px',cursor:'pointer'}}, 'Trade My Player'),
+                React.createElement('button', {onClick:()=>{setFinderMode('acquire');setFinderAsset(null);setFinderResults(null);},style:{padding:'7px 16px',fontSize:'0.78rem',fontFamily:'Oswald',textTransform:'uppercase',background:finderMode==='acquire'?'var(--gold)':'rgba(255,255,255,0.04)',color:finderMode==='acquire'?'var(--black)':'var(--silver)',border:'1px solid '+(finderMode==='acquire'?'var(--gold)':'rgba(255,255,255,0.08)'),borderRadius:'4px',cursor:'pointer'}}, 'Acquire a Player')
+            ),
+            React.createElement('div', {style:{fontSize:'0.74rem',color:'var(--gold)',textTransform:'uppercase',marginBottom:'0.3rem',fontWeight:700}}, finderMode==='my'?'Select your player to shop':'Select a player to acquire'),
+            React.createElement('div', {style:{display:'flex',flexWrap:'wrap',gap:'0.35rem',maxHeight:'200px',overflowY:'auto',marginBottom:'1rem',padding:'10px',background:'rgba(255,255,255,0.02)',borderRadius:'8px',border:'1px solid rgba(212,175,55,0.12)'}},
+                ...(finderMode==='my'?myPlayers:allLeaguePlayers).slice(0,60).map(p=>
+                    React.createElement('button', {key:p.pid, onClick:()=>{setFinderAsset(p.pid);setFinderResults(null);generateTrades(p.pid,finderMode);}, style:{padding:'5px 12px',fontSize:'0.74rem',fontFamily:'Oswald',borderRadius:'4px',cursor:'pointer',background:finderAsset===p.pid?'var(--gold)':'rgba(255,255,255,0.04)',color:finderAsset===p.pid?'var(--black)':'var(--silver)',border:'1px solid '+(finderAsset===p.pid?'var(--gold)':'rgba(255,255,255,0.06)')}}, p.name+' '+p.val.toLocaleString())
+                )
+            ),
+            finderResults && !finderResults.length ? React.createElement('div', {style:{color:'var(--silver)',fontSize:'0.82rem',textAlign:'center',padding:'2rem'}}, 'No viable trades found within 20% value variance.') : null,
+            finderResults ? finderResults.map((r,ri) =>
+                React.createElement('div', {key:ri, style:{marginBottom:'1.25rem'}, className:'wr-fade-in'},
+                    React.createElement('div', {style:{display:'flex',alignItems:'center',gap:'0.5rem',marginBottom:'0.5rem',paddingBottom:'0.4rem',borderBottom:'1px solid rgba(212,175,55,0.15)'}},
+                        React.createElement('span', {style:{fontFamily:'Bebas Neue,cursive',fontSize:'1rem',color:'var(--white)'}}, r.team.ownerName),
+                        React.createElement('span', {style:{fontSize:'0.72rem',color:'var(--silver)',opacity:0.65}}, r.team.teamName),
+                        React.createElement('span', {style:{fontSize:'0.7rem',fontWeight:700,color:r.team.tierColor,background:r.team.tierBg,padding:'0.15rem 0.4rem',borderRadius:'3px'}}, r.team.tier),
+                        r.dnaKey!=='NONE'?React.createElement('span', {style:{fontSize:'0.7rem',color:(DNA_TYPES[r.dnaKey]||{}).color,fontWeight:700}}, (DNA_TYPES[r.dnaKey]||{}).label):null
+                    ),
+                    ...r.trades.map((t,ti) => {
+                        const giveT=t.give.reduce((s,p)=>s+p.val,0)+t.givePicks.reduce((s,p)=>s+(p.val||0),0);
+                        const getT=t.receive.reduce((s,p)=>s+p.val,0)+t.receivePicks.reduce((s,p)=>s+(p.val||0),0);
+                        return React.createElement('div', {key:ti, style:{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(212,175,55,0.15)',borderRadius:'8px',padding:'0.75rem',marginBottom:'0.5rem'}},
+                            React.createElement('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.5rem'}},
+                                React.createElement('span', {style:{fontSize:'0.74rem',color:'var(--gold)',fontWeight:700,textTransform:'uppercase'}}, t.type),
+                                React.createElement('div', {style:{display:'flex',gap:'0.5rem',alignItems:'center'}},
+                                    React.createElement('span', {style:{fontSize:'0.74rem',color:t.diff>=0?'var(--win-green)':'var(--loss-red)'}}, (t.diff>=0?'You gain ':'You give ')+Math.abs(Math.round(t.diff)).toLocaleString()+' DHQ'),
+                                    React.createElement('span', {style:{fontSize:'0.78rem',fontWeight:700,color:t.likelihood>=60?'var(--win-green)':t.likelihood>=40?'#F0A500':'var(--loss-red)',background:(t.likelihood>=60?'rgba(46,204,113,0.1)':t.likelihood>=40?'rgba(240,165,0,0.1)':'rgba(231,76,60,0.1)'),padding:'0.15rem 0.5rem',borderRadius:'4px'}}, Math.round(t.likelihood)+'%')
+                                )
+                            ),
+                            React.createElement('div', {style:{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'0.5rem',alignItems:'start'}},
+                                React.createElement('div', null,
+                                    React.createElement('div', {style:{fontSize:'0.7rem',color:'var(--loss-red)',textTransform:'uppercase',marginBottom:'0.25rem',fontWeight:700}}, 'Send ('+giveT.toLocaleString()+')'),
+                                    ...t.give.map(p=>React.createElement('div', {key:p.pid,style:{fontSize:'0.78rem',color:'var(--white)',fontWeight:600}}, pName(p.pid), React.createElement('span', {style:{color:'var(--silver)',fontSize:'0.72rem',marginLeft:'4px'}}, pPos(p.pid)+' '+p.val.toLocaleString()))),
+                                    ...t.givePicks.map((pk,i)=>React.createElement('div', {key:'gp'+i,style:{fontSize:'0.78rem',color:'var(--gold)',fontWeight:600}}, (pk.year||pk.season)+' R'+pk.round))
+                                ),
+                                React.createElement('div', {style:{fontSize:'1.1rem',color:'var(--gold)',alignSelf:'center',fontWeight:700}}, '\u21C4'),
+                                React.createElement('div', null,
+                                    React.createElement('div', {style:{fontSize:'0.7rem',color:'var(--win-green)',textTransform:'uppercase',marginBottom:'0.25rem',fontWeight:700}}, 'Get ('+getT.toLocaleString()+')'),
+                                    ...t.receive.map(p=>React.createElement('div', {key:p.pid,style:{fontSize:'0.78rem',color:'var(--white)',fontWeight:600}}, pName(p.pid), React.createElement('span', {style:{color:'var(--silver)',fontSize:'0.72rem',marginLeft:'4px'}}, pPos(p.pid)+' '+p.val.toLocaleString()))),
+                                    ...t.receivePicks.map((pk,i)=>React.createElement('div', {key:'rp'+i,style:{fontSize:'0.78rem',color:'var(--gold)',fontWeight:600}}, (pk.year||pk.season)+' R'+pk.round))
+                                )
+                            )
+                        );
+                    })
+                )
+            ) : null
+        );
+    }
+
     // ===== DEV MODE =====
     const DEV_MODE = new URLSearchParams(window.location.search).has('dev') || window.location.hostname.includes('sandbox');
     if (DEV_MODE) {
@@ -2080,8 +2193,31 @@
             return (
                 <div>
                     <div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.655, marginBottom:'0.75rem', lineHeight:1.5 }}>
-                        Profile each owner's behavioral DNA. This unlocks psychological tax calculations in the Trade Analyzer.
+                        Profile each owner's behavioral DNA. This unlocks psychological tax calculations in the Trade Analyzer. {React.createElement(Tip, null, 'Owner DNA classifies each league member\'s trading personality based on historical behavior. The system auto-derives DNA from trade history and applies psychological taxes to acceptance likelihood calculations. Multiplier = how much value adjustment to expect.')}
                     </div>
+                    {/* DNA Profile Guide */}
+                    {React.createElement(function DnaGuideInline() {
+                        const [guideOpen, setGuideOpen] = React.useState(false);
+                        return React.createElement('div', { style:{marginBottom:'0.75rem'} },
+                            React.createElement('button', { onClick:()=>setGuideOpen(!guideOpen), style:{fontSize:'0.76rem',color:'var(--gold)',background:'rgba(212,175,55,0.08)',border:'1px solid rgba(212,175,55,0.25)',borderRadius:'6px',padding:'0.4rem 0.8rem',cursor:'pointer',fontFamily:'Oswald',textTransform:'uppercase',letterSpacing:'0.04em'} }, guideOpen ? 'Hide DNA Guide' : 'Show DNA Guide'),
+                            guideOpen ? React.createElement('div', { style:{marginTop:'0.5rem',display:'grid',gap:'0.5rem'} },
+                                ...Object.entries(DNA_TYPES).filter(function(e){return e[0]!=='NONE'}).map(function(entry) {
+                                    var key=entry[0], d=entry[1];
+                                    return React.createElement('div', { key:key, style:{background:'rgba(255,255,255,0.02)',border:'1px solid '+d.color+'30',borderRadius:'8px',padding:'0.7rem 0.85rem'} },
+                                        React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.5rem',marginBottom:'0.3rem'} },
+                                            React.createElement('span', { style:{fontFamily:'Bebas Neue,cursive',fontSize:'0.95rem',color:d.color} }, d.label),
+                                            React.createElement('span', { style:{fontSize:'0.7rem',color:'var(--silver)',opacity:0.65,background:d.color+'15',padding:'0.1rem 0.4rem',borderRadius:'3px'} }, 'x'+d.multiplier)
+                                        ),
+                                        React.createElement('div', { style:{fontSize:'0.76rem',color:'var(--silver)',lineHeight:1.5,marginBottom:'0.3rem'} }, d.desc),
+                                        d.strategy ? React.createElement('div', { style:{fontSize:'0.74rem',color:d.color,opacity:0.9,fontStyle:'italic',marginBottom:'0.3rem'} }, 'Strategy: '+d.strategy) : null,
+                                        d.taxes && d.taxes.length ? React.createElement('div', { style:{display:'flex',flexWrap:'wrap',gap:'0.25rem'} },
+                                            ...d.taxes.map(function(t,i){ return React.createElement('span', { key:i, style:{fontSize:'0.7rem',padding:'0.1rem 0.35rem',borderRadius:'3px',border:'1px solid '+d.color+'40',color:d.color,background:d.color+'10'} }, t); })
+                                        ) : null
+                                    );
+                                })
+                            ) : null
+                        );
+                    })}
                     {window.DraftHistory && (
                         <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'1rem', flexWrap:'wrap' }}>
                             <button onClick={async () => {
@@ -2511,7 +2647,7 @@
                                 </div>
                             )}
                             <div>
-                                <div style={{ fontSize:'0.72rem', color:'var(--silver)', opacity:0.65, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'0.35rem' }}>Psychological Tax Breakdown</div>
+                                <div style={{ fontSize:'0.72rem', color:'var(--silver)', opacity:0.65, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'0.35rem' }}>Psychological Tax Breakdown {React.createElement(Tip, null, 'Each owner\'s DNA type creates psychological modifiers that affect trade acceptance beyond pure value. Taxes reduce likelihood, bonuses increase it. Factors: endowment effect, panic premium, status tax, loss aversion, rebuilding discount, need fulfillment, window alignment, and posture.')}</div>
                                 <div className="tc-tax-table">
                                     {psychTaxes.map((t,i) => (
                                         <div key={i} className={`tc-tax-table-row ${t.type === 'BONUS' ? 'tc-bonus' : 'tc-tax'}`}>
@@ -2539,7 +2675,7 @@
                             )}
                             <div>
                                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.3rem' }}>
-                                    <span style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.7, textTransform:'uppercase', letterSpacing:'0.06em' }}>Likelihood of Acceptance</span>
+                                    <span style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.7, textTransform:'uppercase', letterSpacing:'0.06em' }}>Likelihood of Acceptance {React.createElement(Tip, null, 'Estimated chance the other owner accepts. Starts at 50%, adjusted by: value difference, DNA type multiplier, psychological taxes, and posture. Each DNA type has different thresholds.')}</span>
                                     <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.4rem', color: likelihoodColor }}>{likelihood}%</span>
                                 </div>
                                 <div className="tc-likelihood-bar-wrap"><div className="tc-likelihood-bar-fill" style={{ width:`${likelihood}%`, background: likelihoodColor }} /></div>
@@ -2555,7 +2691,7 @@
             <div style={{ padding: '16px' }}>
                 <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '4px' }}>TRADE CALCULATOR</div>
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
-                    {['audit','dna','analyzer','inbox'].map(tab => (
+                    {['audit','dna','analyzer','finder','inbox'].map(tab => (
                         <button key={tab} onClick={() => setTcTab(tab)} style={{
                             padding: '6px 14px', fontSize: '0.78rem', fontFamily: 'Oswald',
                             textTransform: 'uppercase', letterSpacing: '0.04em',
@@ -2563,12 +2699,13 @@
                             color: tcTab === tab ? 'var(--black)' : 'var(--silver)',
                             border: '1px solid ' + (tcTab === tab ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
                             borderRadius: '4px', cursor: 'pointer'
-                        }}>{({dna:'Owner DNA',analyzer:'Trade Analyzer',inbox:'Trade Inbox'})[tab] || 'Roster Audit'}</button>
+                        }}>{({dna:'Owner DNA',analyzer:'Trade Analyzer',finder:'Trade Finder',inbox:'Trade Inbox'})[tab] || 'Roster Audit'}</button>
                     ))}
                 </div>
                 {tcTab === 'audit' && renderAudit()}
                 {tcTab === 'dna' && renderOwnerDna()}
                 {tcTab === 'analyzer' && renderTradeAnalyzer()}
+                {tcTab === 'finder' && React.createElement(TradeFinderTab, { allRosters, myRosterId, assessments, ownerDna, playersData, picksByOwner, getPlayerValue, getPickValue, calcOwnerPosture, calcPsychTaxes, calcAcceptanceLikelihood, DNA_TYPES })}
                 {tcTab === 'inbox' && renderTradeInbox()}
             </div>
         );

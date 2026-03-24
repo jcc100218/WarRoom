@@ -818,6 +818,16 @@
     }
 
     .tc-source-badge { font-size: 0.45rem; background: rgba(240,165,0,0.15); border: 1px solid rgba(240,165,0,0.35); color: #F0A500; padding: 0.05rem 0.25rem; border-radius: 2px; margin-left: 0.2rem; letter-spacing: 0.05em; }
+
+    /* ── Tooltips ─────────────────────────────────────────── */
+    .wr-tip-icon { display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:rgba(212,175,55,0.12);color:var(--gold);font-size:9px;font-weight:700;cursor:pointer;margin-left:4px;transition:all .15s;flex-shrink:0;vertical-align:middle;line-height:1;border:1px solid rgba(212,175,55,0.25) }
+    .wr-tip-icon:hover { background:var(--gold);color:var(--black) }
+    .wr-tip-box { display:none;background:var(--off-black);border:1px solid rgba(212,175,55,0.25);border-radius:8px;padding:10px 12px;font-size:0.68rem;color:var(--silver);line-height:1.6;margin-top:6px;animation:wrTipIn .2s ease }
+    .wr-tip-box.show { display:block }
+    @keyframes wrTipIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+    .wr-tip-box strong { color:var(--white);font-weight:600 }
+    .wr-tip-box .tip-scale { display:flex;gap:4px;margin:6px 0;font-size:0.6rem;flex-wrap:wrap }
+    .wr-tip-box .tip-scale span { padding:2px 6px;border-radius:4px }
 </style>
 
 </head>
@@ -841,6 +851,10 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
 <script type="text/babel">
+    // ===== TOOLTIP TOGGLE =====
+    function wrToggleTip(id) { const el = document.getElementById(id); if (el) el.classList.toggle('show'); }
+    window.wrToggleTip = wrToggleTip;
+
     // ===== DEV MODE =====
     const DEV_MODE = new URLSearchParams(window.location.search).has('dev') || window.location.hostname.includes('sandbox');
     if (DEV_MODE) {
@@ -1284,6 +1298,40 @@
             SELLER:    { label:'Active Seller', color:'#5DADE2', desc:'Moving assets for futures.' },
             LOCKED:    { label:'Locked In', color:'#7F8C8D', desc:'Satisfied roster, high attachment.' },
         };
+
+        // ── Tooltip component ──
+        function Tip({ id, children }) {
+            const [open, setOpen] = React.useState(false);
+            return <>
+                <span className="wr-tip-icon" onClick={e => { e.stopPropagation(); setOpen(!open); }}>?</span>
+                {open && <div className="wr-tip-box show" onClick={e => e.stopPropagation()}>{children}</div>}
+            </>;
+        }
+
+        // ── DNA Guide component ──
+        function DnaGuide() {
+            const [open, setOpen] = React.useState(false);
+            return <div style={{ marginBottom: '0.75rem' }}>
+                <button onClick={() => setOpen(!open)} style={{ fontSize:'0.65rem', color:'var(--gold)', background:'rgba(212,175,55,0.08)', border:'1px solid rgba(212,175,55,0.25)', borderRadius:'6px', padding:'0.35rem 0.7rem', cursor:'pointer', fontFamily:'Oswald', textTransform:'uppercase', letterSpacing:'0.04em' }}>
+                    {open ? 'Hide' : 'Show'} DNA Profile Guide
+                </button>
+                {open && <div style={{ marginTop:'0.5rem', display:'grid', gap:'0.5rem' }}>
+                    {Object.entries(DNA_TYPES).filter(([k]) => k !== 'NONE').map(([key, d]) => (
+                        <div key={key} style={{ background:'rgba(255,255,255,0.02)', border:`1px solid ${d.color}30`, borderRadius:'8px', padding:'0.6rem 0.75rem' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.3rem' }}>
+                                <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.85rem', color:d.color }}>{d.label}</span>
+                                <span style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.5, background:`${d.color}15`, padding:'0.1rem 0.35rem', borderRadius:'3px' }}>x{d.multiplier}</span>
+                            </div>
+                            <div style={{ fontSize:'0.62rem', color:'var(--silver)', lineHeight:1.5, marginBottom:'0.3rem' }}>{d.desc}</div>
+                            {d.strategy && <div style={{ fontSize:'0.6rem', color:d.color, opacity:0.9, fontStyle:'italic', marginBottom:'0.3rem' }}>Strategy: {d.strategy}</div>}
+                            {d.taxes?.length > 0 && <div style={{ display:'flex', flexWrap:'wrap', gap:'0.2rem' }}>
+                                {d.taxes.map((t,i) => <span key={i} style={{ fontSize:'0.52rem', padding:'0.1rem 0.3rem', borderRadius:'3px', border:`1px solid ${d.color}40`, color:d.color, background:`${d.color}10` }}>{t}</span>)}
+                            </div>}
+                        </div>
+                    ))}
+                </div>}
+            </div>;
+        }
 
         // ── Helper functions ──
         function normPos(pos) {
@@ -1852,7 +1900,7 @@
                                         </div>
                                         <div style={{ textAlign:'right' }}>
                                             <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'2.2rem', lineHeight:1, color: myAssessment.healthScore>=85?'#D4AF37':myAssessment.healthScore>=70?'#2ECC71':myAssessment.healthScore>=55?'#F0A500':'#E74C3C' }}>{myAssessment.healthScore}</div>
-                                            <div style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.5 }}>HEALTH SCORE</div>
+                                            <div style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.5 }}>HEALTH SCORE <Tip id="tip-health-main"><strong>Health Score (0-100)</strong><br/>60% Scoring Power (optimal lineup PPG vs league target) + 40% Position Coverage (NFL starter depth across all positions).<div className="tip-scale"><span style={{background:'rgba(212,175,55,0.15)',color:'var(--gold)'}}>90+ Elite</span><span style={{background:'rgba(46,204,113,0.12)',color:'#2ECC71'}}>75+ Contender</span><span style={{background:'rgba(240,165,0,0.1)',color:'#F0A500'}}>60+ Crossroads</span><span style={{background:'rgba(231,76,60,0.08)',color:'#E74C3C'}}>&lt;60 Rebuilding</span></div></Tip></div>
                                         </div>
                                     </div>
                                     <div className="tc-pos-grid">
@@ -1941,7 +1989,12 @@
                 <div>
                     <div style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.55, marginBottom:'0.75rem', lineHeight:1.5 }}>
                         Profile each owner's behavioral DNA. This unlocks psychological tax calculations in the Trade Analyzer.
+                        <Tip id="tip-dna-overview">
+                            <strong>Owner DNA</strong> classifies each league member's trading personality based on historical behavior. The system auto-derives DNA from trade history (wins/losses/patterns) and applies <strong>psychological taxes</strong> to acceptance likelihood calculations.<br/><br/>
+                            <strong>Multiplier</strong> = how much value adjustment to expect when trading with this owner type. Lower = harder to get fair value from. Higher = more willing to accept.
+                        </Tip>
                     </div>
+                    <DnaGuide />
                     {window.DraftHistory && (
                         <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'1rem', flexWrap:'wrap' }}>
                             <button onClick={async () => {
@@ -2371,7 +2424,7 @@
                                 </div>
                             )}
                             <div>
-                                <div style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.5, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'0.35rem' }}>Psychological Tax Breakdown</div>
+                                <div style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.5, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'0.35rem' }}>Psychological Tax Breakdown <Tip id="tip-psych-taxes">Each owner's DNA type creates <strong>psychological modifiers</strong> that affect trade acceptance beyond pure value. Taxes reduce likelihood (they want more), bonuses increase it (they're more willing). Factors include: endowment effect, panic premium, status tax, loss aversion, rebuilding discount, need fulfillment, window alignment, and posture.</Tip></div>
                                 <div className="tc-tax-table">
                                     {psychTaxes.map((t,i) => (
                                         <div key={i} className={`tc-tax-table-row ${t.type === 'BONUS' ? 'tc-bonus' : 'tc-tax'}`}>
@@ -2399,7 +2452,7 @@
                             )}
                             <div>
                                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.3rem' }}>
-                                    <span style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.7, textTransform:'uppercase', letterSpacing:'0.06em' }}>Likelihood of Acceptance</span>
+                                    <span style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.7, textTransform:'uppercase', letterSpacing:'0.06em' }}>Likelihood of Acceptance <Tip id="tip-acceptance">Estimated chance the other owner accepts. Starts at 50%, adjusted by: value difference, their DNA type multiplier, psychological taxes, and posture. Each DNA type has different thresholds — Fleecers need to feel they're winning, Acceptors are more flexible, Desperates will overpay for needs.</Tip></span>
                                     <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.4rem', color: likelihoodColor }}>{likelihood}%</span>
                                 </div>
                                 <div className="tc-likelihood-bar-wrap"><div className="tc-likelihood-bar-fill" style={{ width:`${likelihood}%`, background: likelihoodColor }} /></div>
@@ -2415,7 +2468,7 @@
             <div style={{ padding: '16px' }}>
                 <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '4px' }}>TRADE CALCULATOR</div>
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
-                    {['audit','dna','analyzer'].map(tab => (
+                    {['audit','dna','analyzer','finder'].map(tab => (
                         <button key={tab} onClick={() => setTcTab(tab)} style={{
                             padding: '6px 14px', fontSize: '0.68rem', fontFamily: 'Oswald',
                             textTransform: 'uppercase', letterSpacing: '0.04em',
@@ -2423,15 +2476,322 @@
                             color: tcTab === tab ? 'var(--black)' : 'var(--silver)',
                             border: '1px solid ' + (tcTab === tab ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
                             borderRadius: '4px', cursor: 'pointer'
-                        }}>{tab === 'dna' ? 'Owner DNA' : tab === 'analyzer' ? 'Trade Analyzer' : 'Roster Audit'}</button>
+                        }}>{tab === 'dna' ? 'Owner DNA' : tab === 'analyzer' ? 'Trade Analyzer' : tab === 'finder' ? 'Trade Finder' : 'Roster Audit'}</button>
                     ))}
                 </div>
                 {tcTab === 'audit' && renderAudit()}
                 {tcTab === 'dna' && renderOwnerDna()}
                 {tcTab === 'analyzer' && renderTradeAnalyzer()}
+                {tcTab === 'finder' && renderTradeFinder()}
             </div>
         );
     }
+
+    // ── Trade Finder ──────────────────────────────────────────────────────
+    function renderTradeFinder() {
+        const [finderAsset, setFinderAsset] = React.useState(null); // { pid, side: 'my'|'their', fromRid }
+        const [finderResults, setFinderResults] = React.useState(null);
+        const [finderLoading, setFinderLoading] = React.useState(false);
+        const [finderMode, setFinderMode] = React.useState('my'); // 'my' = trade away my player, 'acquire' = acquire a player
+
+        const myPlayers = (allRosters.find(r => r.roster_id === myRosterId)?.players || [])
+            .map(pid => ({ pid, name: playersData[pid]?.full_name || pid, pos: playersData[pid]?.position || '?', val: getPlayerValue(pid).value }))
+            .filter(p => p.val > 0)
+            .sort((a,b) => b.val - a.val);
+
+        const allLeaguePlayers = [];
+        allRosters.forEach(r => {
+            if (r.roster_id === myRosterId) return;
+            (r.players || []).forEach(pid => {
+                const p = playersData[pid];
+                if (!p) return;
+                const val = getPlayerValue(pid).value;
+                if (val > 0) allLeaguePlayers.push({ pid, name: p.full_name || pid, pos: p.position || '?', val, rosterId: r.roster_id });
+            });
+        });
+        allLeaguePlayers.sort((a,b) => b.val - a.val);
+
+        function generateTrades(assetPid, mode) {
+            setFinderLoading(true);
+            const targetVal = getPlayerValue(assetPid).value;
+            if (!targetVal) { setFinderResults([]); setFinderLoading(false); return; }
+
+            const results = [];
+            const tolerance = 0.20; // 20% variance allowed
+            const myRoster = allRosters.find(r => r.roster_id === myRosterId);
+            const myAssess = assessments.find(a => a.rosterId === myRosterId);
+
+            if (mode === 'my') {
+                // Trading away my asset — find offers from every other team
+                allRosters.forEach(r => {
+                    if (r.roster_id === myRosterId) return;
+                    const theirAssess = assessments.find(a => a.rosterId === r.roster_id);
+                    if (!theirAssess) return;
+                    const theirDnaKey = ownerDna[theirAssess.ownerId] || 'NONE';
+                    const teamTrades = findTradesForAsset(assetPid, targetVal, r, theirAssess, theirDnaKey, tolerance);
+                    if (teamTrades.length) {
+                        results.push({ team: theirAssess, dnaKey: theirDnaKey, trades: teamTrades.slice(0, 3) });
+                    }
+                });
+            } else {
+                // Acquiring a player from another team
+                const ownerRoster = allRosters.find(r => (r.players || []).includes(assetPid));
+                if (!ownerRoster) { setFinderResults([]); setFinderLoading(false); return; }
+                const theirAssess = assessments.find(a => a.rosterId === ownerRoster.roster_id);
+                if (!theirAssess) { setFinderResults([]); setFinderLoading(false); return; }
+                const theirDnaKey = ownerDna[theirAssess.ownerId] || 'NONE';
+                // Generate 3 different offers to acquire this player
+                const trades = findAcquisitionOffers(assetPid, targetVal, ownerRoster, myRoster, theirAssess, myAssess, theirDnaKey, tolerance);
+                if (trades.length) {
+                    results.push({ team: theirAssess, dnaKey: theirDnaKey, trades: trades.slice(0, 3) });
+                }
+            }
+
+            // Sort teams by best trade fit
+            results.sort((a,b) => {
+                const aMax = Math.max(...a.trades.map(t => t.likelihood));
+                const bMax = Math.max(...b.trades.map(t => t.likelihood));
+                return bMax - aMax;
+            });
+
+            setFinderResults(results);
+            setFinderLoading(false);
+        }
+
+        function findTradesForAsset(myPid, myVal, theirRoster, theirAssess, theirDnaKey, tolerance) {
+            const theirPlayers = (theirRoster.players || [])
+                .map(pid => ({ pid, val: getPlayerValue(pid).value, pos: playersData[pid]?.position }))
+                .filter(p => p.val > 0)
+                .sort((a,b) => b.val - a.val);
+
+            const trades = [];
+            const minReturn = myVal * (1 - tolerance);
+            const maxReturn = myVal * (1 + tolerance);
+
+            // Strategy 1: 1-for-1 swaps
+            theirPlayers.forEach(tp => {
+                if (tp.val >= minReturn && tp.val <= maxReturn) {
+                    const diff = tp.val - myVal;
+                    const theirPosture = calcOwnerPosture(theirAssess, theirDnaKey);
+                    const taxes = calcPsychTaxes(assessments.find(a=>a.rosterId===myRosterId), theirAssess, theirDnaKey, theirPosture);
+                    const likelihood = calcAcceptanceLikelihood(myVal, tp.val, theirDnaKey, taxes, assessments.find(a=>a.rosterId===myRosterId), theirAssess);
+                    trades.push({
+                        give: [{ pid: myPid, val: myVal }], receive: [{ pid: tp.pid, val: tp.val }],
+                        givePicks: [], receivePicks: [],
+                        diff, likelihood, type: '1-for-1'
+                    });
+                }
+            });
+
+            // Strategy 2: 2-for-1 (combine two of their players to match)
+            for (let i = 0; i < Math.min(theirPlayers.length, 15); i++) {
+                for (let j = i+1; j < Math.min(theirPlayers.length, 15); j++) {
+                    const combo = theirPlayers[i].val + theirPlayers[j].val;
+                    if (combo >= minReturn && combo <= maxReturn) {
+                        const diff = combo - myVal;
+                        const theirPosture = calcOwnerPosture(theirAssess, theirDnaKey);
+                        const taxes = calcPsychTaxes(assessments.find(a=>a.rosterId===myRosterId), theirAssess, theirDnaKey, theirPosture);
+                        const likelihood = calcAcceptanceLikelihood(myVal, combo, theirDnaKey, taxes, assessments.find(a=>a.rosterId===myRosterId), theirAssess);
+                        trades.push({
+                            give: [{ pid: myPid, val: myVal }],
+                            receive: [{ pid: theirPlayers[i].pid, val: theirPlayers[i].val }, { pid: theirPlayers[j].pid, val: theirPlayers[j].val }],
+                            givePicks: [], receivePicks: [],
+                            diff, likelihood, type: '2-for-1'
+                        });
+                        break; // one 2-for-1 per team
+                    }
+                }
+            }
+
+            // Strategy 3: player + pick
+            const theirOwnerPicks = picksByOwner[theirAssess.ownerId] || [];
+            theirPlayers.slice(0, 10).forEach(tp => {
+                if (tp.val < minReturn * 0.5) return; // too low
+                const gap = myVal - tp.val;
+                if (gap <= 0) return;
+                const bestPick = theirOwnerPicks.find(pk => {
+                    const pv = getPickValue(pk.year || pk.season, pk.round, allRosters.length);
+                    return Math.abs(pv - gap) <= myVal * tolerance;
+                });
+                if (bestPick) {
+                    const pickVal = getPickValue(bestPick.year || bestPick.season, bestPick.round, allRosters.length);
+                    const total = tp.val + pickVal;
+                    const diff = total - myVal;
+                    const theirPosture = calcOwnerPosture(theirAssess, theirDnaKey);
+                    const taxes = calcPsychTaxes(assessments.find(a=>a.rosterId===myRosterId), theirAssess, theirDnaKey, theirPosture);
+                    const likelihood = calcAcceptanceLikelihood(myVal, total, theirDnaKey, taxes, assessments.find(a=>a.rosterId===myRosterId), theirAssess);
+                    trades.push({
+                        give: [{ pid: myPid, val: myVal }],
+                        receive: [{ pid: tp.pid, val: tp.val }],
+                        givePicks: [], receivePicks: [{ ...bestPick, val: pickVal }],
+                        diff, likelihood, type: 'Player + Pick'
+                    });
+                }
+            });
+
+            // Sort by likelihood desc, take top 3
+            trades.sort((a,b) => b.likelihood - a.likelihood);
+            return trades.slice(0, 3);
+        }
+
+        function findAcquisitionOffers(targetPid, targetVal, ownerRoster, myRosterObj, theirAssess, myAssess, theirDnaKey, tolerance) {
+            const myPlayers = (myRosterObj?.players || [])
+                .filter(pid => pid !== targetPid)
+                .map(pid => ({ pid, val: getPlayerValue(pid).value, pos: playersData[pid]?.position }))
+                .filter(p => p.val > 0)
+                .sort((a,b) => b.val - a.val);
+
+            const trades = [];
+            const minOffer = targetVal * (1 - tolerance);
+            const maxOffer = targetVal * (1 + tolerance);
+
+            // 1-for-1
+            myPlayers.forEach(mp => {
+                if (mp.val >= minOffer && mp.val <= maxOffer) {
+                    const diff = targetVal - mp.val;
+                    const theirPosture = calcOwnerPosture(theirAssess, theirDnaKey);
+                    const taxes = calcPsychTaxes(myAssess, theirAssess, theirDnaKey, theirPosture);
+                    const likelihood = calcAcceptanceLikelihood(mp.val, targetVal, theirDnaKey, taxes, myAssess, theirAssess);
+                    trades.push({
+                        give: [{ pid: mp.pid, val: mp.val }], receive: [{ pid: targetPid, val: targetVal }],
+                        givePicks: [], receivePicks: [],
+                        diff, likelihood, type: '1-for-1'
+                    });
+                }
+            });
+
+            // 2-for-1
+            for (let i = 0; i < Math.min(myPlayers.length, 12); i++) {
+                for (let j = i+1; j < Math.min(myPlayers.length, 12); j++) {
+                    const combo = myPlayers[i].val + myPlayers[j].val;
+                    if (combo >= minOffer && combo <= maxOffer) {
+                        const diff = targetVal - combo;
+                        const theirPosture = calcOwnerPosture(theirAssess, theirDnaKey);
+                        const taxes = calcPsychTaxes(myAssess, theirAssess, theirDnaKey, theirPosture);
+                        const likelihood = calcAcceptanceLikelihood(combo, targetVal, theirDnaKey, taxes, myAssess, theirAssess);
+                        trades.push({
+                            give: [{ pid: myPlayers[i].pid, val: myPlayers[i].val }, { pid: myPlayers[j].pid, val: myPlayers[j].val }],
+                            receive: [{ pid: targetPid, val: targetVal }],
+                            givePicks: [], receivePicks: [],
+                            diff, likelihood, type: '2-for-1'
+                        });
+                        break;
+                    }
+                }
+            }
+
+            // Player + my pick
+            const myOwnerPicks = picksByOwner[allRosters.find(r=>r.roster_id===myRosterId)?.owner_id] || [];
+            myPlayers.slice(0, 8).forEach(mp => {
+                if (mp.val >= targetVal) return;
+                const gap = targetVal - mp.val;
+                const bestPick = myOwnerPicks.find(pk => {
+                    const pv = getPickValue(pk.year || pk.season, pk.round, allRosters.length);
+                    return Math.abs(pv - gap) <= targetVal * tolerance;
+                });
+                if (bestPick) {
+                    const pickVal = getPickValue(bestPick.year || bestPick.season, bestPick.round, allRosters.length);
+                    const total = mp.val + pickVal;
+                    if (total >= minOffer && total <= maxOffer) {
+                        const diff = targetVal - total;
+                        const theirPosture = calcOwnerPosture(theirAssess, theirDnaKey);
+                        const taxes = calcPsychTaxes(myAssess, theirAssess, theirDnaKey, theirPosture);
+                        const likelihood = calcAcceptanceLikelihood(total, targetVal, theirDnaKey, taxes, myAssess, theirAssess);
+                        trades.push({
+                            give: [{ pid: mp.pid, val: mp.val }], receive: [{ pid: targetPid, val: targetVal }],
+                            givePicks: [{ ...bestPick, val: pickVal }], receivePicks: [],
+                            diff, likelihood, type: 'Player + Pick'
+                        });
+                    }
+                }
+            });
+
+            trades.sort((a,b) => b.likelihood - a.likelihood);
+            return trades.slice(0, 3);
+        }
+
+        const pName = pid => playersData[pid]?.full_name || pid;
+        const pPos = pid => playersData[pid]?.position || '?';
+
+        function TradeCard({ trade, teamName }) {
+            const fairness = trade.diff >= 0 ? 'You gain' : 'You give';
+            const fairCol = trade.diff >= 0 ? 'var(--win-green)' : 'var(--loss-red)';
+            const giveTotal = trade.give.reduce((s,p) => s+p.val, 0) + trade.givePicks.reduce((s,p) => s+(p.val||0), 0);
+            const getTotal = trade.receive.reduce((s,p) => s+p.val, 0) + trade.receivePicks.reduce((s,p) => s+(p.val||0), 0);
+            return (
+                <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(212,175,55,0.15)', borderRadius:'8px', padding:'0.6rem 0.75rem', marginBottom:'0.4rem' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.4rem' }}>
+                        <span style={{ fontSize:'0.6rem', color:'var(--gold)', fontWeight:700, textTransform:'uppercase' }}>{trade.type}</span>
+                        <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
+                            <span style={{ fontSize:'0.6rem', color:fairCol }}>{fairness} {Math.abs(Math.round(trade.diff)).toLocaleString()} DHQ</span>
+                            <span style={{ fontSize:'0.65rem', fontWeight:700, color: trade.likelihood >= 60 ? 'var(--win-green)' : trade.likelihood >= 40 ? '#F0A500' : 'var(--loss-red)', background: trade.likelihood >= 60 ? 'rgba(46,204,113,0.1)' : trade.likelihood >= 40 ? 'rgba(240,165,0,0.1)' : 'rgba(231,76,60,0.1)', padding:'0.1rem 0.4rem', borderRadius:'4px' }}>{Math.round(trade.likelihood)}%</span>
+                        </div>
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr auto 1fr', gap:'0.5rem', alignItems:'start' }}>
+                        <div>
+                            <div style={{ fontSize:'0.55rem', color:'var(--loss-red)', textTransform:'uppercase', marginBottom:'0.2rem', fontWeight:700 }}>You Send ({giveTotal.toLocaleString()})</div>
+                            {trade.give.map(p => <div key={p.pid} style={{ fontSize:'0.68rem', color:'var(--white)', fontWeight:600 }}>{pName(p.pid)} <span style={{ color:'var(--silver)', fontSize:'0.58rem' }}>{pPos(p.pid)} {p.val.toLocaleString()}</span></div>)}
+                            {trade.givePicks.map((pk,i) => <div key={'gp'+i} style={{ fontSize:'0.68rem', color:'#D4AF37', fontWeight:600 }}>{pk.year||pk.season} R{pk.round} <span style={{ color:'var(--silver)', fontSize:'0.58rem' }}>{(pk.val||0).toLocaleString()}</span></div>)}
+                        </div>
+                        <div style={{ fontSize:'1rem', color:'var(--gold)', alignSelf:'center', fontWeight:700 }}>&#8644;</div>
+                        <div>
+                            <div style={{ fontSize:'0.55rem', color:'var(--win-green)', textTransform:'uppercase', marginBottom:'0.2rem', fontWeight:700 }}>You Get ({getTotal.toLocaleString()})</div>
+                            {trade.receive.map(p => <div key={p.pid} style={{ fontSize:'0.68rem', color:'var(--white)', fontWeight:600 }}>{pName(p.pid)} <span style={{ color:'var(--silver)', fontSize:'0.58rem' }}>{pPos(p.pid)} {p.val.toLocaleString()}</span></div>)}
+                            {trade.receivePicks.map((pk,i) => <div key={'rp'+i} style={{ fontSize:'0.68rem', color:'#D4AF37', fontWeight:600 }}>{pk.year||pk.season} R{pk.round} <span style={{ color:'var(--silver)', fontSize:'0.58rem' }}>{(pk.val||0).toLocaleString()}</span></div>)}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div>
+                <div style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.55, marginBottom:'0.75rem', lineHeight:1.5 }}>
+                    Select any player to generate trade proposals with every team. The finder builds offers within 20% value variance and ranks them by acceptance likelihood.
+                    <Tip id="tip-trade-finder">The Trade Finder generates up to 3 trade structures per team: <strong>1-for-1 swaps</strong>, <strong>2-for-1 packages</strong>, and <strong>player + pick combos</strong>. Acceptance % factors in the other owner's DNA type, psychological taxes, and trade posture. All values are DHQ dynasty values (0-10,000 scale).</Tip>
+                </div>
+
+                <div style={{ display:'flex', gap:'0.5rem', marginBottom:'1rem' }}>
+                    <button onClick={() => setFinderMode('my')} style={{ padding:'6px 14px', fontSize:'0.68rem', fontFamily:'Oswald', textTransform:'uppercase', background: finderMode==='my' ? 'var(--gold)' : 'rgba(255,255,255,0.04)', color: finderMode==='my' ? 'var(--black)' : 'var(--silver)', border:'1px solid '+(finderMode==='my' ? 'var(--gold)' : 'rgba(255,255,255,0.08)'), borderRadius:'4px', cursor:'pointer' }}>Trade My Player</button>
+                    <button onClick={() => setFinderMode('acquire')} style={{ padding:'6px 14px', fontSize:'0.68rem', fontFamily:'Oswald', textTransform:'uppercase', background: finderMode==='acquire' ? 'var(--gold)' : 'rgba(255,255,255,0.04)', color: finderMode==='acquire' ? 'var(--black)' : 'var(--silver)', border:'1px solid '+(finderMode==='acquire' ? 'var(--gold)' : 'rgba(255,255,255,0.08)'), borderRadius:'4px', cursor:'pointer' }}>Acquire a Player</button>
+                </div>
+
+                {/* Player selector */}
+                <div style={{ marginBottom:'1rem' }}>
+                    <div style={{ fontSize:'0.6rem', color:'var(--gold)', textTransform:'uppercase', marginBottom:'0.3rem', fontWeight:700 }}>
+                        {finderMode === 'my' ? 'Select your player to shop' : 'Select a player to acquire'}
+                    </div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:'0.3rem', maxHeight:'200px', overflowY:'auto' }}>
+                        {(finderMode === 'my' ? myPlayers : allLeaguePlayers).slice(0, 60).map(p => (
+                            <button key={p.pid} onClick={() => { setFinderAsset(p.pid); setFinderResults(null); generateTrades(p.pid, finderMode); }}
+                                style={{ padding:'4px 10px', fontSize:'0.62rem', fontFamily:'Oswald', borderRadius:'4px', cursor:'pointer',
+                                    background: finderAsset === p.pid ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
+                                    color: finderAsset === p.pid ? 'var(--black)' : 'var(--silver)',
+                                    border: '1px solid ' + (finderAsset === p.pid ? 'var(--gold)' : 'rgba(255,255,255,0.06)') }}>
+                                {p.name} <span style={{ opacity:0.6 }}>{p.val.toLocaleString()}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Results */}
+                {finderLoading && <div style={{ color:'var(--gold)', fontSize:'0.75rem', textAlign:'center', padding:'2rem' }}>Generating trades...</div>}
+                {finderResults && !finderResults.length && <div style={{ color:'var(--silver)', fontSize:'0.75rem', textAlign:'center', padding:'2rem' }}>No viable trades found within 20% value variance.</div>}
+                {finderResults && finderResults.map((r, ri) => (
+                    <div key={ri} style={{ marginBottom:'1rem' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.4rem', paddingBottom:'0.3rem', borderBottom:'1px solid rgba(212,175,55,0.15)' }}>
+                            <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.9rem', color:'var(--white)' }}>{r.team.ownerName}</span>
+                            <span style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.5 }}>{r.team.teamName}</span>
+                            <span style={{ fontSize:'0.55rem', fontWeight:700, color: r.team.tierColor, background: r.team.tierBg, padding:'0.1rem 0.35rem', borderRadius:'3px' }}>{r.team.tier}</span>
+                            {r.dnaKey !== 'NONE' && <span style={{ fontSize:'0.55rem', color: DNA_TYPES[r.dnaKey]?.color, fontWeight:700 }}>{DNA_TYPES[r.dnaKey]?.label}</span>}
+                        </div>
+                        {r.trades.map((t, ti) => <TradeCard key={ti} trade={t} teamName={r.team.ownerName} />)}
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // END TRADE CALCULATOR TAB
     // ══════════════════════════════════════════════════════════════════════════
@@ -2834,28 +3194,28 @@
 
         // Default 5 KPIs — customizable per owner, saved in localStorage
         const KPI_OPTIONS = {
-            'starter-gap':    { label: 'Starter Gap', icon: '', category: 'Roster' },
-            'portfolio':      { label: 'Portfolio DHQ', icon: '', category: 'Roster' },
-            'value-rank':     { label: 'Value Rank', icon: '', category: 'League' },
-            'health-score':   { label: 'Health Score', icon: '', category: 'Roster' },
-            'avg-age':        { label: 'Avg Age', icon: '', category: 'Roster' },
-            'top5-conc':      { label: 'Top 5 Concentration', icon: '', category: 'Roster' },
-            'hit-rate':       { label: 'Draft Hit Rate', icon: '', category: 'Draft' },
-            'faab-efficiency':{ label: 'FAAB Efficiency', icon: '', category: 'Waivers' },
-            'net-trade':      { label: 'Net DHQ/Trade', icon: '', category: 'Trades' },
-            'trade-velocity': { label: 'Trade Velocity', icon: '', category: 'Trades' },
-            'window':         { label: 'Compete Window', icon: '', category: 'Projection' },
-            'aging-cliff':    { label: 'Aging Cliff %', icon: '', category: 'Projection' },
-            'partner-wr':     { label: 'Partner Win Rate', icon: '', category: 'Trades' },
-            'elite-count':    { label: 'Elite Players', icon: '', category: 'Roster' },
-            'bench-quality':  { label: 'Bench Quality', icon: '', category: 'Roster' },
-            'championships':    { label: 'Championships Won', icon: '', category: 'History' },
-            'playoff-record':   { label: 'Playoff Win-Loss', icon: '', category: 'History' },
-            'playoff-winpct':   { label: 'Playoff Win %', icon: '', category: 'History' },
-            'champ-appearances':{ label: 'Championship Appearances', icon: '', category: 'History' },
-            'dynasty-score':    { label: 'Dynasty Score', icon: '', category: 'History' },
-            'draft-roi':        { label: 'Draft ROI', icon: '', category: 'Draft' },
-            'roster-turnover':  { label: 'Roster Turnover', icon: '', category: 'Roster' },
+            'starter-gap':    { label: 'Starter Gap', icon: '', category: 'Roster', tip: 'Difference between your optimal weekly PPG and the league target (median x1.05). Positive = above target.' },
+            'portfolio':      { label: 'Portfolio DHQ', icon: '', category: 'Roster', tip: 'Sum of all DHQ values on your roster. Higher = more dynasty capital to work with.' },
+            'value-rank':     { label: 'Value Rank', icon: '', category: 'League', tip: 'Where your total roster DHQ ranks vs all teams in the league.' },
+            'health-score':   { label: 'Health Score', icon: '', category: 'Roster', tip: '0-100 composite: 60% Scoring Power (optimal PPG vs target) + 40% Position Coverage (NFL starter depth). 90+=Elite, 75+=Contender, 60+=Crossroads, <60=Rebuilding.' },
+            'avg-age':        { label: 'Avg Age', icon: '', category: 'Roster', tip: 'DHQ-weighted average age. Lower = longer window. Weighted so elite players count more than stashes.' },
+            'top5-conc':      { label: 'Top 5 Concentration', icon: '', category: 'Roster', tip: '% of total roster DHQ held by your 5 most valuable players. High concentration = fragile roster (injury-prone to collapse).' },
+            'hit-rate':       { label: 'Draft Hit Rate', icon: '', category: 'Draft', tip: '% of drafted players who became fantasy starters. Measures draft evaluation quality over time.' },
+            'faab-efficiency':{ label: 'FAAB Efficiency', icon: '', category: 'Waivers', tip: 'DHQ value gained per FAAB dollar spent. Higher = better waiver wire returns.' },
+            'net-trade':      { label: 'Net DHQ/Trade', icon: '', category: 'Trades', tip: 'Average DHQ value gained or lost per trade. Positive = you win trades on average.' },
+            'trade-velocity': { label: 'Trade Velocity', icon: '', category: 'Trades', tip: 'Number of trades completed. Higher velocity = more active roster management.' },
+            'window':         { label: 'Compete Window', icon: '', category: 'Projection', tip: 'Estimated years your roster can compete, based on age curves and DHQ decay projections.' },
+            'aging-cliff':    { label: 'Aging Cliff %', icon: '', category: 'Projection', tip: '% of your total DHQ value held by players past peak within 2 years. High = vulnerable to rapid decline.' },
+            'partner-wr':     { label: 'Partner Win Rate', icon: '', category: 'Trades', tip: '% of trades you won (gained >15% more DHQ than you gave). Measures trade negotiation skill.' },
+            'elite-count':    { label: 'Elite Players', icon: '', category: 'Roster', tip: 'Number of players with DHQ 7000+. These are league-winning difference makers.' },
+            'bench-quality':  { label: 'Bench Quality', icon: '', category: 'Roster', tip: 'Average DHQ of non-starter roster players. High bench quality = trade depth and injury insurance.' },
+            'championships':    { label: 'Championships Won', icon: '', category: 'History', tip: 'Total league championships from bracket data.' },
+            'playoff-record':   { label: 'Playoff Win-Loss', icon: '', category: 'History', tip: 'Career playoff wins and losses across all tracked seasons.' },
+            'playoff-winpct':   { label: 'Playoff Win %', icon: '', category: 'History', tip: 'Win percentage in playoff matchups. Measures clutch performance.' },
+            'champ-appearances':{ label: 'Championship Appearances', icon: '', category: 'History', tip: 'Times reached the championship round (win or loss).' },
+            'dynasty-score':    { label: 'Dynasty Score', icon: '', category: 'History', tip: 'Composite score: Championships (40%) + Playoff Record (30%) + Regular Season (30%). Measures sustained excellence.' },
+            'draft-roi':        { label: 'Draft ROI', icon: '', category: 'Draft', tip: 'Current DHQ value of drafted players vs draft capital spent. >100% = picks gained value.' },
+            'roster-turnover':  { label: 'Roster Turnover', icon: '', category: 'Roster', tip: 'Number of trades completed this cycle. Higher = more active management.' },
         };
         const DEFAULT_KPIS = ['starter-gap', 'hit-rate', 'faab-efficiency', 'net-trade', 'window'];
         const [selectedKpis, setSelectedKpis] = useState(() => {
@@ -4997,7 +5357,7 @@
                                 >{isEditing ? '\u2715' : '\u270E'}</button>
 
                                 {/* KPI content */}
-                                <div style={{ ...kpiLabelStyle, fontSize: '0.52rem' }}>{opt.icon} {opt.category.toUpperCase()}</div>
+                                <div style={{ ...kpiLabelStyle, fontSize: '0.52rem' }}>{opt.icon} {opt.category.toUpperCase()}{opt.tip && <Tip id={'tip-kpi-'+kpiKey}>{opt.tip}</Tip>}</div>
                                 <div style={{ ...kpiValueStyle, color: val.color, fontSize: '1.4rem' }}>{val.value}</div>
                                 <div style={kpiSubStyle}>{val.sub}</div>
 

@@ -918,8 +918,10 @@ function getPlayerValue(pid, valueIndex) {
 // Max value for bar scale (top player ~9500 in FC)
 const MAX_VALUE = 10000;
 
-// Dynasty pick values by round (SuperFlex/2QB, 12-team) — blended War Room + ReconAI scales
-const PICK_VALUES = { 1:6250, 2:3150, 3:1650, 4:850, 5:450, 6:225, 7:125 };
+// Dynasty pick values by round (SF, calibrated from FantasyCalc API March 2026)
+// Mid-round values: avg of base (1st pick in round) and end (last pick in round)
+// 1.01=7016→1.12=2073 avg≈4545 | 2.01=1957→2.12=1213 avg≈1585 | 3.01=1172→3.12=857 avg≈1015
+const PICK_VALUES = { 1:4545, 2:1585, 3:1015, 4:750, 5:400, 6:200, 7:100 };
 const PICK_COLORS  = { 1:'#D4AF37', 2:'#5DADE2', 3:'#2ECC71', 4:'#BB8FCE', 5:'#95A5A6', 6:'#7F8C8D', 7:'#6C7A7D' };
 
 // Prefer DHQ engine's per-pick-slot values when available, fall back to blended scale

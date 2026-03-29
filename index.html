@@ -3066,10 +3066,143 @@
         const selFaab = faSelectedPid ? faabSuggest(selDhq, selPos) : null;
         const selInitials = selPlayer ? ((selPlayer.first_name||'?')[0] + (selPlayer.last_name||'?')[0]).toUpperCase() : '';
 
+        // ── COMMAND VIEW: FAAB decision engine ──
+        if (viewMode === 'command') {
+            // Categorize recommendations into tiers
+            const mustAdd = recommendations.filter(r => r.need?.urgency === 'deficit' && r.dhq >= 800).slice(0, 3);
+            const strongBuys = recommendations.filter(r => r.need && !mustAdd.find(m => m.pid === r.pid) && r.dhq >= 500).slice(0, 4);
+            const valuePlays = availablePlayers.filter(x => x.dhq >= 400 && x.dhq < 2000 && (x.p.age || 30) <= 25).slice(0, 4).map(x => {
+                const st2 = statsData[x.pid] || {};
+                const ppg2 = st2.gp > 0 ? +(calcRawPts(st2) / st2.gp).toFixed(1) : 0;
+                const fb = faabSuggest(x.dhq, x.pos);
+                return { ...x, ppg: ppg2, faab: fb };
+            });
+
+            // Market pressure
+            const needCount = assess?.needs?.length || 0;
+            const competitorCount = recommendations.reduce((s, r) => s + (r.faab?.competitors || 0), 0);
+            const pressure = competitorCount > needCount * 3 ? 'HIGH' : competitorCount > needCount ? 'MODERATE' : 'LOW';
+            const pressureCol = pressure === 'HIGH' ? '#E74C3C' : pressure === 'MODERATE' ? '#F0A500' : '#2ECC71';
+
+            // Recommended total spend
+            const recSpend = recommendations.slice(0, 3).reduce((s, r) => s + (r.faab?.sug || 0), 0);
+
+            const renderFaCard = (r, tier, tierCol) => (
+                <div key={r.pid} onClick={() => setFaSelectedPid(r.pid)} style={{ background: faSelectedPid === r.pid ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (faSelectedPid === r.pid ? 'var(--gold)' : 'rgba(212,175,55,0.15)'), borderLeft: '3px solid ' + tierCol, borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'background 0.12s' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--white)' }}>{r.p?.full_name || 'Unknown'}</span>
+                        <span style={{ fontSize: '0.74rem', color: posColors[r.pos] || 'var(--silver)', fontWeight: 700 }}>{r.pos}</span>
+                        <span style={{ marginLeft: 'auto', fontFamily: 'Oswald', fontSize: '0.88rem', fontWeight: 700, color: 'var(--gold)' }}>{r.dhq?.toLocaleString()}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.76rem' }}>
+                        {r.ppg > 0 && <span style={{ color: 'var(--silver)' }}>{r.ppg} PPG</span>}
+                        <span style={{ color: '#2ECC71' }}>{r.peakYrs}yr peak</span>
+                        {r.need && <span style={{ color: '#E74C3C', fontWeight: 700 }}>fills {r.need.pos} {r.need.urgency}</span>}
+                        {r.faab && <span style={{ fontWeight: 700, color: 'var(--gold)', background: 'rgba(212,175,55,0.1)', padding: '1px 6px', borderRadius: '3px' }}>{'$' + r.faab.lo + '-' + r.faab.hi}</span>}
+                        {r.faab && <span style={{ color: r.faab.confCol, fontSize: '0.72rem' }}>{r.faab.conf}</span>}
+                    </div>
+                </div>
+            );
+
+            return (
+                <div style={{ padding: '20px 24px', maxWidth: '1200px', margin: '0 auto' }} className="wr-fade-in">
+                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', marginBottom: '16px' }}>WAIVER DECISIONS</div>
+
+                    {/* Decision summary */}
+                    <div style={{ display: 'grid', gridTemplateColumns: hasFAAB ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                        {hasFAAB && <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.8rem', color: remaining > budget * 0.5 ? '#2ECC71' : remaining > budget * 0.25 ? '#F0A500' : '#E74C3C' }}>{'$' + remaining}</div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>FAAB remaining</div>
+                            {recSpend > 0 && <div style={{ fontSize: '0.74rem', color: 'var(--gold)', marginTop: '4px' }}>Recommended spend: ${recSpend}</div>}
+                        </div>}
+                        <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--white)' }}>{assess?.needs?.slice(0, 3).map(n => n.pos).join(', ') || 'None'}</div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>Priority positions</div>
+                        </div>
+                        <div style={{ background: 'var(--black)', border: '2px solid ' + pressureCol + '40', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: pressureCol }}>{pressure}</div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>Market pressure</div>
+                        </div>
+                    </div>
+
+                    {/* Tiered targets */}
+                    <div style={{ display: 'grid', gridTemplateColumns: faSelectedPid ? '1fr 380px' : '1fr', gap: '20px' }}>
+                        <div>
+                            {mustAdd.length > 0 && <div style={{ marginBottom: '16px' }}>
+                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: '#E74C3C', letterSpacing: '0.06em', marginBottom: '8px' }}>MUST ADD</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {mustAdd.map(r => renderFaCard(r, 'must', '#E74C3C'))}
+                                </div>
+                            </div>}
+
+                            {strongBuys.length > 0 && <div style={{ marginBottom: '16px' }}>
+                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: '#2ECC71', letterSpacing: '0.06em', marginBottom: '8px' }}>STRONG BUYS</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {strongBuys.map(r => renderFaCard(r, 'strong', '#2ECC71'))}
+                                </div>
+                            </div>}
+
+                            {valuePlays.length > 0 && <div style={{ marginBottom: '16px' }}>
+                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: '#3498DB', letterSpacing: '0.06em', marginBottom: '8px' }}>VALUE PLAYS</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {valuePlays.map(r => renderFaCard(r, 'value', '#3498DB'))}
+                                </div>
+                            </div>}
+
+                            {recommendations.length === 0 && <div style={{ color: 'var(--silver)', textAlign: 'center', padding: '2rem', opacity: 0.5 }}>No targets available. Your roster may be well-covered.</div>}
+
+                            <div style={{ textAlign: 'center', padding: '12px', fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.4 }}>Switch to Analyst view for full free agent list and filters</div>
+                        </div>
+
+                        {/* Inline player detail */}
+                        {faSelectedPid && selPlayer && <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '20px', alignSelf: 'start', position: 'sticky', top: '80px' }}>
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '14px' }}>
+                                <div style={{ width: '56px', height: '56px', borderRadius: '12px', overflow: 'hidden', background: 'rgba(212,175,55,0.1)', border: '2px solid rgba(212,175,55,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <img src={'https://sleepercdn.com/content/nfl/players/' + faSelectedPid + '.jpg'} style={{ width: '56px', height: '56px', objectFit: 'cover' }} onError={e => { e.target.style.display='none'; e.target.insertAdjacentHTML('afterend','<span style="font-size:18px;font-weight:700;color:var(--gold)">' + selInitials + '</span>'); }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)' }}>{selPlayer.full_name}</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>{selPos} \u00B7 {selPlayer.team || 'FA'} \u00B7 Age {selPlayer.age || '?'}</div>
+                                </div>
+                                <button onClick={() => setFaSelectedPid(null)} style={{ marginLeft: 'auto', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--silver)', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', fontSize: '12px' }}>&times;</button>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '14px' }}>
+                                {[{ val: selDhq > 0 ? selDhq.toLocaleString() : '\u2014', label: 'DHQ', col: selDhq >= 4000 ? '#2ECC71' : 'var(--gold)' },
+                                  { val: selPpg || '\u2014', label: 'PPG', col: selPpg >= 10 ? '#2ECC71' : 'var(--silver)' },
+                                  { val: selPeakYrs + 'yr', label: 'PEAK', col: selPeakYrs >= 4 ? '#2ECC71' : selPeakYrs >= 1 ? 'var(--gold)' : '#E74C3C' }
+                                ].map((s, i) => <div key={i} style={{ textAlign: 'center', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
+                                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.2rem', color: s.col }}>{s.val}</div>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6 }}>{s.label}</div>
+                                </div>)}
+                            </div>
+                            {selFaab && <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
+                                <div style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '4px' }}>BID RECOMMENDATION</div>
+                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: 'var(--gold)' }}>{'$' + selFaab.lo + ' \u2013 $' + selFaab.hi}</div>
+                                <div style={{ fontSize: '0.76rem', color: 'var(--silver)', marginTop: '2px' }}>Suggested: <strong style={{ color: 'var(--white)' }}>{'$' + selFaab.sug}</strong></div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: selFaab.confCol }} />
+                                    <span style={{ fontSize: '0.74rem', color: selFaab.confCol }}>{selFaab.conf} ({selFaab.competitors} team{selFaab.competitors !== 1 ? 's' : ''} competing)</span>
+                                </div>
+                            </div>}
+                            {assess && (() => {
+                                const need2 = assess.needs?.find(n => n.pos === selPos);
+                                return <div style={{ fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.6, marginBottom: '12px', padding: '8px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
+                                    {need2 ? <span><strong style={{ color: '#2ECC71' }}>Fills {selPos} {need2.urgency}.</strong> </span> : <span style={{ opacity: 0.5 }}>Depth add at {selPos}. </span>}
+                                    {selPeakYrs >= 4 ? 'Long dynasty window.' : selPeakYrs >= 1 ? 'In production window.' : 'Past peak — short-term only.'}
+                                </div>;
+                            })()}
+                            <button onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(faSelectedPid, playersData, statsData); }} style={{ width: '100%', padding: '8px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.9rem', cursor: 'pointer' }}>FULL PLAYER CARD</button>
+                        </div>}
+                    </div>
+                </div>
+            );
+        }
+
+        // ── ANALYST VIEW: full market terminal ──
         return (
             <div style={{ padding: '20px 24px', maxWidth: '1400px', margin: '0 auto' }} className="wr-fade-in">
                 <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', marginBottom: '4px', letterSpacing: '0.05em' }}>FREE AGENCY</div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '20px' }}>Market evaluation and FAAB strategy planning</div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '20px' }}>Full market analysis and player evaluation</div>
 
                 {/* ── TOP: FAAB + Position Needs Grid ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: hasFAAB ? '200px 1fr' : '1fr', gap: '16px', marginBottom: '24px' }}>

@@ -3069,7 +3069,7 @@
                 </div>}
 
                 {/* ── POSITION FILTER + FULL LIST (Analyst only, or always if no recs) ── */}
-                {(viewMode !== 'command' || recommendations.length === 0) && <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {(viewMode !== 'command' || recommendations.length === 0) && <React.Fragment><div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginRight: '8px' }}>ALL FREE AGENTS</span>
                     {['', 'QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'].map(pos =>
                         <button key={pos} onClick={() => setFaFilter(pos)} style={{ padding: '5px 12px', fontSize: '0.76rem', fontFamily: 'Oswald', textTransform: 'uppercase', background: faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.04)', color: faFilter === pos ? 'var(--black)' : 'var(--silver)', border: '1px solid ' + (faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.08)'), borderRadius: '4px', cursor: 'pointer' }}>{pos || 'All'}</button>
@@ -3116,7 +3116,7 @@
                             </div>;
                         })}
                     </div>
-                </div>}
+                </div></React.Fragment>}
 
                 {/* Command mode hint */}
                 {viewMode === 'command' && recommendations.length > 0 && <div style={{ textAlign: 'center', padding: '12px', fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.4 }}>Switch to Analyst view for the full free agent list</div>}

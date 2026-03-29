@@ -2801,6 +2801,7 @@
         const [faFilter, setFaFilter] = useState('');
         const [faBudget, setFaBudget] = useState({ total: 0, spent: 0 });
         const [faSort, setFaSort] = useState({ key: 'dhq', dir: -1 });
+        const [faSelectedPid, setFaSelectedPid] = useState(null);
 
         function normPos(pos) {
             if (!pos) return null;
@@ -2896,7 +2897,7 @@
         // Compute roster needs for recommendations
         const assess = useMemo(() => typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal(myRoster?.roster_id) : null, [myRoster]);
         const peaks = {QB:[27,33],RB:[22,26],WR:[24,29],TE:[25,30],DL:[24,29],LB:[23,28],DB:[24,29]};
-        const budget = myRoster?.settings?.waiver_budget || 0;
+        const budget = currentLeague?.settings?.waiver_budget || myRoster?.settings?.waiver_budget || 0;
         const spent = myRoster?.settings?.waiver_budget_used || 0;
         const remaining = Math.max(0, budget - spent);
         const hasFAAB = budget > 0;
@@ -2942,8 +2943,20 @@
                 });
         }, [availablePlayers, assess, statsData]);
 
+        // Selected player detail
+        const selPlayer = faSelectedPid ? playersData[faSelectedPid] : null;
+        const selStats = faSelectedPid ? statsData[faSelectedPid] || {} : {};
+        const selDhq = faSelectedPid ? (window.App?.LI?.playerScores?.[faSelectedPid] || 0) : 0;
+        const selMeta = faSelectedPid ? (window.App?.LI?.playerMeta?.[faSelectedPid] || {}) : {};
+        const selPpg = selStats.gp > 0 ? +(calcRawPts(selStats) / selStats.gp).toFixed(1) : 0;
+        const selPos = selPlayer ? normPos(selPlayer.position) : '';
+        const selPeaks = peaks[selPos] || [24,29];
+        const selPeakYrs = selPlayer ? Math.max(0, selPeaks[1] - (selPlayer.age || 25)) : 0;
+        const selFaab = faSelectedPid ? faabSuggest(selDhq, selPos) : null;
+        const selInitials = selPlayer ? ((selPlayer.first_name||'?')[0] + (selPlayer.last_name||'?')[0]).toUpperCase() : '';
+
         return (
-            <div style={{ padding: '20px 24px', maxWidth: '1200px', margin: '0 auto' }} className="wr-fade-in">
+            <div style={{ padding: '20px 24px', maxWidth: '1400px', margin: '0 auto' }} className="wr-fade-in">
                 <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', marginBottom: '4px', letterSpacing: '0.05em' }}>FREE AGENCY</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '20px' }}>Market evaluation and FAAB strategy planning</div>
 
@@ -2984,7 +2997,7 @@
                         {recommendations.map(r => {
                             const posCol = posColors[r.pos] || 'var(--silver)';
                             const dhqCol = r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#3498DB' : r.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)';
-                            return <div key={r.pid} onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(r.pid, playersData, statsData); }} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(212,175,55,0.15)', borderLeft: '3px solid ' + posCol, borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'background 0.12s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
+                            return <div key={r.pid} onClick={() => setFaSelectedPid(r.pid)} style={{ background: faSelectedPid===r.pid?'rgba(212,175,55,0.08)':'rgba(255,255,255,0.02)', border: '1px solid '+(faSelectedPid===r.pid?'var(--gold)':'rgba(212,175,55,0.15)'), borderLeft: '3px solid ' + posCol, borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'background 0.12s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                                     <img src={'https://sleepercdn.com/content/nfl/players/' + r.pid + '.jpg'} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid ' + posCol + '40' }} onError={e => e.target.style.display = 'none'} />
                                     <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -3041,8 +3054,8 @@
                             const peakYrs = Math.max(0, pHi - (p.age || 25));
                             const peakLabel = peakYrs >= 4 ? 'Rising' : peakYrs >= 1 ? 'Prime' : 'Post';
                             const peakCol = peakYrs >= 4 ? '#2ECC71' : peakYrs >= 1 ? 'var(--gold)' : '#E74C3C';
-                            return <div key={pid} onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(pid, playersData, statsData); }} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 40px 34px 58px 44px 50px 44px', gap: '4px', padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.target.style.display = 'none'; }} />
+                            return <div key={pid} onClick={() => setFaSelectedPid(pid)} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 40px 34px 58px 44px 50px 44px', background: faSelectedPid===pid?'rgba(212,175,55,0.08)':'transparent', gap: '4px', padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.target.style.display='none'; e.target.parentElement.style.background='rgba(212,175,55,0.15)'; e.target.parentElement.style.display='flex'; e.target.parentElement.style.alignItems='center'; e.target.parentElement.style.justifyContent='center'; e.target.insertAdjacentHTML('afterend','<span style="font-size:10px;font-weight:700;color:var(--gold)">'+((e.target.alt||'??').substring(0,2))+'</span>'); }} />
                                 <div style={{ overflow: 'hidden' }}>
                                     <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.full_name || 'Unknown'}</div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6 }}>{p.team || 'FA'}{p.injury_status ? ' · ' : ''}{p.injury_status ? <span style={{ color: '#E74C3C' }}>{p.injury_status}</span> : ''}</div>
@@ -3057,6 +3070,88 @@
                         })}
                     </div>
                 </div>
+
+                {/* ── RIGHT: PLAYER DETAIL PANEL ── */}
+                {faSelectedPid && selPlayer && <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: '380px', background: 'linear-gradient(135deg, var(--off-black), var(--charcoal))', borderLeft: '2px solid var(--gold)', zIndex: 200, overflowY: 'auto', padding: '20px', boxShadow: '-8px 0 32px rgba(0,0,0,0.5)' }}>
+                    {/* Close */}
+                    <button onClick={() => setFaSelectedPid(null)} style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(212,175,55,0.3)', color: 'var(--silver)', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&times;</button>
+
+                    {/* Photo + Name */}
+                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '16px' }}>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '12px', overflow: 'hidden', background: 'rgba(212,175,55,0.1)', border: '2px solid rgba(212,175,55,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <img src={'https://sleepercdn.com/content/nfl/players/' + faSelectedPid + '.jpg'} style={{ width: '64px', height: '64px', objectFit: 'cover' }} onError={e => { e.target.style.display='none'; e.target.insertAdjacentHTML('afterend','<span style="font-size:20px;font-weight:700;color:var(--gold)">' + selInitials + '</span>'); }} />
+                        </div>
+                        <div>
+                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--white)', letterSpacing: '0.02em' }}>{selPlayer.full_name || 'Unknown'}</div>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--silver)' }}>{selPos} · {selPlayer.team || 'FA'} · Age {selPlayer.age || '?'} · {selPlayer.years_exp ?? 0}yr exp{selPlayer.college ? ' · ' + selPlayer.college : ''}</div>
+                        </div>
+                    </div>
+
+                    {/* Key Stats Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' }}>
+                        {[
+                            { val: selDhq > 0 ? selDhq.toLocaleString() : '\u2014', label: 'DHQ VALUE', col: selDhq >= 7000 ? '#2ECC71' : selDhq >= 4000 ? '#3498DB' : selDhq >= 2000 ? 'var(--silver)' : 'var(--silver)' },
+                            { val: selPpg || '\u2014', label: 'PPG', col: selPpg >= 10 ? '#2ECC71' : selPpg >= 5 ? 'var(--silver)' : 'var(--silver)' },
+                            { val: selPeakYrs + 'yr', label: 'PEAK LEFT', col: selPeakYrs >= 4 ? '#2ECC71' : selPeakYrs >= 1 ? 'var(--gold)' : '#E74C3C' },
+                        ].map((s, i) => <div key={i} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px 6px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: s.col }}>{s.val}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</div>
+                        </div>)}
+                    </div>
+
+                    {/* FAAB Recommendation */}
+                    {selFaab && <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
+                        <div style={{ fontFamily: 'Oswald', fontSize: '0.82rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>FAAB Recommendation</div>
+                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.8rem', color: 'var(--gold)' }}>{'$' + selFaab.lo + ' \u2013 $' + selFaab.hi}</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginTop: '4px' }}>Suggested: <strong style={{ color: 'var(--white)' }}>{'$' + selFaab.sug}</strong> of ${remaining} remaining</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: selFaab.confCol }} />
+                            <span style={{ fontSize: '0.78rem', color: selFaab.confCol, fontWeight: 600 }}>{selFaab.conf}</span>
+                            <span style={{ fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.6 }}>{selFaab.competitors} other team{selFaab.competitors !== 1 ? 's' : ''} need {selPos}</span>
+                        </div>
+                    </div>}
+
+                    {/* Roster Fit */}
+                    {assess && (() => {
+                        const need = assess.needs?.find(n => n.pos === selPos);
+                        const strength = assess.strengths?.includes(selPos);
+                        return <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
+                            <div style={{ fontFamily: 'Oswald', fontSize: '0.82rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>ROSTER FIT</div>
+                            {need && <div style={{ fontSize: '0.82rem', color: '#2ECC71', fontWeight: 600, marginBottom: '4px' }}>Fills {selPos} {need.urgency}</div>}
+                            {strength && <div style={{ fontSize: '0.82rem', color: 'var(--silver)', opacity: 0.7, marginBottom: '4px' }}>You already have {selPos} surplus — stash only</div>}
+                            {!need && !strength && <div style={{ fontSize: '0.82rem', color: 'var(--silver)', marginBottom: '4px' }}>Depth add at {selPos}</div>}
+                            <div style={{ fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6 }}>
+                                {selPeakYrs >= 4 ? 'Long dynasty window — buy low candidate' : selPeakYrs >= 1 ? 'In production window — immediate contributor' : 'Past peak — short-term rental only'}
+                            </div>
+                        </div>;
+                    })()}
+
+                    {/* Season Stats */}
+                    {selStats.gp > 0 && <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontFamily: 'Oswald', fontSize: '0.82rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>SEASON STATS</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                            {[
+                                ['Games', selStats.gp],
+                                ['Total Pts', selStats.pts_half_ppr ? Math.round(selStats.pts_half_ppr) : Math.round(calcRawPts(selStats))],
+                                ['PPG', selPpg],
+                                selStats.pass_yd ? ['Pass Yds', Math.round(selStats.pass_yd).toLocaleString()] : selStats.rush_yd ? ['Rush Yds', Math.round(selStats.rush_yd).toLocaleString()] : selStats.rec ? ['Receptions', selStats.rec] : null,
+                                selStats.pass_td ? ['Pass TD', selStats.pass_td] : selStats.rush_td ? ['Rush TD', selStats.rush_td] : selStats.rec_td ? ['Rec TD', selStats.rec_td] : null,
+                                selStats.rec_yd ? ['Rec Yds', Math.round(selStats.rec_yd).toLocaleString()] : null,
+                            ].filter(Boolean).map(([label, val], i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px' }}>
+                                <span style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6 }}>{label}</span>
+                                <span style={{ fontSize: '0.78rem', color: 'var(--white)', fontWeight: 600 }}>{val}</span>
+                            </div>)}
+                        </div>
+                    </div>}
+
+                    {/* Physical */}
+                    {(selPlayer.height || selPlayer.weight) && <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '16px' }}>
+                        {selPlayer.height ? Math.floor(selPlayer.height/12) + "'" + (selPlayer.height%12) + '"' : ''}{selPlayer.weight ? ' · ' + selPlayer.weight + 'lbs' : ''}
+                    </div>}
+
+                    {/* Action */}
+                    <button onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(faSelectedPid, playersData, statsData); }} style={{ width: '100%', padding: '10px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '8px', fontFamily: 'Bebas Neue', fontSize: '1rem', letterSpacing: '0.06em', cursor: 'pointer' }}>FULL PLAYER CARD</button>
+                </div>}
             </div>
         );
     }

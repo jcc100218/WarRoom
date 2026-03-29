@@ -2893,100 +2893,171 @@
         const faGridCols = '28px 1fr 36px 32px 54px 42px 42px 42px 36px 42px';
         const faHeaderStyle = { fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' };
 
+        // Compute roster needs for recommendations
+        const assess = useMemo(() => typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal(myRoster?.roster_id) : null, [myRoster]);
+        const peaks = {QB:[27,33],RB:[22,26],WR:[24,29],TE:[25,30],DL:[24,29],LB:[23,28],DB:[24,29]};
+        const budget = myRoster?.settings?.waiver_budget || 0;
+        const spent = myRoster?.settings?.waiver_budget_used || 0;
+        const remaining = Math.max(0, budget - spent);
+        const hasFAAB = budget > 0;
+
+        // Smart FAAB recommendation
+        function faabSuggest(dhq, pos) {
+            if (!hasFAAB || dhq <= 0) return null;
+            const base = Math.round(dhq / 250);
+            const cap = Math.round(remaining * 0.15);
+            const sug = Math.max(1, Math.min(cap, base));
+            const lo = Math.max(1, Math.round(sug * 0.7));
+            const hi = Math.min(remaining, Math.round(sug * 1.4));
+            // Competition: count teams with deficit at this position
+            let competitors = 0;
+            if (assess && currentLeague.rosters) {
+                const reqCount = (currentLeague.roster_positions || []).filter(s => normPos(s) === pos || s === 'FLEX' || s === 'SUPER_FLEX').length;
+                currentLeague.rosters.forEach(r => {
+                    if (r.roster_id === myRoster?.roster_id) return;
+                    const cnt = (r.players || []).filter(pid => normPos(playersData[pid]?.position) === pos).length;
+                    if (cnt < reqCount) competitors++;
+                });
+            }
+            const conf = competitors <= 1 ? 'Low competition' : competitors <= 3 ? 'Moderate' : 'High demand';
+            const confCol = competitors <= 1 ? '#2ECC71' : competitors <= 3 ? '#F0A500' : '#E74C3C';
+            return { sug, lo, hi, conf, confCol, competitors };
+        }
+
+        // Top recommendations at weak positions
+        const recommendations = useMemo(() => {
+            if (!assess?.needs?.length) return [];
+            const needPositions = assess.needs.slice(0, 3).map(n => n.pos);
+            return availablePlayers
+                .filter(x => needPositions.includes(x.pos) && x.dhq > 500)
+                .slice(0, 8)
+                .map(x => {
+                    const st = statsData[x.pid] || {};
+                    const ppg = st.gp > 0 ? +(calcRawPts(st) / st.gp).toFixed(1) : 0;
+                    const need = assess.needs.find(n => n.pos === x.pos);
+                    const [, pHi] = peaks[x.pos] || [24, 29];
+                    const peakYrs = Math.max(0, pHi - (x.p.age || 25));
+                    const faab = faabSuggest(x.dhq, x.pos);
+                    return { ...x, ppg, need, peakYrs, faab };
+                });
+        }, [availablePlayers, assess, statsData]);
+
         return (
-            React.createElement('div', { style: { padding: '16px' } },
-                React.createElement('div', { style: { fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '12px' } }, 'FREE AGENCY'),
+            <div style={{ padding: '20px 24px', maxWidth: '1200px', margin: '0 auto' }} className="wr-fade-in">
+                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', marginBottom: '4px', letterSpacing: '0.05em' }}>FREE AGENCY</div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '20px' }}>Market evaluation and FAAB strategy planning</div>
 
-                /* FAAB Bar */
-                (() => {
-                    const budget = myRoster?.settings?.waiver_budget || 0;
-                    const spent = myRoster?.settings?.waiver_budget_used || 0;
-                    const remaining = Math.max(0, budget - spent);
-                    const hasFAAB = budget > 0;
-                    if (!hasFAAB) return null;
-                    return React.createElement('div', { style: { display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' } },
-                        React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '10px 16px' } },
-                            React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' } }, 'FAAB Remaining'),
-                            React.createElement('div', { style: { fontSize: '1.4rem', fontFamily: 'Bebas Neue', color: remaining > budget * 0.5 ? '#2ECC71' : remaining > budget * 0.25 ? '#F0A500' : '#E74C3C' } }, '$' + remaining),
-                            React.createElement('div', { style: { fontSize: '0.7rem', color: 'var(--silver)' } }, '$' + budget + ' total budget')
-                        ),
-                        React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 16px' } },
-                            React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', fontFamily: 'Oswald', textTransform: 'uppercase' } }, 'Spent'),
-                            React.createElement('div', { style: { fontSize: '1.4rem', fontFamily: 'Bebas Neue', color: 'var(--silver)' } }, '$' + spent),
-                            React.createElement('div', { style: { fontSize: '0.7rem', color: 'var(--silver)' } }, Math.round(spent / Math.max(1, budget) * 100) + '% used')
-                        )
-                    );
-                })(),
+                {/* ── TOP: FAAB + Position Needs Grid ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: hasFAAB ? '200px 1fr' : '1fr', gap: '16px', marginBottom: '24px' }}>
+                    {/* FAAB gauge */}
+                    {hasFAAB && <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                        {typeof MiniDonut !== 'undefined' && React.createElement(MiniDonut, { value: Math.round(remaining / Math.max(1, budget) * 100), size: 80, label: 'FAAB' })}
+                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: remaining > budget * 0.5 ? '#2ECC71' : remaining > budget * 0.25 ? '#F0A500' : '#E74C3C', marginTop: '8px' }}>{'$' + remaining}</div>
+                        <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>of ${budget} remaining</div>
+                    </div>}
 
-                /* Position filter */
-                React.createElement('div', { style: { display: 'flex', gap: '4px', marginBottom: '12px', flexWrap: 'wrap' } },
-                    ['', 'QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'].map(pos =>
-                        React.createElement('button', {
-                            key: pos, onClick: () => setFaFilter(pos),
-                            style: {
-                                padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Oswald', textTransform: 'uppercase',
-                                background: faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
-                                color: faFilter === pos ? 'var(--black)' : 'var(--silver)',
-                                border: '1px solid ' + (faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
-                                borderRadius: '3px', cursor: 'pointer'
-                            }
-                        }, pos || 'All')
-                    )
-                ),
+                    {/* Position Needs */}
+                    {assess && <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '12px', padding: '16px' }}>
+                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '10px' }}>ROSTER NEEDS</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
+                            {Object.entries(assess.posAssessment || {}).sort((a,b) => {
+                                const ord = {deficit:0, thin:1, ok:2, surplus:3};
+                                return (ord[a[1].status]||2) - (ord[b[1].status]||2);
+                            }).map(([pos, data]) => {
+                                const status = data.status || 'ok';
+                                const col = status === 'surplus' ? '#2ECC71' : status === 'ok' ? 'var(--silver)' : status === 'thin' ? '#F0A500' : '#E74C3C';
+                                const grade = status === 'surplus' ? 'A' : status === 'ok' ? 'B' : status === 'thin' ? 'C' : 'D';
+                                return <div key={pos} style={{ textAlign: 'center', padding: '8px 4px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid ' + col + '30' }}>
+                                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.2rem', color: col }}>{grade}</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--silver)', fontWeight: 600 }}>{pos}</div>
+                                    <div style={{ fontSize: '0.7rem', color: col, opacity: 0.8 }}>{status}</div>
+                                </div>;
+                            })}
+                        </div>
+                    </div>}
+                </div>
 
-                /* Available players table */
-                /* TODO: integrate shared ROSTER_COLUMNS + renderCell system */
-                React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' } },
-                    /* Header row - sortable */
-                    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: faGridCols, gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)' } },
-                        React.createElement('span', { style: faHeaderStyle }, ''),
-                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('name') }, 'Player' + faSortIndicator('name')),
-                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('pos') }, 'Pos' + faSortIndicator('pos')),
-                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('age') }, 'Age' + faSortIndicator('age')),
-                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('dhq') }, 'DHQ' + faSortIndicator('dhq')),
-                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('ppg') }, 'PPG' + faSortIndicator('ppg')),
-                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('trend') }, 'Trend' + faSortIndicator('trend')),
-                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('peak') }, 'Peak' + faSortIndicator('peak')),
-                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('exp') }, 'Exp' + faSortIndicator('exp')),
-                        React.createElement('span', { style: faHeaderStyle, onClick: () => handleFaSort('injury') }, 'Inj' + faSortIndicator('injury'))
-                    ),
-                    /* Body */
-                    React.createElement('div', { style: { maxHeight: '500px', overflow: 'auto' } },
-                        sortedPlayers
-                            .map(({ pid, p, dhq }) => {
-                                const pos = normPos(p.position) || p.position;
-                                const st = statsData[pid] || {};
-                                const ppg = st.gp > 0 ? +(calcRawPts(st) / st.gp).toFixed(1) : 0;
-                                const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)';
-                                const trend = window.App?.LI?.playerTrends?.[pid] || 0;
-                                const peak = window.App?.LI?.playerPeaks?.[pid] || 0;
-                                const injStatus = p.injury_status || '';
-                                return React.createElement('div', {
-                                    key: pid,
-                                    onClick: () => { if (window.openFWPlayerModal) openFWPlayerModal(pid, playersData, statsData); },
-                                    style: { display: 'grid', gridTemplateColumns: faGridCols, gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.72rem', alignItems: 'center', transition: 'background 0.1s' },
-                                    onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)',
-                                    onMouseLeave: e => e.currentTarget.style.background = 'transparent'
-                                },
-                                    React.createElement('div', { style: { width: '22px', height: '22px', flexShrink: 0 } },
-                                        React.createElement('img', { src: 'https://sleepercdn.com/content/nfl/players/thumb/' + pid + '.jpg', alt: '', onError: e => e.target.style.display='none', style: { width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' } })
-                                    ),
-                                    React.createElement('div', { style: { overflow: 'hidden' } },
-                                        React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || 'Unknown')
-                                    ),
-                                    React.createElement('span', { style: { fontSize: '0.7rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' } }, pos),
-                                    React.createElement('span', { style: { color: 'var(--silver)' } }, p.age || '\u2014'),
-                                    React.createElement('span', { style: { fontWeight: 700, fontFamily: 'Oswald', color: dhqCol } }, dhq > 0 ? dhq.toLocaleString() : '\u2014'),
-                                    React.createElement('span', { style: { color: ppg > 0 ? 'var(--silver)' : 'rgba(255,255,255,0.2)' } }, ppg || '\u2014'),
-                                    React.createElement('span', { style: { fontSize: '0.72rem', color: trend > 0 ? '#2ECC71' : trend < 0 ? '#E74C3C' : 'var(--silver)', opacity: trend === 0 ? 0.3 : 1 } }, trend > 0 ? '+' + trend : trend || '\u2014'),
-                                    React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--silver)' } }, peak > 0 ? peak.toLocaleString() : '\u2014'),
-                                    React.createElement('span', { style: { fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6 } }, p.years_exp != null ? p.years_exp : '\u2014'),
-                                    React.createElement('span', { style: { fontSize: '0.78rem', color: injStatus ? '#E74C3C' : 'rgba(255,255,255,0.15)' } }, injStatus || '\u2014')
-                                );
-                            })
-                    )
-                )
-            )
+                {/* ── RECOMMENDATIONS ── */}
+                {recommendations.length > 0 && <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
+                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '12px' }}>RECOMMENDED TARGETS</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
+                        {recommendations.map(r => {
+                            const posCol = posColors[r.pos] || 'var(--silver)';
+                            const dhqCol = r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#3498DB' : r.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)';
+                            return <div key={r.pid} onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(r.pid, playersData, statsData); }} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(212,175,55,0.15)', borderLeft: '3px solid ' + posCol, borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'background 0.12s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                                    <img src={'https://sleepercdn.com/content/nfl/players/' + r.pid + '.jpg'} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid ' + posCol + '40' }} onError={e => e.target.style.display = 'none'} />
+                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.p.full_name || 'Unknown'}</div>
+                                        <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>{r.pos} · {r.p.team || 'FA'} · {r.p.age || '?'}yr</div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '0.95rem', fontWeight: 800, fontFamily: 'Oswald', color: dhqCol }}>{r.dhq.toLocaleString()}</div>
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>DHQ</div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    {r.ppg > 0 && <span style={{ fontSize: '0.74rem', color: 'var(--silver)' }}>{r.ppg} PPG</span>}
+                                    <span style={{ fontSize: '0.74rem', color: '#2ECC71' }}>{r.peakYrs}yr peak</span>
+                                    {r.need && <span style={{ fontSize: '0.72rem', color: '#E74C3C', fontWeight: 700 }}>fills {r.need.pos} {r.need.urgency}</span>}
+                                    {r.faab && <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--gold)', background: 'rgba(212,175,55,0.1)', padding: '1px 6px', borderRadius: '3px' }}>{'$' + r.faab.lo + '-' + r.faab.hi}</span>}
+                                    {r.faab && <span style={{ fontSize: '0.68rem', color: r.faab.confCol }}>{r.faab.conf}</span>}
+                                </div>
+                            </div>;
+                        })}
+                    </div>
+                </div>}
+
+                {/* ── POSITION FILTER + FULL LIST ── */}
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginRight: '8px' }}>ALL FREE AGENTS</span>
+                    {['', 'QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'].map(pos =>
+                        <button key={pos} onClick={() => setFaFilter(pos)} style={{ padding: '5px 12px', fontSize: '0.76rem', fontFamily: 'Oswald', textTransform: 'uppercase', background: faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.04)', color: faFilter === pos ? 'var(--black)' : 'var(--silver)', border: '1px solid ' + (faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.08)'), borderRadius: '4px', cursor: 'pointer' }}>{pos || 'All'}</button>
+                    )}
+                </div>
+
+                <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
+                    {/* Header */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 40px 34px 58px 44px 50px 44px', gap: '4px', padding: '8px 12px', background: 'rgba(212,175,55,0.06)', borderBottom: '2px solid rgba(212,175,55,0.2)' }}>
+                        <span style={faHeaderStyle}></span>
+                        <span style={faHeaderStyle} onClick={() => handleFaSort('name')}>Player{faSortIndicator('name')}</span>
+                        <span style={faHeaderStyle} onClick={() => handleFaSort('pos')}>Pos{faSortIndicator('pos')}</span>
+                        <span style={faHeaderStyle} onClick={() => handleFaSort('age')}>Age{faSortIndicator('age')}</span>
+                        <span style={faHeaderStyle} onClick={() => handleFaSort('dhq')}>DHQ{faSortIndicator('dhq')}</span>
+                        <span style={faHeaderStyle} onClick={() => handleFaSort('ppg')}>PPG{faSortIndicator('ppg')}</span>
+                        <span style={faHeaderStyle}>FAAB</span>
+                        <span style={faHeaderStyle} onClick={() => handleFaSort('exp')}>Peak{faSortIndicator('exp')}</span>
+                    </div>
+                    {/* Body */}
+                    <div style={{ maxHeight: '600px', overflow: 'auto' }}>
+                        {sortedPlayers.map(({ pid, p, dhq }) => {
+                            const pos = normPos(p.position) || p.position;
+                            const st = statsData[pid] || {};
+                            const ppg = st.gp > 0 ? +(calcRawPts(st) / st.gp).toFixed(1) : 0;
+                            const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.25)';
+                            const faab = faabSuggest(dhq, pos);
+                            const meta = window.App?.LI?.playerMeta?.[pid];
+                            const [, pHi] = peaks[pos] || [24, 29];
+                            const peakYrs = Math.max(0, pHi - (p.age || 25));
+                            const peakLabel = peakYrs >= 4 ? 'Rising' : peakYrs >= 1 ? 'Prime' : 'Post';
+                            const peakCol = peakYrs >= 4 ? '#2ECC71' : peakYrs >= 1 ? 'var(--gold)' : '#E74C3C';
+                            return <div key={pid} onClick={() => { if (window.openFWPlayerModal) openFWPlayerModal(pid, playersData, statsData); }} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 40px 34px 58px 44px 50px 44px', gap: '4px', padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.target.style.display = 'none'; }} />
+                                <div style={{ overflow: 'hidden' }}>
+                                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.full_name || 'Unknown'}</div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6 }}>{p.team || 'FA'}{p.injury_status ? ' · ' : ''}{p.injury_status ? <span style={{ color: '#E74C3C' }}>{p.injury_status}</span> : ''}</div>
+                                </div>
+                                <span style={{ fontSize: '0.76rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
+                                <span style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>{p.age || '\u2014'}</span>
+                                <span style={{ fontSize: '0.82rem', fontWeight: 700, fontFamily: 'Oswald', color: dhqCol }}>{dhq > 0 ? dhq.toLocaleString() : '\u2014'}</span>
+                                <span style={{ fontSize: '0.78rem', color: ppg >= 10 ? '#2ECC71' : ppg >= 5 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{ppg || '\u2014'}</span>
+                                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--gold)' }}>{faab ? '$' + faab.lo + '-' + faab.hi : '\u2014'}</span>
+                                <span style={{ fontSize: '0.74rem', color: peakCol, fontWeight: 600 }}>{peakLabel}</span>
+                            </div>;
+                        })}
+                    </div>
+                </div>
+            </div>
         );
     }
     // ══════════════════════════════════════════════════════════════════════════

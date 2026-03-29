@@ -1472,7 +1472,7 @@
     // ══════════════════════════════════════════════════════════════════════════
     // TRADE CALCULATOR TAB — migrated from trade-calculator.html
     // ══════════════════════════════════════════════════════════════════════════
-    function TradeCalcTab({ playersData, statsData, myRoster, standings, currentLeague, sleeperUserId }) {
+    function TradeCalcTab({ playersData, statsData, myRoster, standings, currentLeague, sleeperUserId, timeRecomputeTs }) {
         // ── Constants ──
         const STATS_YEAR_TC = (() => { const d = new Date(); return String(d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1); })();
         let WEEKLY_TARGET = 243;
@@ -1954,7 +1954,7 @@
                 const ownerPicks = picksByOwner[String(r.owner_id)] || [];
                 return assessTeamLocal(r, nflStarterSet, ownerPicks);
             });
-        }, [allRosters, playersData, statsData, nflStarterSet, picksByOwner]);
+        }, [allRosters, playersData, statsData, nflStarterSet, picksByOwner, timeRecomputeTs]);
 
         const myRosterId = myRoster?.roster_id;
         const myAssessment = useMemo(() => assessments.find(a => a.rosterId === myRosterId) || null, [assessments, myRosterId]);
@@ -2796,7 +2796,7 @@
     // ══════════════════════════════════════════════════════════════════════════
     // FREE AGENCY TAB — migrated from free-agency.html
     // ══════════════════════════════════════════════════════════════════════════
-    function FreeAgencyTab({ playersData, statsData, myRoster, currentLeague, sleeperUserId }) {
+    function FreeAgencyTab({ playersData, statsData, myRoster, currentLeague, sleeperUserId, timeRecomputeTs }) {
         const [faTargets, setFaTargets] = useState([]);
         const [faFilter, setFaFilter] = useState('');
         const [faBudget, setFaBudget] = useState({ total: 0, spent: 0 });
@@ -2847,7 +2847,7 @@
                 .map(([pid, p]) => ({ pid, p, dhq: window.App?.LI?.playerScores?.[pid] || 0, pos: normPos(p.position) || p.position }))
                 .sort((a, b) => b.dhq - a.dhq)
                 .slice(0, 300);
-        }, [playersData, rostered]);
+        }, [playersData, rostered, timeRecomputeTs]);
 
         const posColors = {QB:'#E74C3C',RB:'#2ECC71',WR:'#3498DB',TE:'#F0A500',K:'#9B59B6',DL:'#E67E22',LB:'#1ABC9C',DB:'#E91E63'};
 
@@ -3162,7 +3162,7 @@
     // ══════════════════════════════════════════════════════════════════════════
     // DRAFT TAB — migrated from draft-warroom.html
     // ══════════════════════════════════════════════════════════════════════════
-    function DraftTab({ playersData, statsData, myRoster, currentLeague, sleeperUserId, setReconPanelOpen, sendReconMessage }) {
+    function DraftTab({ playersData, statsData, myRoster, currentLeague, sleeperUserId, setReconPanelOpen, sendReconMessage, timeRecomputeTs }) {
         const leagueSeason = parseInt(currentLeague.season || new Date().getFullYear());
         const draftRounds = currentLeague.settings?.draft_rounds || 5;
         const tradedPicks = window.S?.tradedPicks || [];
@@ -3202,7 +3202,7 @@
                 })
                 .map(([pid, p]) => ({ pid, p, dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
                 .sort((a, b) => b.dhq - a.dhq);
-        }, [playersData]);
+        }, [playersData, timeRecomputeTs]);
 
         const posColors = {QB:'#E74C3C',RB:'#2ECC71',WR:'#3498DB',TE:'#F0A500',K:'#9B59B6',DL:'#E67E22',LB:'#1ABC9C',DB:'#E91E63'};
 
@@ -3421,53 +3421,69 @@
                     // 2. Update stats state
                     setStatsData(newStats);
 
-                    // 3. Compute projected player data with age progression
+                    // 3. Compute projected player data with age progression + DHQ projection
                     const delta = timeYear - currentSeason;
                     const baseLI = window.App?.LI;
-                    const baseScores = baseLI?.playerScores || {};
-                    const baseMeta = baseLI?.playerMeta || {};
+
+                    // CRITICAL: always read from backup (original scores), never from potentially-projected current scores
+                    if (baseLI && !baseLI._baseScoresBackup && baseLI.playerScores) {
+                        baseLI._baseScoresBackup = { ...baseLI.playerScores };
+                    }
+                    const originalScores = baseLI?._baseScoresBackup || baseLI?.playerScores || {};
 
                     if (delta !== 0) {
-                        // Build projected players with age advancement
+                        // A. Build projected players with age advancement + projected DHQ as field
+                        const projScores = {};
                         const projected = {};
                         Object.entries(basePlayersData).forEach(([pid, p]) => {
                             const baseAge = p.age || 0;
                             const projAge = baseAge ? baseAge + delta : 0;
-                            projected[pid] = { ...p, age: projAge || p.age, _projected: true, _baseDhq: baseScores[pid] || 0 };
+                            const baseDhq = originalScores[pid] || 0;
+                            const projDhq = projectPlayerValue(pid, baseDhq, baseAge, p.position || '', delta);
+                            projScores[pid] = projDhq;
+                            projected[pid] = {
+                                ...p,
+                                age: projAge || p.age,
+                                _projected: true,
+                                _baseDhq: baseDhq,
+                                _projDhq: projDhq,
+                                _delta: delta
+                            };
                         });
+
+                        // B. Update playersData state (triggers all child re-renders)
                         setPlayersData(projected);
 
-                        // Build projected DHQ scores on window.App.LI
+                        // C. Write projected scores to LI.playerScores — THE source all modules read
                         if (baseLI) {
-                            const projScores = {};
-                            Object.entries(baseScores).forEach(([pid, dhq]) => {
-                                const p = basePlayersData[pid];
-                                if (!p) { projScores[pid] = dhq; return; }
-                                const pos = p.position || '';
-                                projScores[pid] = projectPlayerValue(pid, dhq, p.age, pos, delta);
-                            });
                             baseLI.playerScores = projScores;
                             baseLI._projectedYear = timeYear;
-                            baseLI._baseScoresBackup = baseLI._baseScoresBackup || { ...baseScores };
 
-                            // Debug: log sample projections
+                            // Debug: log projections
                             if (typeof DEV_MODE !== 'undefined' && DEV_MODE) {
                                 const samples = Object.entries(projScores).filter(([,v]) => v > 2000).sort((a,b) => b[1] - a[1]).slice(0, 5);
-                                console.log('[TimeContext] Projected DHQ samples (delta=' + delta + '):');
+                                console.log('[TimeContext] Projected DHQ (delta=' + delta + '):');
                                 samples.forEach(([pid, projDhq]) => {
                                     const bp = basePlayersData[pid];
-                                    const baseDhq = baseScores[pid] || 0;
-                                    console.log('  ' + (bp?.full_name || pid) + ': age ' + (bp?.age||'?') + '→' + ((bp?.age||0)+delta) + ', DHQ ' + baseDhq + '→' + projDhq + ' (' + (projDhq > baseDhq ? '+' : '') + (projDhq - baseDhq) + ')');
+                                    const bd = originalScores[pid] || 0;
+                                    console.log('  ' + (bp?.full_name || pid) + ': age ' + (bp?.age||'?') + '\u2192' + ((bp?.age||0)+delta) + ', DHQ ' + bd + '\u2192' + projDhq + ' (' + (projDhq >= bd ? '+' : '') + (projDhq - bd) + ')');
                                 });
                             }
                         }
                     } else {
-                        // Restore base data
+                        // Restore base data — original ages and original DHQ scores
                         setPlayersData(basePlayersData);
                         if (baseLI && baseLI._baseScoresBackup) {
                             baseLI.playerScores = { ...baseLI._baseScoresBackup };
                             delete baseLI._projectedYear;
                         }
+                    }
+
+                    // D. Also override the dynastyValue() function's source for this render cycle
+                    // dynastyValue reads from LI.playerScores which we just updated above.
+                    // But assessTeamFromGlobal may cache. Force re-eval by updating window.S.
+                    if (window.S) {
+                        window.S._timeContextTs = Date.now();
                     }
 
                     // 4. Update window.S
@@ -5971,6 +5987,7 @@
                         standings={standings}
                         currentLeague={currentLeague}
                         sleeperUserId={sleeperUserId}
+                        timeRecomputeTs={timeRecomputeTs}
                     />
                 ) : activeTab === 'myteam' ? renderMyTeamTab() : activeTab === 'league' ? renderLeagueTab() : activeTab === 'analytics' ? (() => {
                     const aCardStyle = { background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', marginBottom: '16px' };
@@ -7110,7 +7127,8 @@
                         statsData: statsData,
                         myRoster: myRoster,
                         currentLeague: currentLeague,
-                        sleeperUserId: sleeperUserId
+                        sleeperUserId: sleeperUserId,
+                        timeRecomputeTs: timeRecomputeTs
                     })
                 ) : activeTab === 'draft' ? (
                     React.createElement(DraftTab, {
@@ -7120,7 +7138,8 @@
                         currentLeague: currentLeague,
                         sleeperUserId: sleeperUserId,
                         setReconPanelOpen: setReconPanelOpen,
-                        sendReconMessage: sendReconMessage
+                        sendReconMessage: sendReconMessage,
+                        timeRecomputeTs: timeRecomputeTs
                     })
                 ) : (
                 <React.Fragment>

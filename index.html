@@ -3329,38 +3329,57 @@
         const [activeTab, setActiveTab] = useState('analytics');
 
         // ── TIME CONTEXT — the temporal lens of the entire app ──
+        // Single source of truth. All modules read timeYear and derived helpers.
         const currentSeason = parseInt(league.season) || new Date().getFullYear();
         const [timeYear, setTimeYear] = useState(() => {
             try { const saved = localStorage.getItem('wr_time_year'); return saved ? parseInt(saved) : currentSeason; } catch(e) { return currentSeason; }
         });
-        const timeMode = timeYear > currentSeason ? 'future' : timeYear < currentSeason ? 'historical' : 'current';
-        const timeModeLabel = timeMode === 'future' ? 'Projection View' : timeMode === 'historical' ? 'Historical View' : 'Current Season';
-        const timeModeColor = timeMode === 'future' ? '#3498DB' : timeMode === 'historical' ? '#F0A500' : '#2ECC71';
         const [timeLoading, setTimeLoading] = useState(false);
+        const [timeRecomputeTs, setTimeRecomputeTs] = useState(Date.now()); // tick counter to force re-renders
+        const [basePlayersData, setBasePlayersData] = useState(null); // original player data before age projection
+
+        // Derived selectors — modules use these, never compute their own
+        const isCurrentYear = timeYear === currentSeason;
+        const isFutureYear = timeYear > currentSeason;
+        const isHistoricalYear = timeYear < currentSeason;
+        const timeMode = isFutureYear ? 'future' : isHistoricalYear ? 'historical' : 'current';
+        const timeModeLabel = isFutureYear ? 'Projection View' : isHistoricalYear ? 'Historical View' : 'Current Season';
+        const timeModeColor = isFutureYear ? '#3498DB' : isHistoricalYear ? '#F0A500' : '#2ECC71';
+        const timeDelta = timeYear - currentSeason; // positive = future, negative = past
         const timeYears = [];
         for (let y = Math.max(2020, currentSeason - 5); y <= currentSeason + 2; y++) timeYears.push(y);
 
         // Persist time year
         useEffect(() => { try { localStorage.setItem('wr_time_year', String(timeYear)); } catch(e) {} }, [timeYear]);
 
-        // When time year changes, refetch stats and update engine
-        function handleTimeYearChange(year) {
-            if (year === timeYear) return;
-            setTimeYear(year);
+        // Save base player data on first load (before any age projection)
+        useEffect(() => {
+            if (Object.keys(playersData).length > 100 && !basePlayersData) {
+                setBasePlayersData(playersData);
+            }
+        }, [playersData]);
+
+        // ── REACTIVE: when timeYear changes, refetch + recompute everything ──
+        useEffect(() => {
+            if (!basePlayersData || !Object.keys(basePlayersData).length) return;
+            let cancelled = false;
             setTimeLoading(true);
-            setAnalyticsData(null); // force analytics recompute
 
             (async () => {
                 try {
-                    const newStats = await fetchSeasonStats(String(year)).catch(() => ({}));
+                    // 1. Fetch stats for selected year
+                    const newStats = await fetchSeasonStats(String(timeYear)).catch(() => ({}));
+                    if (cancelled) return;
+
+                    // 2. Update stats state (triggers child re-renders)
                     setStatsData(newStats);
-                    // Update window.S for DHQ engine
+
+                    // 3. Update window.S for DHQ engine
                     if (window.S) {
-                        window.S.season = String(year);
-                        // Re-bridge stats
+                        window.S.season = String(timeYear);
                         window.S.playerStats = {};
                         Object.entries(newStats).forEach(([pid, s]) => {
-                            if (!window.S.playerStats[pid]) window.S.playerStats[pid] = {};
+                            window.S.playerStats[pid] = {};
                             const pts = typeof calcRawPts === 'function' ? calcRawPts(s) : (s.pts_half_ppr || 0);
                             const gp = s.gp || 0;
                             window.S.playerStats[pid].prevTotal = pts ? Math.round(pts * 10) / 10 : 0;
@@ -3368,18 +3387,36 @@
                             window.S.playerStats[pid].prevRawStats = s;
                         });
                     }
-                    // For future years, apply age progression to player data
-                    if (year > currentSeason && playersData) {
-                        const delta = year - currentSeason;
-                        const projected = { ...playersData };
-                        Object.entries(projected).forEach(([pid, p]) => {
-                            if (p.age) projected[pid] = { ...p, age: p.age + delta, _projected: true };
+
+                    // 4. Age progression for non-current years
+                    if (timeDelta !== 0) {
+                        const projected = {};
+                        Object.entries(basePlayersData).forEach(([pid, p]) => {
+                            projected[pid] = p.age ? { ...p, age: p.age + timeDelta, _projected: timeDelta !== 0 } : p;
                         });
                         setPlayersData(projected);
+                    } else {
+                        // Restore original ages
+                        setPlayersData(basePlayersData);
                     }
+
+                    // 5. Force analytics recompute
+                    setAnalyticsData(null);
+
+                    // 6. Force ranked teams recompute by bumping timestamp
+                    setTimeRecomputeTs(Date.now());
+
                 } catch(e) { console.warn('Time context data load error:', e); }
-                setTimeLoading(false);
+                if (!cancelled) setTimeLoading(false);
             })();
+
+            return () => { cancelled = true; };
+        }, [timeYear, basePlayersData]);
+
+        // handleTimeYearChange is now just a setter — the effect does the work
+        function handleTimeYearChange(year) {
+            if (year === timeYear) return;
+            setTimeYear(year);
         }
         const [analyticsData, setAnalyticsData] = useState(null);
         const [analyticsTab, setAnalyticsTab] = useState('roster');
@@ -3654,10 +3691,10 @@
 
         useEffect(() => {
             if (activeTab === 'analytics' && !analyticsData && window.App?.LI_LOADED) {
-                const data = runLeagueAnalytics();
+                const data = typeof runLeagueAnalytics === 'function' ? runLeagueAnalytics() : null;
                 setAnalyticsData(data);
             }
-        }, [activeTab]);
+        }, [activeTab, analyticsData, timeRecomputeTs]);
 
         // Auto-populate home page content when data is ready
         useEffect(() => {
@@ -3719,7 +3756,7 @@
                 }, 2000);
                 return () => clearInterval(interval);
             }
-        }, [standings, currentLeague]);
+        }, [standings, currentLeague, timeRecomputeTs, statsData]);
 
         useEffect(() => {
             loadLeagueDetails();
@@ -5708,6 +5745,31 @@
                         <span style={{ fontSize: '0.72rem', color: 'var(--gold)' }}>Recomputing...</span>
                     </div>}
                 </div>
+
+                {/* Time mode banner — visible when not viewing current season */}
+                {!isCurrentYear && <div style={{
+                    padding: '8px 24px', display: 'flex', alignItems: 'center', gap: '8px',
+                    background: timeModeColor + '10', borderBottom: '1px solid ' + timeModeColor + '30'
+                }}>
+                    <span style={{ fontSize: '0.82rem', color: timeModeColor, fontWeight: 700, fontFamily: 'Oswald' }}>
+                        {isFutureYear ? 'FUTURE PROJECTION' : 'HISTORICAL VIEW'}: {timeYear}
+                    </span>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6 }}>
+                        {isFutureYear ? 'Player ages projected +' + timeDelta + 'yr. Values and stats are estimates.' : 'Showing ' + timeYear + ' season stats. Roster composition reflects current state.'}
+                    </span>
+                    <button onClick={() => handleTimeYearChange(currentSeason)} style={{ marginLeft: 'auto', fontSize: '0.74rem', padding: '3px 10px', background: 'transparent', border: '1px solid ' + timeModeColor, color: timeModeColor, borderRadius: '4px', cursor: 'pointer', fontFamily: 'Oswald' }}>Back to {currentSeason}</button>
+                </div>}
+
+                {/* Debug panel (dev only) */}
+                {DEV_MODE && <div style={{ padding: '4px 24px', background: 'rgba(255,0,0,0.04)', borderBottom: '1px solid rgba(255,0,0,0.1)', fontSize: '0.7rem', fontFamily: 'monospace', color: '#F0A500', display: 'flex', gap: '16px' }}>
+                    <span>year={timeYear}</span>
+                    <span>mode={timeMode}</span>
+                    <span>tab={activeTab}</span>
+                    <span>delta={timeDelta}</span>
+                    <span>recompute={new Date(timeRecomputeTs).toLocaleTimeString()}</span>
+                    <span>stats={Object.keys(statsData).length}</span>
+                    <span>players={Object.keys(playersData).length}</span>
+                </div>}
 
                 {/* KPI Cards — 5 customizable slots (dashboard only) */}
                 {activeTab === 'dashboard' && <React.Fragment><div style={{

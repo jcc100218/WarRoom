@@ -3359,6 +3359,53 @@
             }
         }, [playersData]);
 
+        // ── PROJECTION ENGINE: derive future player values from aging curves ──
+        function projectPlayerValue(pid, baseDhq, baseAge, pos, delta) {
+            if (!baseDhq || baseDhq <= 0 || delta === 0) return baseDhq;
+            const peakWindows = window.App?.peakWindows || {QB:[24,34],RB:[22,27],WR:[22,30],TE:[23,30],DL:[23,29],LB:[23,28],DB:[23,29]};
+            const decayRates = window.App?.decayRates || {QB:0.06,RB:0.25,WR:0.14,TE:0.12,DL:0.15,LB:0.15,DB:0.14};
+            const nPos = pos === 'DE' || pos === 'DT' ? 'DL' : pos === 'CB' || pos === 'S' ? 'DB' : pos === 'OLB' || pos === 'ILB' ? 'LB' : pos;
+            const [pLo, pHi] = peakWindows[nPos] || [24, 29];
+            const decay = decayRates[nPos] || 0.12;
+            const projAge = (baseAge || 25) + delta;
+            let val = baseDhq;
+
+            if (delta > 0) {
+                // Future: apply year-by-year aging
+                for (let yr = 1; yr <= delta; yr++) {
+                    const ageAtYr = (baseAge || 25) + yr;
+                    if (ageAtYr < pLo - 2) {
+                        // Pre-peak rising: young players gain value
+                        val *= 1 + (0.08 - decay * 0.3); // slight rise, diminished by position volatility
+                    } else if (ageAtYr < pLo) {
+                        // Approaching peak: small gain
+                        val *= 1.03;
+                    } else if (ageAtYr <= pHi) {
+                        // In peak window: hold or slight decline
+                        val *= (1 - decay * 0.15);
+                    } else {
+                        // Past peak: full decay
+                        const yearsPast = ageAtYr - pHi;
+                        const accel = 1 + yearsPast * 0.1; // accelerating decline
+                        val *= (1 - decay * accel);
+                    }
+                }
+            } else {
+                // Historical: reverse — younger players had less value
+                for (let yr = 1; yr <= Math.abs(delta); yr++) {
+                    const ageAtYr = (baseAge || 25) - yr;
+                    if (ageAtYr < pLo - 2) {
+                        val *= (1 - 0.15); // was worth less when very young
+                    } else if (ageAtYr <= pHi) {
+                        val *= (1 + decay * 0.1); // was in window, similar value
+                    } else {
+                        val *= (1 + decay * 0.5); // was worth more when younger past peak
+                    }
+                }
+            }
+            return Math.max(0, Math.round(val));
+        }
+
         // ── REACTIVE: when timeYear changes, refetch + recompute everything ──
         useEffect(() => {
             if (!basePlayersData || !Object.keys(basePlayersData).length) return;
@@ -3367,14 +3414,63 @@
 
             (async () => {
                 try {
-                    // 1. Fetch stats for selected year
+                    // 1. Fetch stats for selected year (historical has real data, future returns empty)
                     const newStats = await fetchSeasonStats(String(timeYear)).catch(() => ({}));
                     if (cancelled) return;
 
-                    // 2. Update stats state (triggers child re-renders)
+                    // 2. Update stats state
                     setStatsData(newStats);
 
-                    // 3. Update window.S for DHQ engine
+                    // 3. Compute projected player data with age progression
+                    const delta = timeYear - currentSeason;
+                    const baseLI = window.App?.LI;
+                    const baseScores = baseLI?.playerScores || {};
+                    const baseMeta = baseLI?.playerMeta || {};
+
+                    if (delta !== 0) {
+                        // Build projected players with age advancement
+                        const projected = {};
+                        Object.entries(basePlayersData).forEach(([pid, p]) => {
+                            const baseAge = p.age || 0;
+                            const projAge = baseAge ? baseAge + delta : 0;
+                            projected[pid] = { ...p, age: projAge || p.age, _projected: true, _baseDhq: baseScores[pid] || 0 };
+                        });
+                        setPlayersData(projected);
+
+                        // Build projected DHQ scores on window.App.LI
+                        if (baseLI) {
+                            const projScores = {};
+                            Object.entries(baseScores).forEach(([pid, dhq]) => {
+                                const p = basePlayersData[pid];
+                                if (!p) { projScores[pid] = dhq; return; }
+                                const pos = p.position || '';
+                                projScores[pid] = projectPlayerValue(pid, dhq, p.age, pos, delta);
+                            });
+                            baseLI.playerScores = projScores;
+                            baseLI._projectedYear = timeYear;
+                            baseLI._baseScoresBackup = baseLI._baseScoresBackup || { ...baseScores };
+
+                            // Debug: log sample projections
+                            if (typeof DEV_MODE !== 'undefined' && DEV_MODE) {
+                                const samples = Object.entries(projScores).filter(([,v]) => v > 2000).sort((a,b) => b[1] - a[1]).slice(0, 5);
+                                console.log('[TimeContext] Projected DHQ samples (delta=' + delta + '):');
+                                samples.forEach(([pid, projDhq]) => {
+                                    const bp = basePlayersData[pid];
+                                    const baseDhq = baseScores[pid] || 0;
+                                    console.log('  ' + (bp?.full_name || pid) + ': age ' + (bp?.age||'?') + '→' + ((bp?.age||0)+delta) + ', DHQ ' + baseDhq + '→' + projDhq + ' (' + (projDhq > baseDhq ? '+' : '') + (projDhq - baseDhq) + ')');
+                                });
+                            }
+                        }
+                    } else {
+                        // Restore base data
+                        setPlayersData(basePlayersData);
+                        if (baseLI && baseLI._baseScoresBackup) {
+                            baseLI.playerScores = { ...baseLI._baseScoresBackup };
+                            delete baseLI._projectedYear;
+                        }
+                    }
+
+                    // 4. Update window.S
                     if (window.S) {
                         window.S.season = String(timeYear);
                         window.S.playerStats = {};
@@ -3386,18 +3482,6 @@
                             window.S.playerStats[pid].prevAvg = gp > 0 ? Math.round(pts / gp * 10) / 10 : 0;
                             window.S.playerStats[pid].prevRawStats = s;
                         });
-                    }
-
-                    // 4. Age progression for non-current years
-                    if (timeDelta !== 0) {
-                        const projected = {};
-                        Object.entries(basePlayersData).forEach(([pid, p]) => {
-                            projected[pid] = p.age ? { ...p, age: p.age + timeDelta, _projected: timeDelta !== 0 } : p;
-                        });
-                        setPlayersData(projected);
-                    } else {
-                        // Restore original ages
-                        setPlayersData(basePlayersData);
                     }
 
                     // 5. Force analytics recompute
@@ -5761,14 +5845,29 @@
                 </div>}
 
                 {/* Debug panel (dev only) */}
-                {DEV_MODE && <div style={{ padding: '4px 24px', background: 'rgba(255,0,0,0.04)', borderBottom: '1px solid rgba(255,0,0,0.1)', fontSize: '0.7rem', fontFamily: 'monospace', color: '#F0A500', display: 'flex', gap: '16px' }}>
-                    <span>year={timeYear}</span>
-                    <span>mode={timeMode}</span>
-                    <span>tab={activeTab}</span>
-                    <span>delta={timeDelta}</span>
-                    <span>recompute={new Date(timeRecomputeTs).toLocaleTimeString()}</span>
-                    <span>stats={Object.keys(statsData).length}</span>
-                    <span>players={Object.keys(playersData).length}</span>
+                {DEV_MODE && <div style={{ padding: '4px 24px', background: 'rgba(255,0,0,0.04)', borderBottom: '1px solid rgba(255,0,0,0.1)', fontSize: '0.7rem', fontFamily: 'monospace', color: '#F0A500' }}>
+                    <div style={{ display: 'flex', gap: '16px', marginBottom: '2px' }}>
+                        <span>year={timeYear}</span>
+                        <span>mode={timeMode}</span>
+                        <span>tab={activeTab}</span>
+                        <span>delta={timeDelta}</span>
+                        <span>recompute={new Date(timeRecomputeTs).toLocaleTimeString()}</span>
+                        <span>stats={Object.keys(statsData).length}</span>
+                        <span>projected={window.App?.LI?._projectedYear || 'none'}</span>
+                    </div>
+                    {isFutureYear && window.App?.LI?.playerScores && (() => {
+                        const scores = window.App.LI.playerScores;
+                        const backup = window.App.LI._baseScoresBackup || {};
+                        const samples = Object.entries(scores).filter(([,v]) => v > 2000).sort((a,b) => b[1] - a[1]).slice(0, 4);
+                        return <div style={{ display: 'flex', gap: '12px', fontSize: '0.65rem', color: '#3498DB' }}>
+                            {samples.map(([pid, projDhq]) => {
+                                const baseDhq = backup[pid] || projDhq;
+                                const p = playersData[pid];
+                                const diff = projDhq - baseDhq;
+                                return <span key={pid}>{p?.full_name?.split(' ').pop() || pid}: {baseDhq}→{projDhq} ({diff >= 0 ? '+' : ''}{diff})</span>;
+                            })}
+                        </div>;
+                    })()}
                 </div>}
 
                 {/* KPI Cards — 5 customizable slots (dashboard only) */}

@@ -1538,13 +1538,46 @@
                         <div style={{ marginTop: '0.6rem', fontSize: '0.66rem', color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Manage your Dynasty HQ subscription</div>
                     </div>
 
-                    {/* ── AI CONFIGURATION ── */}
+                    {/* ── AI STATUS ── */}
                     <div style={sectionStyle}>
-                        <div style={sectionTitle}>AI CONFIGURATION</div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '0.5rem' }}>AI features are powered by the ReconAI panel. To configure your AI provider, visit the full ReconAI app:</div>
-                        <a href="https://jcc100218.github.io/ReconAI/" target="_blank" style={{ display: 'inline-block', padding: '6px 14px', background: 'linear-gradient(135deg, rgba(124,107,248,0.15), rgba(124,107,248,0.05))', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', color: '#a78bfa', textDecoration: 'none', fontSize: '0.72rem', fontWeight: 600 }}>
-                            Open ReconAI Settings
-                        </a>
+                        <div style={sectionTitle}>AI STATUS</div>
+                        {(() => {
+                            const hasServer = typeof hasServerAI === 'function' && hasServerAI();
+                            const hasKey = !!(window.S?.apiKey || localStorage.getItem('dynastyhq_gemini_key') || localStorage.getItem('dynastyhq_anthropic_key'));
+                            const isActive = hasServer || hasKey;
+                            return <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: isActive ? '#2ECC71' : '#E74C3C' }} />
+                                    <span style={{ fontSize: '0.82rem', color: isActive ? '#2ECC71' : '#E74C3C', fontWeight: 700 }}>
+                                        {isActive ? 'AI Active' : 'AI Not Connected'}
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: '0.76rem', color: 'var(--silver)', lineHeight: 1.6, marginBottom: '10px' }}>
+                                    {hasServer ? 'AI is included with your subscription. Chat, scouting, and analysis are powered by Claude and Gemini.'
+                                     : hasKey ? 'Using your personal API key. AI chat and scouting are active.'
+                                     : 'AI features require a subscription or API key. Subscribe to get AI included, or add your own key below.'}
+                                </div>
+                                {!hasServer && <div style={{ marginTop: '8px' }}>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '4px' }}>OPTIONAL: Add your own API key (power users)</div>
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                        <select id="wr-ai-provider" defaultValue="gemini" style={{ padding: '6px 10px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--silver)', fontFamily: 'Oswald', fontSize: '0.78rem' }}>
+                                            <option value="gemini">Gemini (Free)</option>
+                                            <option value="anthropic">Claude</option>
+                                        </select>
+                                        <input id="wr-ai-key" type="password" placeholder="Paste API key..." style={{ flex: 1, padding: '6px 10px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--white)', fontFamily: 'monospace', fontSize: '0.78rem' }} />
+                                        <button onClick={() => {
+                                            const prov = document.getElementById('wr-ai-provider')?.value || 'gemini';
+                                            const key = document.getElementById('wr-ai-key')?.value?.trim();
+                                            if (!key) return;
+                                            if (window.S) { window.S.aiProvider = prov; window.S.apiKey = key; }
+                                            localStorage.setItem('dynastyhq_' + prov + '_key', key);
+                                            localStorage.setItem('dynastyhq_provider', prov);
+                                            alert('API key saved. AI is now active.');
+                                        }} style={{ ...btnPrimary, flex: 'none', padding: '6px 14px', fontSize: '0.78rem' }}>Save</button>
+                                    </div>
+                                </div>}
+                            </>;
+                        })()}
                     </div>
                     </>)}
 
@@ -4603,6 +4636,11 @@
                     window.S.matchups = matchupsData || [];
                     window.S.myRosterId = myRosterData?.roster_id;
                     window.S.myUserId = sleeperUserId;
+
+                    // Load AI keys from localStorage so callClaude can use them
+                    const savedProvider = localStorage.getItem('dynastyhq_provider') || 'gemini';
+                    const savedKey = localStorage.getItem('dynastyhq_' + savedProvider + '_key') || localStorage.getItem('dynastyhq_gemini_key') || localStorage.getItem('dynastyhq_anthropic_key') || '';
+                    if (savedKey) { window.S.aiProvider = savedProvider; window.S.apiKey = savedKey; }
 
                     // Bridge stats data
                     Object.entries(stats).forEach(([pid, s]) => {

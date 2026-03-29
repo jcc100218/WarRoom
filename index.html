@@ -2671,7 +2671,7 @@
                                                                         </div>
                                                                     ))}
                                                                     {(theirSide.picks || []).map((pk, pi) => (
-                                                                        <div key={'pk'+pi} style={{ fontSize:'0.76rem', color:'#a78bfa' }}>{pk.season} Round {pk.round}</div>
+                                                                        <div key={'tpk'+pi} style={{ fontSize:'0.76rem', color:'#a78bfa' }}>{pk.season} Round {pk.round}</div>
                                                                     ))}
                                                                 </div>
                                                             </div>
@@ -3047,7 +3047,7 @@
                                     <div>
                                         <div style={{ fontSize:'0.72rem', color:'var(--gold)', fontWeight:700, marginBottom:'0.25rem' }}>{name2} ({t.val2.toLocaleString()})</div>
                                         {(s2.players||[]).map(pid => <div key={pid} style={{ fontSize:'0.78rem', color:'var(--white)' }}>{pn(pid)} <span style={{color:'var(--silver)',fontSize:'0.72rem'}}>{(getPlayerValue(pid).value||0).toLocaleString()}</span></div>)}
-                                        {(s2.picks||[]).map((pk,i) => <div key={'p'+i} style={{ fontSize:'0.78rem', color:'var(--gold)' }}>{pk.season||pk.year} R{pk.round}</div>)}
+                                        {(s2.picks||[]).map((pk,i) => <div key={'s2p'+i} style={{ fontSize:'0.78rem', color:'var(--gold)' }}>{pk.season||pk.year} R{pk.round}</div>)}
                                     </div>
                                 </div>
                             </div>
@@ -8139,7 +8139,7 @@
                                 {(d.gaps || []).length > 0 && (
                                 <div style={aCardStyle}>
                                     <div style={aHeaderStyle}>TO EXTEND YOUR WINDOW</div>
-                                    {d.gaps.slice(0, 5).map((g, i) => (
+                                    {(d.gaps || []).slice(0, 5).map((g, i) => (
                                         <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                                             <span style={{ color: sevColor(g.priority), fontWeight: 700, fontSize: '0.85rem', flexShrink: 0 }}>{i + 1}.</span>
                                             <div>

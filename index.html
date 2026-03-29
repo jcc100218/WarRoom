@@ -4976,6 +4976,12 @@
         // ReconAI: send message
         async function sendReconMessage(text) {
           if (!text?.trim()) return;
+          // Free tier: 1 AI call per day
+          if (!canUseAI()) {
+            setReconMessages(prev => [...prev, { role: 'user', content: text.trim() }, { role: 'assistant', content: 'You\'ve used your free AI query for today. Upgrade to ReconAI ($4.99/mo) or War Room ($9.99/mo) for unlimited AI access.' }]);
+            return;
+          }
+          trackAIUse();
           setReconInput('');
           const userMsg = { role: 'user', content: text.trim() };
           setReconMessages(prev => [...prev, userMsg, { role: 'assistant', content: '...' }]);

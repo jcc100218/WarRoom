@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>Fantasy War Room</title>
     <link rel="manifest" href="manifest.json">
@@ -984,7 +984,19 @@
         const peakLabel = age < pLo ? 'Rising' : age <= pHi ? 'Prime' : 'Post-Peak';
         const peakCol = age < pLo ? '#2ECC71' : age <= pHi ? '#D4AF37' : '#E74C3C';
         const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : dhq >= 2000 ? '#D0D0D0' : 'rgba(255,255,255,0.3)';
-        const ppg = st.gp > 0 ? +((st.pts_half_ppr || st.pts_ppr || 0) / st.gp).toFixed(1) : (meta.ppg || 0);
+        // Use league scoring_settings for PPG (matches roster table calculation)
+        const scoring = window.S?.leagues?.[0]?.scoring_settings;
+        let ppgRaw = 0;
+        if (st.gp > 0 && scoring) {
+            let total = 0;
+            for (const [field, weight] of Object.entries(scoring)) {
+                if (typeof weight === 'number' && st[field] != null) total += Number(st[field]) * weight;
+            }
+            ppgRaw = total / st.gp;
+        } else if (st.gp > 0) {
+            ppgRaw = (st.pts_half_ppr || st.pts_ppr || 0) / st.gp;
+        }
+        const ppg = ppgRaw > 0 ? +ppgRaw.toFixed(1) : (meta.ppg || 0);
         const trend = meta.trend || 0;
         const rec = peakYrs <= 0 && trend <= -10 ? 'SELL NOW' : peakYrs <= 0 ? 'SELL' : peakYrs <= 2 && trend >= 15 ? 'SELL HIGH' : peakYrs <= 2 ? 'SELL' : dhq >= 7000 && peakYrs >= 3 ? 'HOLD CORE' : peakYrs >= 4 && dhq < 4000 ? 'BUY LOW' : 'HOLD';
         const recCol = rec.includes('SELL') ? '#E74C3C' : rec.includes('BUY') ? '#2ECC71' : '#D4AF37';
@@ -1766,7 +1778,7 @@
     // ══════════════════════════════════════════════════════════════════════════
     // TRADE CALCULATOR TAB — migrated from trade-calculator.html
     // ══════════════════════════════════════════════════════════════════════════
-    function TradeCalcTab({ playersData, statsData, myRoster, standings, currentLeague, sleeperUserId, timeRecomputeTs, viewMode }) {
+    function TradeCalcTab({ playersData, statsData, myRoster, standings, currentLeague, sleeperUserId, timeRecomputeTs, viewMode, initialSubTab, onSubTabConsumed }) {
         // ── Constants ──
         const STATS_YEAR_TC = (() => { const d = new Date(); return String(d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1); })();
         let WEEKLY_TARGET = 243;
@@ -2169,7 +2181,8 @@
         }
 
         // ── State ──
-        const [tcTab, setTcTab] = useState('dna');
+        const [tcTab, setTcTab] = useState(initialSubTab || 'dna');
+        useEffect(() => { if (initialSubTab) { setTcTab(initialSubTab); if (onSubTabConsumed) onSubTabConsumed(); } }, [initialSubTab]);
         const [ownerDna, setOwnerDna] = useState({});
         const [grudges, setGrudges] = useState([]);
         const [sortMode, setSortMode] = useState('health');
@@ -3360,9 +3373,10 @@
         // Selected player detail
         const selPlayer = faSelectedPid ? playersData[faSelectedPid] : null;
         const selStats = faSelectedPid ? statsData[faSelectedPid] || {} : {};
+        const selPrevStats = faSelectedPid ? (prevStatsData || {})[faSelectedPid] || {} : {};
         const selDhq = faSelectedPid ? (window.App?.LI?.playerScores?.[faSelectedPid] || 0) : 0;
         const selMeta = faSelectedPid ? (window.App?.LI?.playerMeta?.[faSelectedPid] || {}) : {};
-        const selPpg = selStats.gp > 0 ? +(calcRawPts(selStats) / selStats.gp).toFixed(1) : 0;
+        const selPpg = selStats.gp > 0 ? +(calcRawPts(selStats) / selStats.gp).toFixed(1) : (selPrevStats.gp > 0 ? +(calcRawPts(selPrevStats) / selPrevStats.gp).toFixed(1) : 0);
         const selPos = selPlayer ? normPos(selPlayer.position) : '';
         const selPeaks = peaks[selPos] || [24,29];
         const selPeakYrs = selPlayer ? Math.max(0, selPeaks[1] - (selPlayer.age || 25)) : 0;
@@ -4171,6 +4185,7 @@
         const [activeYear, setActiveYear] = useState(league.season);
         const [trending, setTrending] = useState({ adds: [], drops: [] });
         const [activeTab, setActiveTab] = useState('analytics');
+        const [tradeSubTab, setTradeSubTab] = useState(null); // when set, TradeCalcTab opens this sub-tab
         const [selectedPlayerPid, setSelectedPlayerPid] = useState(null);
 
         // ── TIME CONTEXT — the temporal lens of the entire app ──
@@ -4372,6 +4387,7 @@
         function handleTimeYearChange(year) {
             if (year === timeYear) return;
             setTimeYear(year);
+            setActiveYear(String(year));
         }
         const [analyticsData, setAnalyticsData] = useState(null);
         const [analyticsTab, setAnalyticsTab] = useState('roster');
@@ -4605,6 +4621,7 @@
         }
         const [reconPanelOpen, setReconPanelOpen] = useState(false);
         const [showNotifications, setShowNotifications] = useState(false);
+        const [sidebarOpen, setSidebarOpen] = useState(false);
 
         // Auto-generate notifications from league data
         const notifications = useMemo(() => {
@@ -4862,6 +4879,7 @@
             setLoading(true);
             setError(null);
             setActiveYear(year);
+            setTimeYear(parseInt(year));
             try {
                 const targetYear = parseInt(year);
                 const currentYear = parseInt(activeYear);
@@ -6631,12 +6649,24 @@
                     </div>
                 )}
 
-                {/* Left Navigation — always open, text labels */}
-                <div style={{
+                {/* Mobile hamburger toggle */}
+                <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
+                    display: 'none', position: 'fixed', top: '10px', left: '10px', zIndex: 201,
+                    background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px',
+                    padding: '6px 10px', cursor: 'pointer', color: 'var(--gold)', fontSize: '1.2rem', lineHeight: 1
+                }} className="wr-hamburger">{sidebarOpen ? '\u2715' : '\u2630'}</button>
+                <style>{`@media(max-width:767px){.wr-hamburger{display:block !important}.wr-sidebar{transform:translateX(-100%)}.wr-sidebar.open{transform:translateX(0)}.wr-main-content{margin-left:0 !important}}`}</style>
+
+                {/* Mobile overlay */}
+                {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ display: 'none', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 99 }} className="wr-sidebar-overlay" />}
+                <style>{`@media(max-width:767px){.wr-sidebar-overlay{display:block !important}}`}</style>
+
+                {/* Left Navigation */}
+                <div className={'wr-sidebar' + (sidebarOpen ? ' open' : '')} style={{
                     position: 'fixed', left: 0, top: 0, bottom: 0, width: '160px',
                     background: 'var(--black)', borderRight: '1px solid rgba(212,175,55,0.2)',
                     display: 'flex', flexDirection: 'column',
-                    padding: '16px 0', zIndex: 100
+                    padding: '16px 0', zIndex: 100, transition: 'transform 0.2s ease'
                 }}>
                     {/* Logo */}
                     <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.3rem', color: 'var(--gold)', letterSpacing: '0.06em', padding: '0 16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -6691,7 +6721,7 @@
                         }
                         const isActive = item.tab && activeTab === item.tab;
                         return (
-                        <button key={i} onClick={() => item.tab ? setActiveTab(item.tab) : item.action ? item.action() : window.location.href = item.url}
+                        <button key={i} onClick={() => { setSidebarOpen(false); item.tab ? setActiveTab(item.tab) : item.action ? item.action() : window.location.href = item.url; }}
                             style={{
                                 width: '100%', padding: '9px 16px 9px 20px', border: 'none',
                                 background: isActive ? 'rgba(212,175,55,0.12)' : 'transparent',
@@ -6747,7 +6777,7 @@
                 </div>
 
                 {/* Main content shifted right */}
-                <div style={{ marginLeft: '160px' }}>
+                <div className="wr-main-content" style={{ marginLeft: '160px' }}>
                 {/* Header */}
                 <header className="header" style={{ position: 'relative', marginBottom: '0', paddingBottom: '0.75rem' }}>
                     <div className="header-title">{currentLeague.name}</div>
@@ -6785,10 +6815,10 @@
                                     fontSize: '0.78rem',
                                     fontWeight: '700',
                                     fontFamily: 'Oswald, sans-serif',
-                                    color: year === activeYear ? 'var(--black)' : 'var(--silver)',
-                                    background: year === activeYear ? 'var(--gold)' : 'transparent',
-                                    cursor: year === activeYear ? 'default' : 'pointer',
-                                    opacity: year === activeYear ? 1 : 0.4,
+                                    color: String(year) === String(timeYear) ? 'var(--black)' : 'var(--silver)',
+                                    background: String(year) === String(timeYear) ? 'var(--gold)' : 'transparent',
+                                    cursor: String(year) === String(timeYear) ? 'default' : 'pointer',
+                                    opacity: String(year) === String(timeYear) ? 1 : 0.4,
                                     transition: 'all 0.2s'
                                 }}
                                 onClick={() => switchYear(year)}
@@ -7009,6 +7039,8 @@
                         sleeperUserId={sleeperUserId}
                         timeRecomputeTs={timeRecomputeTs}
                         viewMode={viewMode}
+                        initialSubTab={tradeSubTab}
+                        onSubTabConsumed={() => setTradeSubTab(null)}
                     />
                 ) : activeTab === 'myteam' ? renderMyTeamTab() : activeTab === 'league' ? renderLeagueTab() : activeTab === 'analytics' ? (() => {
                     const aCardStyle = { background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', marginBottom: '16px' };
@@ -7671,7 +7703,9 @@
                                 <div style={{ ...aCardStyle, borderLeft: '4px solid var(--gold)', marginBottom: '16px' }}>
                                     <div style={aHeaderStyle}>DRAFT STRATEGY</div>
                                     <div style={{ fontSize: '0.88rem', color: 'var(--silver)', lineHeight: 1.7, marginBottom: '12px' }}>
-                                        {'Your draft grade: ' + draftGradeLetter + ' — ' + (gradeIdx <= 2 ? 'elite drafter, a real advantage' : gradeIdx <= 5 ? 'average, not a competitive edge' : 'below average, costing you roster value') + '. Winners hit ' + Math.round(winnerR1Hit * 100) + '% in R1 vs your ' + Math.round(myR1Hit * 100) + '%. Recommendation: prioritize ' + topDraftPos + ' in R1-R2 based on the winner template. ' + (totalMyPicks < 10 ? 'You have limited draft history — accumulate picks to build through the draft.' : 'Focus on hit rate over volume.')}
+                                        {totalMyPicks === 0
+                                            ? 'No draft picks recorded for your team yet. Winners hit ' + Math.round(winnerR1Hit * 100) + '% on R1 picks in this league \u2014 prioritize ' + topDraftPos + ' in early rounds based on the winner template.'
+                                            : 'Your draft grade: ' + draftGradeLetter + ' \u2014 ' + (gradeIdx <= 2 ? 'elite drafter, a real advantage' : gradeIdx <= 5 ? 'average, not a competitive edge' : 'below average, costing you roster value') + '. Winners hit ' + Math.round(winnerR1Hit * 100) + '% in R1 vs your ' + Math.round(myR1Hit * 100) + '%. Recommendation: prioritize ' + topDraftPos + ' in R1-R2 based on the winner template. ' + (totalMyPicks < 10 ? 'You have limited draft history \u2014 accumulate picks to build through the draft.' : 'Focus on hit rate over volume.')}
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                         <button onClick={() => setActiveTab('draft')} style={{ padding: '8px 16px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.9rem', cursor: 'pointer' }}>Open Draft Board</button>
@@ -7927,7 +7961,7 @@
                                         {tradeSummaryText}
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                        <button onClick={() => setActiveTab('trades')} style={{ padding: '8px 16px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.9rem', cursor: 'pointer' }}>Open Trade Finder</button>
+                                        <button onClick={() => { setTradeSubTab('finder'); setActiveTab('trades'); }} style={{ padding: '8px 16px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.9rem', cursor: 'pointer' }}>Open Trade Finder</button>
                                     </div>
                                 </div>
 

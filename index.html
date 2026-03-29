@@ -8727,32 +8727,50 @@
             <div className="app-container">
                 {/* Onboarding overlay */}
                 {showOnboarding && (
-                    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:'24px' }}>
-                        <div style={{ background:'linear-gradient(135deg, var(--off-black), var(--charcoal))', border:'2px solid var(--gold)', borderRadius:'16px', padding:'32px', maxWidth:'500px', width:'100%', textAlign:'center' }}>
-                            <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'2rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'4px' }}>WAR ROOM</div>
-                            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'0.95rem', color:'var(--white)', lineHeight:1.6, marginBottom:'6px' }}>
-                                The desktop command center for dynasty strategy.
+                    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.9)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:'24px', overflowY:'auto' }}>
+                        <div style={{ background:'linear-gradient(135deg, var(--off-black), var(--charcoal))', border:'2px solid var(--gold)', borderRadius:'16px', padding:'32px', maxWidth:'540px', width:'100%' }}>
+                            {/* Header */}
+                            <div style={{ textAlign:'center', marginBottom:'20px' }}>
+                                <div style={{ fontFamily:'Bebas Neue', fontSize:'2rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'4px' }}>WELCOME TO YOUR WAR ROOM</div>
+                                <div style={{ fontSize:'0.88rem', color:'var(--silver)', lineHeight:1.6 }}>Here's what matters right now — and what to do next.</div>
                             </div>
-                            <div style={{ fontFamily:'Oswald,sans-serif', fontSize:'0.78rem', color:'var(--silver)', lineHeight:1.5, marginBottom:'20px' }}>
-                                Map your leaguemates. Plan trades they'll accept. Build a franchise that wins for years.
-                            </div>
-                            <div style={{ textAlign:'left', marginBottom:'24px' }}>
+
+                            {/* Team status (if data available) */}
+                            {sleeperLeagues.length > 0 && (() => {
+                                const lastId = localStorage.getItem('wr_last_league_id');
+                                const lastName = localStorage.getItem('wr_last_league_name');
+                                if (!lastName) return null;
+                                return <div style={{ background:'rgba(212,175,55,0.06)', border:'1px solid rgba(212,175,55,0.25)', borderRadius:'10px', padding:'14px 16px', marginBottom:'16px', textAlign:'center' }}>
+                                    <div style={{ fontSize:'0.78rem', color:'var(--gold)', fontFamily:'Oswald', textTransform:'uppercase', marginBottom:'4px' }}>YOUR LEAGUE</div>
+                                    <div style={{ fontSize:'1rem', color:'var(--white)', fontWeight:700 }}>{lastName}</div>
+                                </div>;
+                            })()}
+
+                            {/* Quick paths — action-oriented, not feature descriptions */}
+                            <div style={{ marginBottom:'20px' }}>
+                                <div style={{ fontSize:'0.78rem', color:'var(--gold)', fontFamily:'Oswald', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'10px' }}>YOUR FIRST MOVES</div>
                                 {[
-                                    ['Dashboard', 'League-wide analytics, power rankings, and winner pattern analysis'],
-                                    ['My Roster', 'Football Manager-style roster table with dynasty context'],
-                                    ['Intelligence', 'Owner DNA profiles, psychological trade mapping, and deal finder'],
-                                    ['Draft', 'Prospect board with fit scores and pick value analysis'],
-                                    ['League', 'Team comparison, history, and franchise timelines'],
-                                ].map(([title, desc], i) => (
-                                    <div key={i} style={{ display:'flex', gap:'10px', padding:'6px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
-                                        <span style={{ fontFamily:'Oswald,sans-serif', fontSize:'0.75rem', color:'var(--gold)', fontWeight:700, minWidth:'80px' }}>{title}</span>
-                                        <span style={{ fontSize:'0.7rem', color:'var(--silver)', opacity:0.7 }}>{desc}</span>
+                                    { label: 'Diagnose your team', desc: 'See strengths, weaknesses, and what to fix first', action: 'analytics' },
+                                    { label: 'Scout your league', desc: 'Map every roster, find trade targets', action: 'league' },
+                                    { label: 'Find trade partners', desc: 'Who needs what you have — and vice versa', action: 'trades' },
+                                    { label: 'Plan your draft', desc: 'Build your board, know your picks', action: 'draft' },
+                                    { label: 'Set waiver strategy', desc: 'Best adds this week with bid confidence', action: 'fa' },
+                                ].map((path, i) => (
+                                    <div key={i} onClick={() => { setShowOnboarding(false); localStorage.setItem('wr_onboarded_v1', '1'); if (sleeperLeagues.length === 1) setSelectedLeague(sleeperLeagues[0]); }} style={{ display:'flex', gap:'12px', padding:'10px 12px', borderRadius:'8px', cursor:'pointer', transition:'background 0.12s', borderBottom:'1px solid rgba(255,255,255,0.04)' }} onMouseEnter={e => e.currentTarget.style.background='rgba(212,175,55,0.06)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                                        <div style={{ fontFamily:'Bebas Neue', fontSize:'1.2rem', color:'var(--gold)', minWidth:'22px', textAlign:'center' }}>{i+1}</div>
+                                        <div>
+                                            <div style={{ fontSize:'0.88rem', color:'var(--white)', fontWeight:600 }}>{path.label}</div>
+                                            <div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.6 }}>{path.desc}</div>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-                            <button onClick={() => { setShowOnboarding(false); localStorage.setItem('wr_onboarded_v1', '1'); }} style={{ padding:'10px 32px', background:'var(--gold)', color:'var(--black)', border:'none', borderRadius:'8px', fontFamily:'Bebas Neue,cursive', fontSize:'1.1rem', letterSpacing:'0.06em', cursor:'pointer' }}>
-                                ENTER WAR ROOM
+
+                            {/* Primary CTA */}
+                            <button onClick={() => { setShowOnboarding(false); localStorage.setItem('wr_onboarded_v1', '1'); }} style={{ width:'100%', padding:'12px', background:'var(--gold)', color:'var(--black)', border:'none', borderRadius:'8px', fontFamily:'Bebas Neue', fontSize:'1.2rem', letterSpacing:'0.06em', cursor:'pointer', marginBottom:'8px' }}>
+                                START WITH TEAM DIAGNOSIS
                             </button>
+                            <div style={{ textAlign:'center', fontSize:'0.76rem', color:'var(--silver)', opacity:0.4 }}>You can always access all modules from the sidebar</div>
                         </div>
                     </div>
                 )}
@@ -8851,10 +8869,24 @@
                                     return null;
                                 })()}
                                 {!sleeperUsername ? (
-                                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--silver)', fontSize: '0.85rem' }}>
-                                        <div style={{ marginBottom: '0.5rem', fontSize: '1.1rem' }}></div>
-                                        No Sleeper account connected.<br />
-                                        <span style={{ fontSize: '0.78rem', opacity: 0.7 }}>Sleeper integration coming soon for email accounts.</span>
+                                    <div style={{ padding: '2rem', maxWidth: '420px', margin: '0 auto' }}>
+                                        {/* Activation card */}
+                                        <div style={{ background: 'linear-gradient(135deg, var(--off-black), var(--charcoal))', border: '2px solid rgba(212,175,55,0.4)', borderRadius: '14px', padding: '28px 24px', textAlign: 'center', marginBottom: '16px' }}>
+                                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '6px' }}>CONNECT YOUR LEAGUE</div>
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--silver)', lineHeight: 1.6, marginBottom: '20px' }}>
+                                                War Room runs on your league data. Connect to unlock dynasty strategy, roster analysis, and league-wide intelligence.
+                                            </div>
+                                            {/* Primary CTA */}
+                                            <div style={{ marginBottom: '16px' }}>
+                                                <input id="wr-sleeper-input" placeholder="Enter your Sleeper username" style={{ width: '100%', padding: '12px 16px', background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '8px', color: 'var(--white)', fontFamily: 'Oswald', fontSize: '0.95rem', marginBottom: '8px', textAlign: 'center' }} onKeyDown={e => { if (e.key === 'Enter') { const v = e.target.value.trim(); if (v) { localStorage.setItem('od_auth_v1', JSON.stringify({sleeperUsername:v})); window.location.reload(); } } }} />
+                                                <button onClick={() => { const v = document.getElementById('wr-sleeper-input')?.value?.trim(); if (v) { localStorage.setItem('od_auth_v1', JSON.stringify({sleeperUsername:v})); window.location.reload(); } }} style={{ width: '100%', padding: '12px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '8px', fontFamily: 'Bebas Neue', fontSize: '1.1rem', letterSpacing: '0.05em', cursor: 'pointer' }}>CONNECT SLEEPER ACCOUNT</button>
+                                            </div>
+                                            <div style={{ fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.5 }}>Supports Sleeper dynasty leagues. Enter your Sleeper username above.</div>
+                                        </div>
+                                        {/* Secondary paths */}
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <button onClick={() => { localStorage.setItem('od_auth_v1', JSON.stringify({sleeperUsername:'jcc100218'})); localStorage.setItem('wr_demo_mode', '1'); window.location.reload(); }} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '8px', color: 'var(--gold)', fontFamily: 'Oswald', fontSize: '0.82rem', cursor: 'pointer' }}>Explore Demo League</button>
+                                        </div>
                                     </div>
                                 ) : loading ? (
                                     <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--gold)' }}>

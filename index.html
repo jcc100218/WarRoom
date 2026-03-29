@@ -1312,7 +1312,8 @@
     }
 
     // ===== DEV MODE =====
-    const DEV_MODE = new URLSearchParams(window.location.search).get('dev') === 'true';
+    const DEV_MODE = new URLSearchParams(window.location.search).has('dev') || window.location.hostname.includes('sandbox');
+    const DEV_DEBUG = new URLSearchParams(window.location.search).get('dev') === 'true';
     if (DEV_MODE) {
         console.log('%c[DEV MODE] All features unlocked, auth bypassed','color:#D4AF37;font-weight:bold;font-size:14px');
         const b = document.createElement('div');
@@ -6877,7 +6878,7 @@
                 </div>}
 
                 {/* Debug panel (dev only) */}
-                {DEV_MODE && <div style={{ padding: '4px 24px', background: 'rgba(255,0,0,0.04)', borderBottom: '1px solid rgba(255,0,0,0.1)', fontSize: '0.7rem', fontFamily: 'monospace', color: '#F0A500' }}>
+                {DEV_DEBUG && <div style={{ padding: '4px 24px', background: 'rgba(255,0,0,0.04)', borderBottom: '1px solid rgba(255,0,0,0.1)', fontSize: '0.7rem', fontFamily: 'monospace', color: '#F0A500' }}>
                     <div style={{ display: 'flex', gap: '16px', marginBottom: '2px' }}>
                         <span>year={timeYear}</span>
                         <span>mode={timeMode}</span>

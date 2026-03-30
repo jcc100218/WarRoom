@@ -3937,10 +3937,18 @@
             return Object.entries(playersData)
                 .filter(([pid, p]) => {
                     const exp = p.years_exp;
-                    const isRookie = exp === 0 || exp === null || exp === undefined;
+                    const isRookie = exp === 0;
+                    if (!isRookie) return false;
+                    // Must have a real name (not Duplicate, Invalid, DUP, or null placeholder)
+                    const name = p.full_name || '';
+                    if (!name || /Duplicate|Invalid|DUP/i.test(name)) return false;
+                    // Must have a football position (filters out coaches, GMs, etc.)
+                    if (!p.position || ['HC','OC','DC','GM'].includes(p.position)) return false;
+                    // Must be active status (filters out stale entries from old years)
+                    if (p.status === 'Inactive') return false;
+                    // Must have DHQ value OR be on an NFL team
                     const hasValue = (window.App?.LI?.playerScores?.[pid] || 0) > 0;
-                    const hasName = p.full_name || p.first_name || p.last_name;
-                    return isRookie && hasName && (hasValue || p.team);
+                    return hasValue || p.team;
                 })
                 .map(([pid, p]) => ({ pid, p, dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
                 .sort((a, b) => b.dhq - a.dhq);

@@ -1292,10 +1292,11 @@
     window.getKpiAnnotation = getKpiAnnotation;
 
     // ===== TRADE FINDER COMPONENT =====
-    function TradeFinderTab({ allRosters, myRosterId, assessments, ownerDna, playersData, picksByOwner, getPlayerValue, getPickValue, calcOwnerPosture, calcPsychTaxes, calcAcceptanceLikelihood, DNA_TYPES }) {
+    function TradeFinderTab({ allRosters, myRosterId, assessments, ownerDna, playersData, picksByOwner, getPlayerValue, getPickValue, calcOwnerPosture, calcPsychTaxes, calcAcceptanceLikelihood, DNA_TYPES, autoTarget, onAutoTargetConsumed }) {
         const [finderMode, setFinderMode] = React.useState('my');
         const [finderAsset, setFinderAsset] = React.useState(null);
         const [finderResults, setFinderResults] = React.useState(null);
+        const autoTargetRef = React.useRef(false);
 
         const myPlayers = React.useMemo(() => (allRosters.find(r => r.roster_id === myRosterId)?.players || [])
             .map(pid => ({ pid, name: playersData[pid]?.full_name || pid, pos: playersData[pid]?.position || '?', val: getPlayerValue(pid).value }))
@@ -1348,6 +1349,17 @@
             results.sort((a,b)=>Math.max(...b.trades.map(t=>t.likelihood))-Math.max(...a.trades.map(t=>t.likelihood)));
             setFinderResults(results);
         }
+
+        // Auto-target from GENERATE TRADES button in Intelligence Briefing
+        React.useEffect(() => {
+            if (autoTarget && !autoTargetRef.current) {
+                autoTargetRef.current = true;
+                setFinderMode(autoTarget.mode || 'acquire');
+                setFinderAsset(autoTarget.pid);
+                setFinderResults(null);
+                setTimeout(() => { generateTrades(autoTarget.pid, autoTarget.mode || 'acquire'); if (onAutoTargetConsumed) onAutoTargetConsumed(); }, 50);
+            } else if (!autoTarget) { autoTargetRef.current = false; }
+        }, [autoTarget]);
 
         const pName=pid=>playersData[pid]?.full_name||pid;
         const pPos=pid=>playersData[pid]?.position||'?';
@@ -2335,6 +2347,7 @@
         // ── State ──
         const [tcTab, setTcTab] = useState(initialSubTab || 'dna');
         useEffect(() => { if (initialSubTab) { setTcTab(initialSubTab); if (onSubTabConsumed) onSubTabConsumed(); } }, [initialSubTab]);
+        const [finderAutoTarget, setFinderAutoTarget] = useState(null);
         const [ownerDna, setOwnerDna] = useState({});
         const [grudges, setGrudges] = useState([]);
         const [sortMode, setSortMode] = useState('health');
@@ -3275,7 +3288,7 @@
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.5 }}>{t.healthScore} health {'\u00B7'} {t.wins}-{t.losses} {'\u00B7'} {t.tier}</span>
                         {showCTA && <React.Fragment>
-                            <button onClick={() => { setTcTab('finder'); }} style={{ marginLeft: 'auto', padding: '5px 12px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '4px', fontFamily: 'Oswald', fontSize: '0.74rem', cursor: 'pointer', fontWeight: 700 }}>GENERATE TRADES</button>
+                            <button onClick={() => { const targetRoster = allRosters.find(r => r.roster_id === t.rosterId); const topPid = (targetRoster?.players || []).map(pid => ({ pid, val: getPlayerValue(pid).value })).filter(p => p.val > 0).sort((a, b) => b.val - a.val)[0]; if (topPid) { setFinderAutoTarget({ pid: topPid.pid, mode: 'acquire' }); } setTcTab('finder'); }} style={{ marginLeft: 'auto', padding: '5px 12px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '4px', fontFamily: 'Oswald', fontSize: '0.74rem', cursor: 'pointer', fontWeight: 700 }}>GENERATE TRADES</button>
                         </React.Fragment>}
                     </div>
                 </div>
@@ -3362,7 +3375,7 @@
                 {tcTab === 'audit' && renderAudit()}
                 {tcTab === 'dna' && (canAccess('owner-dna') ? renderOwnerDna() : React.createElement(UpgradeGate, { feature:'owner-dna', title:'UNLOCK OWNER DNA', description:'Profile every manager\'s trading psychology. Know who\'s a Fleecer, who\'s Desperate, and exactly how to approach each trade conversation.', targetTier:'warroom' }))}
                 {tcTab === 'analyzer' && renderTradeAnalyzer()}
-                {tcTab === 'finder' && (canAccess('trade-finder') ? React.createElement(TradeFinderTab, { allRosters, myRosterId, assessments, ownerDna, playersData, picksByOwner, getPlayerValue, getPickValue, calcOwnerPosture, calcPsychTaxes, calcAcceptanceLikelihood: window.App?.calcAcceptanceLikelihood || function(){return 50;}, DNA_TYPES }) : React.createElement(UpgradeGate, { feature:'trade-finder', title:'UNLOCK TRADE FINDER', description:'Auto-generate trade proposals with every team. See acceptance likelihood based on owner psychology. Find deals they\'ll actually accept.', targetTier:'warroom' }))}
+                {tcTab === 'finder' && (canAccess('trade-finder') ? React.createElement(TradeFinderTab, { allRosters, myRosterId, assessments, ownerDna, playersData, picksByOwner, getPlayerValue, getPickValue, calcOwnerPosture, calcPsychTaxes, calcAcceptanceLikelihood: window.App?.calcAcceptanceLikelihood || function(){return 50;}, DNA_TYPES, autoTarget: finderAutoTarget, onAutoTargetConsumed: () => setFinderAutoTarget(null) }) : React.createElement(UpgradeGate, { feature:'trade-finder', title:'UNLOCK TRADE FINDER', description:'Auto-generate trade proposals with every team. See acceptance likelihood based on owner psychology. Find deals they\'ll actually accept.', targetTier:'warroom' }))}
                 {tcTab === 'inbox' && renderTradeInbox()}
             </div>
         );
@@ -3780,7 +3793,7 @@
                             const peakCol = peakYrs >= 4 ? '#2ECC71' : peakYrs >= 1 ? 'var(--gold)' : '#E74C3C';
                             return <div key={pid} onClick={() => setFaSelectedPid(pid)} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 40px 34px 58px 44px 50px 44px', background: faSelectedPid===pid?'rgba(212,175,55,0.08)':'transparent', gap: '4px', padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                 <div style={{ width: '26px', height: '26px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} alt={(p.full_name || '??').substring(0, 2)} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.target.style.display='none'; e.target.insertAdjacentHTML('afterend','<span style="font-size:10px;font-weight:700;color:var(--gold)">' + ((p.full_name || '??').substring(0, 2)) + '</span>'); }} />
+                                    <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.target.style.display='none'; e.target.insertAdjacentHTML('afterend','<span style="font-size:10px;font-weight:700;color:var(--gold)">' + ((p.first_name||'?')[0] + (p.last_name||'?')[0]).toUpperCase() + '</span>'); }} />
                                 </div>
                                 <div style={{ overflow: 'hidden' }}>
                                     <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.full_name || 'Unknown'}</div>
@@ -5367,25 +5380,20 @@
         useEffect(() => {
             if (!standings.length) return;
             function computeRankings() {
+                // Use assessAllTeamsFromGlobal (batch) for consistency with League Map view
+                const allAssess = (typeof window.assessAllTeamsFromGlobal === 'function' ? window.assessAllTeamsFromGlobal() : []);
+                const assessMap = {};
+                allAssess.forEach(a => { if (a?.rosterId) assessMap[a.rosterId] = a; });
                 const ranked = standings.map(t => {
                     const r = currentLeague.rosters.find(r => r.owner_id === t.userId);
                     const totalDHQ = r?.players?.reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0) || 0;
                     let healthScore = 0;
                     let tierColor = 'var(--silver)';
-                    try {
-                        if (window.assessTeamFromGlobal && r) {
-                            const assessment = window.assessTeamFromGlobal(r.roster_id);
-                            if (assessment) {
-                                healthScore = assessment.healthScore || 0;
-                                const tier = (assessment.tier || '').toUpperCase();
-                                tierColor = tier === 'ELITE' ? '#D4AF37' : tier === 'CONTENDER' ? '#2ECC71' : tier === 'CROSSROADS' ? '#F0A500' : tier === 'REBUILDING' ? '#E74C3C' : 'var(--silver)';
-                            }
-                        }
-                    } catch(e) {}
-                    if (!healthScore && totalDHQ > 0) {
-                        const maxDHQ = 120000;
-                        healthScore = Math.min(100, Math.round((totalDHQ / maxDHQ) * 100));
-                        tierColor = healthScore >= 70 ? '#2ECC71' : healthScore >= 50 ? '#D4AF37' : healthScore >= 30 ? '#F0A500' : '#E74C3C';
+                    const assessment = r ? assessMap[r.roster_id] : null;
+                    if (assessment) {
+                        healthScore = assessment.healthScore || 0;
+                        const tier = (assessment.tier || '').toUpperCase();
+                        tierColor = tier === 'ELITE' ? '#D4AF37' : tier === 'CONTENDER' ? '#2ECC71' : tier === 'CROSSROADS' ? '#F0A500' : tier === 'REBUILDING' ? '#E74C3C' : 'var(--silver)';
                     }
                     return { ...t, totalDHQ, healthScore, tierColor };
                 }).sort((a,b) => {
@@ -7150,7 +7158,7 @@
               case 'durability': { const gpForDur = r.effectiveGP || 0; return <div key={colKey} style={{...base}}><div style={{ width:'24px',height:'4px',borderRadius:'2px',background:'rgba(255,255,255,0.06)',overflow:'hidden' }}><div style={{ width:Math.min(100,(gpForDur/17)*100)+'%',height:'100%',background:gpForDur>=15?'#2ECC71':gpForDur>=10?'#F0A500':'#E74C3C',borderRadius:'2px' }}></div></div></div>; }
               case 'yrsExp': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)' }}>{r.p.years_exp ?? '\u2014'}</span></div>;
               case 'college': return <div key={colKey} style={{...base, justifyContent: 'flex-start'}}><span style={{ color: 'var(--silver)', fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.p.college || '\u2014'}</span></div>;
-              case 'nflDraft': { const dRound = r.p.draft_round || (r.p.draft_pick ? Math.ceil(r.p.draft_pick / 32) : null); return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', fontSize: '0.74rem' }}>{dRound ? 'Rd ' + dRound : (r.p.undrafted === true || (r.p.years_exp > 0 && !r.p.draft_pick && !r.p.draft_round) ? 'UDFA' : '\u2014')}</span></div>; }
+              case 'nflDraft': { const dr = r.p.draft_round; const dp = r.p.draft_pick; const dy = r.p.draft_year; const dRound = dr || (dp ? Math.ceil(dp / 32) : null); const draftLabel = dRound ? (dy ? "'" + String(dy).slice(2) + ' ' : '') + 'Rd ' + dRound + (dp ? '.' + ((dp - 1) % 32 + 1) : '') : (r.p.undrafted === true || (r.p.years_exp > 0 && !dp && !dr) ? 'UDFA' : '\u2014'); return <div key={colKey} style={{...base}}><span style={{ color: dRound ? 'var(--silver)' : 'rgba(255,255,255,0.3)', fontSize: '0.74rem' }}>{draftLabel}</span></div>; }
               case 'posRankLg': {
                 const allAtPos = (currentLeague.rosters||[]).flatMap(ros => (ros.players||[]).filter(pid => {
                   const pp = playersData[pid];
@@ -8611,12 +8619,13 @@
 
                             // ── Insight cards ──
                             const insights = [];
-                            const ageDiff = m.avgAge - w.avgAge;
+                            const projMyAgeInsight = m.avgAge + (timeDelta || 0);
+                            const ageDiff = projMyAgeInsight - w.avgAge;
                             if (Math.abs(ageDiff) > 0.3) {
                                 insights.push({
                                     color: ageDiff > 0 ? badColor : goodColor,
                                     title: ageDiff > 0 ? 'Roster Running Older' : 'Youth Advantage',
-                                    text: 'Your roster is ' + Math.abs(ageDiff).toFixed(1) + ' years ' + (ageDiff > 0 ? 'older' : 'younger') + ' than champion average (' + w.avgAge.toFixed(1) + ' yrs).',
+                                    text: 'Your roster is ' + Math.abs(ageDiff).toFixed(1) + ' years ' + (ageDiff > 0 ? 'older' : 'younger') + ' than champion average (' + w.avgAge.toFixed(1) + ' yrs).' + (timeDelta ? ' (projected for ' + timeYear + ')' : ''),
                                 });
                             }
                             const eliteDiff = mElite - wElite;
@@ -8652,7 +8661,9 @@
                             const gapsList = d.gaps || r.gaps || [];
 
                             // ── Roster Diagnosis Summary ──
-                            const ageDiffDiag = m.avgAge - w.avgAge;
+                            const projMyAge = m.avgAge + (timeDelta || 0);
+                            const projWAge = w.avgAge; // champion profile is historical, no projection needed
+                            const ageDiffDiag = projMyAge - projWAge;
                             const eliteDiffDiag = mElite - wElite;
                             const dhqGap = m.avgTotalDHQ - w.avgTotalDHQ;
                             const benchGap = m.avgBenchQuality - w.avgBenchQuality;
@@ -8666,7 +8677,7 @@
                                 {/* ── ROSTER DIAGNOSIS — Alex Ingram Slack-style ── */}
                                 <div style={{ marginBottom: '16px' }}>
                                     <GMMessage title="Roster Diagnosis">
-                                        {'Your roster is ' + Math.abs(ageDiffDiag).toFixed(1) + ' years ' + (ageDiffDiag > 0 ? 'older' : 'younger') + ' than champions (avg ' + w.avgAge.toFixed(1) + ' yrs). You have ' + (eliteDiffDiag >= 0 ? eliteDiffDiag.toFixed(1) + ' more' : Math.abs(eliteDiffDiag).toFixed(1) + ' fewer') + ' elite assets than winners. Total DHQ is ' + (dhqGap >= 0 ? '+' : '') + Math.round(dhqGap).toLocaleString() + ' vs champion avg. Bench quality: ' + numFmt(m.avgBenchQuality) + ' vs winner ' + numFmt(w.avgBenchQuality) + '. Strategy: ' + rosterStrategy + '.'}
+                                        {'Your roster' + (timeDelta ? ' (projected ' + timeYear + ')' : '') + ' is ' + Math.abs(ageDiffDiag).toFixed(1) + ' years ' + (ageDiffDiag > 0 ? 'older' : 'younger') + ' than champions (avg ' + w.avgAge.toFixed(1) + ' yrs). You have ' + (eliteDiffDiag >= 0 ? eliteDiffDiag.toFixed(1) + ' more' : Math.abs(eliteDiffDiag).toFixed(1) + ' fewer') + ' elite assets than winners. Total DHQ is ' + (dhqGap >= 0 ? '+' : '') + Math.round(dhqGap).toLocaleString() + ' vs champion avg. Bench quality: ' + numFmt(m.avgBenchQuality) + ' vs winner ' + numFmt(w.avgBenchQuality) + '. Strategy: ' + rosterStrategy + '.'}
                                         {React.createElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
                                             React.createElement('button', { onClick: () => setActiveTab('trades'), style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'Find Trade Targets'),
                                             React.createElement('button', { onClick: () => setActiveTab('fa'), style: { padding: '6px 14px', background: 'rgba(212,175,55,0.12)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'View Free Agents')
@@ -9323,7 +9334,7 @@
                                 const peakEnd = (peakWindows[meta.pos] || [23, 29])[1];
                                 if (meta.age + 2 > peakEnd && dhq >= 2000) {
                                     atRiskDHQ += dhq;
-                                    atRiskPlayers.push({ name: meta.name || pid, age: meta.age, dhq });
+                                    atRiskPlayers.push({ name: playersData[pid]?.full_name || S?.players?.[pid]?.full_name || meta.name || ('Player ' + pid), age: meta.age, dhq });
                                 }
                             });
                             const atRiskPct = totalDHQ > 0 ? Math.round(atRiskDHQ / totalDHQ * 100) : 0;

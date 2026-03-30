@@ -869,6 +869,7 @@
 <script src="https://jcc100218.github.io/ReconAI/shared/dhq-ai.js"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/ai-dispatch.js"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/player-modal.js"></script>
+<script src="nfl-contracts.js"></script>
 <script src="draft-history.js"></script>
 <script src="charts.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -4525,6 +4526,7 @@
         });
         const [showColPicker, setShowColPicker] = useState(false);
         const [colPreset, setColPreset] = useState('dynasty');
+        const [expandedPid, setExpandedPid] = useState(null);
         const [heroStory, setHeroStory] = useState('');
         const [aiStories, setAiStories] = useState([]);
         const [transactions, setTransactions] = useState([]);
@@ -7179,42 +7181,15 @@
               )}
 
               {/* Frozen left + scrollable right table */}
-              {/* TODO: integrate shared ROSTER_COLUMNS + renderCell system */}
-              <div style={{ position: 'relative', display: 'flex', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden', background: 'var(--black)' }}>
-                {/* Scroll fade indicator on right edge */}
-                <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '24px', background: 'linear-gradient(to right, transparent, rgba(0,0,0,0.6))', pointerEvents: 'none', zIndex: 2 }} />
-                {/* Frozen columns: status + photo + name (always visible) */}
-                <div style={{ flexShrink: 0, width: '220px', borderRight: '2px solid rgba(212,175,55,0.15)' }}>
-                  {/* Header */}
-                  <div style={{ height: '36px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' }}
+              {/* Roster table with inline expand cards */}
+              <div style={{ border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden', background: 'var(--black)' }}>
+                {/* Header row */}
+                <div style={{ display: 'flex', height: '36px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)' }}>
+                  <div style={{ width: '220px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none', borderRight: '2px solid rgba(212,175,55,0.15)' }}
                     onClick={() => setRosterSort(prev => prev.key === 'name' ? {...prev, dir: prev.dir*-1} : {key: 'name', dir: 1})}>
                     Player{rosterSort.key === 'name' ? (rosterSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
                   </div>
-                  {/* Rows */}
-                  {filtered.map((r, idx) => (
-                    <div key={r.pid+'f'} onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(r.pid); }} style={{
-                      height: '42px', display: 'flex', alignItems: 'center', gap: '8px', padding: '0 6px',
-                      borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer',
-                      borderLeft: '3px solid ' + statusCol(r.section),
-                      background: idx % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                      transition: 'background 0.1s'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}
-                    onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent'}
-                    >
-                      <div style={{ width: '26px', height: '26px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+r.pid+'.jpg'} alt="" onError={e=>e.target.style.display='none'} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} /></div>
-                      <div style={{ overflow: 'hidden', flex: 1 }}>
-                        <div style={{ fontWeight: 600, color: 'var(--white)', fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getPlayerName(r.pid)}</div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.65 }}>{r.p.team || 'FA'}{r.injury ? ' \u00B7 '+r.injury : ''}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Scrollable data columns */}
-                <div style={{ flex: 1, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                  {/* Header */}
-                  <div style={{ display: 'flex', height: '36px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)' }}>
+                  <div style={{ flex: 1, display: 'flex', overflowX: 'auto' }}>
                     {visibleCols.map(colKey => {
                       const col = ROSTER_COLUMNS[colKey];
                       if (!col) return null;
@@ -7226,13 +7201,138 @@
                       );
                     })}
                   </div>
-                  {/* Data rows */}
-                  {filtered.map((r, idx) => (
-                    <div key={r.pid+'d'} style={{ display: 'flex', height: '42px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: idx % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
-                      {visibleCols.map(colKey => ROSTER_COLUMNS[colKey] ? renderCell(colKey, r) : null)}
-                    </div>
-                  ))}
                 </div>
+
+                {/* Player rows + inline expand */}
+                {filtered.map((r, idx) => {
+                  const isExpanded = expandedPid === r.pid;
+                  const contract = window.NFL_CONTRACTS?.[r.pid];
+                  const peaks = {QB:[27,33],RB:[22,26],WR:[24,29],TE:[25,30],DL:[24,29],LB:[23,28],DB:[24,29]};
+                  const [pLo, pHi] = peaks[r.pos] || [24,29];
+
+                  return (
+                    <React.Fragment key={r.pid}>
+                      {/* Normal row */}
+                      <div style={{ display: 'flex', borderBottom: isExpanded ? 'none' : '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', background: isExpanded ? 'rgba(212,175,55,0.06)' : idx % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent', transition: 'background 0.1s' }}
+                        onClick={() => setExpandedPid(prev => prev === r.pid ? null : r.pid)}
+                        onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'rgba(212,175,55,0.06)'; }}
+                        onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = idx % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent'; }}>
+                        {/* Frozen player info */}
+                        <div style={{ width: '220px', flexShrink: 0, height: '42px', display: 'flex', alignItems: 'center', gap: '8px', padding: '0 6px', borderRight: '2px solid rgba(212,175,55,0.15)', borderLeft: '3px solid ' + statusCol(r.section) }}>
+                          <div style={{ width: '26px', height: '26px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+r.pid+'.jpg'} alt="" onError={e=>e.target.style.display='none'} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} /></div>
+                          <div style={{ overflow: 'hidden', flex: 1 }}>
+                            <div style={{ fontWeight: 600, color: 'var(--white)', fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getPlayerName(r.pid)}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.65 }}>{r.p.team || 'FA'}{r.injury ? ' \u00B7 '+r.injury : ''}</div>
+                          </div>
+                          <span style={{ fontSize: '0.68rem', color: 'var(--gold)', opacity: 0.4 }}>{isExpanded ? '\u25B2' : '\u25BC'}</span>
+                        </div>
+                        {/* Data columns */}
+                        <div style={{ flex: 1, display: 'flex', height: '42px', overflowX: 'auto' }}>
+                          {visibleCols.map(colKey => ROSTER_COLUMNS[colKey] ? renderCell(colKey, r) : null)}
+                        </div>
+                      </div>
+
+                      {/* Inline expand card — Madden/FM style */}
+                      {isExpanded && (
+                        <div style={{ borderBottom: '2px solid rgba(212,175,55,0.25)', background: 'linear-gradient(135deg, rgba(212,175,55,0.04), rgba(0,0,0,0.3))', padding: '16px 20px', animation: 'wrFadeIn 0.2s ease' }}>
+                          {/* Top: Photo + Identity + Quick Stats */}
+                          <div style={{ display: 'flex', gap: '16px', marginBottom: '14px' }}>
+                            <div style={{ flexShrink: 0, position: 'relative' }}>
+                              <img src={'https://sleepercdn.com/content/nfl/players/'+r.pid+'.jpg'} alt="" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex';}} style={{ width: '80px', height: '80px', borderRadius: '10px', objectFit: 'cover', objectPosition: 'top', border: '2px solid rgba(212,175,55,0.3)' }} />
+                              <div style={{ display: 'none', width: '80px', height: '80px', borderRadius: '10px', background: 'var(--charcoal)', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', fontWeight: 700, color: 'var(--silver)', border: '2px solid rgba(212,175,55,0.2)' }}>{(r.p.first_name||'?')[0]}{(r.p.last_name||'?')[0]}</div>
+                              <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.7rem', fontWeight: 700, padding: '1px 8px', borderRadius: '8px', background: (posColors[r.pos]||'#666')+'25', color: posColors[r.pos]||'var(--silver)', whiteSpace: 'nowrap' }}>{r.pos}</div>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)', letterSpacing: '0.02em', lineHeight: 1.1 }}>{r.p.full_name || getPlayerName(r.pid)}</div>
+                              <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginTop: '2px' }}>
+                                {r.pos} {'\u00B7'} {r.p.team || 'FA'} {'\u00B7'} Age {r.age || '?'} {'\u00B7'} {r.p.years_exp||0}yr exp
+                                {r.p.college ? ' \u00B7 '+r.p.college : ''}
+                              </div>
+                              {r.injury && <div style={{ fontSize: '0.74rem', color: '#E74C3C', fontWeight: 600, marginTop: '3px' }}>{r.injury}</div>}
+                              {/* Verdict badge */}
+                              <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'Oswald', padding: '2px 10px', borderRadius: '10px', background: r.rec.includes('SELL') ? 'rgba(231,76,60,0.15)' : r.rec.includes('BUY') ? 'rgba(46,204,113,0.15)' : 'rgba(212,175,55,0.12)', color: r.rec.includes('SELL') ? '#E74C3C' : r.rec.includes('BUY') ? '#2ECC71' : 'var(--gold)', letterSpacing: '0.04em' }}>{r.rec}</span>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '2px 10px', borderRadius: '10px', background: dhqBg(r.dhq), color: dhqCol(r.dhq) }}>
+                                  {r.dhq >= 7000 ? 'Elite' : r.dhq >= 4000 ? 'Starter' : r.dhq >= 2000 ? 'Depth' : 'Stash'} {'\u00B7'} {r.dhq.toLocaleString()} DHQ
+                                </span>
+                                {r.peakYrsLeft > 0 && <span style={{ fontSize: '0.72rem', padding: '2px 10px', borderRadius: '10px', background: r.peakPhase === 'PRE' ? 'rgba(46,204,113,0.1)' : 'rgba(212,175,55,0.08)', color: r.peakPhase === 'PRE' ? '#2ECC71' : 'var(--gold)' }}>{r.peakYrsLeft}yr peak left</span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Stat boxes grid — Madden style */}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '6px', marginBottom: '14px' }}>
+                            {[
+                              { label: 'DHQ', val: r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014', col: dhqCol(r.dhq) },
+                              { label: 'PPG', val: r.effectivePPG || '\u2014', col: r.effectivePPG >= (posP75[r.pos]||10) ? '#2ECC71' : '#f0f0f3' },
+                              { label: 'PREV PPG', val: r.prevPPG || '\u2014', col: 'var(--silver)' },
+                              { label: 'GP', val: r.effectiveGP || '\u2014', col: r.effectiveGP >= 14 ? '#2ECC71' : r.effectiveGP >= 10 ? 'var(--silver)' : '#E74C3C' },
+                              { label: 'TREND', val: r.trend ? (r.trend > 0 ? '+' : '') + r.trend + '%' : '\u2014', col: r.trend >= 15 ? '#2ECC71' : r.trend <= -15 ? '#E74C3C' : 'var(--silver)' },
+                              { label: 'PEAK', val: r.peakPhase, col: r.peakPhase === 'PRE' ? '#2ECC71' : r.peakPhase === 'PRIME' ? 'var(--gold)' : '#E74C3C' },
+                            ].map((s, i) => (
+                              <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 6px', textAlign: 'center' }}>
+                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: s.col, letterSpacing: '-0.02em' }}>{s.val}</div>
+                                <div style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px' }}>{s.label}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Two-column detail panels */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+                            {/* Contract Panel */}
+                            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px' }}>
+                              <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>NFL Contract</div>
+                              {contract ? (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '0.78rem' }}>
+                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>AAV </span><span style={{ color: 'var(--white)', fontWeight: 600 }}>{window.formatSalary(contract.aav)}</span></div>
+                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Years </span><span style={{ color: contract.yrsLeft <= 1 ? '#E74C3C' : 'var(--white)', fontWeight: 600 }}>{contract.yrsLeft}yr left</span></div>
+                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Total </span><span style={{ color: 'var(--white)', fontWeight: 600 }}>{window.formatSalary(contract.total)}</span></div>
+                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>GTD </span><span style={{ color: 'var(--white)', fontWeight: 600 }}>{window.formatSalary(contract.guaranteed)}</span></div>
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.5 }}>No contract data available</div>
+                              )}
+                            </div>
+
+                            {/* Physical + Draft Profile */}
+                            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px' }}>
+                              <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Profile</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '0.78rem' }}>
+                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Ht </span><span style={{ color: 'var(--white)' }}>{r.p.height ? Math.floor(r.p.height/12)+"'"+r.p.height%12+'"' : '\u2014'}</span></div>
+                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Wt </span><span style={{ color: 'var(--white)' }}>{r.p.weight ? r.p.weight+'lbs' : '\u2014'}</span></div>
+                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Draft </span><span style={{ color: 'var(--white)' }}>{r.p.draft_round ? 'Rd '+r.p.draft_round : r.p.undrafted === 'Y' ? 'UDFA' : '\u2014'}</span></div>
+                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Exp </span><span style={{ color: 'var(--white)' }}>{r.p.years_exp || 0}yr</span></div>
+                                {r.p.college && <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'var(--silver)', opacity: 0.6 }}>College </span><span style={{ color: 'var(--white)' }}>{r.p.college}</span></div>}
+                                {r.p.depth_chart_order != null && <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Depth </span><span style={{ color: r.p.depth_chart_order <= 1 ? '#2ECC71' : 'var(--white)' }}>#{r.p.depth_chart_order + 1} {r.p.depth_chart_position || ''}</span></div>}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Dynasty Profile bar */}
+                          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
+                            <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Dynasty Profile</div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.5 }}>
+                              {r.peakPhase === 'PRE' && r.dhq >= 4000 ? 'Rising asset with ' + r.peakYrsLeft + ' peak years ahead. Buy window closing \u2014 value only goes up from here.' :
+                               r.peakPhase === 'PRIME' && r.dhq >= 7000 ? 'Elite producer in prime. Cornerstone dynasty asset \u2014 hold unless offered a king\'s ransom.' :
+                               r.peakPhase === 'PRIME' && r.dhq >= 4000 ? 'Solid starter in peak window. ' + r.peakYrsLeft + ' productive years left. Hold or sell high if trending down.' :
+                               r.peakPhase === 'POST' ? 'Past peak \u2014 dynasty value declining. ' + (r.dhq >= 3000 ? 'Still producing but sell before the cliff.' : 'Move for any return.') :
+                               r.dhq < 2000 ? 'Depth piece. Low dynasty value \u2014 roster clogger unless a breakout is imminent.' :
+                               'Moderate dynasty asset. Watch trajectory.'}
+                              {r.trend >= 20 ? ' Trending up ' + r.trend + '% \u2014 stock rising.' : r.trend <= -20 ? ' Production down ' + Math.abs(r.trend) + '% \u2014 red flag.' : ''}
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={e => { e.stopPropagation(); try { if (window.openFWPlayerModal) window.openFWPlayerModal(r.pid, playersData, statsData, currentLeague?.scoring_settings); } catch(err) { console.error(err); } }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, letterSpacing: '0.03em' }}>FULL PROFILE</button>
+                            <button onClick={e => { e.stopPropagation(); setReconPanelOpen(true); sendReconMessage('What trades can I make involving ' + (r.p.full_name || getPlayerName(r.pid)) + '? Consider their DHQ value (' + r.dhq + '), age (' + r.age + '), and peak window (' + r.peakPhase + ').'); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>TRADE</button>
+                            <button onClick={e => { e.stopPropagation(); setExpandedPid(null); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>COLLAPSE</button>
+                          </div>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </div>
 
               {/* Position summary bar (FM-style) */}

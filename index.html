@@ -4357,26 +4357,30 @@
             const nPos = pos === 'DE' || pos === 'DT' ? 'DL' : pos === 'CB' || pos === 'S' ? 'DB' : pos === 'OLB' || pos === 'ILB' ? 'LB' : pos;
             const [pLo, pHi] = peakWindows[nPos] || [24, 29];
             const decay = decayRates[nPos] || 0.12;
-            const projAge = (baseAge || 25) + delta;
             let val = baseDhq;
 
+            // Higher-value players get bigger appreciation (proven producers)
+            const isProven = baseDhq >= 4000;
+            const isElite = baseDhq >= 7000;
+
             if (delta > 0) {
-                // Future: apply year-by-year aging
+                // Future: year-by-year projection
                 for (let yr = 1; yr <= delta; yr++) {
                     const ageAtYr = (baseAge || 25) + yr;
                     if (ageAtYr < pLo - 2) {
-                        // Pre-peak rising: young players gain value
-                        val *= 1 + (0.08 - decay * 0.3); // slight rise, diminished by position volatility
+                        // Pre-peak rising: young players with production gain significantly
+                        const growthRate = isElite ? 0.12 : isProven ? 0.08 : 0.04;
+                        val *= 1 + growthRate;
                     } else if (ageAtYr < pLo) {
-                        // Approaching peak: small gain
-                        val *= 1.03;
+                        // Approaching peak: proven players still rising, others plateau
+                        val *= isElite ? 1.06 : isProven ? 1.04 : 1.01;
                     } else if (ageAtYr <= pHi) {
-                        // In peak window: hold or slight decline
-                        val *= (1 - decay * 0.15);
+                        // In peak window: elite/proven hold, others start small decline
+                        val *= isElite ? 1.0 : isProven ? (1 - decay * 0.05) : (1 - decay * 0.2);
                     } else {
-                        // Past peak: full decay
+                        // Past peak: full decay, accelerating
                         const yearsPast = ageAtYr - pHi;
-                        const accel = 1 + yearsPast * 0.1; // accelerating decline
+                        const accel = 1 + yearsPast * 0.15;
                         val *= (1 - decay * accel);
                     }
                 }

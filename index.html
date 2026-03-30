@@ -3196,7 +3196,15 @@
                         Recent trades analyzed with DHQ values and fairness grades.
                     </div>
                     {recentTrades.length === 0 ? (
-                        <div style={{ color:'var(--silver)', textAlign:'center', padding:'2rem', opacity:0.65 }}>No trade history found. DHQ engine needs to load league intel first.</div>
+                        <div style={{ color:'var(--silver)', textAlign:'center', padding:'2rem', opacity:0.65 }}>
+                            {window.App?.LI_LOADED ? 'No trades found in league history.' : (
+                                <React.Fragment>
+                                    <div className="ld"><span>.</span><span>.</span><span>.</span></div>
+                                    <div style={{ marginTop:'8px' }}>Loading trade history from DHQ engine...</div>
+                                    <button onClick={() => { setTimeout(() => setTcTab('inbox'), 50); setTcTab('dna'); }} style={{ marginTop:'12px', padding:'6px 14px', background:'rgba(212,175,55,0.12)', color:'var(--gold)', border:'1px solid rgba(212,175,55,0.25)', borderRadius:'6px', fontFamily:'Oswald', fontSize:'0.78rem', cursor:'pointer' }}>Retry</button>
+                                </React.Fragment>
+                            )}
+                        </div>
                     ) : recentTrades.map(t => {
                         const name1 = ownerNameForRosterId(t.rid1) || 'Team ' + t.rid1;
                         const name2 = ownerNameForRosterId(t.rid2) || 'Team ' + t.rid2;
@@ -5304,7 +5312,7 @@
         // First-time welcome — auto-open chat with Alex's intro
         useEffect(() => {
           if (!myRoster?.players?.length || !currentLeague?.league_id) return;
-          const welcomeKey = 'wr_welcomed_' + currentLeague.league_id;
+          const welcomeKey = 'wr_welcomed_v2_' + currentLeague.league_id;
           if (localStorage.getItem(welcomeKey)) return;
           localStorage.setItem(welcomeKey, '1');
           // Small delay so the app finishes rendering first
@@ -5402,12 +5410,16 @@
                 });
                 setRankedTeams(ranked);
             }
+            // Always compute immediately (shows DHQ-based values if LI loaded, zeros if not)
             computeRankings();
+            // If LI hasn't loaded yet, poll until it does and recompute with real health scores
             if (!window.App?.LI_LOADED) {
                 const interval = setInterval(() => {
                     if (window.App?.LI_LOADED) { computeRankings(); clearInterval(interval); }
-                }, 2000);
-                return () => clearInterval(interval);
+                }, 1500);
+                // Safety: also recompute after a short delay in case LI loaded between render and effect
+                const timeout = setTimeout(() => { if (window.App?.LI_LOADED) computeRankings(); }, 500);
+                return () => { clearInterval(interval); clearTimeout(timeout); };
             }
         }, [standings, currentLeague, timeRecomputeTs, statsData]);
 

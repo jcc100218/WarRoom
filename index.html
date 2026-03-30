@@ -4614,24 +4614,29 @@
             const decay = decayRates[nPos] || 0.12;
             let val = baseDhq;
 
+            // If no age data, skip projections (can't project without knowing age)
+            if (!baseAge || baseAge <= 0) return baseDhq;
+
             // Higher-value players get bigger appreciation (proven producers)
             const isProven = baseDhq >= 4000;
             const isElite = baseDhq >= 7000;
+            // Peak midpoint — players appreciate until they hit this, then hold/decline
+            const peakMid = Math.floor((pLo + pHi) / 2);
 
             if (delta > 0) {
                 // Future: year-by-year projection
                 for (let yr = 1; yr <= delta; yr++) {
-                    const ageAtYr = (baseAge || 25) + yr;
-                    if (ageAtYr < pLo - 2) {
-                        // Pre-peak rising: young players with production gain significantly
-                        const growthRate = isElite ? 0.12 : isProven ? 0.08 : 0.04;
+                    const ageAtYr = baseAge + yr;
+                    if (ageAtYr <= pLo) {
+                        // Pre-peak: young players with production gain significantly
+                        const growthRate = isElite ? 0.12 : isProven ? 0.08 : 0.05;
                         val *= 1 + growthRate;
-                    } else if (ageAtYr < pLo) {
-                        // Approaching peak: proven players still rising, others plateau
-                        val *= isElite ? 1.06 : isProven ? 1.04 : 1.01;
+                    } else if (ageAtYr <= peakMid) {
+                        // Early peak: still appreciating, elite assets peak here
+                        val *= isElite ? 1.05 : isProven ? 1.02 : 1.0;
                     } else if (ageAtYr <= pHi) {
-                        // In peak window: elite/proven hold, others start small decline
-                        val *= isElite ? 1.0 : isProven ? (1 - decay * 0.05) : (1 - decay * 0.2);
+                        // Late peak: holding or starting to decline
+                        val *= isElite ? 1.0 : isProven ? (1 - decay * 0.08) : (1 - decay * 0.2);
                     } else {
                         // Past peak: full decay, accelerating
                         const yearsPast = ageAtYr - pHi;

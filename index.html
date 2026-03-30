@@ -873,7 +873,6 @@
 <script src="https://jcc100218.github.io/ReconAI/shared/dhq-ai.js"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/ai-dispatch.js"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/player-modal.js"></script>
-<script src="nfl-contracts.js"></script>
 <script src="college-stats.js"></script>
 <script src="draft-history.js"></script>
 <script src="charts.js"></script>
@@ -4413,37 +4412,22 @@
                                             ))}
                                           </div>
 
-                                          {/* Two-column: Contract + Profile */}
-                                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-                                            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px' }}>
-                                              <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Rookie Contract</div>
-                                              {contract ? (
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '0.78rem' }}>
-                                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>AAV </span><span style={{ color: 'var(--white)', fontWeight: 600 }}>{window.formatSalary?.(contract.aav) || '\u2014'}</span></div>
-                                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Years </span><span style={{ color: 'var(--white)', fontWeight: 600 }}>{contract.yrsLeft}yr</span></div>
-                                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Total </span><span style={{ color: 'var(--white)', fontWeight: 600 }}>{window.formatSalary?.(contract.total) || '\u2014'}</span></div>
-                                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>GTD </span><span style={{ color: 'var(--white)', fontWeight: 600 }}>{window.formatSalary?.(contract.guaranteed) || '\u2014'}</span></div>
-                                                </div>
-                                              ) : (
-                                                <div style={{ fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.5 }}>Rookie slot TBD</div>
-                                              )}
-                                            </div>
-                                            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px' }}>
-                                              <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Physical Profile</div>
-                                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '0.78rem' }}>
-                                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Ht </span><span style={{ color: 'var(--white)' }}>{r.p.height ? Math.floor(r.p.height/12)+"'"+r.p.height%12+'"' : '\u2014'}</span></div>
-                                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Wt </span><span style={{ color: 'var(--white)' }}>{r.p.weight ? r.p.weight+'lbs' : '\u2014'}</span></div>
-                                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>College </span><span style={{ color: 'var(--white)' }}>{college || '\u2014'}</span></div>
-                                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Exp </span><span style={{ color: 'var(--white)' }}>{r.p.years_exp || 0}yr</span></div>
-                                                {r.p.depth_chart_order != null && <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Depth </span><span style={{ color: r.p.depth_chart_order <= 1 ? '#2ECC71' : 'var(--white)' }}>#{r.p.depth_chart_order + 1} {r.p.depth_chart_position || ''}</span></div>}
-                                              </div>
+                                          {/* Physical Profile */}
+                                          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px' }}>
+                                            <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Physical Profile</div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px', fontSize: '0.78rem' }}>
+                                              <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Ht </span><span style={{ color: 'var(--white)' }}>{r.p.height ? Math.floor(r.p.height/12)+"'"+r.p.height%12+'"' : '\u2014'}</span></div>
+                                              <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Wt </span><span style={{ color: 'var(--white)' }}>{r.p.weight ? r.p.weight+'lbs' : '\u2014'}</span></div>
+                                              <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>College </span><span style={{ color: 'var(--white)' }}>{college || '\u2014'}</span></div>
+                                              <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Exp </span><span style={{ color: 'var(--white)' }}>{r.p.years_exp || 0}yr</span></div>
+                                              {r.p.depth_chart_order != null && <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Depth </span><span style={{ color: r.p.depth_chart_order <= 1 ? '#2ECC71' : 'var(--white)' }}>#{r.p.depth_chart_order + 1} {r.p.depth_chart_position || ''}</span></div>}
                                             </div>
                                           </div>
 
                                           {/* College / Career Stats */}
                                           <InlineCareerStats pid={r.pid} pos={pos} player={r.p} scoringSettings={currentLeague?.scoring_settings} statsData={statsData} />
 
-                                          {/* Scouting Notes — bigger editable area */}
+                                          {/* Scouting Notes */}
                                           <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
                                             <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Scouting Notes</div>
                                             <textarea
@@ -4457,7 +4441,6 @@
 
                                           {/* Action buttons */}
                                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                            <button onClick={e => { e.stopPropagation(); try { if (window.openFWPlayerModal) window.openFWPlayerModal(r.pid, playersData, statsData, currentLeague?.scoring_settings); } catch(err) { console.error(err); } }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>FULL PROFILE</button>
                                             <a href={'https://www.sports-reference.com/cfb/search/search.fcgi?search=' + encodeURIComponent(pName(r.p))} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
                                               style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(52,152,219,0.12)', color: '#3498DB', border: '1px solid rgba(52,152,219,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\uD83C\uDFC8'} COLLEGE STATS</a>
                                             <a href={'https://www.youtube.com/results?search_query=' + encodeURIComponent(pName(r.p) + ' highlights ' + leagueSeason)} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
@@ -7550,34 +7533,16 @@
                             ))}
                           </div>
 
-                          {/* Two-column detail panels */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-                            {/* Contract Panel */}
-                            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px' }}>
-                              <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>NFL Contract</div>
-                              {contract ? (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '0.78rem' }}>
-                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>AAV </span><span style={{ color: 'var(--white)', fontWeight: 600 }}>{window.formatSalary(contract.aav)}</span></div>
-                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Years </span><span style={{ color: contract.yrsLeft <= 1 ? '#E74C3C' : 'var(--white)', fontWeight: 600 }}>{contract.yrsLeft}yr left</span></div>
-                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Total </span><span style={{ color: 'var(--white)', fontWeight: 600 }}>{window.formatSalary(contract.total)}</span></div>
-                                  <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>GTD </span><span style={{ color: 'var(--white)', fontWeight: 600 }}>{window.formatSalary(contract.guaranteed)}</span></div>
-                                </div>
-                              ) : (
-                                <div style={{ fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.5 }}>No contract data available</div>
-                              )}
-                            </div>
-
-                            {/* Physical + Draft Profile */}
-                            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px' }}>
-                              <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Profile</div>
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '0.78rem' }}>
-                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Ht </span><span style={{ color: 'var(--white)' }}>{r.p.height ? Math.floor(r.p.height/12)+"'"+r.p.height%12+'"' : '\u2014'}</span></div>
-                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Wt </span><span style={{ color: 'var(--white)' }}>{r.p.weight ? r.p.weight+'lbs' : '\u2014'}</span></div>
-                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Draft </span><span style={{ color: 'var(--white)' }}>{r.p.draft_round ? 'Rd '+r.p.draft_round : r.p.undrafted === 'Y' ? 'UDFA' : '\u2014'}</span></div>
-                                <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Exp </span><span style={{ color: 'var(--white)' }}>{r.p.years_exp || 0}yr</span></div>
-                                {r.p.college && <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'var(--silver)', opacity: 0.6 }}>College </span><span style={{ color: 'var(--white)' }}>{r.p.college}</span></div>}
-                                {r.p.depth_chart_order != null && <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Depth </span><span style={{ color: r.p.depth_chart_order <= 1 ? '#2ECC71' : 'var(--white)' }}>#{r.p.depth_chart_order + 1} {r.p.depth_chart_position || ''}</span></div>}
-                              </div>
+                          {/* Physical + Draft Profile */}
+                          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px' }}>
+                            <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Profile</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px', fontSize: '0.78rem' }}>
+                              <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Ht </span><span style={{ color: 'var(--white)' }}>{r.p.height ? Math.floor(r.p.height/12)+"'"+r.p.height%12+'"' : '\u2014'}</span></div>
+                              <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Wt </span><span style={{ color: 'var(--white)' }}>{r.p.weight ? r.p.weight+'lbs' : '\u2014'}</span></div>
+                              <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Draft </span><span style={{ color: 'var(--white)' }}>{r.p.draft_round ? 'Rd '+r.p.draft_round : r.p.undrafted === 'Y' ? 'UDFA' : '\u2014'}</span></div>
+                              <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Exp </span><span style={{ color: 'var(--white)' }}>{r.p.years_exp || 0}yr</span></div>
+                              {r.p.college && <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>College </span><span style={{ color: 'var(--white)' }}>{r.p.college}</span></div>}
+                              {r.p.depth_chart_order != null && <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Depth </span><span style={{ color: r.p.depth_chart_order <= 1 ? '#2ECC71' : 'var(--white)' }}>#{r.p.depth_chart_order + 1} {r.p.depth_chart_position || ''}</span></div>}
                             </div>
                           </div>
 
@@ -7599,8 +7564,7 @@
                           <InlineCareerStats pid={r.pid} pos={r.pos} player={r.p} scoringSettings={currentLeague?.scoring_settings} statsData={statsData} />
 
                           {/* Action buttons */}
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={e => { e.stopPropagation(); try { if (window.openFWPlayerModal) window.openFWPlayerModal(r.pid, playersData, statsData, currentLeague?.scoring_settings); } catch(err) { console.error(err); } }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, letterSpacing: '0.03em' }}>FULL PROFILE</button>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                             <button onClick={e => { e.stopPropagation(); setReconPanelOpen(true); sendReconMessage('What trades can I make involving ' + (r.p.full_name || getPlayerName(r.pid)) + '? Consider their DHQ value (' + r.dhq + '), age (' + r.age + '), and peak window (' + r.peakPhase + ').'); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>TRADE</button>
                             <button onClick={e => { e.stopPropagation(); setExpandedPid(null); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>COLLAPSE</button>
                           </div>

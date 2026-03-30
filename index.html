@@ -1064,32 +1064,65 @@
         );
     }
 
-    // ===== ALEX INGRAM — AI GM MESSAGE COMPONENT =====
-    function GMMessage({ children, timestamp, compact }) {
+    // ===== ALEX INGRAM AVATAR SYSTEM =====
+    const ALEX_AVATARS = [
+        { id: 'badge', label: 'Gold Badge', src: null },
+        { id: 'exec', label: 'The Executive', src: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face' },
+        { id: 'analyst', label: 'The Analyst', src: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&h=120&fit=crop&crop=face' },
+        { id: 'coach', label: 'The Coach', src: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=120&h=120&fit=crop&crop=face' },
+        { id: 'scout', label: 'The Scout', src: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&h=120&fit=crop&crop=face' },
+    ];
+    function getAlexAvatar() {
+        try { return localStorage.getItem('wr_alex_avatar') || 'badge'; } catch { return 'badge'; }
+    }
+    function setAlexAvatar(id) {
+        try { localStorage.setItem('wr_alex_avatar', id); } catch {}
+    }
+    function AlexAvatar({ size }) {
+        const sz = size || 28;
+        const av = ALEX_AVATARS.find(a => a.id === getAlexAvatar());
+        if (av && av.src) {
+            return React.createElement('img', { src: av.src, alt: 'Alex', style: { width: sz+'px', height: sz+'px', borderRadius: sz > 24 ? '8px' : '6px', objectFit: 'cover', flexShrink: 0, border: '2px solid rgba(212,175,55,0.4)' } });
+        }
+        return React.createElement('div', { style: { width: sz+'px', height: sz+'px', borderRadius: sz > 24 ? '8px' : '6px', background: 'linear-gradient(135deg, #D4AF37, #B8941E)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: (sz * 0.024) + 'rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Bebas Neue' } }, 'AI');
+    }
+    window.AlexAvatar = AlexAvatar;
+    window.ALEX_AVATARS = ALEX_AVATARS;
+
+    // ===== ALEX INGRAM — AI GM MESSAGE COMPONENT (Slack-style) =====
+    function GMMessage({ children, timestamp, compact, title }) {
         const now = timestamp || new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
         if (compact) {
             return React.createElement('div', { style: {
-                display: 'flex', gap: '8px', alignItems: 'flex-start', padding: '8px 12px',
-                background: 'rgba(212,175,55,0.04)', borderLeft: '3px solid rgba(212,175,55,0.4)',
-                borderRadius: '0 8px 8px 0', marginBottom: '8px'
+                display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '10px 14px',
+                background: 'rgba(212,175,55,0.04)', borderRadius: '8px', marginBottom: '8px',
+                border: '1px solid rgba(212,175,55,0.1)'
             }},
-                React.createElement('div', { style: { width: '22px', height: '22px', borderRadius: '6px', background: 'linear-gradient(135deg, #D4AF37, #B8941E)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.56rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Bebas Neue' } }, 'AI'),
-                React.createElement('div', { style: { flex: 1, fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.6 } }, children)
+                React.createElement(AlexAvatar, { size: 24 }),
+                React.createElement('div', { style: { flex: 1 } },
+                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' } },
+                        React.createElement('span', { style: { fontFamily: 'Bebas Neue', fontSize: '0.78rem', color: 'var(--gold)', letterSpacing: '0.03em' } }, 'Alex Ingram'),
+                        React.createElement('span', { style: { fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.4, padding: '0 4px', background: 'rgba(212,175,55,0.08)', borderRadius: '3px' } }, 'GM')
+                    ),
+                    React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.6 } }, children)
+                )
             );
         }
         return React.createElement('div', { style: {
-            background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.15)',
-            borderLeft: '4px solid var(--gold)', borderRadius: '0 10px 10px 0',
-            padding: '14px 16px', marginBottom: '10px'
+            background: 'rgba(212,175,55,0.03)', border: '1px solid rgba(212,175,55,0.12)',
+            borderRadius: '8px', padding: '14px 16px', marginBottom: '10px'
         }},
             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' } },
-                React.createElement('div', { style: { width: '28px', height: '28px', borderRadius: '8px', background: 'linear-gradient(135deg, #D4AF37, #B8941E)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.64rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Bebas Neue' } }, 'AI'),
+                React.createElement(AlexAvatar, { size: 32 }),
                 React.createElement('div', { style: { flex: 1 } },
-                    React.createElement('span', { style: { fontFamily: 'Bebas Neue', fontSize: '0.88rem', color: 'var(--gold)', letterSpacing: '0.04em' } }, 'ALEX INGRAM'),
-                    React.createElement('span', { style: { fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.5, marginLeft: '8px' } }, 'AI GM')
-                ),
-                React.createElement('span', { style: { fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.4 } }, now)
+                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+                        React.createElement('span', { style: { fontFamily: 'Bebas Neue', fontSize: '0.92rem', color: 'var(--gold)', letterSpacing: '0.03em' } }, 'Alex Ingram'),
+                        React.createElement('span', { style: { fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.5, padding: '1px 5px', background: 'rgba(212,175,55,0.08)', borderRadius: '3px', fontWeight: 600 } }, 'AI GM')
+                    ),
+                    React.createElement('span', { style: { fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.35 } }, now)
+                )
             ),
+            title && React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.82rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' } }, title),
             React.createElement('div', { style: { fontSize: '0.86rem', color: '#D0D0D0', lineHeight: 1.7 } }, children)
         );
     }
@@ -4527,6 +4560,8 @@
         const [showColPicker, setShowColPicker] = useState(false);
         const [colPreset, setColPreset] = useState('dynasty');
         const [expandedPid, setExpandedPid] = useState(null);
+        const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+        const [avatarKey, setAvatarKey] = useState(0); // force re-render when avatar changes
         const [heroStory, setHeroStory] = useState('');
         const [aiStories, setAiStories] = useState([]);
         const [transactions, setTransactions] = useState([]);
@@ -8204,16 +8239,15 @@
 
                             return (
                             <React.Fragment>
-                                {/* ── ROSTER DIAGNOSIS SUMMARY ── */}
-                                <div style={{ ...aCardStyle, borderLeft: '4px solid var(--gold)', marginBottom: '16px' }}>
-                                    <div style={aHeaderStyle}>ROSTER DIAGNOSIS</div>
-                                    <div style={{ fontSize: '0.88rem', color: 'var(--silver)', lineHeight: 1.7, marginBottom: '12px' }}>
+                                {/* ── ROSTER DIAGNOSIS — Alex Ingram Slack-style ── */}
+                                <div style={{ marginBottom: '16px' }}>
+                                    <GMMessage title="Roster Diagnosis">
                                         {'Your roster is ' + Math.abs(ageDiffDiag).toFixed(1) + ' years ' + (ageDiffDiag > 0 ? 'older' : 'younger') + ' than champions (avg ' + w.avgAge.toFixed(1) + ' yrs). You have ' + (eliteDiffDiag >= 0 ? eliteDiffDiag.toFixed(1) + ' more' : Math.abs(eliteDiffDiag).toFixed(1) + ' fewer') + ' elite assets than winners. Total DHQ is ' + (dhqGap >= 0 ? '+' : '') + Math.round(dhqGap).toLocaleString() + ' vs champion avg. Bench quality: ' + numFmt(m.avgBenchQuality) + ' vs winner ' + numFmt(w.avgBenchQuality) + '. Strategy: ' + rosterStrategy + '.'}
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                        <button onClick={() => setActiveTab('trades')} style={{ padding: '8px 16px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.9rem', cursor: 'pointer' }}>Find Trade Targets</button>
-                                        <button onClick={() => setActiveTab('fa')} style={{ padding: '8px 16px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.9rem', cursor: 'pointer' }}>View Free Agents</button>
-                                    </div>
+                                        {React.createElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
+                                            React.createElement('button', { onClick: () => setActiveTab('trades'), style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'Find Trade Targets'),
+                                            React.createElement('button', { onClick: () => setActiveTab('fa'), style: { padding: '6px 14px', background: 'rgba(212,175,55,0.12)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'View Free Agents')
+                                        )}
+                                    </GMMessage>
                                 </div>
 
                                 {/* ── TOP KPI CARDS ── */}
@@ -9553,14 +9587,11 @@
                 display: 'flex', alignItems: 'center', gap: '8px',
                 background: 'rgba(212,175,55,0.06)', borderRadius: '14px 14px 0 0'
               }}>
-                <div style={{
-                  width: '28px', height: '28px', borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #D4AF37, #B8941E)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.64rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Bebas Neue'
-                }}>AI</div>
+                <div key={avatarKey} onClick={e => { e.stopPropagation(); setShowAvatarPicker(p => !p); }} style={{ cursor: 'pointer' }} title="Change Alex's avatar">
+                  <AlexAvatar size={30} />
+                </div>
                 <div>
-                  <div style={{ fontFamily: 'Bebas Neue', fontSize: '0.88rem', color: 'var(--gold)', letterSpacing: '0.04em', lineHeight: 1 }}>ALEX INGRAM</div>
+                  <div style={{ fontFamily: 'Bebas Neue', fontSize: '0.88rem', color: 'var(--gold)', letterSpacing: '0.04em', lineHeight: 1 }}>Alex Ingram</div>
                   <div style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.5 }}>AI General Manager</div>
                 </div>
                 <span style={{ fontSize: '0.68rem', color: '#7d8291' }}>Cmd+K</span>
@@ -9580,6 +9611,30 @@
                   fontSize: '1rem', padding: '2px'
                 }}>&#10005;</button>
               </div>
+
+              {/* Avatar picker (toggled) */}
+              {showAvatarPicker && (
+                <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(212,175,55,0.04)' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '6px', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Choose Alex's look</div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {ALEX_AVATARS.map(av => (
+                      <button key={av.id} onClick={() => { setAlexAvatar(av.id); setShowAvatarPicker(false); setAvatarKey(k => k+1); }} style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
+                        padding: '6px', background: getAlexAvatar() === av.id ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.03)',
+                        border: '1px solid ' + (getAlexAvatar() === av.id ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
+                        borderRadius: '8px', cursor: 'pointer', minWidth: '56px'
+                      }}>
+                        {av.src ? (
+                          <img src={av.src} alt={av.label} style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ width: '36px', height: '36px', borderRadius: '6px', background: 'linear-gradient(135deg, #D4AF37, #B8941E)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Bebas Neue' }}>AI</div>
+                        )}
+                        <span style={{ fontSize: '0.58rem', color: 'var(--silver)', textAlign: 'center' }}>{av.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Context chips */}
               <div style={{ padding: '6px 12px', display: 'flex', gap: '4px', flexWrap: 'wrap', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -9616,8 +9671,8 @@
                       borderRadius: '0 10px 10px 0'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                        <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'linear-gradient(135deg, #D4AF37, #B8941E)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.5rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Bebas Neue' }}>AI</div>
-                        <span style={{ fontFamily: 'Bebas Neue', fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.03em' }}>ALEX INGRAM</span>
+                        <AlexAvatar size={20} />
+                        <span style={{ fontFamily: 'Bebas Neue', fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.03em' }}>Alex Ingram</span>
                       </div>
                       {(() => {
                         const tradeMatch = msg.content.match(/<!--\s*TRADE_CARD:([\s\S]*?)-->/);
@@ -9782,16 +9837,16 @@
             <button onClick={() => setReconPanelOpen(!reconPanelOpen)} style={{
               position: 'fixed', bottom: '24px', right: '24px',
               width: '52px', height: '52px', borderRadius: '14px',
-              background: reconPanelOpen ? 'rgba(212,175,55,0.15)' : 'linear-gradient(135deg, #D4AF37, #B8941E)',
-              border: reconPanelOpen ? '2px solid rgba(212,175,55,0.3)' : '2px solid rgba(212,175,55,0.4)',
+              background: reconPanelOpen ? 'rgba(212,175,55,0.15)' : 'transparent',
+              border: '2px solid rgba(212,175,55,0.4)',
               cursor: 'pointer', zIndex: 201,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 4px 20px rgba(212,175,55,0.3)',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s', overflow: 'hidden', padding: 0
             }}>
               {reconPanelOpen
                 ? <span style={{ color: 'var(--gold)', fontSize: '1.2rem' }}>&#10005;</span>
-                : <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', fontWeight: 800, color: '#0A0A0A', letterSpacing: '0.02em' }}>AI</span>
+                : <AlexAvatar size={48} />
               }
             </button>
 

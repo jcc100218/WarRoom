@@ -4402,7 +4402,7 @@
                                               { label: 'FIT', val: fit.label, col: fitColor(fit.score) },
                                               { label: 'AGE', val: age, col: typeof age === 'number' && age <= 22 ? '#2ECC71' : 'var(--silver)' },
                                               { label: 'EXP', val: (r.p.years_exp || 0) + 'yr', col: 'var(--silver)' },
-                                              { label: 'DRAFT', val: r.p.draft_round ? 'Rd ' + r.p.draft_round : 'UDFA', col: r.p.draft_round <= 2 ? '#2ECC71' : 'var(--silver)' },
+                                              { label: 'TEAM', val: r.p.team || 'TBD', col: r.p.team ? '#2ECC71' : 'var(--silver)' },
                                               { label: 'DEPTH', val: r.p.depth_chart_order != null ? '#' + (r.p.depth_chart_order + 1) : '\u2014', col: r.p.depth_chart_order <= 1 ? '#2ECC71' : 'var(--silver)' },
                                             ].map((s, i) => (
                                               <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 6px', textAlign: 'center' }}>
@@ -7623,7 +7623,7 @@
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px', fontSize: '0.78rem' }}>
                               <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Ht </span><span style={{ color: 'var(--white)' }}>{r.p.height ? Math.floor(r.p.height/12)+"'"+r.p.height%12+'"' : '\u2014'}</span></div>
                               <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Wt </span><span style={{ color: 'var(--white)' }}>{r.p.weight ? r.p.weight+'lbs' : '\u2014'}</span></div>
-                              <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Draft </span><span style={{ color: 'var(--white)' }}>{r.p.draft_round ? 'Rd '+r.p.draft_round : r.p.undrafted === 'Y' ? 'UDFA' : '\u2014'}</span></div>
+                              <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Slot </span><span style={{ color: 'var(--white)' }}>{r.section === 'starter' ? 'Starter' : r.section === 'ir' ? 'IR' : r.section === 'taxi' ? 'Taxi' : 'Bench'}</span></div>
                               <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Exp </span><span style={{ color: 'var(--white)' }}>{r.p.years_exp || 0}yr</span></div>
                               {r.p.college && <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>College </span><span style={{ color: 'var(--white)' }}>{r.p.college}</span></div>}
                               {r.p.depth_chart_order != null && <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Depth </span><span style={{ color: r.p.depth_chart_order <= 1 ? '#2ECC71' : 'var(--white)' }}>#{r.p.depth_chart_order + 1} {r.p.depth_chart_position || ''}</span></div>}

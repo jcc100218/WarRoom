@@ -1,0 +1,329 @@
+// ══════════════════════════════════════════════════════════════════
+// settings.js — SettingsModal component
+// ══════════════════════════════════════════════════════════════════
+    function SettingsModal({ onClose, initDisplayName, onDisplayNameSave, leagueMates }) {
+        const [settingsTab, setSettingsTab] = React.useState('account');
+        const [pwMsg, setPwMsg] = React.useState('');
+        const [currentPw, setCurrentPw] = React.useState('');
+        const [newPw, setNewPw] = React.useState('');
+        const [confirmPw, setConfirmPw] = React.useState('');
+        const [displayName, setDisplayName] = React.useState(initDisplayName || '');
+        const [matesAccess, setMatesAccess] = React.useState(null); // Set of usernames with accounts
+        const [giftLinks, setGiftLinks] = React.useState({}); // { username: { url, password } }
+        const [giftingFor, setGiftingFor] = React.useState(null);
+
+        const isGiftedAccount = React.useMemo(() => {
+            try {
+                const auth = JSON.parse(localStorage.getItem('od_auth_v1') || '{}');
+                return !!auth.isGifted;
+            } catch { return false; }
+        }, []);
+
+        const currentTier = React.useMemo(() => {
+            try {
+                const p = JSON.parse(localStorage.getItem('od_profile_v1') || '{}');
+                return p.tier || 'free';
+            } catch { return 'free'; }
+        }, []);
+
+        const tierLabel = { free: 'War Room Free', pro: 'Dynasty HQ Pro', power: 'Dynasty HQ Power' };
+        const tierColor = { free: 'var(--silver)', pro: 'var(--gold)', power: '#A855F7' };
+        const tierBg    = { free: 'rgba(192,192,192,0.12)', pro: 'rgba(212,175,55,0.12)', power: 'rgba(168,85,247,0.12)' };
+
+        function goToManagePlan() {
+            window.location.href = 'onboarding.html?manage=true';
+        }
+
+        function handleCancelPlan() {
+            if (!confirm('Cancel your subscription? You will be moved to the War Room Free plan.')) return;
+            try {
+                const profile = JSON.parse(localStorage.getItem('od_profile_v1') || '{}');
+                localStorage.setItem('od_profile_v1', JSON.stringify({ ...profile, tier: 'free' }));
+                alert('Subscription cancelled. You are now on the War Room Free plan.');
+                onClose();
+            } catch { alert('Failed to cancel. Please try again.'); }
+        }
+
+        function handleDisplayNameSave() {
+            onDisplayNameSave(displayName);
+        }
+
+        async function handleChangePassword() {
+            setPwMsg('');
+            if (!currentPw || !newPw || !confirmPw) { setPwMsg('x Fill in all fields'); return; }
+            if (newPw !== confirmPw) { setPwMsg('x New passwords do not match'); return; }
+            if (newPw.length < 6) { setPwMsg('x Password must be at least 6 characters'); return; }
+            try {
+                // Verify current password against stored hash
+                const AUTH_KEY = 'od_auth_v1';
+                const auth = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+                const encoder = new TextEncoder();
+                const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(currentPw));
+                const currentHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+
+                if (auth.passwordHash && auth.passwordHash !== currentHash) {
+                    // Also try Supabase in case this is a gifted account
+                    const result = await window.OD.verifySupabasePassword(sleeperUsername, currentPw);
+                    if (!result || !result.match) {
+                        setPwMsg('x Current password is incorrect');
+                        return;
+                    }
+                }
+                // Update Supabase
+                await window.OD.updatePassword(sleeperUsername, newPw);
+                // Update localStorage
+                const newHashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(newPw));
+                const newHash = Array.from(new Uint8Array(newHashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+                localStorage.setItem(AUTH_KEY, JSON.stringify({ ...auth, passwordHash: newHash, isGifted: false }));
+                setCurrentPw(''); setNewPw(''); setConfirmPw('');
+                setPwMsg('ok Password updated');
+            } catch (e) {
+                setPwMsg('x Failed to update password');
+            }
+        }
+
+        // Load leaguemate access status when modal opens
+        React.useEffect(() => {
+            if (!leagueMates || leagueMates.length === 0) return;
+            const usernames = leagueMates.map(m => m.username).filter(Boolean);
+            window.OD.checkUsersAccess(usernames).then(setMatesAccess).catch(() => setMatesAccess(new Set()));
+        }, []);
+
+        async function handleGiftAccess(mate) {
+            const username = mate.username;
+            if (!username) return;
+            setGiftingFor(username);
+            try {
+                // Generate a random 8-char initial password
+                const pw = Array.from(crypto.getRandomValues(new Uint8Array(4)))
+                    .map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+                await window.OD.createGiftUser({
+                    sleeperUsername: username,
+                    password: pw,
+                    displayName: mate.display_name || null,
+                });
+                const base = window.location.href.replace(/\/[^/]*$/, '/');
+                const url = `${base}login.html?for=${encodeURIComponent(username)}`;
+                setGiftLinks(prev => ({ ...prev, [username]: { url, password: pw } }));
+                setMatesAccess(prev => new Set([...(prev || []), username]));
+            } catch (e) {
+                console.error('Gift failed:', e);
+            }
+            setGiftingFor(null);
+        }
+
+        const sectionStyle = { marginBottom: '1.25rem', padding: '1rem', background: 'rgba(212,175,55,0.07)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px' };
+        const sectionTitle = { fontFamily: 'Bebas Neue, cursive', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.12em', marginBottom: '0.75rem' };
+        const inputStyle = { width: '100%', padding: '0.55rem 0.75rem', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--white)', fontFamily: 'Oswald, sans-serif', fontSize: '0.85rem', marginBottom: '0.5rem' };
+        const btnPrimary = { flex: 1, padding: '0.6rem', background: 'var(--gold)', border: 'none', borderRadius: '6px', color: 'var(--black)', fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' };
+        const btnOutline = { flex: 1, padding: '0.6rem', background: 'transparent', border: '1px solid var(--gold)', borderRadius: '6px', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' };
+
+        return (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={onClose}>
+                <div style={{ background: 'linear-gradient(135deg, var(--off-black) 0%, var(--charcoal) 100%)', border: '3px solid var(--gold)', borderRadius: '12px', padding: '1.5rem', maxWidth: '440px', width: '100%', boxShadow: '0 8px 32px rgba(0,0,0,0.8)', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                    <h2 style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.5rem', color: 'var(--gold)', marginBottom: '0.75rem', textAlign: 'center', letterSpacing: '0.1em' }}>SETTINGS</h2>
+
+                    <div style={{ fontSize: '0.85rem', color: 'var(--silver)', marginBottom: '1rem' }}>
+                        Logged in as: <strong style={{ color: 'var(--white)' }}>{sleeperUsername}</strong>
+                        {isGiftedAccount && <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', color: 'var(--gold)', background: 'rgba(212,175,55,0.15)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>GIFTED — change your password below</span>}
+                    </div>
+
+                    {/* Tab bar */}
+                    <div style={{ display: 'flex', gap: '0', marginBottom: '1.25rem', borderBottom: '2px solid rgba(212,175,55,0.2)' }}>
+                        {[
+                            { id: 'account', label: 'Account' },
+                            { id: 'subscription', label: 'Subscription' },
+                            { id: 'data', label: 'Data' },
+                        ].map(tab => (
+                            <button key={tab.id} onClick={() => setSettingsTab(tab.id)} style={{
+                                flex: 1, padding: '0.6rem 0.5rem', border: 'none',
+                                background: settingsTab === tab.id ? 'rgba(212,175,55,0.1)' : 'transparent',
+                                borderBottom: settingsTab === tab.id ? '2px solid var(--gold)' : '2px solid transparent',
+                                marginBottom: '-2px',
+                                color: settingsTab === tab.id ? 'var(--gold)' : 'var(--silver)',
+                                fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem',
+                                fontWeight: settingsTab === tab.id ? 700 : 400,
+                                letterSpacing: '0.05em', textTransform: 'uppercase',
+                                cursor: 'pointer', transition: 'all 0.15s'
+                            }}>{tab.label}</button>
+                        ))}
+                    </div>
+
+                    {/* ══ ACCOUNT TAB ══ */}
+                    {settingsTab === 'account' && (<>
+                    {/* ── DISPLAY NAME ── */}
+                    <div style={sectionStyle}>
+                        <div style={sectionTitle}>DISPLAY NAME</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '0.5rem' }}>Custom name (optional)</div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                                style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
+                                placeholder={sleeperUsername}
+                                value={displayName}
+                                onChange={e => setDisplayName(e.target.value)}
+                            />
+                            <button onClick={handleDisplayNameSave} style={{ ...btnPrimary, flex: 'none', padding: '0.55rem 0.85rem' }}>Save</button>
+                        </div>
+                    </div>
+
+                    {/* ── CHANGE PASSWORD ── */}
+                    <div style={sectionStyle}>
+                        <div style={sectionTitle}>CHANGE PASSWORD</div>
+                        <input style={inputStyle} type="password" placeholder="Current password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
+                        <input style={inputStyle} type="password" placeholder="New password" value={newPw} onChange={e => setNewPw(e.target.value)} />
+                        <input style={{ ...inputStyle, marginBottom: '0.75rem' }} type="password" placeholder="Confirm new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} />
+                        <button onClick={handleChangePassword} style={{ ...btnPrimary, width: '100%', flex: 'none' }}>Update Password</button>
+                        {pwMsg && <div style={{ marginTop: '0.5rem', fontSize: '0.73rem', color: pwMsg.startsWith('ok') ? 'var(--win-green)' : '#E74C3C' }}>{pwMsg}</div>}
+                    </div>
+
+                    {/* ── LEAGUEMATES ACCESS ── */}
+                    {leagueMates && leagueMates.length > 0 && (
+                        <div style={sectionStyle}>
+                            <div style={sectionTitle}>LEAGUEMATE ACCESS</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '0.75rem' }}>
+                                Share the dashboard with your league. Each leaguemate gets their own login with full access to all features including AI Scout.
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '220px', overflowY: 'auto' }}>
+                                {leagueMates.map(mate => {
+                                    const username = mate.username;
+                                    if (!username) return null;
+                                    const hasAccess = matesAccess?.has(username);
+                                    const link = giftLinks[username];
+                                    const isGifting = giftingFor === username;
+                                    return (
+                                        <div key={username} style={{ padding: '0.5rem 0.6rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', border: `1px solid ${hasAccess ? 'rgba(46,204,113,0.3)' : 'rgba(212,175,55,0.15)'}` }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: link ? '0.4rem' : 0 }}>
+                                                {mate.avatar
+                                                    ? <div style={{ width: 24, height: 24, flexShrink: 0 }}><img src={`https://sleepercdn.com/avatars/thumbs/${mate.avatar}`} style={{ width: 24, height: 24, borderRadius: '50%' }} onError={e => { e.target.style.display='none'; }} /></div>
+                                                    : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(212,175,55,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.76rem', fontWeight:700, flexShrink: 0 }}>{(mate.display_name || username || '?')[0].toUpperCase()}</div>
+                                                }
+                                                <span style={{ flex: 1, fontSize: '0.78rem', color: 'var(--white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {mate.display_name || username}
+                                                </span>
+                                                {matesAccess === null
+                                                    ? <span style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>checking…</span>
+                                                    : hasAccess
+                                                        ? <span style={{ fontSize: '0.76rem', color: 'var(--win-green)', fontWeight: 700 }}>ok Has access</span>
+                                                        : <button onClick={() => handleGiftAccess(mate)} disabled={isGifting} style={{ padding: '0.2rem 0.55rem', background: 'var(--gold)', border: 'none', borderRadius: '4px', color: 'var(--black)', fontFamily: 'Oswald,sans-serif', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+                                                            {isGifting ? '…' : 'Generate Link'}
+                                                        </button>
+                                                }
+                                            </div>
+                                            {link && (
+                                                <div style={{ fontSize: '0.76rem', color: 'var(--silver)', wordBreak: 'break-all', background: 'rgba(0,0,0,0.4)', padding: '0.3rem 0.4rem', borderRadius: '4px' }}>
+                                                    <div><strong style={{ color: 'var(--gold)' }}>Link:</strong> {link.url}</div>
+                                                    <div><strong style={{ color: 'var(--gold)' }}>Temp password:</strong> {link.password}</div>
+                                                    <div style={{ color: 'rgba(255,255,255,0.4)', marginTop: '0.2rem' }}>Share both — they can change password after login</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    </>)}
+
+                    {/* ══ SUBSCRIPTION TAB ══ */}
+                    {settingsTab === 'subscription' && (<>
+                    <div style={sectionStyle}>
+                        <div style={sectionTitle}>CURRENT PLAN</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>Current plan:</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: tierColor[currentTier] || 'var(--silver)', background: tierBg[currentTier] || 'rgba(192,192,192,0.12)', padding: '0.15rem 0.55rem', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                {tierLabel[currentTier] || 'War Room Free'}
+                            </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                            <button onClick={goToManagePlan} style={{ ...btnPrimary, fontSize: '0.75rem' }}>Upgrade</button>
+                            <button onClick={goToManagePlan} style={{ ...btnOutline, fontSize: '0.75rem' }}>Change Plan</button>
+                            <button onClick={goToManagePlan} style={{ ...btnOutline, fontSize: '0.75rem' }}>Gift Sub</button>
+                            <button onClick={handleCancelPlan} style={{ ...btnOutline, fontSize: '0.75rem', borderColor: 'rgba(231,76,60,0.35)', color: '#E74C3C' }}>Cancel</button>
+                        </div>
+                        <div style={{ marginTop: '0.6rem', fontSize: '0.66rem', color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Manage your Dynasty HQ subscription</div>
+                    </div>
+
+                    {/* ── AI STATUS ── */}
+                    <div style={sectionStyle}>
+                        <div style={sectionTitle}>AI STATUS</div>
+                        {(() => {
+                            const hasServer = typeof hasServerAI === 'function' && hasServerAI();
+                            const hasKey = !!(window.S?.apiKey || localStorage.getItem('dynastyhq_gemini_key') || localStorage.getItem('dynastyhq_anthropic_key'));
+                            const isActive = hasServer || hasKey;
+                            return <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: isActive ? '#2ECC71' : '#E74C3C' }} />
+                                    <span style={{ fontSize: '0.82rem', color: isActive ? '#2ECC71' : '#E74C3C', fontWeight: 700 }}>
+                                        {isActive ? 'AI Active' : 'AI Not Connected'}
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: '0.76rem', color: 'var(--silver)', lineHeight: 1.6, marginBottom: '10px' }}>
+                                    {hasServer ? 'AI is included with your subscription. Chat, scouting, and analysis are powered by Claude and Gemini.'
+                                     : hasKey ? 'Using your personal API key. AI chat and scouting are active.'
+                                     : 'AI features require a subscription or API key. Subscribe to get AI included, or add your own key below.'}
+                                </div>
+                                {!hasServer && <div style={{ marginTop: '8px' }}>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '4px' }}>OPTIONAL: Add your own API key (power users)</div>
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                        <select id="wr-ai-provider" defaultValue="gemini" style={{ padding: '6px 10px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--silver)', fontFamily: 'Oswald', fontSize: '0.78rem' }}>
+                                            <option value="gemini">Gemini (Free)</option>
+                                            <option value="anthropic">Claude</option>
+                                        </select>
+                                        <input id="wr-ai-key" type="password" placeholder="Paste API key..." style={{ flex: 1, padding: '6px 10px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--white)', fontFamily: 'monospace', fontSize: '0.78rem' }} />
+                                        <button onClick={() => {
+                                            const prov = document.getElementById('wr-ai-provider')?.value || 'gemini';
+                                            const key = document.getElementById('wr-ai-key')?.value?.trim();
+                                            if (!key) return;
+                                            if (window.S) { window.S.aiProvider = prov; window.S.apiKey = key; }
+                                            localStorage.setItem('dynastyhq_' + prov + '_key', key);
+                                            localStorage.setItem('dynastyhq_provider', prov);
+                                            alert('API key saved. AI is now active.');
+                                        }} style={{ ...btnPrimary, flex: 'none', padding: '6px 14px', fontSize: '0.78rem' }}>Save</button>
+                                    </div>
+                                </div>}
+                            </>;
+                        })()}
+                    </div>
+                    </>)}
+
+                    {/* ══ DATA TAB ══ */}
+                    {settingsTab === 'data' && (<>
+                    <div style={sectionStyle}>
+                        <div style={sectionTitle}>CACHE MANAGEMENT</div>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button onClick={() => {
+                                localStorage.removeItem('dhq_leagueintel_v10');
+                                Object.keys(localStorage).filter(k => k.startsWith('dhq_hist_')).forEach(k => localStorage.removeItem(k));
+                                if (window.App) { window.App.LI = {}; window.App.LI_LOADED = false; }
+                                alert('DHQ cache cleared. Reload to rebuild.');
+                            }} style={{ padding: '6px 12px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '4px', color: '#E74C3C', cursor: 'pointer' }}>
+                                Clear DHQ Cache
+                            </button>
+                            <button onClick={() => { sessionStorage.clear(); alert('Session cache cleared.'); }}
+                                style={{ padding: '6px 12px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--silver)', cursor: 'pointer' }}>
+                                Clear Session Cache
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* ── ABOUT ── */}
+                    <div style={sectionStyle}>
+                        <div style={sectionTitle}>ABOUT</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.65 }}>
+                            Fantasy War Room v2.0 &middot; Powered by DHQ Engine &middot; Part of the Fantasy Wars platform
+                        </div>
+                    </div>
+                    </>)}
+
+                    <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column', marginTop: '1.5rem' }}>
+                        <button onClick={handleLogout} style={{ padding: '0.75rem', background: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)', border: 'none', borderRadius: '8px', color: 'white', fontFamily: 'Oswald, sans-serif', fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>
+                            Logout
+                        </button>
+                        <button onClick={onClose} style={{ padding: '0.75rem', background: 'var(--black)', border: '2px solid var(--gold)', borderRadius: '8px', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif', fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }

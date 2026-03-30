@@ -5146,9 +5146,55 @@
           return () => window.removeEventListener('keydown', handler);
         }, []);
 
+        // First-time welcome — auto-open chat with Alex's intro
+        useEffect(() => {
+          if (!myRoster?.players?.length || !currentLeague?.league_id) return;
+          const welcomeKey = 'wr_welcomed_' + currentLeague.league_id;
+          if (localStorage.getItem(welcomeKey)) return;
+          localStorage.setItem(welcomeKey, '1');
+          // Small delay so the app finishes rendering first
+          const t = setTimeout(() => {
+            setReconPanelOpen(true);
+            setReconMessages([{
+              role: 'assistant',
+              content: 'Hey! I\'m **Alex Ingram** — your AI General Manager. I\'ll be sitting in the war room with you, analyzing your roster, scouting trade targets, and helping you build a dynasty.\n\nA few things to get us started:\n\n' +
+                '\u2022 **Ask me anything** — trades, waivers, draft strategy, player analysis\n' +
+                '\u2022 **Customize my look** below, or in the GM Strategy panel on your roster tab\n' +
+                '\u2022 **Set your strategy** so I know if we\'re going all-in or rebuilding\n\n' +
+                'Let\'s get to work. What\'s on your mind? \u2014 Alex',
+              onboardChoices: [
+                { label: 'Set my strategy', value: 'strategy' },
+                { label: 'What should I do?', value: 'advice' },
+                { label: 'Pick Alex\'s look', value: 'avatar' }
+              ]
+            }]);
+            setGmOnboardStep(0); // reset so strategy onboarding can trigger next
+          }, 1500);
+          return () => clearTimeout(t);
+        }, [myRoster?.players?.length, currentLeague?.league_id]);
+
+        // Handle welcome choices
+        function handleWelcomeChoice(value) {
+          if (value === 'strategy') {
+            setReconMessages(prev => [...prev.map(m => ({ ...m, onboardChoices: undefined })),
+              { role: 'user', content: 'Set my strategy' }
+            ]);
+            startGmOnboarding();
+          } else if (value === 'advice') {
+            setReconMessages(prev => prev.map(m => ({ ...m, onboardChoices: undefined })));
+            sendReconMessage('What are the top 3 moves I should make right now?');
+          } else if (value === 'avatar') {
+            setReconMessages(prev => prev.map(m => ({ ...m, onboardChoices: undefined })));
+            setShowAvatarPicker(true);
+          }
+        }
+
         // Auto-trigger GM onboarding when panel opens with unconfigured strategy
         useEffect(() => {
           if (reconPanelOpen && gmIsUnconfigured && gmOnboardStep === 0 && myRoster?.players?.length) {
+            // Don't auto-trigger if welcome just showed
+            const welcomeKey = 'wr_welcomed_' + currentLeague?.league_id;
+            if (reconMessages.length <= 1 || reconMessages[0]?.content?.includes('Alex Ingram')) return;
             startGmOnboarding();
           }
         }, [reconPanelOpen]);
@@ -7247,7 +7293,7 @@
                   border: '1px solid ' + (gmStrategyOpen ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.06)'),
                   borderRadius: gmStrategyOpen ? '10px 10px 0 0' : '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.15s'
                 }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'linear-gradient(135deg, #D4AF37, #B8941E)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.64rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Bebas Neue' }}>AI</div>
+                  <AlexAvatar size={28} />
                   <div style={{ flex: 1, textAlign: 'left' }}>
                     <div style={{ fontFamily: 'Bebas Neue', fontSize: '0.9rem', color: 'var(--gold)', letterSpacing: '0.04em' }}>GM STRATEGY</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6 }}>
@@ -7365,6 +7411,27 @@
                         background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
                         borderRadius: '6px', color: 'var(--silver)', fontFamily: 'Oswald', resize: 'vertical', lineHeight: 1.5
                       }} />
+                    </div>
+                    {/* Alex Ingram Avatar Picker */}
+                    <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ fontFamily: 'Oswald', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Customize Alex Ingram</div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {ALEX_AVATARS.map(av => (
+                          <button key={av.id} onClick={() => { setAlexAvatar(av.id); setAvatarKey(k => k+1); }} style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                            padding: '8px', background: getAlexAvatar() === av.id ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.03)',
+                            border: '2px solid ' + (getAlexAvatar() === av.id ? 'var(--gold)' : 'rgba(255,255,255,0.06)'),
+                            borderRadius: '10px', cursor: 'pointer', minWidth: '68px', transition: 'all 0.15s'
+                          }}>
+                            {av.src ? (
+                              <img src={av.src} alt={av.label} style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: 'linear-gradient(135deg, #D4AF37, #B8941E)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Bebas Neue' }}>AI</div>
+                            )}
+                            <span style={{ fontSize: '0.62rem', color: getAlexAvatar() === av.id ? 'var(--gold)' : 'var(--silver)', textAlign: 'center', lineHeight: 1.2 }}>{av.label}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -9974,6 +10041,8 @@
                               <button key={c.value} onClick={() => {
                                 if (msg.onboardMulti) {
                                   setOnboardSelections(prev => prev.includes(c.value) ? prev.filter(v => v !== c.value) : [...prev, c.value]);
+                                } else if (gmOnboardStep === 0 && ['strategy','advice','avatar'].includes(c.value)) {
+                                  handleWelcomeChoice(c.value);
                                 } else {
                                   handleOnboardChoice(c.value);
                                 }

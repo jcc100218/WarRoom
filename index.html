@@ -28,6 +28,10 @@
             --loss-red: #E74C3C;
         }
 
+    .fwpm-career-row{display:grid;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);gap:3px;font-size:13px}
+    .fwpm-career-row:last-child{border-bottom:none}
+    .fwpm-career-hdr{font-size:13px;font-weight:700;color:#7d8291;text-transform:uppercase}
+
     * {
         margin: 0;
         padding: 0;
@@ -1127,6 +1131,51 @@
         );
     }
     window.GMMessage = GMMessage;
+
+    // ===== INLINE CAREER STATS (for expanded player card) =====
+    function InlineCareerStats({ pid, pos, player, scoringSettings, statsData }) {
+        const [html, setHtml] = React.useState(null);
+        const [loading, setLoading] = React.useState(true);
+        React.useEffect(() => {
+            let cancelled = false;
+            const sc = scoringSettings || {};
+            const curYear = parseInt(window.S?.season) || new Date().getFullYear();
+            const exp = player?.years_exp || 0;
+
+            // Show immediate data from statsData while fetching career
+            const quickData = {};
+            const st = statsData?.[pid];
+            if (st && Object.keys(st).length > 1) quickData[curYear] = st;
+
+            if (typeof window.fwBuildCareerTable === 'function' && Object.keys(quickData).length) {
+                setHtml(window.fwBuildCareerTable(pid, quickData, pos, sc, player));
+                setLoading(false);
+            }
+
+            // Fetch full career in background
+            if (typeof window.fwFetchCareerStats === 'function') {
+                window.fwFetchCareerStats(pid, curYear, exp).then(careerData => {
+                    if (cancelled) return;
+                    if (Object.keys(careerData).length && typeof window.fwBuildCareerTable === 'function') {
+                        setHtml(window.fwBuildCareerTable(pid, careerData, pos, sc, player));
+                    }
+                    setLoading(false);
+                }).catch(() => setLoading(false));
+            } else {
+                setLoading(false);
+            }
+            return () => { cancelled = true; };
+        }, [pid]);
+
+        return React.createElement('div', { style: { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' } },
+            React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' } }, 'Career Stats'),
+            loading && !html
+                ? React.createElement('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.5 } }, 'Loading career stats...')
+                : html
+                    ? React.createElement('div', { dangerouslySetInnerHTML: { __html: html }, style: { fontSize: '13px' } })
+                    : React.createElement('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.5 } }, 'No career stats available')
+        );
+    }
 
     function SkeletonRows({ count, cols }) {
         const rows = [];
@@ -7356,6 +7405,9 @@
                               {r.trend >= 20 ? ' Trending up ' + r.trend + '% \u2014 stock rising.' : r.trend <= -20 ? ' Production down ' + Math.abs(r.trend) + '% \u2014 red flag.' : ''}
                             </div>
                           </div>
+
+                          {/* Career Stats Table */}
+                          <InlineCareerStats pid={r.pid} pos={r.pos} player={r.p} scoringSettings={currentLeague?.scoring_settings} statsData={statsData} />
 
                           {/* Action buttons */}
                           <div style={{ display: 'flex', gap: '8px' }}>

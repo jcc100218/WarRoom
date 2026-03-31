@@ -200,7 +200,7 @@
                         <img src="icon-192.png" alt="Logo" className="owner-logo-small" />
                         <div className="header-text">
                             <h1 className="owner-name">FANTASY WARS</h1>
-                            <div className="header-subtitle">{displayName} FOOTBALL CLUB</div>
+                            <div className="header-subtitle">{displayName}</div>
                         </div>
                     </div>
                     <svg className="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" onClick={() => setShowSettings(true)} style={{ cursor: 'pointer' }}>

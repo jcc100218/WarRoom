@@ -184,8 +184,7 @@
         function handleSelectLeague(league) {
             if (!league) return;
             setActiveLeagueId(league.id);
-            // Spread to create new reference — ensures React re-renders even if same league re-selected
-            setSelectedLeague({ ...league });
+            setSelectedLeague(league);
             localStorage.setItem('wr_last_league_id', league.id);
             localStorage.setItem('wr_last_league_name', league.name);
         }

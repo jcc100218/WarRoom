@@ -98,6 +98,9 @@
             }
         }
 
+        // Hook must be above the early return to maintain consistent hook order
+        const [reconLeagueId, setReconLeagueId] = useState(null);
+
         // Show league detail if selected
         if (selectedLeague) {
             return <>
@@ -122,7 +125,6 @@
         }
 
         // ── Shared helpers ──
-        const [reconLeagueId, setReconLeagueId] = useState(null);
         const lastLeagueId = localStorage.getItem('wr_last_league_id');
         const lastLeagueName = localStorage.getItem('wr_last_league_name');
         const displayName = sleeperUser

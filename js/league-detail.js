@@ -69,52 +69,71 @@
         function projectPlayerValue(pid, baseDhq, baseAge, pos, delta) {
             if (!baseDhq || baseDhq <= 0 || delta === 0) return baseDhq;
             const peakWindows = window.App?.peakWindows || {QB:[24,34],RB:[22,27],WR:[22,30],TE:[23,30],DL:[23,29],LB:[23,28],DB:[23,29]};
-            const decayRates = window.App?.decayRates || {QB:0.06,RB:0.25,WR:0.14,TE:0.12,DL:0.15,LB:0.15,DB:0.14};
+            const decayRates = window.App?.decayRates || {QB:0.08,RB:0.30,WR:0.18,TE:0.15,DL:0.18,LB:0.18,DB:0.17};
+            // Position ceilings — no player can project above these
+            const posCeilings = {QB:9800,RB:9200,WR:9400,TE:8500,DL:7000,LB:6500,DB:6500};
             const nPos = pos === 'DE' || pos === 'DT' ? 'DL' : pos === 'CB' || pos === 'S' ? 'DB' : pos === 'OLB' || pos === 'ILB' ? 'LB' : pos;
             const [pLo, pHi] = peakWindows[nPos] || [24, 29];
-            const decay = decayRates[nPos] || 0.12;
+            const decay = decayRates[nPos] || 0.15;
+            const ceiling = posCeilings[nPos] || 9000;
             let val = baseDhq;
 
-            // If no age data, skip projections (can't project without knowing age)
             if (!baseAge || baseAge <= 0) return baseDhq;
 
-            // Higher-value players get bigger appreciation (proven producers)
+            // ── Trend factor: amplifies or dampens projection ──
+            // Trend = YoY PPG % change. A +30% trending player projects higher.
+            // Trend influence fades per projected year (stronger year 1, weaker year 3+)
+            // Offseason: trend persists longer (no new data to update it)
+            const meta = window.App?.LI?.playerMeta?.[pid];
+            const trend = meta?.trend || 0;
+            const nflState = window.S?.nflState?.season_type;
+            const isOffseason = !nflState || nflState === 'off' || nflState === 'pre';
+            // Trend half-life: offseason=3yr, in-season=1.5yr (fresh data replaces trend faster)
+            const trendHalfLife = isOffseason ? 3 : 1.5;
+
             const isProven = baseDhq >= 4000;
             const isElite = baseDhq >= 7000;
-            // Peak midpoint — players appreciate until they hit this, then hold/decline
             const peakMid = Math.floor((pLo + pHi) / 2);
 
             if (delta > 0) {
-                // Future: year-by-year projection
                 for (let yr = 1; yr <= delta; yr++) {
                     const ageAtYr = baseAge + yr;
+                    // Trend influence decays exponentially per projected year
+                    const trendWeight = Math.exp(-0.693 * yr / trendHalfLife); // ln(2)/halfLife
+                    const trendBoost = (trend / 100) * trendWeight * 0.5; // 50% of trend pct, decaying
+
                     if (ageAtYr <= pLo) {
-                        // Pre-peak: young players with production gain significantly
-                        const growthRate = isElite ? 0.12 : isProven ? 0.08 : 0.05;
-                        val *= 1 + growthRate;
+                        // Pre-peak: aggressive growth. Young + trending up = dynasty gold.
+                        const baseGrowth = isElite ? 0.18 : isProven ? 0.14 : 0.08;
+                        const growth = Math.max(0.02, baseGrowth + trendBoost);
+                        val *= 1 + growth;
                     } else if (ageAtYr <= peakMid) {
-                        // Early peak: still appreciating, elite assets peak here
-                        val *= isElite ? 1.05 : isProven ? 1.02 : 1.0;
+                        // Early peak: still growing but slower
+                        const baseGrowth = isElite ? 0.08 : isProven ? 0.05 : 0.02;
+                        val *= 1 + Math.max(-0.05, baseGrowth + trendBoost * 0.7);
                     } else if (ageAtYr <= pHi) {
-                        // Late peak: holding or starting to decline
-                        val *= isElite ? 1.0 : isProven ? (1 - decay * 0.08) : (1 - decay * 0.2);
+                        // Late peak: plateau or start declining
+                        const baseDelta = isElite ? 0.0 : isProven ? -(decay * 0.15) : -(decay * 0.3);
+                        val *= 1 + baseDelta + trendBoost * 0.5;
                     } else {
-                        // Past peak: full decay, accelerating
+                        // Past peak: accelerating decay — this is where value craters
                         const yearsPast = ageAtYr - pHi;
-                        const accel = 1 + yearsPast * 0.15;
-                        val *= (1 - decay * accel);
+                        const accel = 1 + yearsPast * 0.25; // steeper acceleration
+                        const negTrend = Math.min(0, trendBoost * 0.3); // only negative trend makes it worse
+                        val *= Math.max(0.3, 1 - decay * accel + negTrend);
                     }
+                    val = Math.min(val, ceiling); // cap at position ceiling
                 }
             } else {
-                // Historical: reverse — younger players had less value
+                // Historical projections (looking back)
                 for (let yr = 1; yr <= Math.abs(delta); yr++) {
                     const ageAtYr = (baseAge || 25) - yr;
                     if (ageAtYr < pLo - 2) {
-                        val *= (1 - 0.15); // was worth less when very young
+                        val *= (1 - 0.18);
                     } else if (ageAtYr <= pHi) {
-                        val *= (1 + decay * 0.1); // was in window, similar value
+                        val *= (1 + decay * 0.12);
                     } else {
-                        val *= (1 + decay * 0.5); // was worth more when younger past peak
+                        val *= (1 + decay * 0.6);
                     }
                 }
             }

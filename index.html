@@ -311,31 +311,30 @@
         letter-spacing: 0.08em;
         margin-bottom: 0.35rem;
     }
-    .hub-league-select {
-        width: 100%;
-        background: var(--off-black);
-        border: 1px solid rgba(212, 175, 55, 0.25);
-        border-radius: 8px;
-        color: var(--white);
-        font-family: 'Oswald', sans-serif;
-        font-size: 0.85rem;
+    .hub-league-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 220px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    .hub-league-list::-webkit-scrollbar { width: 4px; }
+    .hub-league-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); border-radius: 2px; }
+    .hub-league-list::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.3); border-radius: 2px; }
+    .hub-league-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         padding: 10px 12px;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(212,175,55,0.15);
+        border-radius: 8px;
         cursor: pointer;
-        outline: none;
-        transition: border-color 0.2s;
-        appearance: none;
-        -webkit-appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23D4AF37' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 12px center;
+        transition: all 0.15s;
     }
-    .hub-league-select:focus {
-        border-color: var(--gold);
-        box-shadow: 0 0 0 2px rgba(212,175,55,0.15);
-    }
-    .accent-purple .hub-league-select:focus {
-        border-color: #7c6bf8;
-        box-shadow: 0 0 0 2px rgba(124,107,248,0.15);
+    .accent-purple .hub-league-item {
+        border-color: rgba(124,107,248,0.15);
     }
 
     .hub-year-row {

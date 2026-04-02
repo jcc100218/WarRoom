@@ -63,10 +63,14 @@
                     if (!p.position || ['HC','OC','DC','GM'].includes(p.position)) return false;
                     // Must be active status (filters out stale entries from old years)
                     if (p.status === 'Inactive') return false;
-                    // Must have DHQ value OR be on an NFL team OR be an active IDP player
+                    // Must have DHQ value OR be on an NFL team
                     const hasValue = (window.App?.LI?.playerScores?.[pid] || 0) > 0;
+                    // Only include IDP rookies if the league has IDP slots
                     const isIDP = ['DL','DE','DT','NT','IDL','EDGE','LB','OLB','ILB','MLB','DB','CB','S','SS','FS'].includes(p.position);
-                    return hasValue || p.team || (isIDP && p.status === 'Active');
+                    const rp = currentLeague?.roster_positions || [];
+                    const leagueHasIDP = rp.some(s => ['DL','DE','DT','LB','DB','CB','S','IDP_FLEX'].includes(s));
+                    if (isIDP && !leagueHasIDP) return false;
+                    return hasValue || p.team;
                 })
                 .map(([pid, p]) => ({ pid, p, dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
                 .sort((a, b) => b.dhq - a.dhq);
@@ -78,7 +82,9 @@
         function handleDraftSort(key) { setDraftSort(prev => prev.key === key ? { ...prev, dir: prev.dir * -1 } : { key, dir: -1 }); }
 
         const sortedRookies = useMemo(() => {
-            return rookies.slice().sort((a, b) => {
+            let filtered = rookies.slice();
+            if (boardPosFilter) filtered = filtered.filter(r => normPos(r.p.position) === boardPosFilter);
+            return filtered.sort((a, b) => {
                 const dir = draftSort.dir;
                 const k = draftSort.key;
                 if (k === 'name') {
@@ -92,7 +98,7 @@
                 if (k === 'college') return dir * ((a.p.college || a.p.metadata?.college || '').localeCompare(b.p.college || b.p.metadata?.college || ''));
                 return 0;
             }).slice(0, 50);
-        }, [rookies, draftSort]);
+        }, [rookies, draftSort, boardPosFilter]);
 
         const draftGridCols = '24px 28px 1fr 36px 32px 54px 60px';
         const draftHeaderStyle = { fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' };
@@ -758,6 +764,14 @@
                                     </div>
                                 );
                             })}
+                        </div>
+
+                        {/* Position filter */}
+                        <div style={{ display: 'flex', gap: '4px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                            <button onClick={() => setBoardPosFilter('')} style={{ padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Oswald', borderRadius: '14px', cursor: 'pointer', border: '1px solid ' + (!boardPosFilter ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.08)'), background: !boardPosFilter ? 'rgba(212,175,55,0.12)' : 'transparent', color: !boardPosFilter ? 'var(--gold)' : 'var(--silver)' }}>All</button>
+                            {['QB','RB','WR','TE'].map(pos => (
+                                <button key={pos} onClick={() => setBoardPosFilter(boardPosFilter === pos ? '' : pos)} style={{ padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Oswald', borderRadius: '14px', cursor: 'pointer', border: '1px solid ' + (boardPosFilter === pos ? (posColors[pos] || '#666') + '55' : 'rgba(255,255,255,0.08)'), background: boardPosFilter === pos ? (posColors[pos] || '#666') + '18' : 'transparent', color: boardPosFilter === pos ? posColors[pos] : 'var(--silver)' }}>{pos}</button>
+                            ))}
                         </div>
 
                         {/* Sortable Rookie Board */}

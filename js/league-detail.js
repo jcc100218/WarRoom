@@ -877,14 +877,24 @@
                     const savedKey = localStorage.getItem('dynastyhq_' + savedProvider + '_key') || localStorage.getItem('dynastyhq_gemini_key') || localStorage.getItem('dynastyhq_anthropic_key') || '';
                     if (savedKey) { window.S.aiProvider = savedProvider; window.S.apiKey = savedKey; }
 
-                    // Bridge stats data
-                    Object.entries(stats).forEach(([pid, s]) => {
+                    // Bridge stats data — use prevStats (2025) as base, overlay current season
+                    Object.entries(prevStats).forEach(([pid, s]) => {
                         if (!window.S.playerStats[pid]) window.S.playerStats[pid] = {};
                         const pts = calcRawPts(s);
                         const gp = s.gp || 0;
                         window.S.playerStats[pid].prevTotal = pts ? Math.round(pts * 10) / 10 : 0;
                         window.S.playerStats[pid].prevAvg = gp > 0 ? Math.round(pts / gp * 10) / 10 : 0;
                         window.S.playerStats[pid].prevRawStats = s;
+                    });
+                    // Overlay current season stats if available
+                    Object.entries(stats).forEach(([pid, s]) => {
+                        if (!window.S.playerStats[pid]) window.S.playerStats[pid] = {};
+                        const pts = calcRawPts(s);
+                        const gp = s.gp || 0;
+                        if (gp > 0) {
+                            window.S.playerStats[pid].seasonTotal = pts ? Math.round(pts * 10) / 10 : 0;
+                            window.S.playerStats[pid].seasonAvg = Math.round(pts / gp * 10) / 10;
+                        }
                     });
                 }
 

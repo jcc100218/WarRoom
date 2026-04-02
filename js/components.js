@@ -252,13 +252,14 @@
             ));
         }
 
-        // NFL stats section
-        if (html) {
+        // NFL stats section — skip for rookies (no NFL production yet)
+        const isRookie = (player?.years_exp || 0) === 0;
+        if (html && !isRookie) {
             sections.push(React.createElement('div', { key: 'nfl' },
                 React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' } }, 'NFL Stats'),
                 React.createElement('div', { dangerouslySetInnerHTML: { __html: html }, style: { fontSize: '13px' } })
             ));
-        } else if (loading) {
+        } else if (loading && !isRookie) {
             sections.push(React.createElement('div', { key: 'loading', style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.5 } }, 'Loading stats...'));
         }
 

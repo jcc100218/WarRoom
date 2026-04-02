@@ -1912,30 +1912,62 @@
                       </div>
                     </div>
 
-                    {/* Health Rankings */}
-                    <div>
-                      <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '10px' }}>HEALTH RANKINGS</div>
-                      <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
-                        {ranked.map((t, i) => {
-                          const isMe = t.ownerId === sleeperUserId;
-                          return (
-                            <div key={t.rosterId} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: isMe ? 'rgba(212,175,55,0.04)' : 'transparent' }}>
-                              <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', width: '28px', textAlign: 'center' }}>{i + 1}</span>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: '0.84rem', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)' }}>{t.ownerName}{isMe ? ' (You)' : ''}</div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.7 }}>
-                                  {t.wins}-{t.losses} {'\u00B7'} {t.tier} {'\u00B7'} {t.needs?.length ? 'Needs: ' + t.needs.map(n => typeof n === 'string' ? n : n.pos).join(', ') : 'No major needs'}
+                    {/* Power Rankings — 3 views */}
+                    {(() => {
+                      const rp = currentLeague?.roster_positions || [];
+                      // Contender: by optimal PPG
+                      const contenderRanked = [...allAssessments].map(t => {
+                        const r = currentLeague.rosters?.find(r2 => r2.roster_id === t.rosterId);
+                        const ppg = typeof window.App?.calcOptimalPPG === 'function' ? window.App.calcOptimalPPG(r?.players || [], playersData, window.S?.playerStats || {}, rp) : 0;
+                        return { ...t, ppg };
+                      }).sort((a, b) => b.ppg - a.ppg);
+                      // Dynasty: by total DHQ
+                      const dynastyRanked = [...allAssessments].map(t => {
+                        const r = currentLeague.rosters?.find(r2 => r2.roster_id === t.rosterId);
+                        const totalDhq = (r?.players || []).reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
+                        return { ...t, totalDhq };
+                      }).sort((a, b) => b.totalDhq - a.totalDhq);
+
+                      const views = [
+                        { key: 'blended', label: 'Blended', data: ranked, valFn: t => t.healthScore, fmtFn: v => v, colFn: v => v >= 85 ? '#D4AF37' : v >= 72 ? '#2ECC71' : v >= 60 ? '#F0A500' : '#E74C3C', subFn: t => t.tier },
+                        { key: 'contender', label: 'Contender', data: contenderRanked, valFn: t => t.ppg, fmtFn: v => v > 0 ? v.toFixed(1) : '\u2014', colFn: (v, i) => i < 3 ? '#2ECC71' : i < 8 ? 'var(--silver)' : '#E74C3C', subFn: t => (t.ppg > 0 ? t.ppg.toFixed(1) + ' PPG' : '') },
+                        { key: 'dynasty', label: 'Dynasty', data: dynastyRanked, valFn: t => t.totalDhq, fmtFn: v => v > 0 ? (v/1000).toFixed(1)+'K' : '\u2014', colFn: (v, i) => i < 3 ? '#2ECC71' : i < 8 ? 'var(--silver)' : '#E74C3C', subFn: t => (t.totalDhq > 0 ? t.totalDhq.toLocaleString() + ' DHQ' : '') },
+                      ];
+                      const prView = window._wrPrView || 'blended';
+                      const view = views.find(v => v.key === prView) || views[0];
+
+                      return <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                          <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.06em' }}>POWER RANKINGS</div>
+                          <div style={{ display: 'flex', gap: '4px', marginLeft: 'auto' }}>
+                            {views.map(v => <button key={v.key} onClick={() => { window._wrPrView = v.key; setTimeRecomputeTs(Date.now()); }} style={{ padding: '3px 10px', fontSize: '0.68rem', fontFamily: 'Oswald', borderRadius: '4px', cursor: 'pointer', border: '1px solid ' + (prView === v.key ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'), background: prView === v.key ? 'rgba(212,175,55,0.12)' : 'transparent', color: prView === v.key ? 'var(--gold)' : 'var(--silver)' }}>{v.label}</button>)}
+                          </div>
+                        </div>
+                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
+                          {view.data.map((t, i) => {
+                            const isMe = t.ownerId === sleeperUserId;
+                            const val = view.valFn(t);
+                            const maxVal = view.valFn(view.data[0]) || 1;
+                            const pct = Math.min(100, Math.round((val / maxVal) * 100));
+                            return (
+                              <div key={t.rosterId} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: isMe ? 'rgba(212,175,55,0.04)' : 'transparent' }}>
+                                <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', width: '28px', textAlign: 'center' }}>{i + 1}</span>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: '0.84rem', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)' }}>{t.ownerName}{isMe ? ' (You)' : ''}</div>
+                                  <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.7 }}>
+                                    {t.wins}-{t.losses} {'\u00B7'} {t.tier} {'\u00B7'} {t.needs?.length ? 'Needs: ' + t.needs.map(n => typeof n === 'string' ? n : n.pos).join(', ') : 'No major needs'}
+                                  </div>
                                 </div>
+                                <div style={{ width: '100px', height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0 }}>
+                                  <div style={{ width: pct + '%', height: '100%', borderRadius: '4px', background: view.colFn(val, i) }}></div>
+                                </div>
+                                <span style={{ fontSize: '0.84rem', fontWeight: 700, fontFamily: 'Oswald', color: view.colFn(val, i), width: '46px', textAlign: 'right' }}>{view.fmtFn(val)}</span>
                               </div>
-                              <div style={{ width: '120px', height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0 }}>
-                                <div style={{ width: t.healthScore + '%', height: '100%', borderRadius: '4px', background: t.healthScore >= 85 ? '#D4AF37' : t.healthScore >= 70 ? '#2ECC71' : t.healthScore >= 55 ? '#F0A500' : '#E74C3C' }}></div>
-                              </div>
-                              <span style={{ fontSize: '0.84rem', fontWeight: 700, fontFamily: 'Oswald', color: tierColors[t.tier], width: '30px', textAlign: 'right' }}>{t.healthScore}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                            );
+                          })}
+                        </div>
+                      </div>;
+                    })()}
 
                     {/* Trade Targets (players on rebuilding/transitioning teams) */}
                     {tradeTargets.length > 0 && (

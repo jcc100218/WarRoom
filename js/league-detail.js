@@ -1377,9 +1377,10 @@
               }
               return m;
             });
-            // Route scout requests through trade-scout prompt for richer output
+            // Route requests to optimal prompt type
             const isScoutRequest = /^Scout\s/i.test(text.trim());
-            const aiType = isScoutRequest ? 'trade-scout' : 'home-chat';
+            const isRookieScout = /SEARCH FOR CURRENT INFO.*scouting report|Full dynasty scouting report/i.test(text.trim());
+            const aiType = isRookieScout ? 'rookie-scout' : isScoutRequest ? 'trade-scout' : 'home-chat';
             const reply = typeof dhqAI === 'function'
               ? await dhqAI(aiType, null, null, { messages })
               : typeof callClaude === 'function'

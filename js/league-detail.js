@@ -1772,7 +1772,7 @@
                     return { method: t.type === 'waiver' ? 'Waiver' : 'FA', date, cost: cost > 0 ? '$' + cost : '', season: '', week: 0 };
                 }
             }
-            // Check trades
+            // Check trades — search both LI trade history and raw transactions
             const trades = window.App?.LI?.tradeHistory || [];
             for (const t of trades) {
                 if (!t.sides) continue;
@@ -1781,6 +1781,13 @@
                     const season = t.season || '';
                     const week = t.week || '';
                     return { method: 'Traded', date: season + ' W' + week, cost: '', season, week };
+                }
+            }
+            // Fallback: check raw transaction data for trades
+            for (const t of txns) {
+                if (t.type === 'trade' && t.adds && t.adds[pid] === rosterId) {
+                    const date = t.created ? new Date(t.created * 1000).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '\u2014';
+                    return { method: 'Traded', date, cost: '', season: '', week: 0 };
                 }
             }
             // Check draft outcomes
@@ -2506,7 +2513,10 @@
           else if (rosterFilter === 'IDP') filtered = rows.filter(r => idpPos.has(r.pos));
 
           const posOrder = {QB:0,RB:1,WR:2,TE:3,K:4,DL:5,LB:6,DB:7};
+          const groupByPos = rosterFilter === 'Offense' || rosterFilter === 'IDP';
           return [...filtered].sort((a, b) => {
+            // When filtering by Offense/IDP, group by position first then sort within
+            if (groupByPos && a.pos !== b.pos) return (posOrder[a.pos]||99) - (posOrder[b.pos]||99);
             const {key, dir} = rosterSort;
             if (key === 'dhq') return (b.dhq - a.dhq) * dir;
             if (key === 'age') return ((a.age||99) - (b.age||99)) * dir;
@@ -2514,7 +2524,7 @@
             if (key === 'prev') return ((b.prevPPG||0) - (a.prevPPG||0)) * dir;
             if (key === 'trend') return ((b.trend||0) - (a.trend||0)) * dir;
             if (key === 'gp') return ((b.curGP||0) - (a.curGP||0)) * dir;
-            if (key === 'durability') return ((b.curGP||0) - (a.curGP||0)) * dir;
+            if (key === 'durability') return ((b.durabilityGP||0) - (a.durabilityGP||0)) * dir;
             if (key === 'name') { const na = getPlayerName(a.pid).toLowerCase(), nb = getPlayerName(b.pid).toLowerCase(); return (na < nb ? -1 : na > nb ? 1 : 0) * dir; }
             if (key === 'pos') return ((posOrder[a.pos]||99) - (posOrder[b.pos]||99)) * dir;
             if (key === 'peak') return ((b.peakYrsLeft||0) - (a.peakYrsLeft||0)) * dir;
@@ -2551,7 +2561,7 @@
             durability: { label: 'Durability — games played out of 17 (green=15+, amber=10-14, red=<10)', shortLabel: 'Dur', width: '40px', group: 'stats' },
             yrsExp:     { label: 'Years of Experience', shortLabel: 'Exp', width: '38px', group: 'dynasty' },
             college:    { label: 'College', shortLabel: 'College', width: '90px', group: 'scout' },
-            nflDraft:   { label: 'NFL Draft Round', shortLabel: 'Draft', width: '48px', group: 'scout' },
+            // nflDraft removed — Sleeper doesn't reliably provide draft capital data
             posRankLg:  { label: 'League Position Rank', shortLabel: 'Lg Rank', width: '54px', group: 'dynasty' },
             posRankNfl: { label: 'NFL Position Rank', shortLabel: 'NFL Rank', width: '56px', group: 'dynasty' },
             starterSzn: { label: 'Starter Seasons', shortLabel: 'Str Szn', width: '48px', group: 'dynasty' },
@@ -2605,6 +2615,8 @@
             // Effective PPG: use current season if available, else fallback to previous season
             const effectivePPG = curPPG > 0 ? curPPG : prevPPG;
             const effectiveGP = curGP > 0 ? curGP : prevGP;
+            // 2-year rolling average GP for durability (use meta.recentGP if available for longer history)
+            const durabilityGP = meta?.recentGP > 0 ? meta.recentGP : (curGP > 0 && prevGP > 0 ? Math.round((curGP + prevGP) / 2) : effectiveGP);
 
             const trend = meta?.trend || (prevPPG && curPPG ? Math.round((curPPG - prevPPG) / prevPPG * 100) : 0);
 
@@ -2623,7 +2635,7 @@
 
             const rec = peakYrsLeft <= 0 && trend <= -10 ? 'SELL NOW' : peakYrsLeft <= 0 ? 'SELL' : peakYrsLeft <= 2 && trend >= 15 ? 'SELL HIGH' : peakYrsLeft <= 2 ? 'SELL' : dhq >= 7000 && peakYrsLeft >= 3 ? 'HOLD CORE' : peakYrsLeft >= 4 && dhq < 4000 ? 'BUY LOW' : dhq >= 5000 ? 'HOLD' : 'BUY';
 
-            return { pid, p, pos, dhq, age, curPPG, prevPPG, effectivePPG, effectiveGP, prevGP, trend, isStarter, isIR, isTaxi, section, peakPhase, peakPct, peakYrsLeft, rec, curGP, meta, injury: p.injury_status };
+            return { pid, p, pos, dhq, age, curPPG, prevPPG, effectivePPG, effectiveGP, prevGP, durabilityGP, trend, isStarter, isIR, isTaxi, section, peakPhase, peakPct, peakYrsLeft, rec, curGP, meta, injury: p.injury_status };
           }).filter(Boolean);
 
           // Position-level PPG percentiles for color coding
@@ -2679,7 +2691,7 @@
                 </div>;
               }
               case 'gp': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', fontSize: '0.74rem' }}>{r.effectiveGP > 0 ? r.effectiveGP : '\u2014'}{r.curGP === 0 && r.prevGP > 0 ? '*' : ''}</span></div>;
-              case 'durability': { const gpForDur = r.effectiveGP || 0; return <div key={colKey} style={{...base}}><div style={{ width:'24px',height:'4px',borderRadius:'2px',background:'rgba(255,255,255,0.06)',overflow:'hidden' }}><div style={{ width:Math.min(100,(gpForDur/17)*100)+'%',height:'100%',background:gpForDur>=15?'#2ECC71':gpForDur>=10?'#F0A500':'#E74C3C',borderRadius:'2px' }}></div></div></div>; }
+              case 'durability': { const gpForDur = r.durabilityGP || 0; return <div key={colKey} style={{...base}} title={'Avg GP: ' + gpForDur + '/17'}><div style={{ width:'24px',height:'4px',borderRadius:'2px',background:'rgba(255,255,255,0.06)',overflow:'hidden' }}><div style={{ width:Math.min(100,(gpForDur/17)*100)+'%',height:'100%',background:gpForDur>=15?'#2ECC71':gpForDur>=10?'#F0A500':'#E74C3C',borderRadius:'2px' }}></div></div></div>; }
               case 'yrsExp': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)' }}>{r.p.years_exp ?? '\u2014'}</span></div>;
               case 'college': return <div key={colKey} style={{...base, justifyContent: 'flex-start'}}><span style={{ color: 'var(--silver)', fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.p.college || '\u2014'}</span></div>;
               case 'nflDraft': { const dr = r.p.draft_round; const dp = r.p.draft_pick; const dy = r.p.draft_year; const dRound = dr || (dp ? Math.ceil(dp / 32) : null); const draftLabel = dRound ? (dy ? "'" + String(dy).slice(2) + ' ' : '') + 'Rd ' + dRound + (dp ? '.' + ((dp - 1) % 32 + 1) : '') : (r.p.undrafted === true || (r.p.years_exp > 0 && !dp && !dr) ? 'UDFA' : '\u2014'); return <div key={colKey} style={{...base}}><span style={{ color: dRound ? 'var(--silver)' : 'rgba(255,255,255,0.3)', fontSize: '0.74rem' }}>{draftLabel}</span></div>; }

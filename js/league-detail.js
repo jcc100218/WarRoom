@@ -316,10 +316,12 @@
 
         // Default 5 KPIs — customizable per owner, saved in localStorage
         const KPI_OPTIONS = {
+            'contender-rank': { label: 'Contender Rank', icon: '', category: 'League', tip: 'Win-now rank based on optimal starting lineup PPG vs league. How competitive are you THIS season?' },
+            'dynasty-rank':   { label: 'Dynasty Rank', icon: '', category: 'League', tip: 'Long-term rank based on total roster DHQ value. How strong is your dynasty foundation?' },
             'starter-gap':    { label: 'Starter Gap', icon: '', category: 'Roster', tip: 'Difference between your optimal weekly PPG and league target (median x1.05)' },
             'portfolio':      { label: 'Portfolio DHQ', icon: '', category: 'Roster', tip: 'Sum of all DHQ values on your roster' },
             'value-rank':     { label: 'Value Rank', icon: '', category: 'League', tip: 'Where your total roster DHQ ranks in the league' },
-            'health-score':   { label: 'Health Score', icon: '', category: 'Roster', tip: '60% Scoring Power + 40% Position Coverage. 90+=Elite, 75+=Contender' },
+            'health-score':   { label: 'Health Score', icon: '', category: 'Roster', tip: 'Blended score: 60% scoring power (contender) + 40% position coverage (dynasty depth). 90+=Elite, 75+=Contender' },
             'avg-age':        { label: 'Avg Age', icon: '', category: 'Roster', tip: 'DHQ-weighted average age. Lower = longer dynasty window' },
             'top5-conc':      { label: 'Top 5 Concentration', icon: '', category: 'Roster', tip: '% of DHQ held by top 5 players. High = fragile roster' },
             'hit-rate':       { label: 'Draft Hit Rate', icon: '', category: 'Draft', tip: '% of drafted players who became fantasy starters' },
@@ -339,7 +341,7 @@
             'draft-roi':        { label: 'Draft ROI', icon: '', category: 'Draft', tip: 'Current DHQ of drafted players vs capital spent' },
             'roster-turnover':  { label: 'Roster Turnover', icon: '', category: 'Roster', tip: 'Trades completed this cycle' },
         };
-        const DEFAULT_KPIS = ['starter-gap', 'hit-rate', 'faab-efficiency', 'net-trade', 'window'];
+        const DEFAULT_KPIS = ['contender-rank', 'dynasty-rank', 'health-score', 'elite-count', 'window'];
         const [selectedKpis, setSelectedKpis] = useState(() => {
             try {
                 const saved = localStorage.getItem('wr_kpi_selection_' + (currentLeague?.id || ''));
@@ -360,6 +362,29 @@
             const myPlayers = myRoster?.players || [];
             const profile = LI.ownerProfiles?.[myRoster?.roster_id];
             switch(kpiKey) {
+                case 'contender-rank': {
+                    // PPG-based rank — how competitive are you right now?
+                    const league2 = currentLeague;
+                    const rp = league2?.roster_positions || [];
+                    const ppgRanks = (league2.rosters || []).map(r => {
+                        const ppg = typeof window.App?.calcOptimalPPG === 'function'
+                            ? window.App.calcOptimalPPG(r.players || [], playersData, window.S?.playerStats || {}, rp)
+                            : 0;
+                        return { rid: r.roster_id, ppg };
+                    }).sort((a, b) => b.ppg - a.ppg);
+                    const myPPG = ppgRanks.find(r => r.rid === myRoster?.roster_id)?.ppg || 0;
+                    const cRank = ppgRanks.findIndex(r => r.rid === myRoster?.roster_id) + 1;
+                    const allPPGs = ppgRanks.map(r => r.ppg).sort((a, b) => a - b);
+                    return { value: '#' + (cRank || '?') + '/' + standings.length, sub: myPPG > 0 ? myPPG.toFixed(1) + ' PPG' : 'Win-now rank', color: cRank <= 3 ? '#2ECC71' : cRank <= 6 ? 'var(--gold)' : '#E74C3C', sparkData: allPPGs };
+                }
+                case 'dynasty-rank': {
+                    // Total DHQ rank — long-term dynasty strength
+                    const dVals = (currentLeague.rosters || []).map(r => ({ rid: r.roster_id, total: (r.players || []).reduce((s, pid) => s + (scores[pid] || 0), 0) })).sort((a, b) => b.total - a.total);
+                    const myDTotal = dVals.find(r => r.rid === myRoster?.roster_id)?.total || 0;
+                    const dRank = dVals.findIndex(r => r.rid === myRoster?.roster_id) + 1;
+                    const allDVals = dVals.map(r => r.total).sort((a, b) => a - b);
+                    return { value: '#' + (dRank || '?') + '/' + standings.length, sub: myDTotal > 0 ? myDTotal.toLocaleString() + ' DHQ' : 'Dynasty rank', color: dRank <= 3 ? '#2ECC71' : dRank <= 6 ? 'var(--gold)' : '#E74C3C', sparkData: allDVals };
+                }
                 case 'portfolio': {
                     const total = myPlayers.reduce((s, pid) => s + (scores[pid] || 0), 0);
                     // Spark: all team totals for league comparison

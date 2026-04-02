@@ -52,8 +52,28 @@
         const timeModeLabel = isFutureYear ? 'Projection View' : isHistoricalYear ? 'Historical View' : 'Current Season';
         const timeModeColor = isFutureYear ? '#3498DB' : isHistoricalYear ? '#F0A500' : '#2ECC71';
         const timeDelta = timeYear - currentSeason; // positive = future, negative = past
+        // Build available years from the league's actual previous_league_id chain
+        const [leagueStartYear, setLeagueStartYear] = useState(currentSeason);
+        useEffect(() => {
+            let cancelled = false;
+            async function walkChain() {
+                let lid = currentLeague?.id;
+                let earliest = currentSeason;
+                for (let y = currentSeason - 1; y >= 2018 && lid; y--) {
+                    try {
+                        const info = await fetchLeagueInfo(lid);
+                        if (!info?.previous_league_id) break;
+                        lid = info.previous_league_id;
+                        earliest = y;
+                    } catch { break; }
+                }
+                if (!cancelled) setLeagueStartYear(earliest);
+            }
+            walkChain();
+            return () => { cancelled = true; };
+        }, [currentLeague?.id]);
         const timeYears = [];
-        for (let y = Math.max(2020, currentSeason - 5); y <= currentSeason + 2; y++) timeYears.push(y);
+        for (let y = leagueStartYear; y <= currentSeason + 2; y++) timeYears.push(y);
 
         // Persist time year
         useEffect(() => { try { localStorage.setItem('wr_time_year', String(timeYear)); } catch(e) {} }, [timeYear]);
@@ -3223,7 +3243,7 @@
                             }}></div>
                         </div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginTop: '6px', opacity: 0.6 }}>
-                            {dhqStatus.progress < 50 ? 'Analyzing 5 years of stats, drafts, and transactions. First time takes ~15 seconds, then it\'s cached.' :
+                            {dhqStatus.progress < 50 ? 'Analyzing league history, stats, drafts, and transactions. First load takes ~15 seconds, then it\'s cached.' :
                              dhqStatus.progress < 80 ? 'Scoring every player in your league\'s scoring system...' :
                              'Almost done — blending market data and computing trade values.'}
                         </div>

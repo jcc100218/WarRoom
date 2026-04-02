@@ -95,7 +95,7 @@
         // ── PROJECTION ENGINE: derive future player values from aging curves ──
         function projectPlayerValue(pid, baseDhq, baseAge, pos, delta, meta) {
             if (!baseDhq || baseDhq <= 0 || delta === 0) return baseDhq;
-            const peakWindows = window.App?.peakWindows || {QB:[24,34],RB:[22,27],WR:[22,30],TE:[23,30],DL:[23,29],LB:[23,28],DB:[23,29]};
+            const peakWindows = window.App?.peakWindows || {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]};
             const decayRates = window.App?.decayRates || {QB:0.08,RB:0.30,WR:0.18,TE:0.15,DL:0.18,LB:0.18,DB:0.17};
             const nPos = pos === 'DE' || pos === 'DT' ? 'DL' : pos === 'CB' || pos === 'S' ? 'DB' : pos === 'OLB' || pos === 'ILB' ? 'LB' : pos;
             const [pLo, pHi] = peakWindows[nPos] || [24, 29];
@@ -433,7 +433,7 @@
                     const pastPeak = myPlayers.reduce((s, pid) => {
                         const p = playersData[pid]; if (!p) return s;
                         const pos = p.position; const age = p.age || 26;
-                        const peaks = {QB:33,RB:26,WR:29,TE:30,DL:29,LB:28,DB:29};
+                        const peaks = {QB:39,RB:31,WR:33,TE:34,DL:33,LB:32,DB:34};
                         return age > (peaks[pos] || 29) ? s + (scores[pid] || 0) : s;
                     }, 0);
                     const pct = total > 0 ? Math.round(pastPeak / total * 100) : 0;
@@ -2465,7 +2465,7 @@
             const isTaxi = taxi.has(pid);
             const section = isStarter ? 'starter' : isIR ? 'ir' : isTaxi ? 'taxi' : 'bench';
 
-            const peaks = {QB:[27,33],RB:[22,26],WR:[24,29],TE:[25,30],DL:[24,29],LB:[23,28],DB:[24,29]};
+            const peaks = {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]};
             const [pLo, pHi] = peaks[pos] || [24,29];
             const peakRangeHi = Math.max(pHi + 4, age ? age + 1 : pHi + 4);
             const peakPct = age ? Math.max(0, Math.min(100, ((age - (pLo-4)) / (peakRangeHi - (pLo-4))) * 100)) : 50;
@@ -3065,7 +3065,7 @@
                 {filtered.map((r, idx) => {
                   const isExpanded = expandedPid === r.pid;
                   const contract = window.NFL_CONTRACTS?.[r.pid];
-                  const peaks = {QB:[27,33],RB:[22,26],WR:[24,29],TE:[25,30],DL:[24,29],LB:[23,28],DB:[24,29]};
+                  const peaks = {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]};
                   const [pLo, pHi] = peaks[r.pos] || [24,29];
 
                   return (

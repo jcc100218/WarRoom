@@ -45,7 +45,7 @@
         const dhq = window.App?.LI?.playerScores?.[pid] || 0;
         const meta = window.App?.LI?.playerMeta?.[pid] || {};
         const st = statsData?.[pid] || {};
-        const peaks = window.App?.peakWindows || {QB:[27,33],RB:[22,26],WR:[24,29],TE:[25,30],DL:[24,29],LB:[23,28],DB:[24,29]};
+        const peaks = window.App?.peakWindows || {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]};
         const nPos = ['DE','DT','NT'].includes(pos)?'DL':['CB','S','SS','FS'].includes(pos)?'DB':['OLB','ILB','MLB'].includes(pos)?'LB':pos;
         const [pLo, pHi] = peaks[nPos] || [24,29];
         const age = p.age || 0;
@@ -320,7 +320,7 @@
         if (!meta || !dhq) return null;
         const age = meta.age || 0;
         const pos = meta.pos || '';
-        const peaks = window.App?.peakWindows || {QB:[27,33],RB:[22,26],WR:[24,29],TE:[25,30],DL:[24,29],LB:[23,28],DB:[24,29]};
+        const peaks = window.App?.peakWindows || {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]};
         const [pLo, pHi] = peaks[pos] || [24,29];
         const peakYrsLeft = meta.peakYrsLeft || Math.max(0, pHi - age);
         const trend = meta.trend || 0;

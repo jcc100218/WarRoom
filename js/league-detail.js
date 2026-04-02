@@ -364,7 +364,7 @@
             'window':         { label: 'Compete Window', icon: '', category: 'Projection', tip: 'Estimated years your roster can compete based on age decay' },
             'aging-cliff':    { label: 'Aging Cliff %', icon: '', category: 'Projection', tip: '% of DHQ held by players past peak within 2 years' },
             'partner-wr':     { label: 'Partner Win Rate', icon: '', category: 'Trades', tip: '% of trades where you gained >15% more DHQ' },
-            'elite-count':    { label: 'Elite Players', icon: '', category: 'Roster', tip: 'Players with DHQ 7000+ (league-winning assets)' },
+            'elite-count':    { label: 'Elite Players', icon: '', category: 'Roster', tip: 'Players who rank top 5 at their position league-wide. These are your cornerstone assets.' },
             'bench-quality':  { label: 'Bench Quality', icon: '', category: 'Roster', tip: 'Average DHQ of non-starter roster players' },
             'championships':    { label: 'Championships Won', icon: '', category: 'History', tip: 'Total league championships from bracket data' },
             'playoff-record':   { label: 'Playoff Win-Loss', icon: '', category: 'History', tip: 'Career playoff wins and losses' },
@@ -503,8 +503,21 @@
                     return { value: (profile.tradesWon || 0) + '-' + (profile.tradesLost || 0), sub: 'Trade W-L', color: (profile.tradesWon || 0) > (profile.tradesLost || 0) ? '#2ECC71' : '#E74C3C' };
                 }
                 case 'elite-count': {
-                    const elites = myPlayers.filter(pid => (scores[pid] || 0) >= 7000).length;
-                    return { value: elites + ' elite' + (elites !== 1 ? 's' : ''), sub: 'Players above 7000 DHQ', color: elites >= 3 ? '#2ECC71' : elites >= 1 ? 'var(--gold)' : '#E74C3C' };
+                    // Elite = top 5 at their position league-wide
+                    const posRanks = {};
+                    (currentLeague.rosters || []).forEach(r => (r.players || []).forEach(pid => {
+                        const pos = playersData[pid]?.position;
+                        const nPos2 = pos === 'DE' || pos === 'DT' ? 'DL' : pos === 'CB' || pos === 'S' ? 'DB' : pos === 'OLB' || pos === 'ILB' ? 'LB' : pos;
+                        if (!posRanks[nPos2]) posRanks[nPos2] = [];
+                        posRanks[nPos2].push({ pid: String(pid), dhq: scores[pid] || 0 });
+                    }));
+                    Object.values(posRanks).forEach(arr => arr.sort((a, b) => b.dhq - a.dhq));
+                    const myPidSet = new Set(myPlayers.map(String));
+                    let elites = 0;
+                    Object.values(posRanks).forEach(arr => {
+                        arr.slice(0, 5).forEach(p => { if (myPidSet.has(p.pid)) elites++; });
+                    });
+                    return { value: elites + ' elite' + (elites !== 1 ? 's' : ''), sub: 'Top 5 at position', color: elites >= 3 ? '#2ECC71' : elites >= 1 ? 'var(--gold)' : '#E74C3C' };
                 }
                 case 'bench-quality': {
                     const starters = new Set(myRoster?.starters || []);
@@ -1865,7 +1878,7 @@
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: '0.84rem', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)' }}>{t.ownerName}{isMe ? ' (You)' : ''}</div>
                                 <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.7 }}>
-                                  {t.wins}-{t.losses} {'\u00B7'} {t.tier} {'\u00B7'} {t.needs?.length ? 'Needs: ' + t.needs.join(', ') : 'No major needs'}
+                                  {t.wins}-{t.losses} {'\u00B7'} {t.tier} {'\u00B7'} {t.needs?.length ? 'Needs: ' + t.needs.map(n => typeof n === 'string' ? n : n.pos).join(', ') : 'No major needs'}
                                 </div>
                               </div>
                               <div style={{ width: '120px', height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0 }}>
@@ -4113,7 +4126,26 @@
                                 {/* ── ROSTER DIAGNOSIS — Alex Ingram Slack-style ── */}
                                 <div style={{ marginBottom: '16px' }}>
                                     <GMMessage title="Roster Diagnosis">
-                                        {'Your roster' + (timeDelta ? ' (projected ' + timeYear + ')' : '') + ' is ' + Math.abs(ageDiffDiag).toFixed(1) + ' years ' + (ageDiffDiag > 0 ? 'older' : 'younger') + ' than champions (avg ' + w.avgAge.toFixed(1) + ' yrs). You have ' + (eliteDiffDiag >= 0 ? eliteDiffDiag.toFixed(1) + ' more' : Math.abs(eliteDiffDiag).toFixed(1) + ' fewer') + ' elite assets than winners. Total DHQ is ' + (dhqGap >= 0 ? '+' : '') + Math.round(dhqGap).toLocaleString() + ' vs champion avg. Bench quality: ' + numFmt(m.avgBenchQuality) + ' vs winner ' + numFmt(w.avgBenchQuality) + '. Strategy: ' + rosterStrategy + '.'}
+                                        {(() => {
+                                            const parts = [];
+                                            // Tier intro
+                                            if (tier === 'ELITE') parts.push('You\'re built to win right now.');
+                                            else if (tier === 'CONTENDER') parts.push('You\'re in the mix — a move or two away from a title push.');
+                                            else if (tier === 'CROSSROADS') parts.push('You\'re at a crossroads. Not bad enough to blow it up, not good enough to compete for the title.');
+                                            else parts.push('Rebuilding mode. The goal right now is accumulating assets, not winning weekly matchups.');
+                                            // Age comparison
+                                            if (Math.abs(ageDiffDiag) >= 1) {
+                                                parts.push(ageDiffDiag > 0 ? 'Your roster skews older than typical winners — keep an eye on your window.' : 'You\'re younger than most contenders, which gives you a longer runway.');
+                                            }
+                                            // Needs
+                                            if (needs.length >= 2) parts.push('Your biggest gaps are at ' + needs.slice(0, 2).map(n => typeof n === 'string' ? n : n.pos).join(' and ') + '.');
+                                            else if (needs.length === 1) parts.push('Your main weakness is ' + (typeof needs[0] === 'string' ? needs[0] : needs[0].pos) + '.');
+                                            // Strategy
+                                            if (tier === 'ELITE' || tier === 'CONTENDER') parts.push('Protect your core and make surgical upgrades at weak spots.');
+                                            else if (tier === 'CROSSROADS') parts.push('Either commit to competing by filling gaps, or pivot to a rebuild and sell aging assets for picks.');
+                                            else parts.push('Target young players and draft capital. Sell veterans who won\'t be around for your next competitive window.');
+                                            return parts.join(' ');
+                                        })()}
                                         {React.createElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
                                             React.createElement('button', { onClick: () => setActiveTab('trades'), style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'Find Trade Targets'),
                                             React.createElement('button', { onClick: () => setActiveTab('fa'), style: { padding: '6px 14px', background: 'rgba(212,175,55,0.12)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'View Free Agents')

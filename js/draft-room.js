@@ -369,11 +369,14 @@
                         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px', overflow: 'hidden', maxHeight: '600px', overflowY: 'auto' }}>
                             {/* Header */}
                             <div style={{ display: 'flex', height: '32px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.68rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1 }}>
-                                <div style={{ width: '28px', flexShrink: 0, textAlign: 'center' }}>#</div>
-                                <div style={{ flex: 1, padding: '0 6px' }}>Player</div>
-                                <div style={{ width: '36px', flexShrink: 0, textAlign: 'center' }}>Pos</div>
-                                <div style={{ width: '50px', flexShrink: 0, textAlign: 'right', paddingRight: '8px' }}>DHQ</div>
-                                {!isDhq && <div style={{ width: '36px', flexShrink: 0 }}></div>}
+                                <div style={{ width: '24px', flexShrink: 0, textAlign: 'center' }}>#</div>
+                                <div style={{ flex: 1, padding: '0 4px', minWidth: 0 }}>Player</div>
+                                <div style={{ width: '30px', flexShrink: 0, textAlign: 'center' }}>Pos</div>
+                                <div style={{ width: '28px', flexShrink: 0, textAlign: 'center' }}>Age</div>
+                                <div style={{ width: '46px', flexShrink: 0, textAlign: 'right' }}>DHQ</div>
+                                <div style={{ width: '60px', flexShrink: 0, padding: '0 4px', overflow: 'hidden' }}>School</div>
+                                <div style={{ width: '20px', flexShrink: 0 }}></div>
+                                {!isDhq && <div style={{ width: '28px', flexShrink: 0 }}></div>}
                             </div>
                             {players.map((r, idx) => {
                                 const pos = normPos(r.p.position) || r.p.position;
@@ -381,6 +384,8 @@
                                 const isDrafted = draftedPids.has(r.pid);
                                 const tag = boardTags[r.pid];
                                 const isExp = expandedDraftPid === r.pid;
+                                const age = r.p.age || (r.p.birth_date ? Math.floor((Date.now() - new Date(r.p.birth_date).getTime()) / 31557600000) : null);
+                                const college = r.p.college || r.p.metadata?.college || '';
                                 return (
                                     <React.Fragment key={r.pid}>
                                     <div
@@ -389,29 +394,35 @@
                                         onDragOver={!isDhq ? handleDragOver : undefined}
                                         onDrop={!isDhq ? () => handleDrop(r.pid) : undefined}
                                         onClick={() => setExpandedDraftPid(prev => prev === r.pid ? null : r.pid)}
-                                        style={{ display: 'flex', alignItems: 'center', height: '36px', opacity: isDrafted ? 0.3 : 1, borderBottom: isExp ? 'none' : '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', background: isExp ? 'rgba(212,175,55,0.06)' : idx % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent', transition: 'background 0.1s' }}
+                                        style={{ display: 'flex', alignItems: 'center', height: '34px', opacity: isDrafted ? 0.3 : 1, borderBottom: isExp ? 'none' : '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', background: isExp ? 'rgba(212,175,55,0.06)' : idx % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent', transition: 'background 0.1s', position: 'relative' }}
                                         onMouseEnter={e => { if (!isExp) e.currentTarget.style.background = 'rgba(212,175,55,0.04)'; }}
                                         onMouseLeave={e => { if (!isExp) e.currentTarget.style.background = isExp ? 'rgba(212,175,55,0.06)' : idx % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent'; }}>
-                                        <div style={{ width: '28px', flexShrink: 0, textAlign: 'center', fontFamily: 'Oswald', fontSize: '0.72rem', color: idx < 3 ? 'var(--gold)' : 'var(--silver)' }}>{idx + 1}</div>
-                                        <div style={{ width: '22px', height: '22px', flexShrink: 0, marginRight: '6px' }}>
-                                            <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
+                                        <div style={{ width: '24px', flexShrink: 0, textAlign: 'center', fontFamily: 'Oswald', fontSize: '0.7rem', color: idx < 3 ? 'var(--gold)' : 'var(--silver)' }}>{idx + 1}</div>
+                                        <div style={{ width: '20px', height: '20px', flexShrink: 0, marginRight: '4px' }}>
+                                            <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
                                         </div>
                                         <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
-                                            <div style={{ fontWeight: 600, fontSize: '0.76rem', color: 'var(--white)', textDecoration: isDrafted ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pName(r.p)}</div>
+                                            <div style={{ fontWeight: 600, fontSize: '0.74rem', color: 'var(--white)', textDecoration: isDrafted ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pName(r.p)}</div>
                                         </div>
-                                        <div style={{ width: '36px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
-                                            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)', padding: '1px 5px', background: (posColors[pos] || '#666') + '22', borderRadius: '3px' }}>{pos}</span>
+                                        <div style={{ width: '30px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                                            <span style={{ fontSize: '0.6rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)', padding: '1px 4px', background: (posColors[pos] || '#666') + '22', borderRadius: '3px' }}>{pos}</span>
                                         </div>
-                                        <div style={{ width: '50px', flexShrink: 0, textAlign: 'right', paddingRight: '8px', fontFamily: 'Oswald', fontWeight: 700, fontSize: '0.72rem', color: dhqC }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</div>
+                                        <div style={{ width: '28px', flexShrink: 0, textAlign: 'center', fontSize: '0.7rem', color: 'var(--silver)' }}>{age || '\u2014'}</div>
+                                        <div style={{ width: '46px', flexShrink: 0, textAlign: 'right', fontFamily: 'Oswald', fontWeight: 700, fontSize: '0.7rem', color: dhqC }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</div>
+                                        <div style={{ width: '60px', flexShrink: 0, padding: '0 4px', overflow: 'hidden' }}>
+                                            <div style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{college || '\u2014'}</div>
+                                        </div>
+                                        <div style={{ width: '20px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                                            {tag ? <span style={{ fontSize: '0.7rem', color: tagDefs[tag].color }} title={tagDefs[tag].label}>{tagDefs[tag].icon}</span> : null}
+                                        </div>
                                         {!isDhq && (
-                                            <div style={{ width: '36px', flexShrink: 0, display: 'flex', gap: '2px', justifyContent: 'center' }}>
+                                            <div style={{ width: '28px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
                                                 <button onClick={e => { e.stopPropagation(); setDraftedPids(prev => { const n = new Set(prev); if (n.has(r.pid)) n.delete(r.pid); else n.add(r.pid); return n; }); }}
                                                     style={{ fontSize: '0.56rem', padding: '1px 4px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', cursor: 'pointer', background: isDrafted ? 'rgba(231,76,60,0.15)' : 'rgba(255,255,255,0.04)', color: isDrafted ? '#E74C3C' : 'var(--silver)', fontFamily: 'Oswald' }}>
                                                     {isDrafted ? '\u21A9' : 'X'}
                                                 </button>
                                             </div>
                                         )}
-                                        {tag && <div style={{ position: 'absolute', right: isDhq ? '8px' : '44px', fontSize: '0.6rem', color: tagDefs[tag].color }}>{tagDefs[tag].icon}</div>}
                                     </div>
                                     </React.Fragment>
                                 );

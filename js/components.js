@@ -67,7 +67,9 @@
         }
         const ppg = ppgRaw > 0 ? +ppgRaw.toFixed(1) : (meta.ppg || 0);
         const trend = meta.trend || 0;
-        const rec = peakYrs <= 0 && trend <= -10 ? 'SELL NOW' : peakYrs <= 0 ? 'SELL' : peakYrs <= 2 && trend >= 15 ? 'SELL HIGH' : peakYrs <= 2 ? 'SELL' : dhq >= 7000 && peakYrs >= 3 ? 'HOLD CORE' : peakYrs >= 4 && dhq < 4000 ? 'BUY LOW' : 'HOLD';
+        // Use shared getPlayerAction if available (ownership-aware)
+        const pa = typeof window.getPlayerAction === 'function' ? window.getPlayerAction(pid) : null;
+        const rec = pa ? pa.label.toUpperCase() : (peakYrs <= 0 && trend <= -10 ? 'SELL NOW' : peakYrs <= 0 ? 'SELL' : peakYrs <= 2 ? 'SELL' : dhq >= 7000 && peakYrs >= 3 ? 'HOLD CORE' : 'HOLD');
         const recCol = rec.includes('SELL') ? '#E74C3C' : rec.includes('BUY') ? '#2ECC71' : '#D4AF37';
         const initials = ((p.first_name||'?')[0] + (p.last_name||'?')[0]).toUpperCase();
 

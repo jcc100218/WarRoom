@@ -818,6 +818,43 @@
     /* ── Timeline vertical line ───────────────────────────── */
     .wr-timeline-line{border-left:2px solid rgba(212,175,55,0.3);padding-left:16px;margin-left:8px}
     .wr-timeline-node{width:10px;height:10px;border-radius:50%;background:#D4AF37;box-shadow:0 0 6px rgba(212,175,55,0.4);position:absolute;left:-6px;top:8px}
+
+    /* Roster row action indicators */
+    .wr-row-sell{background:rgba(231,76,60,0.03) !important;border-left:3px solid rgba(231,76,60,0.4)}
+    .wr-row-sell-high{background:rgba(251,191,36,0.03) !important;border-left:3px solid rgba(251,191,36,0.4)}
+    .wr-row-buy{background:rgba(46,204,113,0.03) !important;border-left:3px solid rgba(46,204,113,0.4)}
+    .wr-row-core{background:rgba(212,175,55,0.03) !important;border-left:3px solid rgba(212,175,55,0.4)}
+    .wr-row-sell:hover,.wr-row-sell-high:hover,.wr-row-buy:hover,.wr-row-core:hover{filter:brightness(1.3)}
+
+    /* Player headshot status ring */
+    .wr-ring{border-radius:50%;padding:2px}
+    .wr-ring-prime{box-shadow:0 0 0 2px #2ECC71}
+    .wr-ring-pre{box-shadow:0 0 0 2px #3498DB}
+    .wr-ring-post{box-shadow:0 0 0 2px #F0A500}
+    .wr-ring-decline{box-shadow:0 0 0 2px #E74C3C}
+    .wr-ring-starter{animation:wrStarterPulse 2s ease infinite}
+    @keyframes wrStarterPulse{0%,100%{box-shadow:0 0 0 2px #D4AF37}50%{box-shadow:0 0 0 4px rgba(212,175,55,0.3)}}
+
+    /* Mini trend sparkline bars */
+    .wr-spark{display:flex;align-items:flex-end;gap:1px;height:16px}
+    .wr-spark-bar{width:3px;border-radius:1px;transition:height .3s}
+
+    /* Untouchable player shield */
+    .wr-untouchable{position:relative}
+    .wr-untouchable::after{content:'\uD83D\uDEE1';position:absolute;top:2px;right:2px;font-size:0.6rem;opacity:0.6}
+
+    /* DHQ power gauge (segmented battery) */
+    .wr-gauge{display:flex;gap:1px;height:6px}
+    .wr-gauge-seg{flex:1;border-radius:1px;background:rgba(255,255,255,0.06)}
+    .wr-gauge-seg.filled{background:var(--gold)}
+    .wr-gauge-seg.filled-green{background:#2ECC71}
+    .wr-gauge-seg.filled-red{background:#E74C3C}
+
+    /* Delta styling */
+    .wr-delta-pos{color:#D4AF37;font-weight:700}
+    .wr-delta-pos::before{content:'\\2713 ';font-size:0.7rem}
+    .wr-delta-neg{color:#E74C3C;font-weight:700}
+    .wr-delta-neg::before{content:'\\0021 ';font-size:0.7rem}
 </style>
 
 </head>

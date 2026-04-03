@@ -2674,7 +2674,19 @@
               case 'dhq': return <div key={colKey} style={{...base, background: dhqBg(r.dhq)}}><span style={{ color: dhqCol(r.dhq), fontWeight: 700, fontFamily: 'Oswald', fontSize: '0.82rem' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span></div>;
               case 'ppg': return <div key={colKey} style={{...base, background: ppgBg(r.effectivePPG, r.pos)}}><span style={{ color: r.effectivePPG >= (posP75[r.pos]||10) ? '#2ECC71' : 'var(--silver)' }}>{r.effectivePPG > 0 ? r.effectivePPG : '\u2014'}{r.curPPG === 0 && r.prevPPG > 0 ? '*' : ''}</span></div>;
               case 'prev': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', opacity: 0.6 }}>{r.prevPPG > 0 ? r.prevPPG : '\u2014'}</span></div>;
-              case 'trend': return <div key={colKey} style={{...base, background: trendBg(r.trend)}}><span style={{ color: r.trend>=15?'#2ECC71':r.trend<=-15?'#E74C3C':'var(--silver)', fontWeight: 600, fontSize: '0.74rem' }}>{r.trend>0?'+'+r.trend+'%':r.trend<0?r.trend+'%':'\u2014'}</span></div>;
+              case 'trend': {
+                const trendBars = (() => {
+                  const t = r.trend || 0;
+                  const up = t > 0;
+                  const color = t >= 15 ? '#2ECC71' : t <= -15 ? '#E74C3C' : 'var(--silver)';
+                  const heights = up ? [4, 6, 8, 11, 14] : t < 0 ? [14, 11, 8, 6, 4] : [8, 9, 10, 9, 8];
+                  return React.createElement('div', { className: 'wr-spark' }, ...heights.map((h, i) => React.createElement('div', { key: i, className: 'wr-spark-bar', style: { height: h + 'px', background: color } })));
+                })();
+                return <div key={colKey} style={{...base, background: trendBg(r.trend), flexDirection: 'column', gap: '1px'}}>
+                  <span style={{ color: r.trend>=15?'#2ECC71':r.trend<=-15?'#E74C3C':'var(--silver)', fontWeight: 600, fontSize: '0.74rem' }}>{r.trend>0?'+'+r.trend+'%':r.trend<0?r.trend+'%':'\u2014'}</span>
+                  {trendBars}
+                </div>;
+              }
               case 'peak': return <div key={colKey} style={{...base, flexDirection: 'column', gap: '1px'}}>
                 <span style={{ fontSize: '0.76rem', fontWeight: 700, color: r.peakPhase==='PRIME'?'#2ECC71':r.peakPhase==='PRE'?'#3498DB':'#E74C3C' }}>{r.peakPhase}</span>
                 <div style={{ width: '30px', height: '3px', borderRadius: '1px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', position: 'relative' }}>
@@ -3237,16 +3249,28 @@
                   const peaks = {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]};
                   const [pLo, pHi] = peaks[r.pos] || [24,29];
 
+                  const actionClass = r.rec === 'SELL' || r.rec === 'Sell' ? 'wr-row-sell' :
+                    r.rec === 'SELL HIGH' || r.rec === 'Sell High' ? 'wr-row-sell-high' :
+                    r.rec === 'BUY' || r.rec === 'Buy' || r.rec === 'BUY LOW' || r.rec === 'Buy Low' ? 'wr-row-buy' :
+                    r.rec === 'CORE' || r.rec === 'Build Around' ? 'wr-row-core' : '';
+                  const ringClass = r.peakPhase === 'PRIME' || r.peakPhase === 'prime' || r.peakPhase === 'Peak' ? 'wr-ring wr-ring-prime' :
+                    r.peakPhase === 'PRE' || r.peakPhase === 'pre' || r.peakPhase === 'Rising' ? 'wr-ring wr-ring-pre' :
+                    r.peakPhase === 'POST' || r.peakPhase === 'post' || r.peakPhase === 'Veteran' ? 'wr-ring wr-ring-post' :
+                    r.peakPhase === 'Declining' ? 'wr-ring wr-ring-decline' : '';
+                  const starterRing = r.isStarter ? ' wr-ring-starter' : '';
+                  const untouchables = (window._wrGmStrategy?.untouchable || []);
+                  const isUntouchable = untouchables.includes(r.pid);
+
                   return (
                     <React.Fragment key={r.pid}>
                       {/* Normal row */}
-                      <div style={{ display: 'flex', borderBottom: isExpanded ? 'none' : '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', background: isExpanded ? 'rgba(212,175,55,0.06)' : idx % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent', transition: 'background 0.1s' }}
+                      <div className={[actionClass, isUntouchable ? 'wr-untouchable' : ''].filter(Boolean).join(' ')} style={{ display: 'flex', borderBottom: isExpanded ? 'none' : '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', background: isExpanded ? 'rgba(212,175,55,0.06)' : idx % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent', transition: 'background 0.1s' }}
                         onClick={() => setExpandedPid(prev => prev === r.pid ? null : r.pid)}
                         onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'rgba(212,175,55,0.06)'; }}
                         onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = idx % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent'; }}>
                         {/* Frozen player info */}
                         <div style={{ width: '220px', flexShrink: 0, height: '42px', display: 'flex', alignItems: 'center', gap: '8px', padding: '0 6px', borderRight: '2px solid rgba(212,175,55,0.15)', borderLeft: '3px solid ' + statusCol(r.section) }}>
-                          <div style={{ width: '26px', height: '26px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+r.pid+'.jpg'} alt="" onError={e=>e.target.style.display='none'} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} /></div>
+                          <div className={ringClass + starterRing} style={{ width: '26px', height: '26px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+r.pid+'.jpg'} alt="" onError={e=>e.target.style.display='none'} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} /></div>
                           <div style={{ overflow: 'hidden', flex: 1 }}>
                             <div style={{ fontWeight: 600, color: 'var(--white)', fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getPlayerName(r.pid)}</div>
                             <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.65 }}>{r.p.team || 'FA'}{r.injury ? ' \u00B7 '+r.injury : ''}</div>
@@ -3289,19 +3313,25 @@
 
                           {/* Stat boxes grid — Madden style */}
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '6px', marginBottom: '14px' }}>
-                            {[
-                              { label: 'DHQ', val: r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014', col: dhqCol(r.dhq) },
-                              { label: 'PPG', val: r.effectivePPG || '\u2014', col: r.effectivePPG >= (posP75[r.pos]||10) ? '#2ECC71' : '#f0f0f3' },
-                              { label: 'PREV PPG', val: r.prevPPG || '\u2014', col: 'var(--silver)' },
-                              { label: 'GP', val: r.effectiveGP || '\u2014', col: r.effectiveGP >= 14 ? '#2ECC71' : r.effectiveGP >= 10 ? 'var(--silver)' : '#E74C3C' },
-                              { label: 'TREND', val: r.trend ? (r.trend > 0 ? '+' : '') + r.trend + '%' : '\u2014', col: r.trend >= 15 ? '#2ECC71' : r.trend <= -15 ? '#E74C3C' : 'var(--silver)' },
-                              { label: 'PEAK', val: r.peakPhase, col: r.peakPhase === 'PRE' ? '#2ECC71' : r.peakPhase === 'PRIME' ? 'var(--gold)' : '#E74C3C' },
-                            ].map((s, i) => (
-                              <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 6px', textAlign: 'center' }}>
-                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: s.col, letterSpacing: '-0.02em' }}>{s.val}</div>
-                                <div style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px' }}>{s.label}</div>
-                              </div>
-                            ))}
+                            {(() => {
+                              const dhqPct = Math.min(100, Math.round((r.dhq / 10000) * 100));
+                              const dhqFilled = Math.round(dhqPct / 10);
+                              const dhqColor = r.dhq >= 7000 ? 'filled-green' : r.dhq >= 4000 ? 'filled' : 'filled-red';
+                              return [
+                                { label: 'DHQ', val: r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014', col: dhqCol(r.dhq), gauge: true },
+                                { label: 'PPG', val: r.effectivePPG || '\u2014', col: r.effectivePPG >= (posP75[r.pos]||10) ? '#2ECC71' : '#f0f0f3' },
+                                { label: 'PREV PPG', val: r.prevPPG || '\u2014', col: 'var(--silver)' },
+                                { label: 'GP', val: r.effectiveGP || '\u2014', col: r.effectiveGP >= 14 ? '#2ECC71' : r.effectiveGP >= 10 ? 'var(--silver)' : '#E74C3C' },
+                                { label: 'TREND', val: r.trend ? (r.trend > 0 ? '+' : '') + r.trend + '%' : '\u2014', col: r.trend >= 15 ? '#2ECC71' : r.trend <= -15 ? '#E74C3C' : 'var(--silver)' },
+                                { label: 'PEAK', val: r.peakPhase, col: r.peakPhase === 'PRE' ? '#2ECC71' : r.peakPhase === 'PRIME' ? 'var(--gold)' : '#E74C3C' },
+                              ].map((s, i) => (
+                                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 6px', textAlign: 'center' }}>
+                                  <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: s.col, letterSpacing: '-0.02em' }}>{s.val}</div>
+                                  {s.gauge && <div className="wr-gauge" style={{ marginTop: '3px' }}>{Array.from({length: 10}, (_, gi) => <div key={gi} className={'wr-gauge-seg' + (gi < dhqFilled ? ' ' + dhqColor : '')}></div>)}</div>}
+                                  <div style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px' }}>{s.label}</div>
+                                </div>
+                              ));
+                            })()}
                           </div>
 
                           {/* Physical + Draft Profile */}

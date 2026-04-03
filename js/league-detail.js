@@ -1856,7 +1856,7 @@
               <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '2px' }}>LEAGUE MAP</div>
               <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' }}>Every team, asset, and competitive position in your league</div>
               <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-                <button onClick={() => setLeagueSubView('command')} style={sortBtnStyle(leagueSubView === 'command')}>Command</button>
+                <button onClick={() => setLeagueSubView('command')} style={sortBtnStyle(leagueSubView === 'command')}>Flash Brief</button>
                 <button onClick={() => setLeagueSubView('teams')} style={sortBtnStyle(leagueSubView === 'teams')}>Teams</button>
                 <button onClick={() => setLeagueSubView('players')} style={sortBtnStyle(leagueSubView === 'players')}>All Players</button>
                 <button onClick={() => setLeagueSubView('picks')} style={sortBtnStyle(leagueSubView === 'picks')}>Draft Picks</button>
@@ -3677,7 +3677,7 @@
                                 color: viewMode === m ? 'var(--black)' : 'var(--silver)',
                                 border: 'none', fontWeight: viewMode === m ? 700 : 400,
                                 transition: 'all 0.15s'
-                            }}>{m}</button>
+                            }}>{m === 'command' ? 'flash brief' : m}</button>
                         )}
                     </div>
                     {/* Time mode badge */}
@@ -3745,7 +3745,7 @@
                         const val = computeKpiValue(kpiKey);
                         const isEditing = editingKpi === idx;
                         return (
-                            <div key={kpiKey + idx} style={{
+                            <div key={kpiKey + idx} className="wr-brackets wr-brackets-bottom" style={{
                                 ...kpiCardStyle, position: 'relative', cursor: 'default',
                                 border: isEditing ? '1px solid var(--gold)' : kpiCardStyle.border
                             }}>
@@ -3851,7 +3851,7 @@
                     const sevColor = (sev) => sev === 'high' || sev === 'critical' ? badColor : sev === 'medium' ? warnColor : goodColor;
                     const pctFmt = (v) => Math.round((v || 0) * 100) + '%';
                     const numFmt = (v) => v != null ? (typeof v === 'number' ? v.toLocaleString() : v) : '\u2014';
-                    // ── COMMAND VIEW: decision briefing ──
+                    // ── FLASH BRIEF: decision briefing ──
                     if (isCommand) {
                         const d = analyticsData;
                         const scores = window.App?.LI?.playerScores || {};
@@ -3900,10 +3900,10 @@
 
                         return (
                             <div style={{ padding: '24px 32px', maxWidth: '1000px', margin: '0 auto' }} className="wr-fade-in">
-                                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '20px' }}>LEAGUE COMMAND</div>
+                                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '20px' }}>FLASH BRIEF</div>
 
                                 {/* Team Diagnosis */}
-                                <div style={{ ...aCardStyle, borderLeft: '4px solid var(--gold)', padding: '20px 24px', marginBottom: '20px' }}>
+                                <div className="wr-scanline" style={{ ...aCardStyle, borderLeft: '4px solid var(--gold)', padding: '20px 24px', marginBottom: '20px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
                                         <div style={{ fontFamily: 'Bebas Neue', fontSize: '2.8rem', color: myRank <= 3 ? goodColor : myRank <= 6 ? warnColor : badColor, lineHeight: 1 }}>#{myRank || '?'}</div>
                                         <div>
@@ -4232,7 +4232,7 @@
                             return (
                             <React.Fragment>
                                 {/* ── ROSTER DIAGNOSIS — Alex Ingram Slack-style ── */}
-                                <div style={{ marginBottom: '16px' }}>
+                                <div style={{ marginBottom: '16px' }} className="wr-scanline">
                                     <GMMessage title="Roster Diagnosis">
                                         {(() => {
                                             const parts = [];
@@ -4387,7 +4387,7 @@
                                         const tierUpper = (team.tier || '').toUpperCase();
                                         const tierBg = tierUpper === 'ELITE' ? '#D4AF37' : tierUpper === 'CONTENDER' ? goodColor : tierUpper === 'CROSSROADS' ? warnColor : tierUpper === 'REBUILDING' ? badColor : 'var(--silver)';
                                         return (
-                                        <div key={team.rosterId} style={{
+                                        <div key={team.rosterId} className={team.isMe ? 'wr-my-row' : undefined} style={{
                                             display: 'grid', gridTemplateColumns: '36px 1.4fr 0.7fr 80px 0.9fr 0.7fr', gap: '8px', padding: '8px 0',
                                             borderBottom: '1px solid rgba(255,255,255,0.04)',
                                             background: team.isMe ? 'rgba(212,175,55,0.06)' : 'transparent',
@@ -4531,7 +4531,7 @@
                             return (
                             <React.Fragment>
                                 {/* ── DRAFT STRATEGY SUMMARY ── */}
-                                <div style={{ marginBottom: '16px' }}>
+                                <div style={{ marginBottom: '16px' }} className="wr-scanline">
                                     <GMMessage title="Draft Intelligence">
                                         {!dr.winnerHitRate || Object.keys(dr.winnerHitRate).length === 0
                                             ? 'Your upcoming draft picks and league draft intelligence. Target exciting prospects that fit your roster needs.'
@@ -4664,7 +4664,7 @@
                             return (
                             <React.Fragment>
                                 {/* ── WAIVER STRATEGY SUMMARY ── */}
-                                <div style={{ marginBottom: '16px' }}>
+                                <div style={{ marginBottom: '16px' }} className="wr-scanline">
                                     <GMMessage title="Waiver Intelligence">
                                         {winnerEarlyPct === 0 && myEarlyPct === 0
                                             ? 'No significant FAAB activity yet this season. Monitor early-season pickups closely \u2014 winners typically front-load spending on high-upside ' + (underSpendPos[0] || 'RB/WR') + ' to build early advantages.'
@@ -4803,7 +4803,7 @@
                             return (
                             <React.Fragment>
                                 {/* ── TRADE STRATEGY SUMMARY ── */}
-                                <div style={{ marginBottom: '16px' }}>
+                                <div style={{ marginBottom: '16px' }} className="wr-scanline">
                                     <GMMessage title="Trade Intelligence">
                                         {tradeSummaryText}
                                         {React.createElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
@@ -4980,7 +4980,7 @@
                             return (
                             <React.Fragment>
                                 {/* ── FUTURE OUTLOOK SUMMARY ── */}
-                                <div style={{ marginBottom: '16px' }}>
+                                <div style={{ marginBottom: '16px' }} className="wr-scanline">
                                     <GMMessage title="Future Outlook">
                                         {'Your roster is ' + outlook + '. Competitive window: ' + (windowYears > 0 ? windowYears + ' year' + (windowYears > 1 ? 's' : '') : 'closed') + '. ' + atRiskPct + '% of your DHQ is past peak in 2 years' + (atRiskPlayers.length > 0 ? ' (' + atRiskPlayers.slice(0, 3).map(p => p.name).join(', ') + ')' : '') + '. Strategy: ' + projStrategy + '.'}
                                         {React.createElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
@@ -5120,7 +5120,7 @@
                             return (
                             <React.Fragment>
                                 {/* ── PLAYOFF PROFILE SUMMARY ── */}
-                                <div style={{ marginBottom: '16px' }}>
+                                <div style={{ marginBottom: '16px' }} className="wr-scanline">
                                     <GMMessage title="Playoff Profile">
                                         {playoffDiag + playoffInsight}
                                     </GMMessage>
@@ -5336,7 +5336,7 @@
                             return (
                                 <React.Fragment>
                                 {/* ── LEAGUE NARRATIVE SUMMARY ── */}
-                                <div style={{ marginBottom: '16px' }}>
+                                <div style={{ marginBottom: '16px' }} className="wr-scanline">
                                     <GMMessage title="League Narrative">
                                         {'League dominated by ' + dominantTeam + ' with ' + dominantTitles + ' title' + (dominantTitles > 1 ? 's' : '') + '.' + (repeatWinners.length > 0 ? ' Repeat winners: ' + repeatWinners.join(', ') + '.' : ' No repeat champions yet \u2014 wide-open league.') + ' Your trajectory: ' + myTrajectory + (myChampsTL > 0 ? ' (' + myChampsTL + ' title' + (myChampsTL > 1 ? 's' : '') + ')' : '') + '. Next likely champion candidates: ' + nextChampCandidates + '.'}
                                     </GMMessage>

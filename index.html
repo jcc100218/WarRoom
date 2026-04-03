@@ -778,6 +778,46 @@
 
     /* ── Annotation callout ──────────────────────────────── */
     .wr-annotation { font-size:0.72rem;font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:0.02em;padding:3px 8px;border-radius:4px;border-left:2px solid var(--gold);background:rgba(212,175,55,0.06);color:var(--silver);line-height:1.4;margin-top:6px }
+
+    /* ── Tactical glass cards ─────────────────────────────── */
+    .wr-glass{background:rgba(10,10,15,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(212,175,55,0.12);transition:transform .2s,box-shadow .2s}
+    .wr-glass:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.4),0 0 0 1px rgba(212,175,55,0.15)}
+
+    /* ── AI scanline effect ───────────────────────────────── */
+    .wr-scanline{position:relative;overflow:hidden}
+    .wr-scanline::after{content:'';position:absolute;top:-100%;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(212,175,55,0.15),transparent);animation:wrScan 5s linear infinite}
+    @keyframes wrScan{0%{top:-2px}100%{top:100%}}
+
+    /* ── Critical pulse for buttons/alerts ────────────────── */
+    .wr-pulse-gold{animation:wrPulseGoldBtn 2s ease infinite}
+    @keyframes wrPulseGoldBtn{0%,100%{box-shadow:0 0 0 0 rgba(212,175,55,0.3)}50%{box-shadow:0 0 0 8px rgba(212,175,55,0)}}
+    .wr-pulse-red{animation:wrPulseRed 1.5s ease infinite}
+    @keyframes wrPulseRed{0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0.3)}50%{box-shadow:0 0 0 8px rgba(231,76,60,0)}}
+
+    /* ── Corner brackets (targeting reticle) ──────────────── */
+    .wr-brackets{position:relative;padding:12px 16px}
+    .wr-brackets::before,.wr-brackets::after{content:'';position:absolute;width:12px;height:12px;border-color:#D4AF37;border-style:solid;border-width:0}
+    .wr-brackets::before{top:0;left:0;border-top-width:2px;border-left-width:2px}
+    .wr-brackets::after{top:0;right:0;border-top-width:2px;border-right-width:2px}
+    .wr-brackets-bottom{position:relative}
+    .wr-brackets-bottom::before,.wr-brackets-bottom::after{content:'';position:absolute;width:12px;height:12px;border-color:#D4AF37;border-style:solid;border-width:0}
+    .wr-brackets-bottom::before{bottom:0;left:0;border-bottom-width:2px;border-left-width:2px}
+    .wr-brackets-bottom::after{bottom:0;right:0;border-bottom-width:2px;border-right-width:2px}
+
+    /* ── Flash Brief (renamed from Command) ──────────────── */
+    .wr-flash-brief{border-left:3px solid #D4AF37;background:linear-gradient(135deg,rgba(212,175,55,0.04),transparent)}
+
+    /* ── User row identity glow in tables ─────────────────── */
+    .wr-my-row{background:rgba(212,175,55,0.06) !important;box-shadow:inset 0 0 0 1px rgba(212,175,55,0.2)}
+
+    /* ── Rivalry threat levels ────────────────────────────── */
+    .wr-nemesis{color:#E74C3C;font-weight:700;text-transform:uppercase;font-size:0.68rem;letter-spacing:0.06em}
+    .wr-stalemate{color:#F0A500;font-weight:700;text-transform:uppercase;font-size:0.68rem;letter-spacing:0.06em}
+    .wr-owned{color:#2ECC71;font-weight:700;text-transform:uppercase;font-size:0.68rem;letter-spacing:0.06em}
+
+    /* ── Timeline vertical line ───────────────────────────── */
+    .wr-timeline-line{border-left:2px solid rgba(212,175,55,0.3);padding-left:16px;margin-left:8px}
+    .wr-timeline-node{width:10px;height:10px;border-radius:50%;background:#D4AF37;box-shadow:0 0 6px rgba(212,175,55,0.4);position:absolute;left:-6px;top:8px}
 </style>
 
 </head>

@@ -169,15 +169,28 @@
         // Best recommendations for next pick
         const recommendations = useMemo(() => {
             const targetPos = (strategyRec?.type === 'target' && strategyRec?.label) ? strategyRec.label.replace('Target ', '') : null;
+            const totalTeams = currentLeague?.rosters?.length || 16;
+
+            // Estimate pick position: for your first pick, how many picks come before you?
+            const firstPick = myPicks.find(pk => pk.year === leagueSeason);
+            // In a linear draft, your position is roughly your roster_id. Estimate picks before yours.
+            // Use standings or roster order as a proxy for draft order
+            const myDraftPos = myRoster?.roster_id || Math.ceil(totalTeams / 2);
+            const picksBeforeMe = firstPick ? ((firstPick.round - 1) * totalTeams) + myDraftPos - 1 : 0;
+
+            // Rookies ranked by pure DHQ — estimate top N will be drafted before your pick
+            const byDhq = [...topProspects].sort((a, b) => b.dhq - a.dhq);
+            const likelyGone = new Set(byDhq.slice(0, Math.max(0, picksBeforeMe)).map(r => r.pid));
+
             return topProspects
-                .filter(r => !draftedPids.has(r.pid))
+                .filter(r => !draftedPids.has(r.pid) && !likelyGone.has(r.pid))
                 .sort((a, b) => {
                     const aComposite = a.dhq * 0.6 + a.fit.score * 80 + (targetPos && a.pos === targetPos ? 2000 : 0);
                     const bComposite = b.dhq * 0.6 + b.fit.score * 80 + (targetPos && b.pos === targetPos ? 2000 : 0);
                     return bComposite - aComposite;
                 })
-                .slice(0, 3);
-        }, [topProspects, draftedPids, strategyRec]);
+                .slice(0, 5);
+        }, [topProspects, draftedPids, strategyRec, myPicks, myRoster]);
 
         // Strategy recommendation
         const strategyRec = useMemo(() => {
@@ -289,7 +302,7 @@
                                         <span style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '2rem', color: 'var(--gold)' }}>R{nextPick.round}</span>
                                         <span style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>{nextPick.year} {nextPick.own ? '' : '(acquired)'}</span>
                                     </div>
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', fontFamily: 'Oswald' }}>Top Recommendations</div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', fontFamily: 'Oswald' }}>Likely Available at Your Pick</div>
                                     {recommendations.map((r, i) => {
                                         const pos = normPos(r.p.position) || r.p.position;
                                         const composite = Math.round(r.dhq * 0.6 + r.fit.score * 80);
@@ -455,7 +468,7 @@
                                 const isDrafted = draftedPids.has(r.pid);
                                 const tag = boardTags[r.pid];
                                 const isExp = expandedDraftPid === r.pid;
-                                const age = r.p.age || (r.p.birth_date ? Math.floor((Date.now() - new Date(r.p.birth_date).getTime()) / 31557600000) : null);
+                                const age = r.p.age || (r.p.birth_date ? Math.floor((Date.now() - new Date(r.p.birth_date).getTime()) / 31557600000) : (r.p.years_exp === 0 ? 21 : null));
                                 const college = r.p.college || r.p.metadata?.college || '';
                                 return (
                                     <React.Fragment key={r.pid}>

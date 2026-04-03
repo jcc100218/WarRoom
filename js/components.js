@@ -87,7 +87,7 @@
         return React.createElement('div', { style: cardStyle },
             // Header with photo
             React.createElement('div', { style:{ padding:'14px 16px', background:'linear-gradient(135deg, rgba(212,175,55,0.08), transparent)', borderBottom:'1px solid rgba(212,175,55,0.15)', display:'flex', gap:'12px', alignItems:'center' } },
-                React.createElement('div', { style:{ width:'48px', height:'48px', borderRadius:'10px', overflow:'hidden', background:'rgba(212,175,55,0.1)', border:'1px solid rgba(212,175,55,0.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 } },
+                React.createElement('div', { className: age < pLo ? 'wr-ring wr-ring-pre' : age <= pHi ? 'wr-ring wr-ring-prime' : 'wr-ring wr-ring-post', style:{ width:'48px', height:'48px', borderRadius:'10px', overflow:'hidden', background:'rgba(212,175,55,0.1)', border:'1px solid rgba(212,175,55,0.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 } },
                     React.createElement('img', { src:'https://sleepercdn.com/content/nfl/players/'+pid+'.jpg', style:{width:'48px',height:'48px',objectFit:'cover'}, onError:function(e){ e.target.style.display='none'; e.target.insertAdjacentHTML('afterend','<span style="font-size:16px;font-weight:700;color:#D4AF37">'+initials+'</span>'); } })
                 ),
                 React.createElement('div', { style:{flex:1} },
@@ -99,12 +99,13 @@
             // Stats row
             React.createElement('div', { style:{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'4px', padding:'10px 16px', borderBottom:'1px solid rgba(255,255,255,0.06)' } },
                 ...[
-                    { val:dhq>0?dhq.toLocaleString():'\u2014', lbl:'DHQ', col:dhqCol },
+                    { val:dhq>0?dhq.toLocaleString():'\u2014', lbl:'DHQ', col:dhqCol, gauge:true },
                     { val:ppg||'\u2014', lbl:'PPG', col:ppg>=10?'#2ECC71':'#D0D0D0' },
                     { val:peakYrs+'yr', lbl:'PEAK', col:peakCol },
                     { val:rec, lbl:'ACTION', col:recCol }
-                ].map(function(s,i){ return React.createElement('div', { key:i, style:{textAlign:'center'} },
+                ].map(function(s,i){ var dhqFilled=s.gauge?Math.round(Math.min(10,dhq/1000)):0; var gCol=dhq>=7000?'filled-green':dhq>=4000?'filled':'filled-red'; return React.createElement('div', { key:i, style:{textAlign:'center'} },
                     React.createElement('div', { style:{ fontFamily:'Bebas Neue', fontSize:'1rem', color:s.col } }, s.val),
+                    s.gauge ? React.createElement('div', { className:'wr-gauge', style:{marginTop:'2px'} }, Array.from({length:10}, function(_,gi){ return React.createElement('div', { key:gi, className:'wr-gauge-seg'+(gi<dhqFilled?' '+gCol:'') }); })) : null,
                     React.createElement('div', { style:{ fontSize:'0.68rem', color:'#7d8291', textTransform:'uppercase', letterSpacing:'0.06em' } }, s.lbl)
                 ); })
             ),

@@ -1899,13 +1899,13 @@
                       <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '10px' }}>COMPETITIVE TIERS</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
                         {Object.entries(tiers).map(([tierName, teams]) => (
-                          <div key={tierName} style={{ background: 'var(--black)', border: '2px solid ' + (tierColors[tierName] || '#666') + '44', borderRadius: '10px', padding: '14px', borderLeft: '4px solid ' + (tierColors[tierName] || '#666') }}>
+                          <div key={tierName} className="wr-glass" style={{ background: 'var(--black)', border: '2px solid ' + (tierColors[tierName] || '#666') + '44', borderRadius: '10px', padding: '14px', borderLeft: '4px solid ' + (tierColors[tierName] || '#666') }}>
                             <div style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: tierColors[tierName], marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               {tierName}
                               <span style={{ fontSize: '0.74rem', fontFamily: 'Oswald', color: 'var(--silver)', fontWeight: 400 }}>{teams.length} team{teams.length !== 1 ? 's' : ''}</span>
                             </div>
                             {teams.length === 0 ? <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.5 }}>None</div> : teams.map(t => (
-                              <div key={t.rosterId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                              <div key={t.rosterId} className={t.ownerId === sleeperUserId ? 'wr-my-row' : undefined} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px' }}>
                                 <span style={{ fontSize: '0.82rem', color: 'var(--white)', fontWeight: t.ownerId === sleeperUserId ? 700 : 400 }}>{t.ownerName}{t.ownerId === sleeperUserId ? ' (You)' : ''}</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <span style={{ fontSize: '0.74rem', color: 'var(--silver)' }}>{t.wins}-{t.losses}</span>
@@ -1957,7 +1957,7 @@
                             const maxVal = view.valFn(view.data[0]) || 1;
                             const pct = Math.min(100, Math.round((val / maxVal) * 100));
                             return (
-                              <div key={t.rosterId} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: isMe ? 'rgba(212,175,55,0.04)' : 'transparent' }}>
+                              <div key={t.rosterId} className={isMe ? 'wr-my-row' : undefined} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: isMe ? 'rgba(212,175,55,0.04)' : 'transparent' }}>
                                 <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', width: '28px', textAlign: 'center' }}>{i + 1}</span>
                                 <div style={{ flex: 1 }}>
                                   <div style={{ fontSize: '0.84rem', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)' }}>{t.ownerName}{isMe ? ' (You)' : ''}</div>
@@ -3933,7 +3933,7 @@
                                 <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '20px' }}>FLASH BRIEF</div>
 
                                 {/* Team Diagnosis */}
-                                <div style={{ ...aCardStyle, borderLeft: '4px solid var(--gold)', padding: '20px 24px', marginBottom: '20px' }}>
+                                <div className="wr-flash-brief" style={{ ...aCardStyle, borderLeft: '4px solid var(--gold)', padding: '20px 24px', marginBottom: '20px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
                                         <div style={{ fontFamily: 'Bebas Neue', fontSize: '2.8rem', color: myRank <= 3 ? goodColor : myRank <= 6 ? warnColor : badColor, lineHeight: 1 }}>#{myRank || '?'}</div>
                                         <div>
@@ -3961,7 +3961,7 @@
                                                 <div style={{ fontSize: '0.88rem', color: 'var(--white)', fontWeight: 600 }}>{p.label}</div>
                                                 <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.7 }}>{p.action}</div>
                                             </div>
-                                            <button onClick={() => setActiveTab(p.cta)} style={{ padding: '6px 14px', background: p.col + '20', border: '1px solid ' + p.col + '50', color: p.col, borderRadius: '6px', fontFamily: 'Oswald', fontSize: '0.76rem', cursor: 'pointer', textTransform: 'uppercase', fontWeight: 700 }}>Fix This</button>
+                                            <button className={i === 0 ? 'wr-pulse-red' : undefined} onClick={() => setActiveTab(p.cta)} style={{ padding: '6px 14px', background: p.col + '20', border: '1px solid ' + p.col + '50', color: p.col, borderRadius: '6px', fontFamily: 'Oswald', fontSize: '0.76rem', cursor: 'pointer', textTransform: 'uppercase', fontWeight: 700 }}>Fix This</button>
                                         </div>
                                     ))}
                                 </div>}

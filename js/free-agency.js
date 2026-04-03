@@ -199,8 +199,11 @@
             // Recommended total spend
             const recSpend = recommendations.slice(0, 3).reduce((s, r) => s + (r.faab?.sug || 0), 0);
 
-            const renderFaCard = (r, tier, tierCol) => (
-                <div key={r.pid} onClick={() => setFaSelectedPid(r.pid)} style={{ background: faSelectedPid === r.pid ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (faSelectedPid === r.pid ? 'var(--gold)' : 'rgba(212,175,55,0.15)'), borderLeft: '3px solid ' + tierCol, borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'background 0.12s' }}>
+            let _mustAddIdx = 0;
+            const renderFaCard = (r, tier, tierCol) => {
+                const isMustFirst = tier === 'must' && _mustAddIdx++ === 0;
+                return (
+                <div key={r.pid} className={isMustFirst ? 'wr-pulse-gold' : undefined} onClick={() => setFaSelectedPid(r.pid)} style={{ background: faSelectedPid === r.pid ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (faSelectedPid === r.pid ? 'var(--gold)' : 'rgba(212,175,55,0.15)'), borderLeft: '3px solid ' + tierCol, borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'background 0.12s' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                         <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--white)' }}>{r.p?.full_name || 'Unknown'}</span>
                         <span style={{ fontSize: '0.74rem', color: posColors[r.pos] || 'var(--silver)', fontWeight: 700 }}>{r.pos}</span>
@@ -214,7 +217,7 @@
                         {r.faab && <span style={{ color: r.faab.confCol, fontSize: '0.72rem' }}>{r.faab.conf}</span>}
                     </div>
                 </div>
-            );
+            ); };
 
             return (
                 <div style={{ padding: '20px 24px', maxWidth: '1200px', margin: '0 auto' }} className="wr-fade-in">
@@ -222,7 +225,7 @@
 
                     {/* Decision summary */}
                     <div style={{ display: 'grid', gridTemplateColumns: hasFAAB ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
-                        {hasFAAB && <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                        {hasFAAB && <div className="wr-glass" style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
                             <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.8rem', color: remaining > budget * 0.5 ? '#2ECC71' : remaining > budget * 0.25 ? '#F0A500' : '#E74C3C' }}>{'$' + remaining}</div>
                             <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>FAAB remaining</div>
                             {recSpend > 0 && <div style={{ fontSize: '0.74rem', color: 'var(--gold)', marginTop: '4px' }}>Recommended spend: ${recSpend}</div>}
@@ -355,7 +358,7 @@
                             const dhqCol = r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#3498DB' : r.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)';
                             return <div key={r.pid} onClick={() => setFaSelectedPid(r.pid)} style={{ background: faSelectedPid===r.pid?'rgba(212,175,55,0.08)':'rgba(255,255,255,0.02)', border: '1px solid '+(faSelectedPid===r.pid?'var(--gold)':'rgba(212,175,55,0.15)'), borderLeft: '3px solid ' + posCol, borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'background 0.12s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                                    <img src={'https://sleepercdn.com/content/nfl/players/' + r.pid + '.jpg'} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid ' + posCol + '40' }} onError={e => e.target.style.display = 'none'} />
+                                    <img className={r.peakYrs >= 4 ? 'wr-ring wr-ring-pre' : r.peakYrs >= 1 ? 'wr-ring wr-ring-prime' : 'wr-ring wr-ring-post'} src={'https://sleepercdn.com/content/nfl/players/' + r.pid + '.jpg'} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid ' + posCol + '40' }} onError={e => e.target.style.display = 'none'} />
                                     <div style={{ flex: 1, overflow: 'hidden' }}>
                                         <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.p.full_name || 'Unknown'}</div>
                                         <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>{r.pos} · {r.p.team || 'FA'} · {r.p.age || '?'}yr</div>
@@ -631,7 +634,7 @@
                             const peakLabel = peakYrs >= 4 ? 'Rising' : peakYrs >= 1 ? 'Prime' : 'Post';
                             const peakCol = peakYrs >= 4 ? '#2ECC71' : peakYrs >= 1 ? 'var(--gold)' : '#E74C3C';
                             return <div key={pid} onClick={() => setFaSelectedPid(pid)} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 40px 34px 58px 44px 50px 44px', background: faSelectedPid===pid?'rgba(212,175,55,0.08)':'transparent', gap: '4px', padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                <div style={{ width: '26px', height: '26px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <div className={peakYrs >= 4 ? 'wr-ring wr-ring-pre' : peakYrs >= 1 ? 'wr-ring wr-ring-prime' : 'wr-ring wr-ring-post'} style={{ width: '26px', height: '26px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                     <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.target.style.display='none'; e.target.insertAdjacentHTML('afterend','<span style="font-size:10px;font-weight:700;color:var(--gold)">' + ((p.first_name||'?')[0] + (p.last_name||'?')[0]).toUpperCase() + '</span>'); }} />
                                 </div>
                                 <div style={{ overflow: 'hidden' }}>

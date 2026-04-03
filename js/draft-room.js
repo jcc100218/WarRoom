@@ -283,7 +283,7 @@
                                         onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}
                                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                         <span style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--silver)', width: '18px' }}>{idx + 1}</span>
-                                        <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
+                                        <img className={(() => { const pk = {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]}; const [pL,pH] = pk[pos]||[24,29]; const a = r.p.age||21; return a < pL ? 'wr-ring wr-ring-pre' : a <= pH ? 'wr-ring wr-ring-prime' : 'wr-ring wr-ring-post'; })()} src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <span style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--white)' }}>{pName(r.p)}</span>
                                         </div>
@@ -398,7 +398,7 @@
                                         onMouseEnter={e => { if (!isExp) e.currentTarget.style.background = 'rgba(212,175,55,0.04)'; }}
                                         onMouseLeave={e => { if (!isExp) e.currentTarget.style.background = isExp ? 'rgba(212,175,55,0.06)' : idx % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent'; }}>
                                         <div style={{ width: '24px', flexShrink: 0, textAlign: 'center', fontFamily: 'Oswald', fontSize: '0.7rem', color: idx < 3 ? 'var(--gold)' : 'var(--silver)' }}>{idx + 1}</div>
-                                        <div style={{ width: '20px', height: '20px', flexShrink: 0, marginRight: '4px' }}>
+                                        <div className={(() => { const pk = {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]}; const [pL,pH] = pk[pos]||[24,29]; return age < pL ? 'wr-ring wr-ring-pre' : age <= pH ? 'wr-ring wr-ring-prime' : 'wr-ring wr-ring-post'; })()} style={{ width: '20px', height: '20px', flexShrink: 0, marginRight: '4px' }}>
                                             <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
                                         </div>
                                         <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
@@ -457,7 +457,7 @@
                                 <div style={{ border: '2px solid rgba(212,175,55,0.25)', borderRadius: '10px', background: 'linear-gradient(135deg, rgba(212,175,55,0.04), rgba(0,0,0,0.3))', padding: '16px 20px', marginBottom: '14px', animation: 'wrFadeIn 0.2s ease' }}>
                                   <div style={{ display: 'flex', gap: '16px', marginBottom: '14px' }}>
                                     <div style={{ flexShrink: 0, position: 'relative' }}>
-                                      <img src={'https://sleepercdn.com/content/nfl/players/'+r.pid+'.jpg'} alt="" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex';}} style={{ width: '80px', height: '80px', borderRadius: '10px', objectFit: 'cover', objectPosition: 'top', border: '2px solid rgba(212,175,55,0.3)' }} />
+                                      <img className={(() => { const pk = {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]}; const [pL,pH] = pk[pos]||[24,29]; return typeof age === 'number' && age < pL ? 'wr-ring wr-ring-pre' : typeof age === 'number' && age <= pH ? 'wr-ring wr-ring-prime' : 'wr-ring wr-ring-post'; })()} src={'https://sleepercdn.com/content/nfl/players/'+r.pid+'.jpg'} alt="" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex';}} style={{ width: '80px', height: '80px', borderRadius: '10px', objectFit: 'cover', objectPosition: 'top', border: '2px solid rgba(212,175,55,0.3)' }} />
                                       <div style={{ display: 'none', width: '80px', height: '80px', borderRadius: '10px', background: 'var(--charcoal)', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', fontWeight: 700, color: 'var(--silver)', border: '2px solid rgba(212,175,55,0.2)' }}>{(r.p.first_name||'?')[0]}{(r.p.last_name||'?')[0]}</div>
                                       <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.7rem', fontWeight: 700, padding: '1px 8px', borderRadius: '8px', background: (posColors[pos]||'#666')+'25', color: posColors[pos]||'var(--silver)', whiteSpace: 'nowrap' }}>{pos}</div>
                                     </div>
@@ -484,18 +484,22 @@
 
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '6px', marginBottom: '14px' }}>
                                     {[
-                                      { label: 'DHQ', val: r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014', col: dhqColVal },
+                                      { label: 'DHQ', val: r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014', col: dhqColVal, gauge: true },
                                       { label: 'FIT', val: fit.label, col: fitColor(fit.score) },
                                       { label: 'AGE', val: age, col: typeof age === 'number' && age <= 22 ? '#2ECC71' : 'var(--silver)' },
                                       { label: 'EXP', val: (r.p.years_exp || 0) + 'yr', col: 'var(--silver)' },
                                       { label: 'TEAM', val: r.p.team || 'TBD', col: r.p.team ? '#2ECC71' : 'var(--silver)' },
                                       { label: 'DEPTH', val: r.p.depth_chart_order != null ? '#' + (r.p.depth_chart_order + 1) : '\u2014', col: r.p.depth_chart_order <= 1 ? '#2ECC71' : 'var(--silver)' },
-                                    ].map((s, i) => (
+                                    ].map((s, i) => {
+                                      const dhqFilled = s.gauge ? Math.round(Math.min(10, r.dhq / 1000)) : 0;
+                                      const dhqGaugeCol = r.dhq >= 7000 ? 'filled-green' : r.dhq >= 4000 ? 'filled' : 'filled-red';
+                                      return (
                                       <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 6px', textAlign: 'center' }}>
                                         <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: s.col, letterSpacing: '-0.02em' }}>{s.val}</div>
+                                        {s.gauge && <div className="wr-gauge" style={{ marginTop: '3px' }}>{Array.from({length: 10}, (_, gi) => <div key={gi} className={'wr-gauge-seg' + (gi < dhqFilled ? ' ' + dhqGaugeCol : '')}></div>)}</div>}
                                         <div style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px' }}>{s.label}</div>
                                       </div>
-                                    ))}
+                                    ); })}
                                   </div>
 
                                   <InlineCareerStats pid={r.pid} pos={pos} player={r.p} scoringSettings={currentLeague?.scoring_settings} statsData={statsData} />

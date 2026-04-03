@@ -7,7 +7,9 @@
 
     <title>Fantasy War Room</title>
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Fantasy War Room">
@@ -906,6 +908,58 @@
 })();
 </script>
 <footer style="text-align:center;padding:16px;font-size:12px;color:#666;border-top:1px solid #1a1a1a;margin-top:32px;">&copy; 2026 skjjcruz. All rights reserved.</footer>
+
+<!-- PWA Install Prompt -->
+<div id="pwa-install" style="display:none;position:fixed;bottom:72px;left:50%;transform:translateX(-50%);max-width:340px;width:calc(100% - 32px);background:var(--off-black);border:1px solid var(--gold);border-radius:12px;padding:12px 16px;z-index:300;box-shadow:0 8px 32px rgba(0,0,0,0.5)">
+  <div style="display:flex;align-items:center;gap:10px">
+    <img src="icon-192.png" style="width:36px;height:36px;border-radius:8px" alt=""/>
+    <div style="flex:1">
+      <div style="font-size:14px;font-weight:700;color:var(--white)">Install War Room</div>
+      <div style="font-size:13px;color:var(--silver)">Add to your home screen for quick access</div>
+    </div>
+    <button id="pwa-install-btn" style="padding:6px 14px;background:var(--gold);color:var(--black);border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Install</button>
+    <button id="pwa-install-dismiss" style="background:none;border:none;color:var(--silver);cursor:pointer;font-size:16px;padding:2px">&times;</button>
+  </div>
+</div>
+
+<script>
+// PWA Install Prompt
+let _deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredPrompt = e;
+  // Don't show immediately — wait 30 seconds
+  setTimeout(() => {
+    const banner = document.getElementById('pwa-install');
+    if (banner && _deferredPrompt) banner.style.display = 'block';
+  }, 30000);
+});
+
+document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
+  if (!_deferredPrompt) return;
+  _deferredPrompt.prompt();
+  const result = await _deferredPrompt.userChoice;
+  _deferredPrompt = null;
+  document.getElementById('pwa-install').style.display = 'none';
+});
+
+document.getElementById('pwa-install-dismiss')?.addEventListener('click', () => {
+  document.getElementById('pwa-install').style.display = 'none';
+  _deferredPrompt = null;
+  localStorage.setItem('pwa_install_dismissed', Date.now());
+});
+
+// Don't show if recently dismissed
+if (localStorage.getItem('pwa_install_dismissed')) {
+  const dismissed = parseInt(localStorage.getItem('pwa_install_dismissed'));
+  if (Date.now() - dismissed < 7 * 24 * 60 * 60 * 1000) _deferredPrompt = null; // 7 day cooldown
+}
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('pwa-install').style.display = 'none';
+  _deferredPrompt = null;
+});
+</script>
 </body>
 </html>
 <!-- build 1774212614 -->

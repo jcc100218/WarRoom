@@ -349,8 +349,8 @@
 
         if (age > pHi + 2 && dhq >= 2000) return { text: 'Sell high \u2014 ' + (age-pHi) + 'yr past peak', color: '#E74C3C', rec: 'SELL' };
         if (age > pHi && dhq >= 3000 && trend <= -10) return { text: 'Declining \u2014 move before value drops', color: '#E74C3C', rec: 'SELL' };
-        if (peakYrsLeft >= 5 && dhq >= 3000) return { text: peakYrsLeft + ' peak yrs ahead \u2014 cornerstone', color: '#2ECC71', rec: 'BUY' };
-        if (peakYrsLeft >= 3 && trend >= 15) return { text: 'Breakout trajectory +' + trend + '%', color: '#2ECC71', rec: 'BUY' };
+        if (peakYrsLeft >= 5 && dhq >= 3000) return { text: peakYrsLeft + ' peak yrs ahead \u2014 cornerstone', color: '#2ECC71', rec: 'HOLD' };
+        if (peakYrsLeft >= 3 && trend >= 15) return { text: 'Breakout trajectory +' + trend + '%', color: '#2ECC71', rec: 'HOLD' };
         if (age >= pLo && age <= pHi && dhq >= 5000) return { text: 'Prime window \u2014 maximize now', color: 'var(--gold)', rec: 'HOLD' };
         if (peakYrsLeft <= 1 && dhq >= 2000) return { text: 'Window closing \u2014 sell or ride', color: '#F0A500', rec: 'HOLD' };
         return null;

@@ -2646,7 +2646,8 @@
             const peakYrsLeft = age ? Math.max(0, pHi - age) : 0;
 
             const _pidElite = typeof window.App?.isElitePlayer === 'function' ? window.App.isElitePlayer(pid) : dhq >= 7000;
-            const rec = peakYrsLeft <= 0 && trend <= -10 ? 'SELL NOW' : peakYrsLeft <= 0 ? 'SELL' : peakYrsLeft <= 2 && trend >= 15 ? 'SELL HIGH' : peakYrsLeft <= 2 ? 'SELL' : _pidElite && peakYrsLeft >= 3 ? 'HOLD CORE' : peakYrsLeft >= 4 && dhq < 4000 ? 'BUY LOW' : dhq >= 5000 ? 'HOLD' : 'BUY';
+            // Recommendation for MY roster — no BUY (you already own them)
+            const rec = peakYrsLeft <= 0 && trend <= -10 ? 'SELL NOW' : peakYrsLeft <= 0 ? 'SELL' : peakYrsLeft <= 2 && trend >= 15 ? 'SELL HIGH' : peakYrsLeft <= 2 ? 'SELL' : _pidElite && peakYrsLeft >= 3 ? 'HOLD CORE' : peakYrsLeft >= 4 && dhq < 4000 ? 'STASH' : 'HOLD';
 
             return { pid, p, pos, dhq, age, curPPG, prevPPG, effectivePPG, effectiveGP, prevGP, durabilityGP, trend, isStarter, isIR, isTaxi, section, peakPhase, peakPct, peakYrsLeft, rec, curGP, meta, injury: p.injury_status };
           }).filter(Boolean);
@@ -3262,10 +3263,9 @@
                   const peaks = window.App?.peakWindows || {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]};
                   const [pLo, pHi] = peaks[r.pos] || [24,29];
 
-                  const actionClass = r.rec === 'SELL' || r.rec === 'Sell' ? 'wr-row-sell' :
-                    r.rec === 'SELL HIGH' || r.rec === 'Sell High' ? 'wr-row-sell-high' :
-                    r.rec === 'BUY' || r.rec === 'Buy' || r.rec === 'BUY LOW' || r.rec === 'Buy Low' ? 'wr-row-buy' :
-                    r.rec === 'CORE' || r.rec === 'Build Around' ? 'wr-row-core' : '';
+                  const actionClass = r.rec === 'SELL NOW' || r.rec === 'SELL' ? 'wr-row-sell' :
+                    r.rec === 'SELL HIGH' ? 'wr-row-sell-high' :
+                    r.rec === 'HOLD CORE' ? 'wr-row-core' : '';
                   const ringClass = r.peakPhase === 'PRIME' || r.peakPhase === 'prime' || r.peakPhase === 'Peak' ? 'wr-ring wr-ring-prime' :
                     r.peakPhase === 'PRE' || r.peakPhase === 'pre' || r.peakPhase === 'Rising' ? 'wr-ring wr-ring-pre' :
                     r.peakPhase === 'POST' || r.peakPhase === 'post' || r.peakPhase === 'Veteran' ? 'wr-ring wr-ring-post' :

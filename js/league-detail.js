@@ -3149,6 +3149,14 @@
                 <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.65 }}>{filtered.length} shown</span>
               </div>
 
+              {/* Roster status legend */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '6px', fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.7 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '3px', height: '12px', borderRadius: '1px', background: 'var(--gold)' }}></span> Starter</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '3px', height: '12px', borderRadius: '1px', background: '#3498DB' }}></span> Taxi</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '3px', height: '12px', borderRadius: '1px', background: '#E74C3C' }}></span> IR</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '3px', height: '12px', borderRadius: '1px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)' }}></span> Bench</span>
+              </div>
+
               {/* Preset buttons + column picker */}
               <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.65, fontFamily: 'Oswald' }}>VIEW:</span>

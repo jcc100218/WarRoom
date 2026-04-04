@@ -3407,6 +3407,20 @@
                             </div>
                           </div>
 
+                          {/* Dynasty Profile */}
+                          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
+                            <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Dynasty Profile</div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.5 }}>
+                              {r.peakPhase === 'PRE' && r.dhq >= 4000 ? 'Rising asset with ' + r.peakYrsLeft + ' peak years ahead. Buy window closing \u2014 value only goes up from here.' :
+                               r.peakPhase === 'PRIME' && r.dhq >= 7000 ? 'Elite producer in prime. Cornerstone dynasty asset \u2014 hold unless offered a king\'s ransom.' :
+                               r.peakPhase === 'PRIME' && r.dhq >= 4000 ? 'Solid starter in peak window. ' + r.peakYrsLeft + ' productive years left. Hold or sell high if trending down.' :
+                               r.peakPhase === 'POST' ? 'Past peak \u2014 dynasty value declining. ' + (r.dhq >= 3000 ? 'Still producing but sell before the cliff.' : 'Move for any return.') :
+                               r.dhq < 2000 ? 'Depth piece. Low dynasty value \u2014 roster clogger unless a breakout is imminent.' :
+                               'Moderate dynasty asset. Watch trajectory.'}
+                              {r.trend >= 20 ? ' Trending up ' + r.trend + '% \u2014 stock rising.' : r.trend <= -20 ? ' Production down ' + Math.abs(r.trend) + '% \u2014 red flag.' : ''}
+                            </div>
+                          </div>
+
                           {/* Stat boxes grid — Madden style */}
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '6px', marginBottom: '14px' }}>
                             {(() => {
@@ -3419,8 +3433,6 @@
                                 { label: 'PREV PPG', val: r.prevPPG || '\u2014', col: 'var(--silver)' },
                                 { label: 'GP', val: r.effectiveGP || '\u2014', col: r.effectiveGP >= 14 ? '#2ECC71' : r.effectiveGP >= 10 ? 'var(--silver)' : '#E74C3C' },
                                 { label: 'TREND', val: r.trend ? (r.trend > 0 ? '+' : '') + r.trend + '%' : '\u2014', col: r.trend >= 15 ? '#2ECC71' : r.trend <= -15 ? '#E74C3C' : 'var(--silver)' },
-                                { label: 'PEAK', val: r.peakPhase, col: r.peakPhase === 'PRE' ? '#2ECC71' : r.peakPhase === 'PRIME' ? 'var(--gold)' : '#E74C3C' },
-                                { label: 'WINDOW', val: r.peakYrsLeft > 0 ? r.peakYrsLeft + 'yr' : 'Closed', col: r.peakYrsLeft >= 5 ? '#2ECC71' : r.peakYrsLeft >= 2 ? 'var(--gold)' : '#E74C3C' },
                               ].map((s, i) => (
                                 <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 6px', textAlign: 'center' }}>
                                   <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: s.col, letterSpacing: '-0.02em' }}>{s.val}</div>
@@ -3467,20 +3479,6 @@
                               </div>
                             </div>;
                           })()}
-
-                          {/* Dynasty Profile */}
-                          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
-                            <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Dynasty Profile</div>
-                            <div style={{ fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.5 }}>
-                              {r.peakPhase === 'PRE' && r.dhq >= 4000 ? 'Rising asset with ' + r.peakYrsLeft + ' peak years ahead. Buy window closing \u2014 value only goes up from here.' :
-                               r.peakPhase === 'PRIME' && r.dhq >= 7000 ? 'Elite producer in prime. Cornerstone dynasty asset \u2014 hold unless offered a king\'s ransom.' :
-                               r.peakPhase === 'PRIME' && r.dhq >= 4000 ? 'Solid starter in peak window. ' + r.peakYrsLeft + ' productive years left. Hold or sell high if trending down.' :
-                               r.peakPhase === 'POST' ? 'Past peak \u2014 dynasty value declining. ' + (r.dhq >= 3000 ? 'Still producing but sell before the cliff.' : 'Move for any return.') :
-                               r.dhq < 2000 ? 'Depth piece. Low dynasty value \u2014 roster clogger unless a breakout is imminent.' :
-                               'Moderate dynasty asset. Watch trajectory.'}
-                              {r.trend >= 20 ? ' Trending up ' + r.trend + '% \u2014 stock rising.' : r.trend <= -20 ? ' Production down ' + Math.abs(r.trend) + '% \u2014 red flag.' : ''}
-                            </div>
-                          </div>
 
                           {/* Career Stats Table */}
                           <InlineCareerStats pid={r.pid} pos={r.pos} player={r.p} scoringSettings={currentLeague?.scoring_settings} statsData={statsData} />

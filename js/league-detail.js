@@ -1953,7 +1953,7 @@
               <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '2px' }}>LEAGUE MAP</div>
               <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' }}>Every team, asset, and competitive position in your league</div>
               <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-                <button onClick={() => setLeagueSubView('command')} style={sortBtnStyle(leagueSubView === 'command')}>Flash Brief</button>
+                <button onClick={() => setLeagueSubView('command')} style={sortBtnStyle(leagueSubView === 'command')}>Overview</button>
                 <button onClick={() => setLeagueSubView('teams')} style={sortBtnStyle(leagueSubView === 'teams')}>Teams</button>
                 <button onClick={() => setLeagueSubView('players')} style={sortBtnStyle(leagueSubView === 'players')}>All Players</button>
                 <button onClick={() => setLeagueSubView('picks')} style={sortBtnStyle(leagueSubView === 'picks')}>Draft Picks</button>

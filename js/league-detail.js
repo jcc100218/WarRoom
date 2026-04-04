@@ -1102,6 +1102,14 @@
 
                 setLoadStage('');
 
+                // Load player tags (syncs with ReconAI)
+                if (window.OD?.loadPlayerTags) {
+                    window.OD.loadPlayerTags(currentLeague.id || currentLeague.league_id).then(tags => {
+                        window._playerTags = tags || {};
+                        setTimeRecomputeTs(Date.now()); // force re-render to show tags
+                    }).catch(() => {});
+                }
+
             } catch (err) {
                 console.error('Failed to load league details:', err);
                 setError(err.message || 'Failed to load league details');
@@ -3285,7 +3293,10 @@
                         <div style={{ width: '220px', flexShrink: 0, height: '42px', display: 'flex', alignItems: 'center', gap: '8px', padding: '0 6px', borderRight: '2px solid rgba(212,175,55,0.15)', borderLeft: '3px solid ' + statusCol(r.section) }}>
                           <div className={ringClass + starterRing} style={{ width: '26px', height: '26px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+r.pid+'.jpg'} alt="" onError={e=>e.target.style.display='none'} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} /></div>
                           <div style={{ overflow: 'hidden', flex: 1 }}>
-                            <div style={{ fontWeight: 600, color: 'var(--white)', fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getPlayerName(r.pid)}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontWeight: 600, color: 'var(--white)', fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getPlayerName(r.pid)}</span>
+                              {(() => { const pt = window._playerTags?.[r.pid]; if (!pt) return null; const cfg = { trade: { bg: 'rgba(240,165,0,0.15)', col: '#F0A500', lbl: 'TB' }, cut: { bg: 'rgba(231,76,60,0.15)', col: '#E74C3C', lbl: 'CUT' }, untouchable: { bg: 'rgba(46,204,113,0.15)', col: '#2ECC71', lbl: 'UT' }, watch: { bg: 'rgba(52,152,219,0.15)', col: '#3498DB', lbl: 'W' } }[pt]; return cfg ? <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, background: cfg.bg, color: cfg.col, flexShrink: 0 }}>{cfg.lbl}</span> : null; })()}
+                            </div>
                             <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.65 }}>{r.p.team || 'FA'}{r.injury ? ' \u00B7 '+r.injury : ''}</div>
                           </div>
                           <span style={{ fontSize: '0.68rem', color: 'var(--gold)', opacity: 0.4 }}>{isExpanded ? '\u25B2' : '\u25BC'}</span>
@@ -3405,6 +3416,10 @@
                           {/* Action buttons */}
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                             <button onClick={e => { e.stopPropagation(); setReconPanelOpen(true); sendReconMessage('What trades can I make involving ' + (r.p.full_name || getPlayerName(r.pid)) + '? Consider their DHQ value (' + r.dhq + '), age (' + r.age + '), and peak window (' + r.peakPhase + ').'); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>TRADE</button>
+                            {[{tag:'trade',label:'TRADE BLOCK',bg:'rgba(240,165,0,0.15)',col:'#F0A500',border:'rgba(240,165,0,0.3)'},{tag:'cut',label:'CUT',bg:'rgba(231,76,60,0.15)',col:'#E74C3C',border:'rgba(231,76,60,0.3)'},{tag:'untouchable',label:'UNTOUCHABLE',bg:'rgba(46,204,113,0.15)',col:'#2ECC71',border:'rgba(46,204,113,0.3)'},{tag:'watch',label:'WATCH',bg:'rgba(52,152,219,0.15)',col:'#3498DB',border:'rgba(52,152,219,0.3)'}].map(t => {
+                              const isActive = window._playerTags?.[r.pid] === t.tag;
+                              return <button key={t.tag} onClick={e => { e.stopPropagation(); const leagueId = currentLeague.id || currentLeague.league_id || ''; const tags = window._playerTags || {}; if (tags[r.pid] === t.tag) delete tags[r.pid]; else tags[r.pid] = t.tag; window._playerTags = { ...tags }; if (window.OD?.savePlayerTags) window.OD.savePlayerTags(leagueId, tags); setTimeRecomputeTs(Date.now()); }} style={{ padding: '7px 12px', fontSize: '0.72rem', fontFamily: 'Oswald', background: isActive ? t.bg : 'transparent', color: isActive ? t.col : 'var(--silver)', border: '1px solid ' + (isActive ? t.border : 'rgba(255,255,255,0.1)'), borderRadius: '6px', cursor: 'pointer', fontWeight: isActive ? 700 : 400, letterSpacing: '0.03em' }}>{t.label}</button>;
+                            })}
                             <button onClick={e => { e.stopPropagation(); setExpandedPid(null); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>COLLAPSE</button>
                           </div>
                         </div>

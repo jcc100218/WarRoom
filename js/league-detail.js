@@ -2047,25 +2047,23 @@
                             {views.map(v => <button key={v.key} onClick={() => { window._wrPrView = v.key; setTimeRecomputeTs(Date.now()); }} style={{ padding: '3px 10px', fontSize: '0.68rem', fontFamily: 'Oswald', borderRadius: '4px', cursor: 'pointer', border: '1px solid ' + (prView === v.key ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'), background: prView === v.key ? 'rgba(212,175,55,0.12)' : 'transparent', color: prView === v.key ? 'var(--gold)' : 'var(--silver)' }}>{v.label}</button>)}
                           </div>
                         </div>
-                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
+                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden', maxHeight: '320px', overflowY: 'auto' }}>
                           {view.data.map((t, i) => {
                             const isMe = t.ownerId === sleeperUserId;
                             const val = view.valFn(t);
                             const maxVal = view.valFn(view.data[0]) || 1;
                             const pct = Math.min(100, Math.round((val / maxVal) * 100));
                             return (
-                              <div key={t.rosterId} className={isMe ? 'wr-my-row' : undefined} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: isMe ? 'rgba(212,175,55,0.04)' : 'transparent' }}>
-                                <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', width: '28px', textAlign: 'center' }}>{i + 1}</span>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontSize: '0.84rem', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)' }}>{t.ownerName}{isMe ? ' (You)' : ''}</div>
-                                  <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.7 }}>
-                                    {t.wins}-{t.losses} {'\u00B7'} {t.tier} {'\u00B7'} {t.needs?.length ? 'Needs: ' + t.needs.map(n => typeof n === 'string' ? n : n.pos).join(', ') : 'No major needs'}
-                                  </div>
+                              <div key={t.rosterId} className={isMe ? 'wr-my-row' : undefined} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', background: isMe ? 'rgba(212,175,55,0.04)' : 'transparent' }}>
+                                <span style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', width: '20px', textAlign: 'center' }}>{i + 1}</span>
+                                <div style={{ flex: 1, overflow: 'hidden' }}>
+                                  <span style={{ fontSize: '0.78rem', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.ownerName}{isMe ? ' (You)' : ''}</span>
                                 </div>
-                                <div style={{ width: '100px', height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0 }}>
-                                  <div style={{ width: pct + '%', height: '100%', borderRadius: '4px', background: view.colFn(val, i) }}></div>
+                                <span style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6, flexShrink: 0 }}>{t.tier}</span>
+                                <div style={{ width: '60px', height: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0 }}>
+                                  <div style={{ width: pct + '%', height: '100%', borderRadius: '3px', background: view.colFn(val, i) }}></div>
                                 </div>
-                                <span style={{ fontSize: '0.84rem', fontWeight: 700, fontFamily: 'Oswald', color: view.colFn(val, i), width: '46px', textAlign: 'right' }}>{view.fmtFn(val)}</span>
+                                <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'Oswald', color: view.colFn(val, i), width: '36px', textAlign: 'right' }}>{view.fmtFn(val)}</span>
                               </div>
                             );
                           })}

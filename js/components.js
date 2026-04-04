@@ -214,36 +214,34 @@
         const now = timestamp || new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
         if (compact) {
             return React.createElement('div', { style: {
-                display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '10px 14px',
-                background: 'rgba(212,175,55,0.04)', borderRadius: '8px', marginBottom: '8px',
+                display: 'flex', gap: '8px', alignItems: 'flex-start', padding: '4px 10px',
+                background: 'rgba(212,175,55,0.04)', borderRadius: '8px', marginBottom: '6px',
                 border: '1px solid rgba(212,175,55,0.1)'
             }},
-                React.createElement(AlexAvatar, { size: 24 }),
+                React.createElement(AlexAvatar, { size: 20 }),
                 React.createElement('div', { style: { flex: 1 } },
-                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' } },
-                        React.createElement('span', { style: { fontFamily: 'Bebas Neue', fontSize: '0.78rem', color: 'var(--gold)', letterSpacing: '0.03em' } }, 'Alex Ingram'),
-                        React.createElement('span', { style: { fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.4, padding: '0 4px', background: 'rgba(212,175,55,0.08)', borderRadius: '3px' } }, 'GM')
+                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1px' } },
+                        React.createElement('span', { style: { fontFamily: 'Bebas Neue', fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.03em' } }, 'Alex Ingram')
                     ),
-                    React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.6 } }, children)
+                    React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.4 } }, children)
                 )
             );
         }
         return React.createElement('div', { style: {
             background: 'rgba(212,175,55,0.03)', border: '1px solid rgba(212,175,55,0.12)',
-            borderRadius: '8px', padding: '14px 16px', marginBottom: '10px'
+            borderRadius: '8px', padding: '10px 14px', marginBottom: '8px'
         }},
-            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' } },
-                React.createElement(AlexAvatar, { size: 32 }),
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } },
+                React.createElement(AlexAvatar, { size: 28 }),
                 React.createElement('div', { style: { flex: 1 } },
                     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
-                        React.createElement('span', { style: { fontFamily: 'Bebas Neue', fontSize: '0.92rem', color: 'var(--gold)', letterSpacing: '0.03em' } }, 'Alex Ingram'),
-                        React.createElement('span', { style: { fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.5, padding: '1px 5px', background: 'rgba(212,175,55,0.08)', borderRadius: '3px', fontWeight: 600 } }, 'AI GM')
+                        React.createElement('span', { style: { fontFamily: 'Bebas Neue', fontSize: '0.86rem', color: 'var(--gold)', letterSpacing: '0.03em' } }, 'Alex Ingram')
                     ),
-                    React.createElement('span', { style: { fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.35 } }, now)
+                    React.createElement('span', { style: { fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.35 } }, now)
                 )
             ),
-            title && React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.82rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' } }, title),
-            React.createElement('div', { style: { fontSize: '0.86rem', color: '#D0D0D0', lineHeight: 1.7 } }, children)
+            title && React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' } }, title),
+            React.createElement('div', { style: { fontSize: '0.82rem', color: '#D0D0D0', lineHeight: 1.4 } }, children)
         );
     }
     window.GMMessage = GMMessage;

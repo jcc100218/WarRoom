@@ -250,12 +250,12 @@
                             React.createElement('div', { style: { fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--gold)', letterSpacing: '0.06em' } }, 'WAR ROOM GUIDE'),
                             React.createElement('button', { onClick: () => setExpanded(false), style: { background: 'none', border: 'none', color: 'var(--silver)', cursor: 'pointer', fontSize: '1.2rem' } }, '\u2715')
                         ),
-                        React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.6, marginBottom: '20px' } }, 'Fantasy Wars analyzes your dynasty league to give you an edge in every decision \u2014 trades, drafts, waivers, and roster construction. Here\u2019s what every tool and metric means.'),
+                        React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.4, marginBottom: '20px' } }, 'Fantasy Wars analyzes your dynasty league to give you an edge in every decision \u2014 trades, drafts, waivers, and roster construction. Here\u2019s what every tool and metric means.'),
                         ...fullItems.map(section => React.createElement('div', { key: section.cat, style: { marginBottom: '20px' } },
                             React.createElement('div', { style: { fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', borderBottom: '1px solid rgba(212,175,55,0.2)', paddingBottom: '4px', marginBottom: '10px' } }, section.cat),
                             ...section.items.map(item => React.createElement('div', { key: item.term, style: { marginBottom: '12px' } },
                                 React.createElement('div', { style: { fontSize: '0.84rem', fontWeight: 700, color: 'var(--white)' } }, item.term),
-                                React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.6, marginTop: '2px' } }, item.def)
+                                React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.4, marginTop: '2px' } }, item.def)
                             ))
                         ))
                     )
@@ -1950,7 +1950,7 @@
 
           return (
             <div style={{ padding: '16px' }}>
-              <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '2px' }}>LEAGUE MAP</div>
+              <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--gold)', marginBottom: '2px' }}>LEAGUE MAP</div>
               <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' }}>Every team, asset, and competitive position in your league</div>
               {/* Flash Brief: Overview | Analyst: Teams/Players/Picks */}
               {isCommand && (() => {
@@ -2042,26 +2042,37 @@
                             {views.map(v => <button key={v.key} onClick={() => { window._wrPrView = v.key; setTimeRecomputeTs(Date.now()); }} style={{ padding: '3px 10px', fontSize: '0.68rem', fontFamily: 'Oswald', borderRadius: '4px', cursor: 'pointer', border: '1px solid ' + (prView === v.key ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'), background: prView === v.key ? 'rgba(212,175,55,0.12)' : 'transparent', color: prView === v.key ? 'var(--gold)' : 'var(--silver)' }}>{v.label}</button>)}
                           </div>
                         </div>
-                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden', maxHeight: '320px', overflowY: 'auto' }}>
-                          {view.data.map((t, i) => {
-                            const isMe = t.ownerId === sleeperUserId;
-                            const val = view.valFn(t);
-                            const maxVal = view.valFn(view.data[0]) || 1;
-                            const pct = Math.min(100, Math.round((val / maxVal) * 100));
-                            return (
-                              <div key={t.rosterId} className={isMe ? 'wr-my-row' : undefined} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', background: isMe ? 'rgba(212,175,55,0.04)' : 'transparent' }}>
-                                <span style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', width: '20px', textAlign: 'center' }}>{i + 1}</span>
-                                <div style={{ flex: 1, overflow: 'hidden' }}>
-                                  <span style={{ fontSize: '0.78rem', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.ownerName}{isMe ? ' (You)' : ''}</span>
-                                </div>
-                                <span style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6, flexShrink: 0 }}>{t.tier}</span>
-                                <div style={{ width: '60px', height: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0 }}>
-                                  <div style={{ width: pct + '%', height: '100%', borderRadius: '3px', background: view.colFn(val, i) }}></div>
-                                </div>
-                                <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'Oswald', color: view.colFn(val, i), width: '36px', textAlign: 'right' }}>{view.fmtFn(val)}</span>
-                              </div>
-                            );
-                          })}
+                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
+                          {(() => {
+                            const top5 = view.data.slice(0, 5);
+                            const myIdx = view.data.findIndex(t => t.ownerId === sleeperUserId);
+                            const showMe = myIdx >= 5;
+                            const displayData = showMe ? [...top5, view.data[myIdx]] : top5;
+                            const remaining = view.data.length - displayData.length;
+                            return <React.Fragment>
+                              {displayData.map((t, di) => {
+                                const i = view.data.indexOf(t);
+                                const isMe = t.ownerId === sleeperUserId;
+                                const val = view.valFn(t);
+                                const maxVal = view.valFn(view.data[0]) || 1;
+                                const pct = Math.min(100, Math.round((val / maxVal) * 100));
+                                return (
+                                  <div key={t.rosterId} className={isMe ? 'wr-my-row' : undefined} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', background: isMe ? 'rgba(212,175,55,0.04)' : 'transparent', ...(showMe && di === 5 ? { borderTop: '1px dashed rgba(212,175,55,0.2)' } : {}) }}>
+                                    <span style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', width: '20px', textAlign: 'center' }}>{i + 1}</span>
+                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                      <span style={{ fontSize: '0.78rem', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.ownerName}{isMe ? ' (You)' : ''}</span>
+                                    </div>
+                                    <span style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6, flexShrink: 0 }}>{t.tier}</span>
+                                    <div style={{ width: '60px', height: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0 }}>
+                                      <div style={{ width: pct + '%', height: '100%', borderRadius: '3px', background: view.colFn(val, i) }}></div>
+                                    </div>
+                                    <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'Oswald', color: view.colFn(val, i), width: '36px', textAlign: 'right' }}>{view.fmtFn(val)}</span>
+                                  </div>
+                                );
+                              })}
+                              {remaining > 0 && <div style={{ padding: '6px 10px', fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.5, textAlign: 'center' }}>and {remaining} more teams</div>}
+                            </React.Fragment>;
+                          })()}
                         </div>
                       </div>;
                     })()}
@@ -2230,7 +2241,7 @@
                         const hs2 = teamAssess?.healthScore || 0;
 
                         return (
-                          <div style={{ fontSize: '0.74rem', color: 'var(--silver)', lineHeight: 1.6 }}>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--silver)', lineHeight: 1.4 }}>
                             {/* Status tag + health */}
                             <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
                               {tier2 && <span style={{ fontSize: '0.7rem', fontWeight: 700, color: tierCol2, background: tierCol2 + '15', padding: '1px 8px', borderRadius: '4px', textTransform: 'uppercase', fontFamily: 'Oswald' }}>{tier2}</span>}
@@ -2838,7 +2849,7 @@
           return (
             <div style={{ padding: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '12px' }}>
-                <span style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', letterSpacing: '0.05em' }}>MY TEAM</span>
+                <span style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.3rem', color: 'var(--gold)', letterSpacing: '0.05em' }}>MY TEAM</span>
                 {(() => {
                   const champs = window.App?.LI?.championships || {};
                   const myChampCount = Object.values(champs).filter(c => c.champion === myRoster?.roster_id).length;
@@ -2928,7 +2939,7 @@
                           <div style={{ textAlign: 'center', padding: '14px', background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px' }}>
                             <div style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '6px' }}>You</div>
                             <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)', marginBottom: '4px' }}>{myWins}-{myLosses}</div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.6 }}>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.4 }}>
                               {myTotal.toLocaleString()} DHQ<br/>
                               Playoffs: {myPW}-{myPL}<br/>
                               {myChamps > 0 ? myChamps + 'x Champion' : 'No titles'}
@@ -2950,7 +2961,7 @@
                           <div style={{ textAlign: 'center', padding: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }}>
                             <div style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--silver)', textTransform: 'uppercase', marginBottom: '6px' }}>{theirUser?.display_name || 'Opponent'}</div>
                             <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)', marginBottom: '4px' }}>{theirWins}-{theirLosses}</div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.6 }}>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.4 }}>
                               {theirTotal.toLocaleString()} DHQ<br/>
                               Playoffs: {theirPW}-{theirPL}<br/>
                               {theirChamps > 0 ? theirChamps + 'x Champion' : 'No titles'}
@@ -3360,19 +3371,19 @@
                         onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'rgba(212,175,55,0.06)'; }}
                         onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = idx % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent'; }}>
                         {/* Frozen player info */}
-                        <div style={{ width: '220px', flexShrink: 0, height: '42px', display: 'flex', alignItems: 'center', gap: '8px', padding: '0 6px', borderRight: '2px solid rgba(212,175,55,0.15)', borderLeft: '3px solid ' + statusCol(r.section) }}>
+                        <div style={{ width: '220px', flexShrink: 0, height: '32px', display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', borderRight: '2px solid rgba(212,175,55,0.15)', borderLeft: '3px solid ' + statusCol(r.section) }}>
                           <div className={'wr-ring wr-ring-' + r.pos} style={{ width: '26px', height: '26px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+r.pid+'.jpg'} alt="" onError={e=>e.target.style.display='none'} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} /></div>
                           <div style={{ overflow: 'hidden', flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span style={{ fontWeight: 600, color: 'var(--white)', fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getPlayerName(r.pid)}</span>
+                              <span style={{ fontWeight: 600, color: 'var(--white)', fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getPlayerName(r.pid)}</span>
                               {(() => { const pt = window._playerTags?.[r.pid]; if (!pt) return null; const cfg = { trade: { bg: 'rgba(240,165,0,0.15)', col: '#F0A500', lbl: 'TB' }, cut: { bg: 'rgba(231,76,60,0.15)', col: '#E74C3C', lbl: 'CUT' }, untouchable: { bg: 'rgba(46,204,113,0.15)', col: '#2ECC71', lbl: 'UT' }, watch: { bg: 'rgba(52,152,219,0.15)', col: '#3498DB', lbl: 'W' } }[pt]; return cfg ? <span style={{ fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, background: cfg.bg, color: cfg.col, flexShrink: 0 }}>{cfg.lbl}</span> : null; })()}
                             </div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.65 }}>{r.p.team || 'FA'}{r.injury ? ' \u00B7 '+r.injury : ''}</div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.65 }}>{r.p.team || 'FA'}{r.injury ? ' \u00B7 '+r.injury : ''}</div>
                           </div>
                           <span style={{ fontSize: '0.68rem', color: 'var(--gold)', opacity: 0.4 }}>{isExpanded ? '\u25B2' : '\u25BC'}</span>
                         </div>
                         {/* Data columns */}
-                        <div style={{ flex: 1, display: 'flex', height: '42px', overflowX: 'auto' }}>
+                        <div style={{ flex: 1, display: 'flex', height: '32px', overflowX: 'auto' }}>
                           {visibleCols.map(colKey => ROSTER_COLUMNS[colKey] ? renderCell(colKey, r) : null)}
                         </div>
                       </div>
@@ -3540,18 +3551,18 @@
         // KPI card styles
         const kpiCardStyle = {
             background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)',
-            borderRadius: '12px', padding: '16px 18px', textAlign: 'center'
+            borderRadius: '10px', padding: '10px 12px', textAlign: 'center'
         };
         const kpiLabelStyle = {
-            fontSize: '0.72rem', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif',
-            letterSpacing: '0.08em', marginBottom: '6px', fontWeight: '700'
+            fontSize: '0.68rem', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif',
+            letterSpacing: '0.08em', marginBottom: '4px', fontWeight: '700'
         };
         const kpiValueStyle = {
-            fontSize: '1.6rem', fontWeight: '700', color: 'var(--white)',
+            fontSize: '1.3rem', fontWeight: '700', color: 'var(--white)',
             fontFamily: 'Bebas Neue, cursive', lineHeight: 1, letterSpacing: '0.03em'
         };
         const kpiSubStyle = {
-            fontSize: '0.72rem', color: 'var(--silver)', marginTop: '4px',
+            fontSize: '0.68rem', color: 'var(--silver)', marginTop: '2px',
             fontFamily: 'Oswald, sans-serif', opacity: 0.7
         };
 
@@ -3922,7 +3933,7 @@
 
                                 {/* KPI content */}
                                 <div style={{ ...kpiLabelStyle, fontSize: '0.72rem' }}>{opt.icon} {opt.category.toUpperCase()}{opt.tip ? React.createElement(Tip, null, opt.tip) : null}</div>
-                                <div style={{ ...kpiValueStyle, color: val.color, fontSize: '1.6rem' }}>{val.value}</div>
+                                <div style={{ ...kpiValueStyle, color: val.color, fontSize: '1.3rem' }}>{val.value}</div>
                                 <div style={kpiSubStyle}>{val.sub}</div>
                                 {/* Sparkline visualization */}
                                 {typeof Sparkline !== 'undefined' && val.sparkData && React.createElement(Sparkline, { data: val.sparkData, width: 90, height: 24, color: val.color || '#D4AF37' })}
@@ -4017,7 +4028,7 @@
                         onSubTabConsumed={() => setTradeSubTab(null)}
                     />
                 ) : activeTab === 'myteam' ? renderMyTeamTab() : activeTab === 'league' ? renderLeagueTab() : activeTab === 'analytics' ? (() => {
-                    const aCardStyle = { background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', marginBottom: '16px' };
+                    const aCardStyle = { background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '12px 16px', marginBottom: '12px' };
                     const aHeaderStyle = { fontFamily: 'Bebas Neue, cursive', color: 'var(--gold)', fontSize: '1.2rem', letterSpacing: '0.08em', marginBottom: '12px', borderBottom: '1px solid rgba(212,175,55,0.2)', paddingBottom: '8px' };
                     const aValStyle = { fontFamily: 'Oswald, sans-serif', fontSize: '0.95rem' };
                     const goodColor = '#2ECC71';
@@ -4076,44 +4087,42 @@
 
                         return (
                             <div style={{ padding: '24px 32px', maxWidth: '1000px', margin: '0 auto' }} className="wr-fade-in">
-                                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '20px' }}>FLASH BRIEF</div>
+                                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.4rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '12px' }}>FLASH BRIEF</div>
 
-                                {/* Team Diagnosis */}
-                                <div className="wr-flash-brief" style={{ ...aCardStyle, borderLeft: '4px solid var(--gold)', padding: '20px 24px', marginBottom: '20px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
-                                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '2.8rem', color: myRank <= 3 ? goodColor : myRank <= 6 ? warnColor : badColor, lineHeight: 1 }}>#{myRank || '?'}</div>
-                                        <div>
-                                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)', letterSpacing: '0.03em' }}>{tier}</div>
-                                            <div style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>{totalDhq.toLocaleString()} DHQ {'\u00B7'} {hs} health {'\u00B7'} {elites} elite{elites !== 1 ? 's' : ''}</div>
-                                        </div>
+                                {/* Team Diagnosis — compact horizontal strip */}
+                                {(() => { const tCol = tier === 'ELITE' ? '#D4AF37' : tier === 'CONTENDER' ? '#2ECC71' : tier === 'CROSSROADS' ? '#F0A500' : tier === 'REBUILDING' ? '#E74C3C' : 'var(--silver)'; return (
+                                <div className="wr-flash-brief" style={{ ...aCardStyle, borderLeft: '4px solid var(--gold)', padding: '8px 14px', marginBottom: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '2rem', color: myRank <= 3 ? goodColor : myRank <= 6 ? warnColor : badColor, lineHeight: 1 }}>#{myRank || '?'}</div>
+                                        <span style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: tCol, letterSpacing: '0.03em', padding: '2px 8px', background: tCol + '18', borderRadius: '4px' }}>{tier}</span>
+                                        <span style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>Ranked #{myRank} of {rankedTeams.length}</span>
+                                        <span style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>{hs} Health</span>
+                                        <span style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>{elites} Elite{elites !== 1 ? 's' : ''}</span>
                                     </div>
-                                    <GMMessage compact>{diagParts.join(' ')}</GMMessage>
-                                </div>
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginTop: '4px', lineHeight: 1.4 }}>{diagParts.join(' ')}</div>
+                                </div>); })()}
 
                                 {/* Gate: Action Plan requires warroom tier */}
                                 {!canAccess('command-view') && <div style={{ background:'linear-gradient(135deg, var(--off-black), var(--charcoal))', border:'2px solid rgba(212,175,55,0.3)', borderRadius:'12px', padding:'24px', textAlign:'center', marginBottom:'20px' }}>
                                     <div style={{ fontFamily:'Bebas Neue', fontSize:'1.3rem', color:'var(--gold)', marginBottom:'8px' }}>UNLOCK FULL ACTION PLAN</div>
-                                    <div style={{ fontSize:'0.85rem', color:'var(--silver)', lineHeight:1.6, marginBottom:'14px' }}>See prioritized moves, trade currency analysis, position investment insights, and power ranking narratives.</div>
+                                    <div style={{ fontSize:'0.85rem', color:'var(--silver)', lineHeight:1.4, marginBottom:'14px' }}>See prioritized moves, trade currency analysis, position investment insights, and power ranking narratives.</div>
                                     <button onClick={() => { window.location.href = 'landing.html'; }} style={{ padding:'10px 24px', background:'var(--gold)', color:'var(--black)', border:'none', borderRadius:'8px', fontFamily:'Bebas Neue', fontSize:'1rem', cursor:'pointer' }}>Unlock War Room — $9.99/mo</button>
                                 </div>}
 
                                 {/* Prioritized Actions */}
-                                {canAccess('command-view') && priorities.length > 0 && <div style={{ ...aCardStyle, borderLeft: '4px solid ' + badColor, marginBottom: '20px' }}>
+                                {canAccess('command-view') && priorities.length > 0 && <div style={{ ...aCardStyle, borderLeft: '4px solid ' + badColor, marginBottom: '12px' }}>
                                     <div style={aHeaderStyle}>ACTION PLAN</div>
                                     {priorities.map((p, i) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: i < priorities.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                                            <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: p.col, minWidth: '28px' }}>#{p.rank}</span>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontSize: '0.88rem', color: 'var(--white)', fontWeight: 600 }}>{p.label}</div>
-                                                <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.7 }}>{p.action}</div>
-                                            </div>
-                                            <button className={i === 0 ? 'wr-pulse-red' : undefined} onClick={() => setActiveTab(p.cta)} style={{ padding: '6px 14px', background: p.col + '20', border: '1px solid ' + p.col + '50', color: p.col, borderRadius: '6px', fontFamily: 'Oswald', fontSize: '0.76rem', cursor: 'pointer', textTransform: 'uppercase', fontWeight: 700 }}>Fix This</button>
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: i < priorities.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                                            <button className={i === 0 ? 'wr-pulse-red' : undefined} onClick={() => setActiveTab(p.cta)} style={{ padding: '4px 10px', background: p.col + '20', border: '1px solid ' + p.col + '50', color: p.col, borderRadius: '6px', fontFamily: 'Oswald', fontSize: '0.72rem', cursor: 'pointer', textTransform: 'uppercase', fontWeight: 700, flexShrink: 0 }}>Fix This</button>
+                                            <span style={{ fontSize: '0.82rem', color: 'var(--white)', fontWeight: 600 }}>{p.label}</span>
+                                            <span style={{ fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.7 }}>{'\u2014'} {p.action}</span>
                                         </div>
                                     ))}
                                 </div>}
 
                                 {/* KPI Cards — non-duplicated metrics (diagnosis covers health/tier/elites/DHQ) */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '12px' }}>
                                     {(() => {
                                         // Contender rank (PPG-based)
                                         const rp2 = currentLeague?.roster_positions || [];
@@ -4170,7 +4179,7 @@
                                         ].sort((a, b) => (a.ok ? 1 : 0) - (b.ok ? 1 : 0));
                                         return kpis.map((kpi, i) => (
                                             <div key={i} style={{ background: 'var(--black)', border: '2px solid ' + (kpi.ok ? 'rgba(212,175,55,0.2)' : kpi.col + '50'), borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
-                                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.8rem', color: kpi.col }}>{kpi.val}</div>
+                                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: kpi.col }}>{kpi.val}</div>
                                                 <div style={{ fontSize: '0.72rem', color: 'var(--silver)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kpi.label}</div>
                                             </div>
                                         ));
@@ -4178,11 +4187,11 @@
                                 </div>
 
                                 {/* Two-column: Trade Currency + Position Insights */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
                                     {/* Trade currency */}
                                     {strengths.length > 0 ? <div style={{ ...aCardStyle, borderLeft: '4px solid ' + goodColor, marginBottom: 0 }}>
                                         <div style={aHeaderStyle}>TRADE CURRENCY</div>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--silver)', lineHeight: 1.6, marginBottom: '10px' }}>
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--silver)', lineHeight: 1.4, marginBottom: '10px' }}>
                                             Surplus at <strong style={{ color: goodColor }}>{strengths.join(', ')}</strong>. Use to fill {needs.length ? needs.slice(0, 2).map(n => n.pos).join('/') : 'gaps'}.
                                         </div>
                                         <button onClick={() => setActiveTab('trades')} style={{ padding: '8px 18px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.9rem', cursor: 'pointer' }}>FIND TRADES</button>
@@ -4203,16 +4212,7 @@
                                     </div>
                                 </div>
 
-                                {/* Power ranking summary */}
-                                {myRank > 0 && <div style={{ ...aCardStyle, marginBottom: '20px' }}>
-                                    <div style={aHeaderStyle}>POWER RANKING</div>
-                                    <div style={{ fontSize: '0.88rem', color: 'var(--silver)', lineHeight: 1.7 }}>
-                                        You rank <strong style={{ color: myRank <= 3 ? goodColor : myRank <= 6 ? warnColor : badColor }}>#{myRank} of {rankedTeams.length}</strong>
-                                        {' '}due to {hs >= 75 ? 'strong roster health (' + hs + ')' : hs >= 55 ? 'moderate health (' + hs + ')' : 'low health (' + hs + ')'}
-                                        {elites >= 3 ? ' and elite asset depth.' : elites >= 1 ? ' with ' + elites + ' elite asset' + (elites > 1 ? 's' : '') + '.' : ' and no elite-tier assets.'}
-                                        {myRank > 6 ? ' Focus on rebuilding your core.' : myRank > 3 ? ' You\'re in the mix \u2014 one trade could push you into the top tier.' : ' You\'re a league leader.'}
-                                    </div>
-                                </div>}
+                                {/* Power ranking merged into diagnosis strip above */}
 
                                 <div style={{ textAlign: 'center', padding: '12px', fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.4 }}>Switch to Analyst view for full charts, tables, and breakdowns</div>
                             </div>
@@ -4240,11 +4240,11 @@
 
                     return (
                     <div style={{ padding: '16px' }}>
-                        <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '4px' }}>LEAGUE ANALYTICS</div>
+                        <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.4rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '4px' }}>LEAGUE ANALYTICS</div>
                         <div style={{ fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '16px' }}>Winners = playoff bracket champions, runner-ups, and semi-finalists when available. Falls back to top 3 by record in the current season.</div>
 
                         {/* Sub-tab navigation */}
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                             {subTabs.map(t => (
                                 <div key={t.key} style={subTabBtnStyle(analyticsTab === t.key)} onClick={() => setAnalyticsTab(t.key)}>{t.label}</div>
                             ))}
@@ -4323,8 +4323,8 @@
                             const kpiCardStyle = {
                                 background: 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(10,10,10,0.98))',
                                 border: '1px solid rgba(212,175,55,0.25)',
-                                borderRadius: '14px',
-                                padding: '20px 18px 14px',
+                                borderRadius: '10px',
+                                padding: '10px 12px 8px',
                                 flex: '1 1 0',
                                 minWidth: '140px',
                                 position: 'relative',
@@ -4332,14 +4332,14 @@
                             };
                             const kpiNumberStyle = {
                                 fontFamily: 'Bebas Neue, cursive',
-                                fontSize: '2.4rem',
+                                fontSize: '1.8rem',
                                 lineHeight: 1,
                                 color: 'var(--white)',
                                 marginBottom: '2px',
                             };
                             const kpiLabelStyle = {
                                 fontFamily: 'Oswald, sans-serif',
-                                fontSize: '0.7rem',
+                                fontSize: '0.68rem',
                                 color: 'var(--silver)',
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.08em',
@@ -4490,7 +4490,7 @@
                                 </div>
 
                                 {/* ── TOP KPI CARDS ── */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', marginBottom: '12px' }}>
                                     {/* Total DHQ */}
                                     <div style={kpiCardStyle}>
                                         <div style={kpiLabelStyle}>Total DHQ <span title="Dynasty Health Quotient — the total dynasty value of all players on your roster, measured by scoring, age, position scarcity, and production." style={{ fontSize:'0.7rem', opacity:0.5, cursor:'help' }}>?</span></div>
@@ -4536,7 +4536,7 @@
                                 </div>
 
                                 {/* ── TWO-COLUMN CHART GRID ── */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '12px' }}>
                                     {/* Left: Position Investment BarChart */}
                                     <div style={aCardStyle}>
                                         <div style={aHeaderStyle}>POSITION INVESTMENT</div>
@@ -4593,7 +4593,7 @@
 
                                 {/* ── RADAR CHART: Position Balance ── */}
                                 {Object.keys(radarValues).length >= 3 && (
-                                <div style={{ ...aCardStyle, display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                                <div style={{ ...aCardStyle, display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
                                     <div>
                                         <div style={aHeaderStyle}>POSITION BALANCE vs WINNERS</div>
                                         <div style={{ fontSize: '0.75rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '8px', lineHeight: 1.5 }}>100 = you invest 43% more than champions at that position. 70 = matched to champion allocation. Below 70 = underweight vs champions.</div>
@@ -4605,7 +4605,7 @@
                                 )}
 
                                 {/* ── PERFORMANCE RANKINGS TABLE ── */}
-                                <div style={{ ...aCardStyle, marginBottom: '20px' }}>
+                                <div style={{ ...aCardStyle, marginBottom: '12px' }}>
                                     <div style={aHeaderStyle}>LEAGUE POWER RANKINGS</div>
                                     {/* Header row */}
                                     <div style={{ display: 'grid', gridTemplateColumns: '36px 1.4fr 0.7fr 80px 0.9fr 0.7fr', gap: '8px', padding: '8px 0', borderBottom: '2px solid rgba(212,175,55,0.2)', fontWeight: 700, color: 'var(--gold)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Oswald, sans-serif' }}>
@@ -4773,10 +4773,10 @@
                                 </div>
 
                                 {/* ── TOP KPI CARDS ── */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '12px' }}>
                                     <div style={dKpiCardStyle}>
                                         <div style={dKpiLabel}>Draft Grade <span title="Letter grade comparing your draft hit rate to the league average. A+ = elite drafter, C = average, D = below average and costing roster value." style={{ fontSize:'0.7rem', opacity:0.5, cursor:'help' }}>?</span></div>
-                                        <div style={{ ...dKpiNum, fontSize: '2.8rem', color: gradeIdx <= 2 ? goodColor : gradeIdx <= 5 ? warnColor : badColor }}>{grades[gradeIdx]}</div>
+                                        <div style={{ ...dKpiNum, fontSize: '2rem', color: gradeIdx <= 2 ? goodColor : gradeIdx <= 5 ? warnColor : badColor }}>{grades[gradeIdx]}</div>
                                         <div style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6 }}>Based on hit rate advantage</div>
                                     </div>
                                     <div style={dKpiCardStyle}>
@@ -4799,7 +4799,7 @@
                                 </div>
 
                                 {/* ── TWO-COLUMN: Hit Rates + Draft Formula ── */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '12px' }}>
                                     {/* Hit Rates as BarChart */}
                                     <div style={aCardStyle}>
                                         <div style={aHeaderStyle}>HIT RATES BY ROUND</div>
@@ -4955,7 +4955,7 @@
                                     <div style={{ display: 'flex', gap: '24px', justifyContent: 'center', marginBottom: '16px' }}>
                                         {[{ label: 'Winners', val: wv.faabEfficiency.winners, color: 'var(--gold)' }, { label: 'League', val: wv.faabEfficiency.league, color: 'var(--silver)' }].map(({ label, val, color }) => (
                                             <div key={label} style={{ textAlign: 'center' }}>
-                                                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '2rem', color }}>{val}</div>
+                                                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color }}>{val}</div>
                                                 <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>{label}</div>
                                             </div>
                                         ))}
@@ -5041,7 +5041,7 @@
                                 </div>
 
                                 {/* ── TOP KPI CARDS ── */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '12px' }}>
                                     <div style={tKpiCardStyle}>
                                         <div style={tKpiLabel}>Your Trades/Season <span title="Average number of trades you make per season. Includes player-for-player swaps, pick trades, and multi-asset deals." style={{ fontSize:'0.7rem', opacity:0.5, cursor:'help' }}>?</span></div>
                                         <div style={tKpiNum}>{mp.avgTradesPerSeason}</div>
@@ -5063,13 +5063,13 @@
                                     </div>
                                     <div style={tKpiCardStyle}>
                                         <div style={tKpiLabel}>Top Positions Bought <span title="The positions that championship teams acquire most frequently via trade — shows what winners prioritize in deals." style={{ fontSize:'0.7rem', opacity:0.5, cursor:'help' }}>?</span></div>
-                                        <div style={{ ...tKpiNum, fontSize: '1.6rem' }}>{topPosBought(wp)}</div>
+                                        <div style={{ ...tKpiNum, fontSize: '1.3rem' }}>{topPosBought(wp)}</div>
                                         <div style={{ fontSize: '0.7rem', color: 'var(--gold)', opacity: 0.7 }}>Positions champions acquire most via trade</div>
                                     </div>
                                 </div>
 
                                 {/* ── TWO-COLUMN: Position Bought + Trade Profile Table ── */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '12px' }}>
                                     {/* Positions Bought BarChart */}
                                     <div style={aCardStyle}>
                                         <div style={aHeaderStyle}>POSITIONS ACQUIRED VIA TRADE</div>
@@ -5248,7 +5248,7 @@
                                     <div style={{ fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px', lineHeight: 1.5 }}>Players within 2 years of their position's peak-end age with 2000+ DHQ value. These are your highest-risk assets for dynasty value decline.</div>
                                     <div style={{ display: 'flex', gap: '24px', marginBottom: '12px' }}>
                                         <div style={{ textAlign: 'center' }}>
-                                            <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '2rem', color: atRiskPct > 30 ? badColor : atRiskPct > 15 ? warnColor : goodColor }}>{atRiskPct}%</div>
+                                            <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: atRiskPct > 30 ? badColor : atRiskPct > 15 ? warnColor : goodColor }}>{atRiskPct}%</div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>Your DHQ past peak by {(parseInt(S?.season) || 2026) + 2}</div>
                                         </div>
                                         <div style={{ textAlign: 'center' }}>
@@ -5268,7 +5268,7 @@
                                                 });
                                                 const lgPct = lgTotal > 0 ? Math.round(lgAtRisk / lgTotal * 100) : 0;
                                                 return <>
-                                                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '2rem', color: 'var(--gold)' }}>{lgPct}%</div>
+                                                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)' }}>{lgPct}%</div>
                                                     <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>League avg</div>
                                                 </>;
                                             })()}
@@ -5397,7 +5397,7 @@
                                                     { key: 'losers', label: 'Losers Bracket', data: sData.losers || sData.l || [] },
                                                 ];
                                                 return (
-                                                    <div key={season} style={{ marginBottom: '20px' }}>
+                                                    <div key={season} style={{ marginBottom: '12px' }}>
                                                         <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.1rem', color: 'var(--gold)', marginBottom: '8px' }}>{season} Playoffs</div>
                                                         {brackets.map(b => {
                                                             if (!b.data || !b.data.length) return null;
@@ -5571,7 +5571,7 @@
                                 </div>
 
                                 <div style={{ background:'var(--black)', border:'2px solid rgba(212,175,55,0.3)', borderRadius:'12px', padding:'24px' }}>
-                                    <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.3rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'20px' }}>LEAGUE TIMELINE</div>
+                                    <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.3rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'12px' }}>LEAGUE TIMELINE</div>
                                     {years.map(year => {
                                         const yearEvents = events.filter(e => e.year === year);
                                         return (
@@ -5657,7 +5657,7 @@
 
                             return <div>
                                 {/* Score header */}
-                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',background:'var(--black)',border:'2px solid rgba(212,175,55,0.3)',borderRadius:'12px',marginBottom:'16px'}}>
+                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 16px',background:'var(--black)',border:'2px solid rgba(212,175,55,0.3)',borderRadius:'12px',marginBottom:'12px'}}>
                                     <div style={{textAlign:'center',flex:1}}>
                                         <div style={{fontFamily:'Oswald,sans-serif',fontSize:'0.8rem',color:'var(--silver)',marginBottom:'4px'}}>YOU</div>
                                         <div style={{fontFamily:'Bebas Neue,cursive',fontSize:'2.5rem',color:myWinning?'var(--win-green)':'var(--white)',lineHeight:1}}>{myPts.toFixed(1)}</div>
@@ -5742,12 +5742,12 @@
                       border: '2px solid rgba(212,175,55,0.3)',
                       borderRadius: '16px',
                       padding: '28px 32px',
-                      marginBottom: '20px',
+                      marginBottom: '12px',
                       position: 'relative',
                       overflow: 'hidden'
                     }}>
                       <div style={{ fontSize: '0.76rem', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '8px' }}>THIS WEEK IN {currentLeague.name?.toUpperCase()}</div>
-                      <div style={{ fontFamily: 'Crimson Text, serif', fontSize: '1.15rem', color: 'var(--white)', lineHeight: 1.6 }}>
+                      <div style={{ fontFamily: 'Crimson Text, serif', fontSize: '1.15rem', color: 'var(--white)', lineHeight: 1.4 }}>
                         {heroStory || computeDataDrivenHero()}
                       </div>
                       <button onClick={generateHeroStory} style={{ marginTop: '8px', padding: '4px 12px', background: 'var(--gold)', color: 'var(--black)', border: '1px solid var(--gold)', borderRadius: '6px', fontFamily: 'Oswald, sans-serif', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -6063,7 +6063,7 @@
                   msg.role === 'user' ? (
                     <div key={i} style={{
                       alignSelf: 'flex-end', maxWidth: '85%', padding: '8px 12px', borderRadius: '12px',
-                      fontSize: '0.78rem', lineHeight: 1.6,
+                      fontSize: '0.78rem', lineHeight: 1.4,
                       background: 'rgba(124,107,248,0.12)', border: '1px solid rgba(124,107,248,0.18)',
                       color: '#f0f0f3'
                     }} dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>') }} />
@@ -6086,7 +6086,7 @@
                         }
                         return (
                           <React.Fragment>
-                            <div style={{ fontSize: '0.78rem', lineHeight: 1.6, color: '#f0f0f3' }}
+                            <div style={{ fontSize: '0.78rem', lineHeight: 1.4, color: '#f0f0f3' }}
                               dangerouslySetInnerHTML={{ __html: textContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>') }} />
                             {tradeCard && (
                               <div style={{ marginTop: '10px', background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', padding: '10px', fontSize: '0.76rem' }}>

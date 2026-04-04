@@ -568,7 +568,7 @@
                 {React.createElement('div', { style: { marginBottom: '20px' } },
                     React.createElement('div', { style: { fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' } }, 'WAIVER PRIORITY BOARD'),
                     React.createElement('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' } }, 'All available players ranked by pickup priority'),
-                    React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden', maxHeight: '400px', overflowY: 'auto' } },
+                    React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden', maxHeight: 'none', overflowY: 'visible' } },
                         ...availablePlayers.slice(0, 25).map((x, i) => {
                             const st = statsData[x.pid] || {};
                             const ppg = st.gp > 0 ? +(calcRawPts(st) / st.gp).toFixed(1) : 0;
@@ -616,7 +616,7 @@
                         <span style={faHeaderStyle} onClick={() => handleFaSort('exp')}>Peak{faSortIndicator('exp')}</span>
                     </div>
                     {/* Body */}
-                    <div style={{ maxHeight: '600px', overflow: 'auto' }}>
+                    <div style={{ maxHeight: 'none', overflow: 'visible' }}>
                         {sortedPlayers.map(({ pid, p, dhq }) => {
                             const pos = normPos(p.position) || p.position;
                             const st = statsData[pid] || {};

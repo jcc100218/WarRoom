@@ -450,7 +450,7 @@
 
                     // Compact board renderer (used for both sides)
                     const renderCompactBoard = (players, isDhq) => (
-                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px', overflow: 'hidden', maxHeight: '600px', overflowY: 'auto' }}>
+                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px', overflow: 'hidden', maxHeight: 'none', overflowY: 'visible' }}>
                             {/* Header */}
                             <div style={{ display: 'flex', height: '32px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.68rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1 }}>
                                 <div style={{ width: '24px', flexShrink: 0, textAlign: 'center' }}>#</div>

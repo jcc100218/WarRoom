@@ -405,7 +405,7 @@
         const [leagueViewMode, setLeagueViewMode] = useState('roster');
         const [myTeamView, setMyTeamView] = useState('roster');
         const [compareTeamId, setCompareTeamId] = useState(null);
-        const [leagueSubView, setLeagueSubView] = useState('teams');
+        const [leagueSubView, setLeagueSubView] = useState('teams'); // sub-tabs below the overview
         const [lpSort, setLpSort] = useState({ key: 'dhq', dir: 1 });
         const [lpFilter, setLpFilter] = useState('');
 
@@ -1952,13 +1952,8 @@
             <div style={{ padding: '16px' }}>
               <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '2px' }}>LEAGUE MAP</div>
               <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' }}>Every team, asset, and competitive position in your league</div>
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-                <button onClick={() => setLeagueSubView('command')} style={sortBtnStyle(leagueSubView === 'command')}>Overview</button>
-                <button onClick={() => setLeagueSubView('teams')} style={sortBtnStyle(leagueSubView === 'teams')}>Teams</button>
-                <button onClick={() => setLeagueSubView('players')} style={sortBtnStyle(leagueSubView === 'players')}>All Players</button>
-                <button onClick={() => setLeagueSubView('picks')} style={sortBtnStyle(leagueSubView === 'picks')}>Draft Picks</button>
-              </div>
-              {leagueSubView === 'command' && (() => {
+              {/* Overview always visible at top */}
+              {(() => {
                 // Assess all teams
                 const allAssessments = (typeof window.assessAllTeamsFromGlobal === 'function' ? window.assessAllTeamsFromGlobal() : [])
                   .filter(a => a && a.rosterId);
@@ -2143,6 +2138,13 @@
                   </div>
                 );
               })()}
+
+              {/* Sub-tabs for detailed views */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+                <button onClick={() => setLeagueSubView('teams')} style={sortBtnStyle(leagueSubView === 'teams')}>Teams</button>
+                <button onClick={() => setLeagueSubView('players')} style={sortBtnStyle(leagueSubView === 'players')}>All Players</button>
+                <button onClick={() => setLeagueSubView('picks')} style={sortBtnStyle(leagueSubView === 'picks')}>Draft Picks</button>
+              </div>
               {leagueSubView === 'teams' && (<div>
               <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
                 <button onClick={() => setLeagueSort('wins')} style={sortBtnStyle(leagueSort === 'wins')}>Wins</button>

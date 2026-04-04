@@ -204,7 +204,7 @@
                     { term: 'Trend', def: 'Year-over-year production change as a percentage. A player who went from 15 PPG to 18 PPG has a +20% trend. During the season, trend directly influences DHQ values (up to \u00B18%).' },
                 ]},
                 { cat: 'Team Assessment', items: [
-                    { term: 'Health Score', def: 'Your team\u2019s competitive readiness on a 0-100 scale. 60% is based on your optimal starting lineup strength, 40% on positional depth and coverage. 85+ = Elite tier, 72+ = Contender, 60+ = Crossroads.' },
+                    { term: 'Health Score', def: 'Your team\u2019s competitive readiness on a 0-100 scale. 60% is based on your optimal starting lineup strength, 40% on positional depth and coverage. 90+ = Elite tier, 80+ = Contender, 70+ = Crossroads.' },
                     { term: 'Contender Rank', def: 'How you stack up for winning THIS season. Based on your best possible starting lineup PPG compared to every other team in the league.' },
                     { term: 'Dynasty Rank', def: 'Your long-term foundation strength. Based on total DHQ value across your entire roster \u2014 starters, bench, taxi, and picks.' },
                     { term: 'Compete Window', def: 'How many more years your roster can realistically compete before age-related decline forces a rebuild. Based on the age curves of your top assets.' },
@@ -227,7 +227,7 @@
                     onMouseEnter: e => { e.currentTarget.style.background = 'rgba(212,175,55,0.06)'; },
                     onMouseLeave: e => { e.currentTarget.style.background = 'transparent'; }
                 }, open ? '\u25BC' : '\u25B6', ' Legend'),
-                open && React.createElement('div', { style: { padding: '8px 12px' } },
+                open && React.createElement('div', { style: { padding: '8px 12px', maxHeight: '300px', overflowY: 'auto' } },
                     ...quickItems.map(item => React.createElement('div', { key: item.term, style: { marginBottom: '8px' } },
                         React.createElement('div', { style: { fontSize: '0.72rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald' } }, item.term),
                         React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--silver)', lineHeight: 1.4, marginTop: '1px' } }, item.def)
@@ -416,7 +416,7 @@
             'starter-gap':    { label: 'Starter Gap', icon: '', category: 'Roster', tip: 'Difference between your optimal weekly PPG and league target (median x1.05)' },
             'portfolio':      { label: 'Portfolio DHQ', icon: '', category: 'Roster', tip: 'Sum of all DHQ values on your roster' },
             'value-rank':     { label: 'Value Rank', icon: '', category: 'League', tip: 'Where your total roster DHQ ranks in the league' },
-            'health-score':   { label: 'Health Score', icon: '', category: 'Roster', tip: 'Blended score: 60% scoring power (contender) + 40% position coverage (dynasty depth). 90+=Elite, 75+=Contender' },
+            'health-score':   { label: 'Health Score', icon: '', category: 'Roster', tip: 'Blended score: 60% scoring power (contender) + 40% position coverage (dynasty depth). 90+=Elite, 80+=Contender, 70+=Crossroads' },
             'avg-age':        { label: 'Avg Age', icon: '', category: 'Roster', tip: 'DHQ-weighted average age. Lower = longer dynasty window' },
             'top5-conc':      { label: 'Top 5 Concentration', icon: '', category: 'Roster', tip: '% of DHQ held by top 5 players. High = fragile roster' },
             'hit-rate':       { label: 'Draft Hit Rate', icon: '', category: 'Draft', tip: '% of drafted players who became fantasy starters' },
@@ -470,7 +470,7 @@
                     const myPPG = ppgRanks.find(r => r.rid === myRoster?.roster_id)?.ppg || 0;
                     const cRank = ppgRanks.findIndex(r => r.rid === myRoster?.roster_id) + 1;
                     const allPPGs = ppgRanks.map(r => r.ppg).sort((a, b) => a - b);
-                    return { value: '#' + (cRank || '?') + '/' + standings.length, sub: myPPG > 0 ? myPPG.toFixed(1) + ' PPG' : 'Win-now rank', color: cRank <= 3 ? '#2ECC71' : cRank <= 6 ? 'var(--gold)' : '#E74C3C', sparkData: allPPGs };
+                    return { value: '#' + (cRank || '?') + '/' + standings.length, sub: myPPG > 0 ? 'Win-now rank by ' + myPPG.toFixed(1) + ' PPG' : 'Win-now rank by starter PPG', color: cRank <= 3 ? '#2ECC71' : cRank <= 6 ? 'var(--gold)' : '#E74C3C', sparkData: allPPGs };
                 }
                 case 'dynasty-rank': {
                     // Total DHQ rank — long-term dynasty strength
@@ -478,7 +478,7 @@
                     const myDTotal = dVals.find(r => r.rid === myRoster?.roster_id)?.total || 0;
                     const dRank = dVals.findIndex(r => r.rid === myRoster?.roster_id) + 1;
                     const allDVals = dVals.map(r => r.total).sort((a, b) => a - b);
-                    return { value: '#' + (dRank || '?') + '/' + standings.length, sub: myDTotal > 0 ? myDTotal.toLocaleString() + ' DHQ' : 'Dynasty rank', color: dRank <= 3 ? '#2ECC71' : dRank <= 6 ? 'var(--gold)' : '#E74C3C', sparkData: allDVals };
+                    return { value: '#' + (dRank || '?') + '/' + standings.length, sub: myDTotal > 0 ? 'Long-term rank by ' + myDTotal.toLocaleString() + ' DHQ' : 'Long-term rank by total value', color: dRank <= 3 ? '#2ECC71' : dRank <= 6 ? 'var(--gold)' : '#E74C3C', sparkData: allDVals };
                 }
                 case 'portfolio': {
                     const total = myPlayers.reduce((s, pid) => s + (scores[pid] || 0), 0);
@@ -496,7 +496,7 @@
                     const ranked = rankedTeams.find(t => t.userId === sleeperUserId);
                     const hs = ranked?.healthScore || 0;
                     const allHS = rankedTeams.map(t => t.healthScore || 0).sort((a,b) => a-b);
-                    return { value: hs || '\u2014', sub: 'Score', color: hs >= 80 ? '#2ECC71' : hs >= 60 ? 'var(--gold)' : '#E74C3C', sparkData: allHS };
+                    return { value: hs || '\u2014', sub: 'Score', color: hs >= 90 ? '#D4AF37' : hs >= 80 ? '#2ECC71' : hs >= 70 ? 'var(--gold)' : '#E74C3C', sparkData: allHS };
                 }
                 case 'starter-gap': {
                     const analytics = analyticsData || (typeof runLeagueAnalytics === 'function' ? runLeagueAnalytics() : null);
@@ -1961,7 +1961,7 @@
                       }).sort((a, b) => b.totalDhq - a.totalDhq);
 
                       const views = [
-                        { key: 'blended', label: 'Blended', data: ranked, valFn: t => t.healthScore, fmtFn: v => v, colFn: v => v >= 85 ? '#D4AF37' : v >= 72 ? '#2ECC71' : v >= 60 ? '#F0A500' : '#E74C3C', subFn: t => t.tier },
+                        { key: 'blended', label: 'Blended', data: ranked, valFn: t => t.healthScore, fmtFn: v => v, colFn: v => v >= 90 ? '#D4AF37' : v >= 80 ? '#2ECC71' : v >= 70 ? '#F0A500' : '#E74C3C', subFn: t => t.tier },
                         { key: 'contender', label: 'Contender', data: contenderRanked, valFn: t => t.ppg, fmtFn: v => v > 0 ? v.toFixed(1) : '\u2014', colFn: (v, i) => i < 3 ? '#2ECC71' : i < 8 ? 'var(--silver)' : '#E74C3C', subFn: t => (t.ppg > 0 ? t.ppg.toFixed(1) + ' PPG' : '') },
                         { key: 'dynasty', label: 'Dynasty', data: dynastyRanked, valFn: t => t.totalDhq, fmtFn: v => v > 0 ? (v/1000).toFixed(1)+'K' : '\u2014', colFn: (v, i) => i < 3 ? '#2ECC71' : i < 8 ? 'var(--silver)' : '#E74C3C', subFn: t => (t.totalDhq > 0 ? t.totalDhq.toLocaleString() + ' DHQ' : '') },
                       ];
@@ -3909,6 +3909,26 @@
                 )}
                 </React.Fragment>}
 
+                {/* Power Rankings (Top 5) on Dashboard */}
+                {activeTab === 'dashboard' && rankedTeams.length > 0 && <div style={{ padding: '0 24px 16px' }}>
+                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '8px' }}>POWER RANKINGS</div>
+                    <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
+                        {rankedTeams.slice(0, 5).map((t, i) => {
+                            const isMe = t.userId === sleeperUserId;
+                            return <div key={t.rosterId} className={isMe ? 'wr-my-row' : ''} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                <span style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', width: '24px', textAlign: 'center' }}>{i + 1}</span>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '0.82rem', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)' }}>{t.displayName}{isMe ? ' (You)' : ''}</div>
+                                </div>
+                                <div style={{ width: '80px', height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                    <div style={{ width: t.healthScore + '%', height: '100%', borderRadius: '3px', background: t.healthScore >= 90 ? '#D4AF37' : t.healthScore >= 80 ? '#2ECC71' : t.healthScore >= 70 ? '#F0A500' : '#E74C3C' }}></div>
+                                </div>
+                                <span style={{ fontSize: '0.82rem', fontWeight: 700, fontFamily: 'Oswald', width: '28px', textAlign: 'right', color: t.healthScore >= 90 ? '#D4AF37' : t.healthScore >= 80 ? '#2ECC71' : t.healthScore >= 70 ? '#F0A500' : '#E74C3C' }}>{t.healthScore}</span>
+                            </div>;
+                        })}
+                    </div>
+                </div>}
+
                 {/* Tab Content Routing */}
                 {activeTab === 'trades' ? (
                     <TradeCalcTab
@@ -4023,7 +4043,7 @@
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
                                     {[
                                         { val: totalDhq.toLocaleString(), label: 'TOTAL DHQ', col: 'var(--gold)', ok: true },
-                                        { val: hs || '\u2014', label: 'HEALTH', col: hs >= 80 ? goodColor : hs >= 60 ? warnColor : badColor, ok: hs >= 70 },
+                                        { val: hs || '\u2014', label: 'HEALTH', col: hs >= 90 ? 'var(--gold)' : hs >= 80 ? goodColor : hs >= 70 ? warnColor : badColor, ok: hs >= 80 },
                                         { val: elites, label: 'ELITE PLAYERS', col: elites >= 3 ? goodColor : elites >= 1 ? warnColor : badColor, ok: elites >= 2 },
                                         { val: projWin?.years > 0 ? projWin.years + 'yr' : 'Now', label: 'WINDOW', col: projWin?.years >= 3 ? goodColor : projWin?.years >= 1 ? warnColor : badColor, ok: projWin?.years >= 2 },
                                     ].sort((a, b) => (a.ok ? 1 : 0) - (b.ok ? 1 : 0)).map((kpi, i) => (

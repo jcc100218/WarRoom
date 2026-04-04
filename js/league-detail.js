@@ -433,6 +433,8 @@
             'dynasty-score':    { label: 'Dynasty Score', icon: '', category: 'History', tip: 'Championships (40%) + Playoffs (30%) + Regular Season (30%)' },
             'draft-roi':        { label: 'Draft ROI', icon: '', category: 'Draft', tip: 'Current DHQ of drafted players vs capital spent' },
             'roster-turnover':  { label: 'Roster Turnover', icon: '', category: 'Roster', tip: 'Trades completed this cycle' },
+            'pick-capital':     { label: 'Pick Capital', icon: '', category: 'Roster', tip: 'Total value of your draft picks across next 3 seasons. Includes traded picks.' },
+            'trade-leverage':   { label: 'Trade Leverage', icon: '', category: 'Trades', tip: 'How many league teams need positions where you have surplus. Higher = more trade partners available.' },
         };
         const DEFAULT_KPIS = ['contender-rank', 'dynasty-rank', 'health-score', 'elite-count', 'window'];
         const [selectedKpis, setSelectedKpis] = useState(() => {
@@ -465,18 +467,45 @@
                             : 0;
                         return { rid: r.roster_id, ppg };
                     }).sort((a, b) => b.ppg - a.ppg);
+                    // Offseason fallback: if all PPGs are 0, estimate from DHQ values
+                    if (ppgRanks.every(r => r.ppg === 0)) {
+                        ppgRanks.forEach(r => {
+                            const roster = (currentLeague.rosters || []).find(ros => ros.roster_id === r.rid);
+                            const totalDHQ = (roster?.players || []).reduce((s, pid) => s + (scores[pid] || 0), 0);
+                            r.ppg = Math.round(totalDHQ / 550); // Same fallback as health score
+                        });
+                        ppgRanks.sort((a, b) => b.ppg - a.ppg);
+                    }
                     const myPPG = ppgRanks.find(r => r.rid === myRoster?.roster_id)?.ppg || 0;
                     const cRank = ppgRanks.findIndex(r => r.rid === myRoster?.roster_id) + 1;
                     const allPPGs = ppgRanks.map(r => r.ppg).sort((a, b) => a - b);
                     return { value: '#' + (cRank || '?') + '/' + standings.length, sub: myPPG > 0 ? 'Win-now rank by ' + myPPG.toFixed(1) + ' PPG' : 'Win-now rank by starter PPG', color: cRank <= 3 ? '#2ECC71' : cRank <= 6 ? 'var(--gold)' : '#E74C3C', sparkData: allPPGs };
                 }
                 case 'dynasty-rank': {
-                    // Total DHQ rank — long-term dynasty strength
-                    const dVals = (currentLeague.rosters || []).map(r => ({ rid: r.roster_id, total: (r.players || []).reduce((s, pid) => s + (scores[pid] || 0), 0) })).sort((a, b) => b.total - a.total);
+                    // Total DHQ rank — long-term dynasty strength (players + pick capital)
+                    const dVals = (currentLeague.rosters || []).map(r => {
+                        const playerDHQ = (r.players || []).reduce((s, pid) => s + (scores[pid] || 0), 0);
+                        // Add pick capital value
+                        let pickDHQ = 0;
+                        if (typeof getIndustryPickValue === 'function') {
+                            const totalTeams = (currentLeague.rosters || []).length || 16;
+                            const draftRounds = currentLeague.settings?.draft_rounds || 5;
+                            const leagueSeason = parseInt(currentLeague.season) || new Date().getFullYear();
+                            for (let yr = leagueSeason; yr <= leagueSeason + 2; yr++) {
+                                for (let rd = 1; rd <= draftRounds; rd++) {
+                                    const tradedAway = (window.S?.tradedPicks || []).find(p => parseInt(p.season) === yr && p.round === rd && p.roster_id === r.roster_id && p.owner_id !== r.roster_id);
+                                    if (!tradedAway) pickDHQ += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams);
+                                    const acquired = (window.S?.tradedPicks || []).filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === r.roster_id && p.roster_id !== r.roster_id);
+                                    acquired.forEach(() => { pickDHQ += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams); });
+                                }
+                            }
+                        }
+                        return { rid: r.roster_id, total: playerDHQ + pickDHQ };
+                    }).sort((a, b) => b.total - a.total);
                     const myDTotal = dVals.find(r => r.rid === myRoster?.roster_id)?.total || 0;
                     const dRank = dVals.findIndex(r => r.rid === myRoster?.roster_id) + 1;
                     const allDVals = dVals.map(r => r.total).sort((a, b) => a - b);
-                    return { value: '#' + (dRank || '?') + '/' + standings.length, sub: myDTotal > 0 ? 'Long-term rank by ' + myDTotal.toLocaleString() + ' DHQ' : 'Long-term rank by total value', color: dRank <= 3 ? '#2ECC71' : dRank <= 6 ? 'var(--gold)' : '#E74C3C', sparkData: allDVals };
+                    return { value: '#' + (dRank || '?') + '/' + standings.length, sub: myDTotal > 0 ? Math.round(myDTotal / 1000) + 'K total assets' : 'Dynasty rank', color: dRank <= 3 ? '#2ECC71' : dRank <= 6 ? 'var(--gold)' : '#E74C3C', sparkData: allDVals };
                 }
                 case 'portfolio': {
                     const total = myPlayers.reduce((s, pid) => s + (scores[pid] || 0), 0);
@@ -597,7 +626,7 @@
                 }
                 case 'bench-quality': {
                     const starters = new Set(myRoster?.starters || []);
-                    const benchVals = myPlayers.filter(pid => !starters.has(pid)).map(pid => scores[pid] || 0).filter(v => v > 0);
+                    const benchVals = myPlayers.filter(pid => !starters.has(pid)).map(pid => scores[pid] || 0);
                     const avg = benchVals.length ? Math.round(benchVals.reduce((s,v) => s + v, 0) / benchVals.length) : 0;
                     return { value: avg.toLocaleString(), sub: 'Avg bench DHQ', color: avg >= 2500 ? '#2ECC71' : avg >= 1500 ? 'var(--gold)' : 'var(--silver)' };
                 }
@@ -704,6 +733,41 @@
                     const profile4 = window.App?.LI?.ownerProfiles?.[myRoster?.roster_id];
                     const trades = profile4?.trades || 0;
                     return { value: trades, sub: 'Trades this cycle', color: trades >= 5 ? '#2ECC71' : trades >= 2 ? 'var(--gold)' : 'var(--silver)' };
+                }
+                case 'pick-capital': {
+                    let totalPickValue = 0;
+                    let pickCount = 0;
+                    const totalTeams = (currentLeague.rosters || []).length || 16;
+                    const draftRounds = currentLeague.settings?.draft_rounds || 5;
+                    const leagueSeason = parseInt(currentLeague.season) || new Date().getFullYear();
+                    const tp = window.S?.tradedPicks || [];
+                    for (let yr = leagueSeason; yr <= leagueSeason + 2; yr++) {
+                        for (let rd = 1; rd <= draftRounds; rd++) {
+                            const tradedAway = tp.find(p => parseInt(p.season) === yr && p.round === rd && p.roster_id === myRoster?.roster_id && p.owner_id !== myRoster?.roster_id);
+                            if (!tradedAway) {
+                                totalPickValue += typeof getIndustryPickValue === 'function' ? getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams) : 0;
+                                pickCount++;
+                            }
+                            const acquired = tp.filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === myRoster?.roster_id && p.roster_id !== myRoster?.roster_id);
+                            acquired.forEach(() => {
+                                totalPickValue += typeof getIndustryPickValue === 'function' ? getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams) : 0;
+                                pickCount++;
+                            });
+                        }
+                    }
+                    return { value: totalPickValue > 0 ? Math.round(totalPickValue / 1000) + 'K' : '\u2014', sub: pickCount + ' picks over 3 years', color: totalPickValue >= 20000 ? '#2ECC71' : totalPickValue >= 10000 ? 'var(--gold)' : '#E74C3C' };
+                }
+                case 'trade-leverage': {
+                    const assess = typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal(myRoster?.roster_id) : null;
+                    const myStrengths = assess?.strengths || [];
+                    let leverageCount = 0;
+                    (currentLeague.rosters || []).forEach(r => {
+                        if (r.roster_id === myRoster?.roster_id) return;
+                        const theirAssess = typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal(r.roster_id) : null;
+                        const theirNeeds = (theirAssess?.needs || []).map(n => n.pos);
+                        if (myStrengths.some(s => theirNeeds.includes(s))) leverageCount++;
+                    });
+                    return { value: leverageCount, sub: leverageCount + ' teams need your surplus', color: leverageCount >= 6 ? '#2ECC71' : leverageCount >= 3 ? 'var(--gold)' : '#E74C3C' };
                 }
                 default: return { value: '\u2014', sub: '', color: 'var(--silver)' };
             }
@@ -4256,7 +4320,7 @@
                             allPos.forEach(pos => {
                                 const wPct = (w.posInvestment[pos] || 0) * 100;
                                 const mPct = (m.posInvestment[pos] || 0) * 100;
-                                radarValues[pos] = Math.min(100, Math.round(mPct / Math.max(wPct, 1) * 70));
+                                radarValues[pos] = Math.min(100, Math.round(mPct / Math.max(wPct, 1) * 100));
                             });
 
                             // ── Rankings: all teams sorted by health ──

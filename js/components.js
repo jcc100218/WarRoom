@@ -128,9 +128,24 @@
             React.createElement('div', { style:{ padding:'6px 12px', margin:'0 8px', background:'rgba(212,175,55,0.04)', borderLeft:'3px solid rgba(212,175,55,0.4)', borderRadius:'0 6px 6px 0', display:'flex', gap:'6px', alignItems:'flex-start' } },
                 React.createElement('div', { style:{ width:'18px', height:'18px', borderRadius:'5px', background:'linear-gradient(135deg, #D4AF37, #B8941E)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:'0.5rem', fontWeight:800, color:'#0A0A0A', fontFamily:'Bebas Neue', marginTop:'2px' } }, 'AI'),
                 React.createElement('div', { style:{ fontSize:'0.78rem', color:'#D0D0D0', lineHeight:1.5 } },
-                    peakYrs >= 4 ? 'Long dynasty window \u2014 cornerstone asset.' : peakYrs >= 1 ? 'In production window.' : 'Past peak \u2014 value declining.',
-                    trend >= 20 ? ' Trending up '+trend+'%.' : trend <= -15 ? ' Production down '+Math.abs(trend)+'%.' : '',
-                    isOnMyTeam ? ' On your roster.' : ''
+                    (() => {
+                        const S = window.S || {};
+                        const rosters = S.rosters || [];
+                        // Count teams that need this position (only if player is on my team)
+                        const needCount = isOnMyTeam ? rosters.filter(r => {
+                            if (r.roster_id === S.myRosterId) return false;
+                            const assess = typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal(r.roster_id) : null;
+                            return assess?.needs?.some(n => n.pos === nPos);
+                        }).length : 0;
+
+                        if (isOnMyTeam && needCount >= 3) return needCount + ' teams need ' + nPos + ' \u2014 strong trade leverage.';
+                        if (isOnMyTeam && peakYrs <= 1 && dhq >= 3000) return 'Sell window closing. Move before value drops.';
+                        if (!isOnMyTeam && peakYrs >= 5 && dhq < 4000) return 'Buy-low candidate \u2014 young with room to grow.';
+                        if (peakYrs >= 4) return 'Long dynasty window \u2014 cornerstone asset.';
+                        if (peakYrs >= 1) return 'In production window.';
+                        return 'Past peak \u2014 value declining.';
+                    })(),
+                    trend >= 20 ? ' Trending up '+trend+'%.' : trend <= -15 ? ' Production down '+Math.abs(trend)+'%.' : ''
                 )
             ),
             // Action buttons

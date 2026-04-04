@@ -436,7 +436,7 @@
             'pick-capital':     { label: 'Pick Capital', icon: '', category: 'Roster', tip: 'Total value of your draft picks across next 3 seasons. Includes traded picks.' },
             'trade-leverage':   { label: 'Trade Leverage', icon: '', category: 'Trades', tip: 'How many league teams need positions where you have surplus. Higher = more trade partners available.' },
         };
-        const DEFAULT_KPIS = ['contender-rank', 'dynasty-rank', 'health-score', 'elite-count', 'window'];
+        const DEFAULT_KPIS = ['contender-rank', 'dynasty-rank', 'health-score', 'window'];
         const [selectedKpis, setSelectedKpis] = useState(() => {
             try {
                 const saved = localStorage.getItem('wr_kpi_selection_' + (currentLeague?.id || ''));
@@ -3328,7 +3328,7 @@
                       const col = ROSTER_COLUMNS[colKey];
                       if (!col) return null;
                       return (
-                        <div key={colKey} onClick={() => setRosterSort(prev => prev.key === colKey ? {...prev, dir: prev.dir*-1} : {key: colKey, dir: -1})}
+                        <div key={colKey} onClick={() => setRosterSort(prev => prev.key === colKey ? {...prev, dir: prev.dir*-1} : {key: colKey, dir: 1})}
                           style={{ width: col.width, minWidth: col.width, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' }}>
                           {col.shortLabel || col.label}{rosterSort.key === colKey ? (rosterSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
                         </div>
@@ -3348,11 +3348,7 @@
                   const actionClass = _recLower === 'sell now' || _recLower === 'sell' ? 'wr-row-sell' :
                     _recLower === 'sell high' ? 'wr-row-sell-high' :
                     _recLower === 'hold core' || _recLower === 'build around' ? 'wr-row-core' : '';
-                  const ringClass = r.peakPhase === 'PRIME' || r.peakPhase === 'prime' || r.peakPhase === 'Peak' ? 'wr-ring wr-ring-prime' :
-                    r.peakPhase === 'PRE' || r.peakPhase === 'pre' || r.peakPhase === 'Rising' ? 'wr-ring wr-ring-pre' :
-                    r.peakPhase === 'POST' || r.peakPhase === 'post' || r.peakPhase === 'Veteran' ? 'wr-ring wr-ring-post' :
-                    r.peakPhase === 'Declining' ? 'wr-ring wr-ring-decline' : '';
-                  const starterRing = r.isStarter ? ' wr-ring-starter' : '';
+                  const ringClass = 'wr-ring wr-ring-' + r.pos;
                   const untouchables = (window._wrGmStrategy?.untouchable || []);
                   const isUntouchable = untouchables.includes(r.pid);
 
@@ -3896,7 +3892,7 @@
 
                 {/* KPI Cards — 5 customizable slots (dashboard only) */}
                 {activeTab === 'dashboard' && <React.Fragment><div style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '14px',
+                    display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px',
                     padding: '16px 24px', background: 'var(--black)',
                     borderBottom: '1px solid rgba(212,175,55,0.15)'
                 }}>
@@ -3987,24 +3983,24 @@
                 </React.Fragment>}
 
                 {/* Power Rankings (Top 5) on Dashboard */}
-                {activeTab === 'dashboard' && rankedTeams.length > 0 && <div style={{ padding: '0 24px 16px' }}>
-                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '8px' }}>POWER RANKINGS</div>
-                    <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
-                        {rankedTeams.slice(0, 5).map((t, i) => {
-                            const isMe = t.userId === sleeperUserId;
-                            return <div key={t.rosterId} className={isMe ? 'wr-my-row' : ''} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                <span style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', width: '24px', textAlign: 'center' }}>{i + 1}</span>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: '0.82rem', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)' }}>{t.displayName}{isMe ? ' (You)' : ''}</div>
-                                </div>
-                                <div style={{ width: '80px', height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                                    <div style={{ width: t.healthScore + '%', height: '100%', borderRadius: '3px', background: t.healthScore >= 90 ? '#D4AF37' : t.healthScore >= 80 ? '#2ECC71' : t.healthScore >= 70 ? '#F0A500' : '#E74C3C' }}></div>
-                                </div>
-                                <span style={{ fontSize: '0.82rem', fontWeight: 700, fontFamily: 'Oswald', width: '28px', textAlign: 'right', color: t.healthScore >= 90 ? '#D4AF37' : t.healthScore >= 80 ? '#2ECC71' : t.healthScore >= 70 ? '#F0A500' : '#E74C3C' }}>{t.healthScore}</span>
-                            </div>;
-                        })}
-                    </div>
-                </div>}
+                {activeTab === 'dashboard' && rankedTeams.length > 0 && (() => {
+                    const myRankIdx = rankedTeams.findIndex(t => t.userId === sleeperUserId);
+                    const myTeam = myRankIdx >= 0 ? rankedTeams[myRankIdx] : null;
+                    return <div style={{ padding: '0 24px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em' }}>POWER RANKINGS</div>
+                            <button onClick={() => setActiveTab('league')} style={{ fontSize: '0.7rem', fontFamily: 'Oswald', color: 'var(--gold)', background: 'none', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>View All</button>
+                        </div>
+                        {myTeam && <div className="wr-my-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px' }}>
+                            <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--gold)' }}>#{myRankIdx + 1}</span>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)' }}>{myTeam.displayName}</div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>{myTeam.tier} {'\u00B7'} Health {myTeam.healthScore}</div>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>of {rankedTeams.length}</span>
+                        </div>}
+                    </div>;
+                })()}
 
                 {/* Tab Content Routing */}
                 {activeTab === 'trades' ? (

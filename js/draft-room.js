@@ -112,11 +112,11 @@
             if (!assess || !assess.needs || !assess.needs.length) return { score: 50, label: 'N/A' };
             const pos = normPos(rookie.p.position);
             const needEntry = assess.needs.find(n => n.pos === pos);
-            if (!needEntry) return { score: 30, label: 'Low' };
+            if (!needEntry) return { score: 10, label: 'Low' };
             const urgencyBonus = needEntry.urgency === 'deficit' ? 40 : 20;
             const needIdx = assess.needs.findIndex(n => n.pos === pos);
             const priorityBonus = Math.max(0, 20 - needIdx * 5);
-            const raw = Math.min(99, 30 + urgencyBonus + priorityBonus);
+            const raw = Math.min(99, 10 + urgencyBonus + priorityBonus);
             const label = raw >= 80 ? 'Elite' : raw >= 60 ? 'Strong' : raw >= 40 ? 'Moderate' : 'Low';
             return { score: raw, label };
         }, [assess]);
@@ -305,8 +305,8 @@
                                     <div style={{ fontSize: '0.72rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', fontFamily: 'Oswald' }}>Likely Available at Your Pick</div>
                                     {recommendations.map((r, i) => {
                                         const pos = normPos(r.p.position) || r.p.position;
-                                        const composite = Math.round(r.dhq * 0.6 + r.fit.score * 80);
-                                        const confidence = Math.min(99, Math.round((composite / (rookies[0]?.dhq * 0.6 + 99 * 80 || 1)) * 100));
+                                        const composite = Math.round(r.dhq * 0.7 + r.fit.score * 30);
+                                        const confidence = Math.min(99, Math.round((composite / (rookies[0]?.dhq * 0.7 + 99 * 30 || 1)) * 100));
                                         const needMatch = assess?.needs?.find(n => n.pos === pos);
                                         const reason = needMatch ? (needMatch.urgency === 'deficit' ? 'Fills critical ' + pos + ' need' : 'Addresses ' + pos + ' depth') : 'Best player available at ' + pos;
                                         return (

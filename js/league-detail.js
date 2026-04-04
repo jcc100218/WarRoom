@@ -415,12 +415,11 @@
             'dynasty-rank':   { label: 'Dynasty Rank', icon: '', category: 'League', tip: 'Long-term rank based on total roster DHQ value. How strong is your dynasty foundation?' },
             'starter-gap':    { label: 'Starter Gap', icon: '', category: 'Roster', tip: 'Difference between your optimal weekly PPG and league target (median x1.05)' },
             'portfolio':      { label: 'Portfolio DHQ', icon: '', category: 'Roster', tip: 'Sum of all DHQ values on your roster' },
-            'value-rank':     { label: 'Value Rank', icon: '', category: 'League', tip: 'Where your total roster DHQ ranks in the league' },
             'health-score':   { label: 'Health Score', icon: '', category: 'Roster', tip: 'Blended score: 60% scoring power (contender) + 40% position coverage (dynasty depth). 90+=Elite, 80+=Contender, 70+=Crossroads' },
             'avg-age':        { label: 'Avg Age', icon: '', category: 'Roster', tip: 'DHQ-weighted average age. Lower = longer dynasty window' },
             'top5-conc':      { label: 'Top 5 Concentration', icon: '', category: 'Roster', tip: '% of DHQ held by top 5 players. High = fragile roster' },
-            'hit-rate':       { label: 'Draft Hit Rate', icon: '', category: 'Draft', tip: '% of drafted players who became fantasy starters' },
-            'faab-efficiency':{ label: 'FAAB Efficiency', icon: '', category: 'Waivers', tip: 'DHQ value gained per FAAB dollar spent' },
+            'hit-rate':       { label: 'Trade Win Rate', icon: '', category: 'Trades', tip: 'Percentage of trades where you gained value (won or fair)' },
+            'faab-efficiency':{ label: 'FAAB Remaining', icon: '', category: 'Waivers', tip: 'Remaining FAAB budget available for waiver claims' },
             'net-trade':      { label: 'Net DHQ/Trade', icon: '', category: 'Trades', tip: 'Average DHQ gained or lost per trade' },
             'trade-velocity': { label: 'Trade Velocity', icon: '', category: 'Trades', tip: 'Number of trades completed' },
             'window':         { label: 'Compete Window', icon: '', category: 'Projection', tip: 'Estimated years your roster can compete based on age decay' },
@@ -428,7 +427,6 @@
             'partner-wr':     { label: 'Partner Win Rate', icon: '', category: 'Trades', tip: '% of trades where you gained >15% more DHQ' },
             'elite-count':    { label: 'Elite Players', icon: '', category: 'Roster', tip: 'Players who rank top 5 at their position league-wide. These are your cornerstone assets.' },
             'bench-quality':  { label: 'Bench Quality', icon: '', category: 'Roster', tip: 'Average DHQ of non-starter roster players' },
-            'championships':    { label: 'Championships Won', icon: '', category: 'History', tip: 'Total league championships from bracket data' },
             'playoff-record':   { label: 'Playoff Win-Loss', icon: '', category: 'History', tip: 'Career playoff wins and losses' },
             'playoff-winpct':   { label: 'Playoff Win %', icon: '', category: 'History', tip: 'Win percentage in playoff matchups' },
             'champ-appearances':{ label: 'Championship Appearances', icon: '', category: 'History', tip: 'Times reached the championship round' },
@@ -486,12 +484,6 @@
                     const allTotals = (currentLeague.rosters || []).map(r => (r.players || []).reduce((s, pid) => s + (scores[pid] || 0), 0)).sort((a,b) => a-b);
                     return { value: total.toLocaleString(), sub: 'Total DHQ', color: 'var(--gold)', sparkData: allTotals };
                 }
-                case 'value-rank': {
-                    const vals = (currentLeague.rosters || []).map(r => (r.players || []).reduce((s, pid) => s + (scores[pid] || 0), 0)).sort((a,b) => b - a);
-                    const myTotal = myPlayers.reduce((s, pid) => s + (scores[pid] || 0), 0);
-                    const rank = vals.findIndex(v => v <= myTotal) + 1;
-                    return { value: '#' + (rank || '?') + '/' + standings.length, sub: 'League rank', color: rank <= 3 ? '#2ECC71' : rank <= 6 ? 'var(--gold)' : '#E74C3C' };
-                }
                 case 'health-score': {
                     const ranked = rankedTeams.find(t => t.userId === sleeperUserId);
                     const hs = ranked?.healthScore || 0;
@@ -518,10 +510,10 @@
                     const total = vals.reduce((s,v) => s + v, 0);
                     const top5 = vals.slice(0, 5).reduce((s,v) => s + v, 0);
                     const pct = total > 0 ? Math.round(top5 / total * 100) : 0;
-                    return { value: pct + '%', sub: 'In top 5 players', color: pct >= 65 ? '#2ECC71' : pct >= 50 ? 'var(--gold)' : '#E74C3C' };
+                    return { value: pct + '%', sub: 'In top 5 players', color: pct >= 65 ? '#E74C3C' : pct >= 50 ? 'var(--gold)' : '#2ECC71' };
                 }
                 case 'hit-rate': {
-                    if (!profile || !profile.trades) return { value: '\u2014', sub: 'Draft hit rate', color: 'var(--silver)' };
+                    if (!profile || !profile.trades) return { value: '\u2014', sub: 'Trade win rate', color: 'var(--silver)' };
                     const total = (profile.tradesWon || 0) + (profile.tradesLost || 0) + (profile.tradesFair || 0);
                     const rate = total > 0 ? Math.round(((profile.tradesWon || 0) + (profile.tradesFair || 0)) / total * 100) : 0;
                     return { value: rate + '%', sub: 'Win/fair rate', color: rate >= 60 ? '#2ECC71' : rate >= 40 ? 'var(--gold)' : '#E74C3C' };
@@ -544,9 +536,30 @@
                 }
                 case 'window': {
                     if (!myPlayers.length) return { value: '\u2014', sub: 'Window', color: 'var(--silver)' };
-                    const avgAge = myPlayers.reduce((s, pid) => s + (playersData[pid]?.age || 26), 0) / myPlayers.length;
-                    const yrs = Math.max(0, Math.round(29 - avgAge));
-                    return { value: yrs > 0 ? yrs + 'yr' : 'Now', sub: 'Compete window', color: yrs >= 3 ? '#2ECC71' : yrs >= 1 ? 'var(--gold)' : '#E74C3C' };
+                    const rp = currentLeague?.roster_positions || [];
+                    const peaks = window.App?.peakWindows || {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]};
+                    const posWindows = {};
+                    const windowStarters = myRoster?.starters || [];
+                    windowStarters.forEach(pid => {
+                        if (!pid || pid === '0') return;
+                        const p = playersData[pid];
+                        if (!p) return;
+                        const pos = p.position;
+                        const nPos = pos === 'DE' || pos === 'DT' ? 'DL' : pos === 'CB' || pos === 'S' ? 'DB' : pos === 'OLB' || pos === 'ILB' ? 'LB' : pos;
+                        const [, pHi] = peaks[nPos] || [24, 29];
+                        const yrsLeft = Math.max(0, pHi - (p.age || 25));
+                        if (!posWindows[nPos]) posWindows[nPos] = [];
+                        posWindows[nPos].push(yrsLeft);
+                    });
+                    let minWindow = 99;
+                    Object.entries(posWindows).forEach(([pos, yrs]) => {
+                        if (yrs.length > 0) {
+                            const avg = yrs.reduce((s, y) => s + y, 0) / yrs.length;
+                            if (avg < minWindow) minWindow = avg;
+                        }
+                    });
+                    const windowYrs = minWindow === 99 ? 0 : Math.round(minWindow);
+                    return { value: windowYrs > 0 ? windowYrs + 'yr' : 'Closed', sub: 'Weakest position group', color: windowYrs >= 5 ? '#2ECC71' : windowYrs >= 2 ? 'var(--gold)' : '#E74C3C' };
                 }
                 case 'aging-cliff': {
                     const total = myPlayers.reduce((s, pid) => s + (scores[pid] || 0), 0);
@@ -587,11 +600,6 @@
                     const benchVals = myPlayers.filter(pid => !starters.has(pid)).map(pid => scores[pid] || 0).filter(v => v > 0);
                     const avg = benchVals.length ? Math.round(benchVals.reduce((s,v) => s + v, 0) / benchVals.length) : 0;
                     return { value: avg.toLocaleString(), sub: 'Avg bench DHQ', color: avg >= 2500 ? '#2ECC71' : avg >= 1500 ? 'var(--gold)' : 'var(--silver)' };
-                }
-                case 'championships': {
-                    const champs = window.App?.LI?.championships || {};
-                    const count = Object.values(champs).filter(c => c.champion === myRoster?.roster_id).length;
-                    return { value: count, sub: count === 1 ? 'title' : 'titles', color: count > 0 ? '#D4AF37' : 'var(--silver)' };
                 }
                 case 'playoff-record': {
                     const brackets = window.App?.LI?.bracketData || {};
@@ -2050,7 +2058,7 @@
                                   'DHQ Value': Math.min(100, totalDHQ / 800),
                                   Youth: Math.min(100, Math.max(0, (32 - avgAge) * 12)),
                                   Elites: Math.min(100, elites * 20),
-                                  Depth: Math.min(100, (roster?.players?.length || 0) * 4),
+                                  Depth: (() => { const starterSet = new Set(roster?.starters || []); const benchQuality = (roster?.players || []).filter(pid => !starterSet.has(pid) && (window.App?.LI?.playerScores?.[pid] || 0) >= 3000).length; return Math.min(100, benchQuality * 15); })(),
                                 };
                               })(),
                               size: 220,

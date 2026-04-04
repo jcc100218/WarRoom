@@ -189,35 +189,35 @@
             const [open, setOpen] = React.useState(false);
             const [expanded, setExpanded] = React.useState(false);
             const quickItems = [
-                { term: 'DHQ Value', def: 'Dynasty value score (0-10,000). Higher = more valuable.' },
-                { term: 'Health Score', def: 'Team rating (0-100). Scoring power + depth.' },
-                { term: 'Elite Player', def: 'Top 5 at their position in your league.' },
-                { term: 'Peak Window', def: 'Age range for peak production by position.' },
-                { term: 'Owner DNA', def: 'Trade behavior profile for negotiations.' },
-                { term: 'Compete Window', def: 'Years before age decline forces rebuild.' },
+                { term: 'DHQ Value', def: 'Dynasty value score (0-10,000). Production + age + situation + market.' },
+                { term: 'Health Score', def: 'Team grade (0-100). 90+ Elite, 80+ Contender, 70+ Crossroads.' },
+                { term: 'Elite Player', def: 'Top 5 at their position across all league rosters.' },
+                { term: 'Compete Window', def: 'Years until your weakest position group ages out.' },
+                { term: 'Player Tags', def: 'Tag players as Trade Block, Cut, Untouchable, or Watch. Syncs between apps.' },
+                { term: 'Flash Brief', def: 'Quick-action dashboard. Analyst mode shows deep data.' },
             ];
             const fullItems = [
                 { cat: 'Valuations', items: [
                     { term: 'DHQ Value', def: 'Dynasty valuation score on a 0-10,000 scale. Combines on-field production, age trajectory, roster situation, positional scarcity, and market consensus. Updated when you refresh data.' },
                     { term: 'Elite Player', def: 'A player ranked top 5 at their position across all rosters in your league. Championship rosters typically have 2-4 elite assets.' },
-                    { term: 'Peak Window', def: 'The age range where players at each position are statistically most productive. QBs have the longest window (23-39), RBs the shortest (21-31). Players outside their window decline in value.' },
+                    { term: 'Player Tags', def: 'Tag any player as Trade Block, Cut, Untouchable, or Watch List. Tags sync between War Room and ReconAI so your decisions carry across both apps.' },
                     { term: 'Trend', def: 'Year-over-year production change as a percentage. A player who went from 15 PPG to 18 PPG has a +20% trend. During the season, trend directly influences DHQ values (up to \u00B18%).' },
                 ]},
                 { cat: 'Team Assessment', items: [
                     { term: 'Health Score', def: 'Your team\u2019s competitive readiness on a 0-100 scale. 60% is based on your optimal starting lineup strength, 40% on positional depth and coverage. 90+ = Elite tier, 80+ = Contender, 70+ = Crossroads.' },
                     { term: 'Contender Rank', def: 'How you stack up for winning THIS season. Based on your best possible starting lineup PPG compared to every other team in the league.' },
                     { term: 'Dynasty Rank', def: 'Your long-term foundation strength. Based on total DHQ value across your entire roster \u2014 starters, bench, taxi, and picks.' },
-                    { term: 'Compete Window', def: 'How many more years your roster can realistically compete before age-related decline forces a rebuild. Based on the age curves of your top assets.' },
+                    { term: 'Compete Window', def: 'How many more years your roster can realistically compete before age-related decline forces a rebuild. Based on the age curves of your weakest position group.' },
                 ]},
                 { cat: 'Trading', items: [
                     { term: 'Owner DNA', def: 'A behavioral profile derived from each owner\u2019s trade history. Types include Fleecer (always wins trades), Stalwart (fair deals only), Dominator (wants to feel like the winner), Acceptor (open to deals), and Desperate (panic trades). Used to predict acceptance likelihood.' },
                     { term: 'Trade Impact', def: 'Before you send a trade, see exactly how it changes your health score, elite count, and competitive tier. Simulates the roster swap and recalculates everything.' },
                     { term: 'Acceptance Likelihood', def: 'Predicted chance the other owner accepts your offer, based on value difference, their DNA type, positional needs, and psychological factors like endowment bias.' },
                 ]},
-                { cat: 'Draft & Free Agency', items: [
+                { cat: 'Flash Brief & Analytics', items: [
+                    { term: 'Flash Brief', def: 'Quick-action command dashboard. Shows team diagnosis, prioritized action plan, trade currency, and position investment vs championship winners. Analyst mode reveals deep historical analytics.' },
                     { term: 'Fit Score', def: 'How well a draft prospect fills your specific roster needs. A team thin at RB will see RB prospects scored higher. Based on positional depth analysis.' },
                     { term: 'FAAB Strategy', def: 'Free Agent Acquisition Budget recommendations. War Room analyzes which other teams need the same players and how much budget they have left, then suggests a bid amount to win without overpaying.' },
-                    { term: 'Drop Candidates', def: 'Your lowest-value bench players that could be cut to make room for upgrades. Sorted by DHQ with peak status flagged.' },
                 ]},
             ];
             return React.createElement('div', { style: { marginBottom: '8px' } },
@@ -228,14 +228,14 @@
                     onMouseLeave: e => { e.currentTarget.style.background = 'transparent'; }
                 }, open ? '\u25BC' : '\u25B6', ' Legend'),
                 open && React.createElement('div', { style: { padding: '8px 12px', maxHeight: '300px', overflowY: 'auto' } },
+                    React.createElement('button', {
+                        onClick: () => setExpanded(true),
+                        style: { width: '100%', marginBottom: '10px', padding: '6px', fontSize: '0.72rem', fontFamily: 'Oswald', background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '4px', color: 'var(--gold)', cursor: 'pointer' }
+                    }, 'FULL GUIDE \u2192'),
                     ...quickItems.map(item => React.createElement('div', { key: item.term, style: { marginBottom: '8px' } },
                         React.createElement('div', { style: { fontSize: '0.72rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald' } }, item.term),
                         React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--silver)', lineHeight: 1.4, marginTop: '1px' } }, item.def)
-                    )),
-                    React.createElement('button', {
-                        onClick: () => setExpanded(true),
-                        style: { width: '100%', marginTop: '6px', padding: '6px', fontSize: '0.72rem', fontFamily: 'Oswald', background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '4px', color: 'var(--gold)', cursor: 'pointer' }
-                    }, 'FULL GUIDE \u2192')
+                    ))
                 ),
                 // Expanded modal overlay
                 expanded && React.createElement('div', {
@@ -4110,19 +4110,69 @@
                                     ))}
                                 </div>}
 
-                                {/* KPI Cards - sorted by weakness */}
+                                {/* KPI Cards — non-duplicated metrics (diagnosis covers health/tier/elites/DHQ) */}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
-                                    {[
-                                        { val: totalDhq.toLocaleString(), label: 'TOTAL DHQ', col: 'var(--gold)', ok: true },
-                                        { val: hs || '\u2014', label: 'HEALTH', col: hs >= 90 ? 'var(--gold)' : hs >= 80 ? goodColor : hs >= 70 ? warnColor : badColor, ok: hs >= 80 },
-                                        { val: elites, label: 'ELITE PLAYERS', col: elites >= 3 ? goodColor : elites >= 1 ? warnColor : badColor, ok: elites >= 2 },
-                                        { val: projWin?.years > 0 ? projWin.years + 'yr' : 'Now', label: 'WINDOW', col: projWin?.years >= 3 ? goodColor : projWin?.years >= 1 ? warnColor : badColor, ok: projWin?.years >= 2 },
-                                    ].sort((a, b) => (a.ok ? 1 : 0) - (b.ok ? 1 : 0)).map((kpi, i) => (
-                                        <div key={i} style={{ background: 'var(--black)', border: '2px solid ' + (kpi.ok ? 'rgba(212,175,55,0.2)' : kpi.col + '50'), borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
-                                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.8rem', color: kpi.col }}>{kpi.val}</div>
-                                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kpi.label}</div>
-                                        </div>
-                                    ))}
+                                    {(() => {
+                                        // Contender rank (PPG-based)
+                                        const rp2 = currentLeague?.roster_positions || [];
+                                        const ppgRanks = (currentLeague.rosters || []).map(r => {
+                                            const ppg = typeof window.App?.calcOptimalPPG === 'function'
+                                                ? window.App.calcOptimalPPG(r.players || [], playersData, window.S?.playerStats || {}, rp2) : 0;
+                                            return { rid: r.roster_id, ppg };
+                                        }).sort((a, b) => b.ppg - a.ppg);
+                                        if (ppgRanks.every(r => r.ppg === 0)) {
+                                            ppgRanks.forEach(r => { const ros = (currentLeague.rosters || []).find(x => x.roster_id === r.rid); r.ppg = Math.round((ros?.players || []).reduce((s, pid) => s + ((window.App?.LI?.playerScores || {})[pid] || 0), 0) / 550); });
+                                            ppgRanks.sort((a, b) => b.ppg - a.ppg);
+                                        }
+                                        const cRank = ppgRanks.findIndex(r => r.rid === myRoster?.roster_id) + 1;
+                                        const leagueSize = (currentLeague.rosters || []).length;
+
+                                        // Dynasty rank (total DHQ + picks)
+                                        const dVals = (currentLeague.rosters || []).map(r => {
+                                            const pDHQ = (r.players || []).reduce((s, pid) => s + ((window.App?.LI?.playerScores || {})[pid] || 0), 0);
+                                            let pickDHQ = 0;
+                                            if (typeof getIndustryPickValue === 'function') {
+                                                const totalTeams = leagueSize || 16;
+                                                const draftRounds = currentLeague.settings?.draft_rounds || 5;
+                                                const leagueSeason = parseInt(currentLeague.season) || new Date().getFullYear();
+                                                for (let yr = leagueSeason; yr <= leagueSeason + 2; yr++) for (let rd = 1; rd <= draftRounds; rd++) {
+                                                    const ta = (window.S?.tradedPicks || []).find(p => parseInt(p.season) === yr && p.round === rd && p.roster_id === r.roster_id && p.owner_id !== r.roster_id);
+                                                    if (!ta) pickDHQ += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams);
+                                                    (window.S?.tradedPicks || []).filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === r.roster_id && p.roster_id !== r.roster_id).forEach(() => { pickDHQ += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams); });
+                                                }
+                                            }
+                                            return { rid: r.roster_id, total: pDHQ + pickDHQ };
+                                        }).sort((a, b) => b.total - a.total);
+                                        const dRank = dVals.findIndex(r => r.rid === myRoster?.roster_id) + 1;
+
+                                        // Pick capital for my team
+                                        const myPickDHQ = (() => {
+                                            if (typeof getIndustryPickValue !== 'function') return 0;
+                                            let val = 0;
+                                            const totalTeams = leagueSize || 16;
+                                            const draftRounds = currentLeague.settings?.draft_rounds || 5;
+                                            const leagueSeason = parseInt(currentLeague.season) || new Date().getFullYear();
+                                            for (let yr = leagueSeason; yr <= leagueSeason + 2; yr++) for (let rd = 1; rd <= draftRounds; rd++) {
+                                                const ta = (window.S?.tradedPicks || []).find(p => parseInt(p.season) === yr && p.round === rd && p.roster_id === myRoster?.roster_id && p.owner_id !== myRoster?.roster_id);
+                                                if (!ta) val += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams);
+                                                (window.S?.tradedPicks || []).filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === myRoster?.roster_id && p.roster_id !== myRoster?.roster_id).forEach(() => { val += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams); });
+                                            }
+                                            return val;
+                                        })();
+
+                                        const kpis = [
+                                            { val: '#' + (cRank || '?'), label: 'CONTENDER RANK', col: cRank <= 3 ? goodColor : cRank <= 6 ? warnColor : badColor, ok: cRank <= 4 },
+                                            { val: '#' + (dRank || '?'), label: 'DYNASTY RANK', col: dRank <= 3 ? goodColor : dRank <= 6 ? warnColor : badColor, ok: dRank <= 4 },
+                                            { val: projWin?.years > 0 ? projWin.years + 'yr' : 'Now', label: 'COMPETE WINDOW', col: projWin?.years >= 3 ? goodColor : projWin?.years >= 1 ? warnColor : badColor, ok: projWin?.years >= 2 },
+                                            { val: myPickDHQ > 0 ? Math.round(myPickDHQ / 1000) + 'K' : '\u2014', label: 'PICK CAPITAL', col: myPickDHQ >= 5000 ? goodColor : myPickDHQ >= 2000 ? warnColor : badColor, ok: myPickDHQ >= 3000 },
+                                        ].sort((a, b) => (a.ok ? 1 : 0) - (b.ok ? 1 : 0));
+                                        return kpis.map((kpi, i) => (
+                                            <div key={i} style={{ background: 'var(--black)', border: '2px solid ' + (kpi.ok ? 'rgba(212,175,55,0.2)' : kpi.col + '50'), borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
+                                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.8rem', color: kpi.col }}>{kpi.val}</div>
+                                                <div style={{ fontSize: '0.72rem', color: 'var(--silver)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kpi.label}</div>
+                                            </div>
+                                        ));
+                                    })()}
                                 </div>
 
                                 {/* Two-column: Trade Currency + Position Insights */}

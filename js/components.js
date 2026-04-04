@@ -87,7 +87,7 @@
         return React.createElement('div', { style: cardStyle },
             // Header with photo
             React.createElement('div', { style:{ padding:'14px 16px', background:'linear-gradient(135deg, rgba(212,175,55,0.08), transparent)', borderBottom:'1px solid rgba(212,175,55,0.15)', display:'flex', gap:'12px', alignItems:'center' } },
-                React.createElement('div', { className: age < pLo ? 'wr-ring wr-ring-pre' : age <= pHi ? 'wr-ring wr-ring-prime' : 'wr-ring wr-ring-post', style:{ width:'48px', height:'48px', borderRadius:'10px', overflow:'hidden', background:'rgba(212,175,55,0.1)', border:'1px solid rgba(212,175,55,0.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 } },
+                React.createElement('div', { className: 'wr-ring wr-ring-' + nPos, style:{ width:'48px', height:'48px', borderRadius:'10px', overflow:'hidden', background:'rgba(212,175,55,0.1)', border:'1px solid rgba(212,175,55,0.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 } },
                     React.createElement('img', { src:'https://sleepercdn.com/content/nfl/players/'+pid+'.jpg', style:{width:'48px',height:'48px',objectFit:'cover'}, onError:function(e){ e.target.style.display='none'; e.target.insertAdjacentHTML('afterend','<span style="font-size:16px;font-weight:700;color:#D4AF37">'+initials+'</span>'); } })
                 ),
                 React.createElement('div', { style:{flex:1} },

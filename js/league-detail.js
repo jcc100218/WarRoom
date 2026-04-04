@@ -2175,7 +2175,7 @@
                             {scored.sort((a2,b2) => b2.dhq - a2.dhq).slice(0, 3).map(x => (
                               <div key={x.pid} style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span>{playersData[x.pid]?.full_name || '?'}</span>
-                                <span style={{ color: x.dhq >= eliteThr ? '#2ECC71' : x.dhq >= 4000 ? '#3498DB' : 'var(--silver)', fontFamily: 'Oswald' }}>{x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'}</span>
+                                <span style={{ color: x.dhq >= 7000 ? '#2ECC71' : x.dhq >= 4000 ? '#3498DB' : 'var(--silver)', fontFamily: 'Oswald' }}>{x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'}</span>
                               </div>
                             ))}
                           </div>

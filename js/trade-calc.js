@@ -354,6 +354,80 @@
             return top[0];
         }
 
+        function computeWeightedDNA(rosterId) {
+            const allTrades = window.App?.LI?.tradeHistory || [];
+            const profile = window.App?.LI?.ownerProfiles?.[rosterId] || {};
+            const trades = allTrades.filter(t => t.roster_ids?.includes(rosterId));
+            if (trades.length < 2) return null;
+
+            const scores = { FLEECER:0, DOMINATOR:0, STALWART:0, ACCEPTOR:0, DESPERATE:0 };
+            const signals = [];
+
+            // Trade frequency vs league average
+            const leagueSize = Math.max(1, window.App?.LI?.rosters?.length || allRosters.length || 10);
+            const avgTrades = allTrades.length / leagueSize;
+            if (avgTrades > 0) {
+                const ratio = trades.length / avgTrades;
+                if (ratio < 0.5) { scores.STALWART += 4; signals.push('Low trade activity'); }
+                else if (ratio > 1.75) { scores.FLEECER += 3; signals.push('High trade volume'); }
+            }
+
+            // Win rate from owner profile
+            const totalGraded = (profile.tradesWon||0) + (profile.tradesLost||0) + (profile.tradesFair||0);
+            if (totalGraded >= 2) {
+                const winRate = (profile.tradesWon||0) / totalGraded;
+                const lossRate = (profile.tradesLost||0) / totalGraded;
+                const fairRate = (profile.tradesFair||0) / totalGraded;
+                if (winRate > 0.55) { scores.FLEECER += Math.round(winRate*6); signals.push(`Wins ${Math.round(winRate*100)}% of trades`); }
+                if (lossRate > 0.45) { scores.ACCEPTOR += 2; scores.DESPERATE += 2; signals.push(`Loses ${Math.round(lossRate*100)}% of trades`); }
+                if (fairRate > 0.55) { scores.STALWART += 2; signals.push('Prefers balanced deals'); }
+            }
+
+            // Average DHQ per trade
+            const avgDiff = profile.avgValueDiff || 0;
+            if (avgDiff > 400) { scores.FLEECER += 4; signals.push(`Avg +${Math.round(avgDiff)} DHQ/trade`); }
+            else if (avgDiff > 100) { scores.DOMINATOR += 2; signals.push(`Avg +${Math.round(avgDiff)} DHQ/trade`); }
+            else if (avgDiff < -300) { scores.DESPERATE += 3; scores.ACCEPTOR += 1; signals.push(`Avg ${Math.round(avgDiff)} DHQ/trade`); }
+            else if (Math.abs(avgDiff) <= 150) { scores.STALWART += 2; signals.push('Balanced trade value'); }
+
+            // Trade composition: picks vs players, elite asset flow
+            let picksReceived = 0, picksSent = 0, elitePlayersSent = 0, elitePlayersReceived = 0, lateSeasonLosses = 0;
+            const eliteThreshold = 5000;
+            for (const t of trades) {
+                const mySide = t.sides?.[rosterId] || { players:[], picks:[] };
+                const otherRid = t.roster_ids.find(r => r !== rosterId);
+                const theirSide = t.sides?.[otherRid] || { players:[], picks:[] };
+                const myValue = mySide.totalValue || 0;
+                const theirValue = theirSide.totalValue || 0;
+                picksReceived += (mySide.picks||[]).length;
+                picksSent += (theirSide.picks||[]).length;
+                for (const pid of (theirSide.players||[])) { if ((window.App?.LI?.playerScores?.[pid]||0) > eliteThreshold) elitePlayersSent++; }
+                for (const pid of (mySide.players||[])) { if ((window.App?.LI?.playerScores?.[pid]||0) > eliteThreshold) elitePlayersReceived++; }
+                if ((t.week||0) >= 10 && theirValue > myValue * 1.15) lateSeasonLosses++;
+            }
+
+            // DOMINATOR: gives picks to acquire proven players (win-now aggression)
+            if (picksSent > 1 && picksReceived < picksSent * 0.7) { scores.DOMINATOR += 3; signals.push('Trades picks for players (win-now)'); }
+            // ACCEPTOR: gives players for picks (rebuilding mode)
+            if (picksReceived > 1 && picksSent < picksReceived * 0.7) { scores.ACCEPTOR += 3; signals.push('Trades players for picks'); }
+            // DESPERATE: sells elite talent away
+            if (elitePlayersSent >= 2 && elitePlayersSent > elitePlayersReceived) { scores.DESPERATE += 4; signals.push(`Sold ${elitePlayersSent} elite players`); }
+            // FLEECER: acquires elite assets in favorable deals
+            if (elitePlayersReceived >= 2 && elitePlayersReceived > elitePlayersSent) { scores.FLEECER += 3; signals.push(`Acquired ${elitePlayersReceived} elite players`); }
+            // Late-season panic: lost trades in weeks 10+
+            if (lateSeasonLosses >= 2) { scores.DESPERATE += 3; signals.push(`${lateSeasonLosses} late-season panic trades`); }
+
+            const ranked = Object.entries(scores).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+            if (!ranked.length || ranked[0][1] < 3) return null;
+            const [topEntry, secondEntry] = ranked;
+            const totalScore = ranked.reduce((s,[,v])=>s+v, 0);
+            const dominance = secondEntry ? (topEntry[1]-secondEntry[1])/topEntry[1] : 1;
+            const proportion = topEntry[1] / totalScore;
+            const confidence = Math.min(92, Math.round((proportion*0.6 + dominance*0.4) * 100));
+            if (confidence < 22) return null;
+            return { key:topEntry[0], confidence, reasoning:signals.slice(0,4).join(' · ') || 'Based on trade patterns' };
+        }
+
         function calcElitePlayers(assessmentsList) {
             const scoring = currentLeague.scoring_settings;
             const byPos = {};
@@ -770,12 +844,16 @@
                                             <span style={{ fontSize:'0.7rem', color:'var(--silver)', opacity:0.65, textTransform:'uppercase', letterSpacing:'0.06em' }}>Owner DNA</span>
                                             {(() => { const derived = deriveDNAFromHistory(a.ownerId, grudges); if (!derived) return null; const d = DNA_TYPES[derived]; return (<span style={{ fontSize:'0.78rem', fontWeight:700, padding:'0.1rem 0.35rem', borderRadius:3, border:`1px solid ${d?.color}55`, color:d?.color, background:`${d?.color}10` }}>AUTO: {d?.label}</span>); })()}
                                         </div>
-                                        {aiDna && (
+                                        {aiDna ? (
                                             <div style={{ fontSize:'0.76rem', marginBottom:'6px' }}>
-                                                <span style={{ color:'var(--gold)', fontWeight:600 }}>AI Recommendation: </span>
+                                                <span style={{ color:'var(--gold)', fontWeight:600 }}>Scout suggests: </span>
                                                 <span style={{ color: DNA_TYPES[aiDna.key]?.color || 'var(--silver)', fontWeight:700 }}>{DNA_TYPES[aiDna.key]?.label || aiDna.key}</span>
                                                 <span style={{ color:'var(--silver)', marginLeft:'4px' }}>({aiDna.confidence}% confidence)</span>
                                                 <div style={{ fontSize:'0.72rem', color:'var(--silver)', opacity:0.7, marginTop:'2px' }}>{aiDna.reasoning}</div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ fontSize:'0.72rem', color:'var(--silver)', opacity:0.55, marginBottom:'6px', fontStyle:'italic' }}>
+                                                {tradeCount > 0 ? 'Insufficient signal — tag manually' : 'Not enough data — tag manually'}
                                             </div>
                                         )}
                                         <select className="tc-dna-select" value={currentDna} onChange={e => updateDna(a.ownerId, e.target.value)}>

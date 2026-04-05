@@ -27,14 +27,12 @@ window.App.PlayerValue = (function () {
     const PICK_COLORS = { 1:'#D4AF37', 2:'#5DADE2', 3:'#2ECC71', 4:'#BB8FCE', 5:'#95A5A6', 6:'#7F8C8D', 7:'#6C7A7D' };
 
     // ── Aging curves ─────────────────────────────────────────────────
-    // Decay rate = fraction of DHQ lost per year past peak (conservative trade-calc values)
-    const DECAY_RATES = { QB:0.08, RB:0.30, WR:0.18, TE:0.15, DL:0.18, LB:0.18, DB:0.17 };
-
     // Max achievable DHQ per position (caps projection ceiling)
     const POS_CEILINGS = { QB:12000, RB:9000, WR:10500, TE:8500, DL:7000, LB:7000, DB:7000 };
 
-    // Also expose decay rates so window.App.decayRates works as a fallback in legacy code
-    window.App.decayRates = window.App.decayRates || DECAY_RATES;
+    // Decay rates are owned by reconai/shared/constants.js (CDN source of truth).
+    // Provide a fallback with CDN-matching values in case constants.js hasn't loaded.
+    window.App.decayRates = window.App.decayRates || { QB:0.06, RB:0.25, WR:0.14, TE:0.12, DL:0.15, LB:0.15, DB:0.14 };
 
     // ── getPickValue ─────────────────────────────────────────────────
     // Returns DHQ-equivalent value for a draft pick. Delegates to DHQ engine when available.

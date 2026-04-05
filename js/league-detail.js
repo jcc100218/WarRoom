@@ -798,7 +798,8 @@
         // Auto-generate notifications from league data
         const notifications = useMemo(() => {
             const notes = [];
-            const txns = window.S?.transactions || [];
+            const txnsRaw = window.S?.transactions || {};
+            const txns = Array.isArray(txnsRaw) ? txnsRaw : Object.values(txnsRaw).flat();
             const myPids = new Set(myRoster?.players || []);
 
             // Players on my roster that are trending down

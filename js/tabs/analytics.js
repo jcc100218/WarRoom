@@ -37,8 +37,8 @@ function AnalyticsPanel({
     };
 
     const aCardStyle = { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', padding: '12px 16px', marginBottom: '12px' };
-    const aHeaderStyle = { fontFamily: 'Bebas Neue, cursive', color: 'var(--gold)', fontSize: '1.2rem', letterSpacing: '0.08em', marginBottom: '12px', borderBottom: '1px solid rgba(212,175,55,0.2)', paddingBottom: '8px' };
-    const aValStyle = { fontFamily: 'Oswald, sans-serif', fontSize: '0.95rem' };
+    const aHeaderStyle = { fontFamily: 'Rajdhani, sans-serif', color: 'var(--gold)', fontSize: '1.125rem', fontWeight: 600, letterSpacing: '0.06em', marginBottom: '12px', borderBottom: '1px solid rgba(212,175,55,0.2)', paddingBottom: '8px' };
+    const aValStyle = { fontFamily: 'JetBrains Mono, monospace', fontSize: '0.95rem', fontWeight: 500 };
     const goodColor = '#2ECC71';
     const warnColor = '#F0A500';
     const badColor = '#E74C3C';
@@ -59,7 +59,7 @@ function AnalyticsPanel({
         { key: 'timeline', label: 'Timeline' },
     ];
     const subTabBtnStyle = (active) => ({
-        padding: '8px 18px', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Bebas Neue, cursive', fontSize: '1rem', letterSpacing: '0.06em', transition: 'all 0.2s',
+        padding: '8px 18px', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', letterSpacing: '0.06em', transition: 'all 0.2s',
         border: active ? '2px solid var(--gold)' : '2px solid rgba(212,175,55,0.3)',
         background: active ? 'var(--gold)' : 'transparent',
         color: active ? 'var(--black)' : 'var(--gold)',
@@ -70,7 +70,7 @@ function AnalyticsPanel({
     return (
     <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-            <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.4rem', color: 'var(--gold)', letterSpacing: '0.05em' }}>LEAGUE ANALYTICS</div>
+            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em' }}>LEAGUE ANALYTICS</div>
         </div>
         <div style={{ fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '16px' }}>Winners = playoff bracket champions, runner-ups, and semi-finalists when available. Falls back to top 3 by record in the current season.</div>
 
@@ -91,10 +91,10 @@ function AnalyticsPanel({
             return (
                 <div style={{ background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                        <span style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: _tierColor, lineHeight: 1 }}>{_hs}</span>
+                        <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.6rem', color: _tierColor, lineHeight: 1 }}>{_hs}</span>
                         <div>
-                            <div style={{ fontSize: '0.62rem', color: 'var(--silver)', fontFamily: 'Oswald, sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.7 }}>Health</div>
-                            <div style={{ fontSize: '0.72rem', color: _tierColor, fontFamily: 'Oswald, sans-serif', fontWeight: 700, letterSpacing: '0.04em' }}>{_tier}</div>
+                            <div style={{ fontSize: '0.62rem', color: 'var(--silver)', fontFamily: 'Inter, sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.7 }}>Health</div>
+                            <div style={{ fontSize: '0.72rem', color: _tierColor, fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: '0.04em' }}>{_tier}</div>
                         </div>
                     </div>
                     <div style={{ width: '1px', height: '32px', background: 'rgba(212,175,55,0.2)', flexShrink: 0 }} />
@@ -191,14 +191,14 @@ function AnalyticsPanel({
                 overflow: 'hidden',
             };
             const kpiNumberStyle = {
-                fontFamily: 'Bebas Neue, cursive',
+                fontFamily: 'Rajdhani, sans-serif',
                 fontSize: '1.8rem',
                 lineHeight: 1,
                 color: 'var(--white)',
                 marginBottom: '2px',
             };
             const kpiLabelStyle = {
-                fontFamily: 'Oswald, sans-serif',
+                fontFamily: 'Inter, sans-serif',
                 fontSize: '0.68rem',
                 color: 'var(--silver)',
                 textTransform: 'uppercase',
@@ -206,7 +206,7 @@ function AnalyticsPanel({
                 opacity: 0.7,
             };
             const kpiDeltaStyle = (positive) => ({
-                fontFamily: 'Oswald, sans-serif',
+                fontFamily: 'Inter, sans-serif',
                 fontSize: '0.75rem',
                 fontWeight: 600,
                 color: positive ? goodColor : badColor,
@@ -343,8 +343,8 @@ function AnalyticsPanel({
                             return parts.join(' ');
                         })()}
                         {React.createElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
-                            React.createElement('button', { onClick: () => setActiveTab('trades'), style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'Find Trade Targets'),
-                            React.createElement('button', { onClick: () => setActiveTab('fa'), style: { padding: '6px 14px', background: 'rgba(212,175,55,0.12)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'View Free Agents')
+                            React.createElement('button', { onClick: () => setActiveTab('trades'), style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Rajdhani, sans-serif', fontSize: '0.84rem', cursor: 'pointer' } }, 'Find Trade Targets'),
+                            React.createElement('button', { onClick: () => setActiveTab('fa'), style: { padding: '6px 14px', background: 'rgba(212,175,55,0.12)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '6px', fontFamily: 'Rajdhani, sans-serif', fontSize: '0.84rem', cursor: 'pointer' } }, 'View Free Agents')
                         )}
                     </GMMessage>
                 </div>
@@ -402,11 +402,11 @@ function AnalyticsPanel({
                         <div style={aHeaderStyle}>POSITION INVESTMENT</div>
                         <div style={{ fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px', lineHeight: 1.5 }}>Position investment shows what % of your total roster DHQ is allocated to each position. For example, "QB: 18%" means 18% of your total dynasty value is in QBs.</div>
                         <div style={{ marginBottom: '12px' }}>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Winners</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--gold)', fontFamily: 'Inter, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Winners</div>
                             {typeof BarChart !== 'undefined' && React.createElement(BarChart, { items: posBarWinnerItems, width: Math.min(380, 360), height: 18, gap: 4 })}
                         </div>
                         <div>
-                            <div style={{ fontSize: '0.7rem', color: '#4ECDC4', fontFamily: 'Oswald, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>You</div>
+                            <div style={{ fontSize: '0.7rem', color: '#4ECDC4', fontFamily: 'Inter, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>You</div>
                             {typeof BarChart !== 'undefined' && React.createElement(BarChart, { items: posBarItems, width: Math.min(380, 360), height: 18, gap: 4 })}
                         </div>
                         <div style={{ display: 'flex', gap: '16px', marginTop: '12px', fontSize: '0.72rem' }}>
@@ -430,11 +430,11 @@ function AnalyticsPanel({
                                 borderRadius: '0 8px 8px 0',
                             }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ color: sevColor(sev), fontWeight: 700, fontSize: '0.82rem', fontFamily: 'Oswald, sans-serif', textTransform: 'uppercase' }}>
+                                    <span style={{ color: sevColor(sev), fontWeight: 700, fontSize: '0.82rem', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
                                         {g.action || g.area}
                                     </span>
                                     <span style={{
-                                        fontSize: '0.65rem', fontFamily: 'Oswald, sans-serif', padding: '2px 8px',
+                                        fontSize: '0.65rem', fontFamily: 'Inter, sans-serif', padding: '2px 8px',
                                         borderRadius: '10px', background: sevColor(sev), color: 'var(--black)', fontWeight: 700,
                                     }}>
                                         {(sev).toUpperCase()}
@@ -468,7 +468,7 @@ function AnalyticsPanel({
                 <div style={{ ...aCardStyle, marginBottom: '12px' }}>
                     <div style={aHeaderStyle}>LEAGUE POWER RANKINGS</div>
                     {/* Header row */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '36px 1.4fr 0.7fr 80px 0.9fr 0.7fr', gap: '8px', padding: '8px 0', borderBottom: '2px solid rgba(212,175,55,0.2)', fontWeight: 700, color: 'var(--gold)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Oswald, sans-serif' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '36px 1.4fr 0.7fr 80px 0.9fr 0.7fr', gap: '8px', padding: '8px 0', borderBottom: '2px solid rgba(212,175,55,0.2)', fontWeight: 700, color: 'var(--gold)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Inter, sans-serif' }}>
                         <div>#</div><div>Team</div><div>Record</div><div>Health</div><div>Total DHQ</div><div>Tier</div>
                     </div>
                     {teamRankings.map((team, i) => {
@@ -482,21 +482,21 @@ function AnalyticsPanel({
                             borderLeft: team.isMe ? '3px solid var(--gold)' : '3px solid transparent',
                             paddingLeft: '4px',
                         }}>
-                            <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.1rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)' }}>{i + 1}</div>
+                            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)' }}>{i + 1}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 {team.avatar && <img src={'https://sleepercdn.com/avatars/thumbs/' + team.avatar} style={{ width:'24px', height:'24px', borderRadius:'50%', flexShrink:0 }} onError={e => e.target.style.display='none'} />}
                                 <div>
-                                    <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.85rem', color: team.isMe ? 'var(--gold)' : 'var(--white)', fontWeight: team.isMe ? 700 : 400 }}>
+                                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: team.isMe ? 'var(--gold)' : 'var(--white)', fontWeight: team.isMe ? 700 : 400 }}>
                                         {team.name}{team.isMe ? ' (You)' : ''}
                                     </div>
                                     {team.teamName && <div style={{ fontSize: '0.65rem', color: 'var(--silver)', opacity: 0.5 }}>{team.teamName}</div>}
                                 </div>
                             </div>
-                            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem', color: 'var(--silver)' }}>{team.wins}-{team.losses}</div>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', color: 'var(--silver)' }}>{team.wins}-{team.losses}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 {typeof MiniDonut !== 'undefined' && React.createElement(MiniDonut, { value: team.healthScore, size: 32, thickness: 3 })}
                             </div>
-                            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.85rem', color: 'var(--silver)' }}>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--silver)' }}>
                                 {team.totalDhq.toLocaleString()}
                                 {/* Mini bar indicator */}
                                 <div style={{ height: '3px', marginTop: '3px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
@@ -505,7 +505,7 @@ function AnalyticsPanel({
                             </div>
                             <div>
                                 <span style={{
-                                    fontSize: '0.65rem', fontFamily: 'Oswald, sans-serif', padding: '2px 8px', borderRadius: '10px',
+                                    fontSize: '0.65rem', fontFamily: 'Inter, sans-serif', padding: '2px 8px', borderRadius: '10px',
                                     background: tierBg + '22', color: tierBg, border: '1px solid ' + tierBg + '44', fontWeight: 600,
                                     whiteSpace: 'nowrap',
                                 }}>{team.tier || '\u2014'}</span>
@@ -524,7 +524,7 @@ function AnalyticsPanel({
                             borderLeft: '4px solid ' + ins.color,
                             border: '1px solid rgba(255,255,255,0.06)',
                         }}>
-                            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem', fontWeight: 700, color: ins.color, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', fontWeight: 700, color: ins.color, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 {ins.title}
                             </div>
                             <div style={{ fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.5 }}>{ins.text}</div>
@@ -588,8 +588,8 @@ function AnalyticsPanel({
                 flex: '1 1 0',
                 minWidth: '140px',
             };
-            const dKpiNum = { fontFamily: 'Bebas Neue, cursive', fontSize: '2.2rem', lineHeight: 1, color: 'var(--white)', marginBottom: '2px' };
-            const dKpiLabel = { fontFamily: 'Oswald, sans-serif', fontSize: '0.7rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.7 };
+            const dKpiNum = { fontFamily: 'Rajdhani, sans-serif', fontSize: '2.2rem', lineHeight: 1, color: 'var(--white)', marginBottom: '2px' };
+            const dKpiLabel = { fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.7 };
 
             // Build bar chart items for hit rate by round
             const hitRateBarItems = rounds.filter(rd => dr.winnerHitRate[rd]).map(rd => ({
@@ -627,7 +627,7 @@ function AnalyticsPanel({
                             ? 'No draft picks recorded for your team yet. Winners hit ' + Math.round(winnerR1Hit * 100) + '% on R1 picks in this league \u2014 prioritize ' + topDraftPos + ' in early rounds based on the winner template.'
                             : 'Your draft grade: ' + draftGradeLetter + ' \u2014 ' + (gradeIdx <= 2 ? 'elite drafter, a real advantage' : gradeIdx <= 5 ? 'average, not a competitive edge' : 'below average, costing you roster value') + '. Winners hit ' + Math.round(winnerR1Hit * 100) + '% in R1 vs your ' + Math.round(myR1Hit * 100) + '%. Recommendation: prioritize ' + topDraftPos + ' in R1-R2 based on the winner template. ' + (totalMyPicks < 10 ? 'You have limited draft history \u2014 accumulate picks to build through the draft.' : 'Focus on hit rate over volume.')}
                         {React.createElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
-                            React.createElement('button', { onClick: () => setActiveTab('draft'), style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'Open Draft Board')
+                            React.createElement('button', { onClick: () => setActiveTab('draft'), style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Rajdhani, sans-serif', fontSize: '0.84rem', cursor: 'pointer' } }, 'Open Draft Board')
                         )}
                     </GMMessage>
                 </div>
@@ -642,7 +642,7 @@ function AnalyticsPanel({
                     <div style={dKpiCardStyle}>
                         <div style={dKpiLabel}>Winner Hit Rate <span title="% of draft picks by championship teams that became starter-quality players. Higher = better draft scouting by winners." style={{ fontSize:'0.7rem', opacity:0.5, cursor:'help' }}>?</span></div>
                         <div style={dKpiNum}>{pctFmt(winnerHitAvg)}</div>
-                        <div style={{ fontSize: '0.72rem', color: goodColor, fontFamily: 'Oswald, sans-serif' }}>
+                        <div style={{ fontSize: '0.72rem', color: goodColor, fontFamily: 'Inter, sans-serif' }}>
                             +{Math.round(avgHitAdv * 100)}% vs league ({pctFmt(leagueHitAvg)})
                         </div>
                     </div>
@@ -665,11 +665,11 @@ function AnalyticsPanel({
                         <div style={aHeaderStyle}>HIT RATES BY ROUND</div>
                         <div style={{ fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px', lineHeight: 1.5 }}>Hit rate = % of picks at each round that became starter-quality players (top of their position group). Higher hit rate = better draft scouting.</div>
                         <div style={{ marginBottom: '10px' }}>
-                            <div style={{ fontSize: '0.7rem', color: goodColor, fontFamily: 'Oswald, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Winners</div>
+                            <div style={{ fontSize: '0.7rem', color: goodColor, fontFamily: 'Inter, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Winners</div>
                             {typeof BarChart !== 'undefined' && React.createElement(BarChart, { items: hitRateBarItems, width: 340, height: 18, gap: 4 })}
                         </div>
                         <div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--silver)', fontFamily: 'Oswald, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>League Avg</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--silver)', fontFamily: 'Inter, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>League Avg</div>
                             {typeof BarChart !== 'undefined' && React.createElement(BarChart, { items: hitRateLeagueItems, width: 340, height: 18, gap: 4 })}
                         </div>
                     </div>
@@ -684,11 +684,11 @@ function AnalyticsPanel({
                             return (
                             <div key={rd} style={{ marginBottom: '10px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                    <span style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1rem', color: 'var(--gold)', minWidth: '65px' }}>Round {rd}</span>
+                                    <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', minWidth: '65px' }}>Round {rd}</span>
                                     <div style={{ flex: 1, display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                         {sorted.map(([pos, pct]) => (
                                             <span key={pos} style={{
-                                                fontSize: '0.72rem', fontFamily: 'Oswald, sans-serif', padding: '2px 8px',
+                                                fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', padding: '2px 8px',
                                                 borderRadius: '10px', background: 'rgba(212,175,55,0.12)', color: 'var(--gold)',
                                                 border: '1px solid rgba(212,175,55,0.25)',
                                             }}>{pos} {pctFmt(pct)}</span>
@@ -699,7 +699,7 @@ function AnalyticsPanel({
                                     <div style={{ marginLeft: '65px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                         {Object.entries(myProf).sort((a, b) => b[1] - a[1]).map(([pos, pct]) => (
                                             <span key={pos} style={{
-                                                fontSize: '0.68rem', fontFamily: 'Oswald, sans-serif', padding: '1px 6px',
+                                                fontSize: '0.68rem', fontFamily: 'Inter, sans-serif', padding: '1px 6px',
                                                 borderRadius: '8px', background: 'rgba(78,205,196,0.1)', color: '#4ECDC4',
                                                 border: '1px solid rgba(78,205,196,0.2)',
                                             }}>{pos} {pctFmt(pct)}</span>
@@ -758,7 +758,7 @@ function AnalyticsPanel({
                             ? 'No significant FAAB activity yet this season. Monitor early-season pickups closely \u2014 winners typically front-load spending on high-upside ' + (underSpendPos[0] || 'RB/WR') + ' to build early advantages.'
                             : (winnerEarlyPct >= 20 ? 'Winners spend aggressively on ' + topUnderSpend + ' early in the season. ' : 'Winners invest in ' + topUnderSpend + ' early in the season. ') + 'They spend ' + winnerEarlyPct + '% of FAAB budget spent in weeks 1-6 vs your ' + myEarlyPct + '% of FAAB budget spent in weeks 1-6. ' + (myEarlyPct < winnerEarlyPct - 10 ? 'You are under-spending early \u2014 front-load your FAAB to capture impact players before your competition.' : 'Your spending timing aligns well with winners.') + ' Focus waiver claims on high-upside ' + (underSpendPos[0] || 'RB/WR') + ' to maximize roster value.'}
                         {React.createElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
-                            React.createElement('button', { onClick: () => setActiveTab('fa'), style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'View Waiver Targets')
+                            React.createElement('button', { onClick: () => setActiveTab('fa'), style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Rajdhani, sans-serif', fontSize: '0.84rem', cursor: 'pointer' } }, 'View Waiver Targets')
                         )}
                     </GMMessage>
                 </div>
@@ -815,19 +815,19 @@ function AnalyticsPanel({
                     <div style={{ display: 'flex', gap: '24px', justifyContent: 'center', marginBottom: '16px' }}>
                         {[{ label: 'Winners', val: wv.faabEfficiency.winners, color: 'var(--gold)' }, { label: 'League', val: wv.faabEfficiency.league, color: 'var(--silver)' }].map(({ label, val, color }) => (
                             <div key={label} style={{ textAlign: 'center' }}>
-                                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color }}>{val}</div>
+                                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.6rem', color }}>{val}</div>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>{label}</div>
                             </div>
                         ))}
                     </div>
                     {wv.faabEffByPos && Object.keys(wv.faabEffByPos).length > 0 && (
                     <div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', borderTop: '1px solid rgba(212,175,55,0.15)', paddingTop: '12px' }}>By Position</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontWeight: 700, color: 'var(--gold)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Oswald, sans-serif' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', borderTop: '1px solid rgba(212,175,55,0.15)', paddingTop: '12px' }}>By Position</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontWeight: 700, color: 'var(--gold)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'Inter, sans-serif' }}>
                             <div>Position</div><div>Avg Bid</div><div>DHQ Return</div><div>DHQ per $</div>
                         </div>
                         {Object.entries(wv.faabEffByPos).sort((a,b) => (b[1].dhqPerDollar || 0) - (a[1].dhqPerDollar || 0)).map(([pos, data]) => (
-                            <div key={pos} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontFamily: 'Oswald, sans-serif', fontSize: '0.85rem' }}>
+                            <div key={pos} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
                                 <div style={{ color: 'var(--silver)' }}>{pos}</div>
                                 <div style={{ color: 'var(--white)' }}>${(data.avgBid || 0).toFixed(0)}</div>
                                 <div style={{ color: 'var(--white)' }}>{(data.dhqReturn || 0).toLocaleString()}</div>
@@ -873,8 +873,8 @@ function AnalyticsPanel({
                 flex: '1 1 0',
                 minWidth: '140px',
             };
-            const tKpiNum = { fontFamily: 'Bebas Neue, cursive', fontSize: '2.2rem', lineHeight: 1, color: 'var(--white)', marginBottom: '2px' };
-            const tKpiLabel = { fontFamily: 'Oswald, sans-serif', fontSize: '0.7rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.7 };
+            const tKpiNum = { fontFamily: 'Rajdhani, sans-serif', fontSize: '2.2rem', lineHeight: 1, color: 'var(--white)', marginBottom: '2px' };
+            const tKpiLabel = { fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.7 };
 
             const valueDeltaColor = mp.avgValueGained >= 0 ? goodColor : badColor;
 
@@ -895,7 +895,7 @@ function AnalyticsPanel({
                     <GMMessage title="Trade Intelligence">
                         {tradeSummaryText}
                         {React.createElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
-                            React.createElement('button', { onClick: () => { setTradeSubTab('finder'); setActiveTab('trades'); }, style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'Open Trade Finder')
+                            React.createElement('button', { onClick: () => { setTradeSubTab('finder'); setActiveTab('trades'); }, style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Rajdhani, sans-serif', fontSize: '0.84rem', cursor: 'pointer' } }, 'Open Trade Finder')
                         )}
                     </GMMessage>
                 </div>
@@ -905,14 +905,14 @@ function AnalyticsPanel({
                     <div style={tKpiCardStyle}>
                         <div style={tKpiLabel}>Your Trades/Season <span title="Average number of trades you make per season. Includes player-for-player swaps, pick trades, and multi-asset deals." style={{ fontSize:'0.7rem', opacity:0.5, cursor:'help' }}>?</span></div>
                         <div style={tKpiNum}>{mp.avgTradesPerSeason}</div>
-                        <div style={{ fontSize: '0.72rem', color: mp.avgTradesPerSeason >= lp.avgTradesPerSeason ? goodColor : warnColor, fontFamily: 'Oswald, sans-serif' }}>
+                        <div style={{ fontSize: '0.72rem', color: mp.avgTradesPerSeason >= lp.avgTradesPerSeason ? goodColor : warnColor, fontFamily: 'Inter, sans-serif' }}>
                             {mp.avgTradesPerSeason >= lp.avgTradesPerSeason ? '\u25B2' : '\u25BC'} League avg: {lp.avgTradesPerSeason}
                         </div>
                     </div>
                     <div style={tKpiCardStyle}>
                         <div style={tKpiLabel}>Avg DHQ Gained <span title="Average net DHQ value gained or lost per trade. Positive = you extract value. Negative = you overpay in trades." style={{ fontSize:'0.7rem', opacity:0.5, cursor:'help' }}>?</span></div>
                         <div style={{ ...tKpiNum, color: valueDeltaColor }}>{(mp.avgValueGained >= 0 ? '+' : '') + mp.avgValueGained}</div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif' }}>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--gold)', fontFamily: 'Inter, sans-serif' }}>
                             Winners: +{wp.avgValueGained}
                         </div>
                     </div>
@@ -936,11 +936,11 @@ function AnalyticsPanel({
                         {allBoughtPos.length > 0 ? (
                         <React.Fragment>
                             <div style={{ marginBottom: '10px' }}>
-                                <div style={{ fontSize: '0.7rem', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Winners</div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--gold)', fontFamily: 'Inter, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Winners</div>
                                 {typeof BarChart !== 'undefined' && React.createElement(BarChart, { items: boughtBarWinner, width: 340, height: 18, gap: 4 })}
                             </div>
                             <div>
-                                <div style={{ fontSize: '0.7rem', color: '#4ECDC4', fontFamily: 'Oswald, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>You</div>
+                                <div style={{ fontSize: '0.7rem', color: '#4ECDC4', fontFamily: 'Inter, sans-serif', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>You</div>
                                 {typeof BarChart !== 'undefined' && React.createElement(BarChart, { items: boughtBarYou, width: 340, height: 18, gap: 4 })}
                             </div>
                             <div style={{ display: 'flex', gap: '16px', marginTop: '10px', fontSize: '0.7rem' }}>
@@ -955,7 +955,7 @@ function AnalyticsPanel({
                     <div style={aCardStyle}>
                         <div style={aHeaderStyle}>TRADE COMPARISON</div>
                         {/* Header */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr', gap: '8px', padding: '8px 0', fontWeight: 700, color: 'var(--gold)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid rgba(212,175,55,0.2)', fontFamily: 'Oswald, sans-serif' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr', gap: '8px', padding: '8px 0', fontWeight: 700, color: 'var(--gold)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid rgba(212,175,55,0.2)', fontFamily: 'Inter, sans-serif' }}>
                             <div>Metric</div><div>Winners</div><div>League</div><div>You</div>
                         </div>
                         {[
@@ -964,7 +964,7 @@ function AnalyticsPanel({
                             ['Top Bought', topPosBought(wp), topPosBought(lp), topPosBought(mp)],
                             ['Partner Pref.', wp.partnerPreference || '\u2014', lp.partnerPreference || '\u2014', mp.partnerPreference || '\u2014'],
                         ].map(([label, wVal, lVal, mVal], i) => (
-                            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr', gap: '8px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontFamily: 'Oswald, sans-serif', fontSize: '0.85rem' }}>
+                            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1fr', gap: '8px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
                                 <div style={{ color: 'var(--silver)' }}>{label}</div>
                                 <div style={{ color: 'var(--gold)' }}>{wVal}</div>
                                 <div style={{ color: 'var(--silver)', opacity: 0.7 }}>{lVal}</div>
@@ -985,13 +985,13 @@ function AnalyticsPanel({
                             return (
                                 <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '0.75rem', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif' }}>S{trade.season || '?'} W{trade.week || '?'}</span>
-                                        <span style={{ fontSize: '0.68rem', fontFamily: 'Oswald, sans-serif', padding: '2px 8px', borderRadius: '10px', background: resultColor + '22', color: resultColor, border: '1px solid ' + resultColor + '44', fontWeight: 700 }}>{result}</span>
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--gold)', fontFamily: 'Inter, sans-serif' }}>S{trade.season || '?'} W{trade.week || '?'}</span>
+                                        <span style={{ fontSize: '0.68rem', fontFamily: 'Inter, sans-serif', padding: '2px 8px', borderRadius: '10px', background: resultColor + '22', color: resultColor, border: '1px solid ' + resultColor + '44', fontWeight: 700 }}>{result}</span>
                                     </div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--silver)', fontFamily: 'Oswald, sans-serif' }}>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--silver)', fontFamily: 'Inter, sans-serif' }}>
                                         {(trade.gave || []).join(', ') || 'Unknown'} <span style={{ color: 'var(--gold)', margin: '0 4px' }}>{'\u2192'}</span> {(trade.got || []).join(', ') || 'Unknown'}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', fontFamily: 'Oswald, sans-serif', color: netDhq >= 0 ? goodColor : badColor, fontWeight: 700 }}>
+                                    <div style={{ fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: netDhq >= 0 ? goodColor : badColor, fontWeight: 700 }}>
                                         {netDhq >= 0 ? '+' : ''}{netDhq.toLocaleString()} DHQ
                                     </div>
                                 </div>
@@ -1010,7 +1010,7 @@ function AnalyticsPanel({
                             borderLeft: '4px solid ' + sevColor(a.sev),
                             border: '1px solid rgba(255,255,255,0.06)',
                         }}>
-                            <div style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem', fontWeight: 700, color: sevColor(a.sev), marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', fontWeight: 700, color: sevColor(a.sev), marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 {a.title}
                             </div>
                             <div style={{ fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.5 }}>{a.msg}</div>
@@ -1072,7 +1072,7 @@ function AnalyticsPanel({
                     <GMMessage title="Future Outlook">
                         {'Your roster is ' + outlook + '. Competitive window: ' + (windowYears > 0 ? windowYears + ' year' + (windowYears > 1 ? 's' : '') : 'closed') + '. ' + atRiskPct + '% of your DHQ is past peak in 2 years' + (atRiskPlayers.length > 0 ? ' (' + atRiskPlayers.slice(0, 3).map(p => p.name).join(', ') + ')' : '') + '. Strategy: ' + projStrategy + '.'}
                         {React.createElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
-                            React.createElement('button', { onClick: () => setActiveTab('trades'), style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.84rem', cursor: 'pointer' } }, 'Find Trade Candidates')
+                            React.createElement('button', { onClick: () => setActiveTab('trades'), style: { padding: '6px 14px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Rajdhani, sans-serif', fontSize: '0.84rem', cursor: 'pointer' } }, 'Find Trade Candidates')
                         )}
                     </GMMessage>
                 </div>
@@ -1081,14 +1081,14 @@ function AnalyticsPanel({
                     <div style={aHeaderStyle}>YOUR 5-YEAR OUTLOOK</div>
                     {proj.map((p, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                            <span style={{ color: 'var(--silver)', fontFamily: 'Oswald, sans-serif', minWidth: '40px', fontSize: '0.9rem' }}>{p.year}</span>
+                            <span style={{ color: 'var(--silver)', fontFamily: 'Inter, sans-serif', minWidth: '40px', fontSize: '0.9rem' }}>{p.year}</span>
                             <div style={{ flex: 1, position: 'relative', height: '24px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', overflow: 'hidden' }}>
                                 <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: (p.projectedDHQ / maxDHQ * 100) + '%', background: tierColor(p.tier), borderRadius: '6px', opacity: 0.6, transition: 'width 0.5s ease' }} />
-                                <div style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', fontFamily: 'Oswald, sans-serif', color: 'var(--white)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                <div style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: 'var(--white)', fontWeight: 700, whiteSpace: 'nowrap' }}>
                                     {p.projectedDHQ.toLocaleString()} DHQ
                                 </div>
                             </div>
-                            <span style={{ color: tierColor(p.tier), fontFamily: 'Oswald, sans-serif', fontSize: '0.8rem', minWidth: '90px', textAlign: 'right' }}>
+                            <span style={{ color: tierColor(p.tier), fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', minWidth: '90px', textAlign: 'right' }}>
                                 {p.tier} {p.tier === 'Rebuilding' || p.tier === 'Deep Rebuild' ? '\uD83D\uDD34' : p.tier === 'Playoff Team' ? '\u26A0\uFE0F' : ''}
                             </span>
                         </div>
@@ -1097,8 +1097,8 @@ function AnalyticsPanel({
 
                 {win && (
                 <div style={{ ...aCardStyle, textAlign: 'center', padding: '24px' }}>
-                    <div style={{ fontFamily: 'Bebas Neue, cursive', color: 'var(--silver)', fontSize: '1rem', marginBottom: '4px' }}>COMPETITIVE WINDOW</div>
-                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.5rem', color: win.years >= 3 ? goodColor : win.years >= 1 ? warnColor : badColor }}>{win.label}</div>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', color: 'var(--silver)', fontSize: '1rem', marginBottom: '4px' }}>COMPETITIVE WINDOW</div>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.5rem', color: win.years >= 3 ? goodColor : win.years >= 1 ? warnColor : badColor }}>{win.label}</div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--silver)', marginTop: '4px' }}>{win.years > 0 ? win.years + ' year' + (win.years > 1 ? 's' : '') + ' remaining' : 'Consider rebuilding'}</div>
                 </div>
                 )}
@@ -1108,7 +1108,7 @@ function AnalyticsPanel({
                     <div style={{ fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px', lineHeight: 1.5 }}>Players within 2 years of their position's peak-end age with 2000+ DHQ value. These are your highest-risk assets for dynasty value decline.</div>
                     <div style={{ display: 'flex', gap: '24px', marginBottom: '12px' }}>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: atRiskPct > 30 ? badColor : atRiskPct > 15 ? warnColor : goodColor }}>{atRiskPct}%</div>
+                            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.6rem', color: atRiskPct > 30 ? badColor : atRiskPct > 15 ? warnColor : goodColor }}>{atRiskPct}%</div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>Your DHQ past peak by {(parseInt(S?.season) || 2026) + 2}</div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
@@ -1128,7 +1128,7 @@ function AnalyticsPanel({
                                 });
                                 const lgPct = lgTotal > 0 ? Math.round(lgAtRisk / lgTotal * 100) : 0;
                                 return <>
-                                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)' }}>{lgPct}%</div>
+                                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.6rem', color: 'var(--gold)' }}>{lgPct}%</div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--silver)' }}>League avg</div>
                                 </>;
                             })()}
@@ -1138,7 +1138,7 @@ function AnalyticsPanel({
                         <div>
                             <div style={{ color: 'var(--silver)', fontSize: '0.8rem', marginBottom: '6px', fontWeight: 700 }}>Players at risk:</div>
                             {atRiskPlayers.slice(0, 5).map((p, i) => (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.85rem', fontFamily: 'Oswald, sans-serif' }}>
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.85rem', fontFamily: 'Inter, sans-serif' }}>
                                     <span style={{ color: 'var(--silver)' }}>{p.name} ({p.age})</span>
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ color: badColor }}>{p.dhq.toLocaleString()} DHQ</span>
@@ -1156,7 +1156,7 @@ function AnalyticsPanel({
                     <div style={aHeaderStyle}>TO EXTEND YOUR WINDOW</div>
                     {atRiskPlayers.length > 0 && (
                         <div style={{ padding: '10px 14px', marginBottom: '12px', background: 'rgba(231,76,60,0.08)', borderLeft: '3px solid ' + badColor, borderRadius: '0 8px 8px 0' }}>
-                            <div style={{ color: badColor, fontWeight: 700, fontSize: '0.85rem', fontFamily: 'Oswald, sans-serif', textTransform: 'uppercase', marginBottom: '4px' }}>Priority: Trade aging assets while value remains</div>
+                            <div style={{ color: badColor, fontWeight: 700, fontSize: '0.85rem', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', marginBottom: '4px' }}>Priority: Trade aging assets while value remains</div>
                             {atRiskPlayers.slice(0, 2).map((p, i) => (
                                 <div key={i} style={{ color: 'var(--silver)', fontSize: '0.82rem', marginTop: '4px' }}>
                                     {'Trade ' + p.name + ' (age ' + p.age + ', ' + p.dhq.toLocaleString() + ' DHQ) — sell window closing soon'}
@@ -1169,7 +1169,7 @@ function AnalyticsPanel({
                             <span style={{ color: sevColor(g.priority), fontWeight: 700, fontSize: '0.85rem', flexShrink: 0 }}>{i + 1}.</span>
                             <div>
                                 <span style={{ fontSize: '1rem', marginRight: '6px' }}>{sevIcon(g.priority)}</span>
-                                <span style={{ color: sevColor(g.priority), fontWeight: 700, fontSize: '0.85rem', fontFamily: 'Oswald, sans-serif' }}>{g.action}</span>
+                                <span style={{ color: sevColor(g.priority), fontWeight: 700, fontSize: '0.85rem', fontFamily: 'Inter, sans-serif' }}>{g.action}</span>
                                 <div style={{ color: 'var(--silver)', fontSize: '0.8rem', marginTop: '2px' }}>{g.detail}</div>
                             </div>
                         </div>
@@ -1227,7 +1227,7 @@ function AnalyticsPanel({
                         const runnerUser = currentLeague.users?.find(u => u.user_id === runnerRoster?.owner_id);
                         return (
                             <div key={season} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', minWidth: '40px' }}>{season}</span>
+                                <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: 'var(--gold)', minWidth: '40px' }}>{season}</span>
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: isMyChamp ? 'var(--gold)' : 'var(--white)', fontWeight: isMyChamp ? 700 : 400 }}>
                                         {champUser?.avatar && <img src={'https://sleepercdn.com/avatars/thumbs/' + champUser.avatar} style={{ width:'20px', height:'20px', borderRadius:'50%' }} onError={e => e.target.style.display='none'} />}
@@ -1258,12 +1258,12 @@ function AnalyticsPanel({
                                 ];
                                 return (
                                     <div key={season} style={{ marginBottom: '12px' }}>
-                                        <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.1rem', color: 'var(--gold)', marginBottom: '8px' }}>{season} Playoffs</div>
+                                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: 'var(--gold)', marginBottom: '8px' }}>{season} Playoffs</div>
                                         {brackets.map(b => {
                                             if (!b.data || !b.data.length) return null;
                                             return (
                                                 <div key={b.key} style={{ marginBottom: '12px' }}>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--silver)', fontFamily: 'Oswald, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>{b.label}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--silver)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>{b.label}</div>
                                                     {b.data.map((matchup, mi) => {
                                                         const t1 = matchup.t1 || matchup.team1;
                                                         const t2 = matchup.t2 || matchup.team2;
@@ -1275,7 +1275,7 @@ function AnalyticsPanel({
                                                                 display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', marginBottom: '4px',
                                                                 background: isMyGame ? 'rgba(212,175,55,0.06)' : 'rgba(255,255,255,0.02)',
                                                                 borderLeft: isMyGame ? '3px solid var(--gold)' : '3px solid transparent',
-                                                                borderRadius: '4px', fontSize: '0.8rem', fontFamily: 'Oswald, sans-serif',
+                                                                borderRadius: '4px', fontSize: '0.8rem', fontFamily: 'Inter, sans-serif',
                                                             }}>
                                                                 <span style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6, minWidth: '80px' }}>{roundLabel}</span>
                                                                 <span style={{ color: w === t1 ? 'var(--gold)' : 'var(--silver)', fontWeight: w === t1 ? 700 : 400 }}>{getOwnerName(t1)}</span>
@@ -1309,14 +1309,14 @@ function AnalyticsPanel({
                                 return (
                                     <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '0.85rem', color: 'var(--white)', fontWeight: 600, flex: 1 }}>{rivalName}</span>
-                                            <span style={{ fontSize: '0.78rem', color: r.wins > r.losses ? goodColor : r.wins < r.losses ? badColor : warnColor, fontWeight: 700, fontFamily: 'Oswald' }}>{r.wins}-{r.losses}</span>
+                                            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--white)', fontWeight: 600, flex: 1 }}>{rivalName}</span>
+                                            <span style={{ fontSize: '0.78rem', color: r.wins > r.losses ? goodColor : r.wins < r.losses ? badColor : warnColor, fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>{r.wins}-{r.losses}</span>
                                             <span style={{ fontSize: '0.74rem', color: 'var(--silver)' }}>{r.total} meetings</span>
                                         </div>
                                         {r.meetings && r.meetings.length > 0 && (
                                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
                                                 {r.meetings.map((mtg, mi) => (
-                                                    <span key={mi} style={{ fontSize: '0.68rem', fontFamily: 'Oswald, sans-serif', padding: '1px 6px', borderRadius: '8px', background: mtg.won ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)', color: mtg.won ? goodColor : badColor, border: '1px solid ' + (mtg.won ? goodColor : badColor) + '33' }}>
+                                                    <span key={mi} style={{ fontSize: '0.68rem', fontFamily: 'Inter, sans-serif', padding: '1px 6px', borderRadius: '8px', background: mtg.won ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)', color: mtg.won ? goodColor : badColor, border: '1px solid ' + (mtg.won ? goodColor : badColor) + '33' }}>
                                                         Met in {mtg.bracket || 'Winners'} R{mtg.round || '?'} ({mtg.season || '?'})
                                                     </span>
                                                 ))}
@@ -1431,20 +1431,20 @@ function AnalyticsPanel({
                 </div>
 
                 <div style={{ background:'var(--black)', border:'2px solid rgba(212,175,55,0.3)', borderRadius:'12px', padding:'24px' }}>
-                    <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.3rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'12px' }}>LEAGUE TIMELINE</div>
+                    <div style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'1.3rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'12px' }}>LEAGUE TIMELINE</div>
                     {years.map(year => {
                         const yearEvents = events.filter(e => e.year === year);
                         return (
                             <div key={year} style={{ marginBottom:'24px' }}>
                                 <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'12px' }}>
                                     <div style={{ width:'14px', height:'14px', background:'var(--gold)', borderRadius:'50%', border:'3px solid var(--black)', flexShrink:0 }} />
-                                    <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.2rem', color:'var(--gold)' }}>{year}</span>
+                                    <span style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'1.2rem', color:'var(--gold)' }}>{year}</span>
                                 </div>
                                 <div style={{ paddingLeft:'20px', borderLeft:'2px solid rgba(212,175,55,0.2)', marginLeft:'6px' }}>
                                     {yearEvents.map((ev, i) => (
                                         <div key={i} style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(212,175,55,0.12)', borderLeft:'3px solid '+ev.color, borderRadius:'6px', padding:'10px 14px', marginBottom:'8px', position:'relative' }}>
                                             <div style={{ position:'absolute', left:'-14px', top:'12px', width:'8px', height:'8px', background:ev.color, borderRadius:'50%', border:'2px solid var(--black)' }} />
-                                            <div style={{ fontSize:'0.78rem', color:ev.color, textTransform:'uppercase', fontFamily:'Oswald,sans-serif', letterSpacing:'0.06em', marginBottom:'3px' }}>{ev.type === 'champ' ? 'Championship' : ev.type === 'finals' ? 'Runner-Up' : ev.type === 'personal' ? 'Your Highlight' : 'Trade'}</div>
+                                            <div style={{ fontSize:'0.78rem', color:ev.color, textTransform:'uppercase', fontFamily:'Inter, sans-serif', letterSpacing:'0.06em', marginBottom:'3px' }}>{ev.type === 'champ' ? 'Championship' : ev.type === 'finals' ? 'Runner-Up' : ev.type === 'personal' ? 'Your Highlight' : 'Trade'}</div>
                                             <div style={{ fontSize:'0.78rem', color:'var(--white)', fontWeight:600 }}>{ev.title}</div>
                                             {ev.sub && <div style={{ fontSize:'0.74rem', color:'var(--silver)', opacity:0.6, marginTop:'2px' }}>{ev.sub}</div>}
                                         </div>

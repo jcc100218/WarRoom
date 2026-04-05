@@ -3,931 +3,289 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fantasy Wars — Choose Your Battle</title>
+  <title>War Room — Dynasty Fantasy Intelligence</title>
   <link rel="icon" href="icon-192.png">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* ── Reset & tokens ─────────────────────────────────────── */
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    :root{--gold:#D4AF37;--dark-gold:#B8941E;--light-gold:#F0D060;--bg:#0A0A0A;--bg2:#141414;--bg3:#1E1E1E;--border:rgba(255,255,255,.08);--border2:rgba(212,175,55,.2);--white:#FFFFFF;--silver:#C0C0C0;--muted:rgba(255,255,255,.45);--green:#34d399;--red:#f87171;--r:12px}
+    html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--white);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+    a{color:var(--gold);text-decoration:none}
 
-    :root {
-      --gold:       #D4AF37;
-      --dark-gold:  #B8941E;
-      --light-gold: #F0D060;
-      --black:      #0A0A0A;
-      --off-black:  #1A1A1A;
-      --charcoal:   #2A2A2A;
-      --white:      #FFFFFF;
-      --silver:     #C0C0C0;
-      --muted:      rgba(255,255,255,0.45);
-      --red:        #C0392B;
-    }
+    /* Nav */
+    .nav{max-width:1080px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:20px 24px}
+    .nav-brand{display:flex;align-items:center;gap:10px}
+    .nav-logo{width:32px;height:32px;border-radius:8px}
+    .nav-title{font-size:15px;font-weight:800;letter-spacing:.03em;color:var(--gold)}
+    .nav-links{display:flex;gap:8px}
+    .nav-btn{font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--silver);cursor:pointer;font-family:inherit;transition:all .15s}
+    .nav-btn:hover{border-color:var(--gold);color:var(--gold)}
+    .nav-btn-primary{background:var(--gold);color:#0a0a0a;border-color:var(--gold)}
+    .nav-btn-primary:hover{background:var(--light-gold)}
 
-    html, body {
-      height: 100%;
-      font-family: 'DM Sans', sans-serif;
-      background: var(--black);
-      color: var(--white);
-      overflow-x: hidden;
-    }
+    /* Hero */
+    .hero{text-align:center;padding:80px 24px 60px;max-width:800px;margin:0 auto;position:relative}
+    .hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(212,175,55,.08),transparent 70%);pointer-events:none}
+    .hero-eyebrow{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);margin-bottom:16px;position:relative}
+    .hero h1{font-size:clamp(36px,6vw,56px);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:16px;position:relative}
+    .hero h1 span{color:var(--gold)}
+    .hero-sub{font-size:clamp(16px,2.5vw,19px);color:var(--silver);line-height:1.6;max-width:560px;margin:0 auto 32px;position:relative}
+    .hero-cta{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;background:linear-gradient(135deg,var(--gold),var(--dark-gold));color:#0a0a0a;font-size:15px;font-weight:700;border-radius:12px;border:none;cursor:pointer;font-family:inherit;box-shadow:0 4px 20px rgba(212,175,55,.3);transition:all .2s}
+    .hero-cta:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(212,175,55,.4)}
+    .hero-free{font-size:13px;color:var(--muted);margin-top:12px;position:relative}
 
-    /* ── Hero backdrop ───────────────────────────────────────── */
-    .hero {
-      position: relative;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 0 1.5rem 4rem;
-      overflow: hidden;
-    }
+    /* Surfaces */
+    .surfaces{max-width:960px;margin:0 auto;padding:0 24px 80px}
+    .surfaces-title{text-align:center;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);margin-bottom:32px}
+    .surfaces-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+    .surface-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:32px 28px;text-align:center;transition:all .2s}
+    .surface-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+    .surface-icon{font-size:40px;margin-bottom:12px}
+    .surface-name{font-size:18px;font-weight:700;margin-bottom:4px}
+    .surface-device{font-size:13px;color:var(--gold);font-weight:600;margin-bottom:12px}
+    .surface-desc{font-size:14px;color:var(--silver);line-height:1.6}
+    @media(max-width:600px){.surfaces-grid{grid-template-columns:1fr}}
 
-    /* Logo used as full-page watermark background */
-    .hero-bg {
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(ellipse at 50% 30%, rgba(212,175,55,0.08) 0%, transparent 70%),
-        radial-gradient(ellipse at 50% 80%, rgba(212,175,55,0.04) 0%, transparent 60%);
-      z-index: 0;
-    }
-    .hero-bg::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image: url('icon-512.png');
-      background-repeat: no-repeat;
-      background-position: center 20%;
-      background-size: clamp(320px, 55vw, 700px);
-      opacity: 0.07;
-      filter: grayscale(100%) contrast(200%);
-    }
+    /* Features */
+    .features{max-width:960px;margin:0 auto;padding:0 24px 80px}
+    .features-title{text-align:center;font-size:24px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+    .features-sub{text-align:center;font-size:14px;color:var(--silver);margin-bottom:40px}
+    .features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .feat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px}
+    .feat-icon{font-size:24px;margin-bottom:8px}
+    .feat-name{font-size:14px;font-weight:700;margin-bottom:4px}
+    .feat-desc{font-size:13px;color:var(--muted);line-height:1.5}
+    @media(max-width:768px){.features-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:500px){.features-grid{grid-template-columns:1fr}}
 
-    /* Gradient overlay so text stays legible */
-    .hero-overlay {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        to bottom,
-        rgba(10,10,10,0.35) 0%,
-        rgba(10,10,10,0.55) 40%,
-        rgba(10,10,10,0.90) 75%,
-        var(--black) 100%
-      );
-      z-index: 1;
-    }
+    /* Pricing */
+    .pricing{max-width:960px;margin:0 auto;padding:0 24px 80px}
+    .pricing-title{text-align:center;font-size:24px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+    .pricing-sub{text-align:center;font-size:14px;color:var(--silver);margin-bottom:40px}
+    .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
+    .price-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px 24px;position:relative}
+    .price-card-pop{border-color:var(--gold);box-shadow:0 0 32px rgba(212,175,55,.1)}
+    .price-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--gold);color:#0a0a0a;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
+    .price-name{font-size:16px;font-weight:700;margin-bottom:4px}
+    .price-amount{font-size:32px;font-weight:800;letter-spacing:-.03em;margin-bottom:2px}
+    .price-amount span{font-size:14px;font-weight:500;color:var(--silver)}
+    .price-note{font-size:12px;color:var(--muted);margin-bottom:16px}
+    .price-features{list-style:none;margin-bottom:20px}
+    .price-features li{font-size:13px;color:var(--silver);padding:5px 0;display:flex;align-items:center;gap:8px}
+    .price-features li::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--gold);flex-shrink:0}
+    .price-btn{width:100%;padding:12px;font-size:14px;font-weight:700;border-radius:10px;border:1px solid var(--border);background:var(--bg3);color:var(--white);cursor:pointer;font-family:inherit;transition:all .15s}
+    .price-btn:hover{border-color:var(--gold);color:var(--gold)}
+    .price-btn-gold{background:linear-gradient(135deg,var(--gold),var(--dark-gold));color:#0a0a0a;border:none;box-shadow:0 2px 12px rgba(212,175,55,.25)}
+    .price-btn-gold:hover{box-shadow:0 4px 20px rgba(212,175,55,.4)}
+    @media(max-width:768px){.pricing-grid{grid-template-columns:1fr}}
 
-    .hero-content {
-      position: relative;
-      z-index: 2;
-      width: 100%;
-      max-width: 960px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+    /* Platforms */
+    .platforms{text-align:center;padding:0 24px 80px}
+    .platforms-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:16px}
+    .platforms-list{display:flex;justify-content:center;gap:24px;flex-wrap:wrap}
+    .platforms-list span{font-size:15px;font-weight:600;color:var(--silver);padding:8px 16px;border:1px solid var(--border);border-radius:8px}
 
-    /* ── Nav bar ─────────────────────────────────────────────── */
-    .nav {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1.5rem 0;
-      border-bottom: 1px solid rgba(212,175,55,0.15);
-      margin-bottom: 3rem;
-    }
-    .nav-logo {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      text-decoration: none;
-    }
-    .nav-logo img {
-      width: 36px;
-      height: 36px;
-      filter: drop-shadow(0 0 6px rgba(212,175,55,0.5));
-    }
-    .nav-logo-text {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 1.4rem;
-      color: var(--gold);
-      letter-spacing: 0.12em;
-    }
-    .nav-signin {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--silver);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      text-decoration: none;
-      padding: 0.5rem 1.25rem;
-      border: 1px solid rgba(212,175,55,0.35);
-      border-radius: 6px;
-      transition: all 0.25s;
-    }
-    .nav-signin:hover {
-      border-color: var(--gold);
-      color: var(--gold);
-      background: rgba(212,175,55,0.06);
-    }
+    /* Auth */
+    .auth{max-width:440px;margin:0 auto;padding:0 24px 80px}
+    .auth-title{text-align:center;font-size:20px;font-weight:700;margin-bottom:24px}
+    .auth-tabs{display:flex;gap:0;margin-bottom:24px;background:var(--bg2);border-radius:10px;padding:3px;border:1px solid var(--border)}
+    .auth-tab{flex:1;padding:10px;font-size:13px;font-weight:600;text-align:center;border-radius:8px;cursor:pointer;color:var(--muted);background:transparent;border:none;font-family:inherit;transition:all .15s}
+    .auth-tab.active{background:var(--bg3);color:var(--white)}
+    .auth-panel{display:none}
+    .auth-panel.active{display:block}
+    .auth-input{width:100%;padding:12px 14px;font-size:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;color:var(--white);font-family:inherit;margin-bottom:10px;outline:none;transition:border-color .15s}
+    .auth-input:focus{border-color:var(--gold)}
+    .auth-input::placeholder{color:var(--muted)}
+    .auth-submit{width:100%;padding:13px;font-size:14px;font-weight:700;border-radius:10px;border:none;background:linear-gradient(135deg,var(--gold),var(--dark-gold));color:#0a0a0a;cursor:pointer;font-family:inherit;margin-top:4px;transition:all .15s}
+    .auth-submit:hover{box-shadow:0 4px 16px rgba(212,175,55,.3)}
+    .alert{font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:12px;display:none}
+    .alert.show{display:block}
+    .alert-error{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+    .alert-success{background:rgba(52,211,153,.1);color:var(--green);border:1px solid rgba(52,211,153,.2)}
 
-    /* ── Brand headline ──────────────────────────────────────── */
-    .brand-eyebrow {
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--gold);
-      margin-bottom: 0.75rem;
-    }
-    .brand-title {
-      font-family: 'DM Sans', sans-serif;
-      font-size: clamp(3.5rem, 10vw, 7rem);
-      letter-spacing: 0.12em;
-      color: var(--white);
-      text-align: center;
-      line-height: 0.9;
-      text-shadow: 0 0 60px rgba(212,175,55,0.2);
-    }
-    .brand-title span {
-      color: var(--gold);
-    }
-    .brand-tagline {
-      margin-top: 1.25rem;
-      font-size: clamp(0.9rem, 2vw, 1.1rem);
-      font-weight: 300;
-      color: var(--silver);
-      text-align: center;
-      letter-spacing: 0.06em;
-      max-width: 500px;
-    }
-
-    /* Gold divider */
-    .divider {
-      width: 60px;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--gold), transparent);
-      margin: 2rem auto;
-    }
-
-    /* ── Product cards ───────────────────────────────────────── */
-    .products-section {
-      width: 100%;
-      margin-top: 1rem;
-    }
-
-    .products-label {
-      text-align: center;
-      font-size: 0.7rem;
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 2rem;
-    }
-
-    .products-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
-      width: 100%;
-    }
-
-    .product-card {
-      background: linear-gradient(135deg, rgba(26,26,26,0.95) 0%, rgba(42,42,42,0.85) 100%);
-      border: 2px solid rgba(212,175,55,0.25);
-      border-radius: 16px;
-      padding: 2rem 1.75rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
-      position: relative;
-      overflow: hidden;
-    }
-    .product-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, transparent, var(--gold), transparent);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .product-card:hover {
-      border-color: rgba(212,175,55,0.55);
-      box-shadow: 0 8px 40px rgba(212,175,55,0.12);
-      transform: translateY(-3px);
-    }
-    .product-card:hover::before {
-      opacity: 1;
-    }
-    .product-card.coming-soon {
-      opacity: 0.7;
-      filter: grayscale(20%);
-    }
-
-    .product-cta {
-      display: inline-block;
-      margin-top: 0.5rem;
-      padding: 0.65rem 1.25rem;
-      background: linear-gradient(135deg, var(--gold), var(--dark-gold));
-      border: none;
-      border-radius: 8px;
-      color: var(--black);
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.82rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      cursor: pointer;
-      transition: box-shadow 0.25s, transform 0.2s;
-      box-shadow: 0 4px 12px rgba(212,175,55,0.3);
-      width: 100%;
-      text-align: center;
-    }
-    .product-cta:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(212,175,55,0.45); }
-    .product-cta.disabled-cta {
-      background: rgba(192,192,192,0.15);
-      color: var(--silver);
-      cursor: default;
-      box-shadow: none;
-    }
-    .product-cta.disabled-cta:hover { transform: none; }
-
-    .product-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      padding: 0.3rem 0.75rem;
-      border-radius: 20px;
-      align-self: flex-start;
-    }
-    .badge-active {
-      background: rgba(212,175,55,0.15);
-      color: var(--gold);
-      border: 1px solid rgba(212,175,55,0.35);
-    }
-    .badge-soon {
-      background: rgba(192,192,192,0.1);
-      color: var(--silver);
-      border: 1px solid rgba(192,192,192,0.2);
-    }
-
-    .product-icon {
-      font-size: 2.25rem;
-      line-height: 1;
-    }
-    .product-name {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 1.75rem;
-      letter-spacing: 0.1em;
-      color: var(--white);
-      line-height: 1;
-    }
-    .product-tagline {
-      font-size: 0.8rem;
-      font-weight: 300;
-      color: var(--silver);
-      letter-spacing: 0.04em;
-      line-height: 1.5;
-    }
-
-    .product-features {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      margin-top: 0.25rem;
-    }
-    .product-features li {
-      font-size: 0.82rem;
-      color: var(--silver);
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-    }
-    .feature-check {
-      color: var(--gold);
-      font-size: 0.7rem;
-      flex-shrink: 0;
-    }
-    .feature-lock {
-      color: var(--muted);
-      font-size: 0.65rem;
-      flex-shrink: 0;
-    }
-    .feature-pro-text {
-      color: var(--muted);
-      font-style: italic;
-    }
-
-    .product-pricing {
-      margin-top: auto;
-      padding-top: 1rem;
-      border-top: 1px solid rgba(255,255,255,0.07);
-    }
-    .price-free {
-      font-size: 0.72rem;
-      color: var(--muted);
-      letter-spacing: 0.05em;
-      margin-bottom: 0.35rem;
-    }
-    .price-pro {
-      display: flex;
-      align-items: baseline;
-      gap: 0.3rem;
-    }
-    .price-amount {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 2rem;
-      color: var(--gold);
-      letter-spacing: 0.05em;
-    }
-    .price-period {
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
-
-    /* ── Sign-up form ────────────────────────────────────────── */
-    .signup-section {
-      width: 100%;
-      max-width: 480px;
-      margin: 3rem auto 0;
-    }
-    .signup-heading {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 1.6rem;
-      letter-spacing: 0.1em;
-      color: var(--white);
-      text-align: center;
-      margin-bottom: 0.4rem;
-    }
-    .signup-sub {
-      font-size: 0.8rem;
-      color: var(--muted);
-      text-align: center;
-      margin-bottom: 1.75rem;
-    }
-
-    .signup-card {
-      background: linear-gradient(135deg, var(--off-black), var(--charcoal));
-      border: 2px solid rgba(212,175,55,0.3);
-      border-radius: 16px;
-      padding: 2rem 1.75rem;
-      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
-    }
-
-    /* Tab switcher: Sign Up / Sign In */
-    .tab-row {
-      display: flex;
-      background: rgba(0,0,0,0.35);
-      border-radius: 8px;
-      padding: 3px;
-      margin-bottom: 1.5rem;
-    }
-    .tab-btn {
-      flex: 1;
-      padding: 0.55rem;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.85rem;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      background: transparent;
-      color: var(--muted);
-      transition: all 0.25s;
-    }
-    .tab-btn.active {
-      background: linear-gradient(135deg, var(--gold), var(--dark-gold));
-      color: var(--black);
-    }
-
-    .form-panel { display: none; }
-    .form-panel.active { display: block; }
-
-    .form-field {
-      margin-bottom: 1.1rem;
-    }
-    .form-label {
-      display: block;
-      font-size: 0.72rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--gold);
-      margin-bottom: 0.4rem;
-    }
-    .form-input {
-      width: 100%;
-      padding: 0.8rem 1rem;
-      background: var(--black);
-      border: 2px solid rgba(212,175,55,0.2);
-      border-radius: 8px;
-      color: var(--white);
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.95rem;
-      transition: border-color 0.25s, box-shadow 0.25s;
-    }
-    .form-input:focus {
-      outline: none;
-      border-color: var(--gold);
-      box-shadow: 0 0 0 3px rgba(212,175,55,0.1);
-    }
-    .form-input::placeholder { color: rgba(255,255,255,0.25); }
-
-    /* Product picker inside signup */
-    .product-picker {
-      display: flex;
-      gap: 0.75rem;
-      margin-bottom: 1.25rem;
-    }
-    .product-option {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.3rem;
-      padding: 0.75rem 0.5rem;
-      border: 2px solid rgba(212,175,55,0.2);
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.2s;
-      position: relative;
-      text-align: center;
-    }
-    .product-option.selected {
-      border-color: var(--gold);
-      background: rgba(212,175,55,0.06);
-    }
-    .product-option.disabled-opt {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-    .product-option input[type="radio"] { display: none; }
-    .opt-icon { font-size: 1.3rem; }
-    .opt-name {
-      font-size: 0.72rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      color: var(--white);
-    }
-    .opt-soon {
-      font-size: 0.6rem;
-      color: var(--muted);
-      letter-spacing: 0.06em;
-    }
-
-    .submit-btn {
-      width: 100%;
-      padding: 0.95rem;
-      background: linear-gradient(135deg, var(--gold), var(--dark-gold));
-      border: none;
-      border-radius: 8px;
-      color: var(--black);
-      font-family: 'DM Sans', sans-serif;
-      font-size: 1rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      cursor: pointer;
-      margin-top: 0.5rem;
-      transition: box-shadow 0.25s, transform 0.2s, opacity 0.2s;
-      box-shadow: 0 4px 14px rgba(212,175,55,0.3);
-    }
-    .submit-btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 22px rgba(212,175,55,0.5);
-    }
-    .submit-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .form-helper {
-      text-align: center;
-      font-size: 0.7rem;
-      color: var(--muted);
-      margin-top: 1rem;
-      line-height: 1.6;
-    }
-    .form-helper a {
-      color: var(--gold);
-      text-decoration: none;
-    }
-
-    /* Alert banners */
-    .alert {
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
-      font-size: 0.82rem;
-      margin-bottom: 1rem;
-      display: none;
-    }
-    .alert.show { display: block; }
-    .alert-error {
-      background: rgba(192,57,43,0.2);
-      border: 1px solid #C0392B;
-      color: #E74C3C;
-    }
-    .alert-success {
-      background: rgba(39,174,96,0.15);
-      border: 1px solid #27AE60;
-      color: #2ECC71;
-    }
-
-    /* ── Free vs Pro table ───────────────────────────────────── */
-    .compare-section {
-      width: 100%;
-      max-width: 700px;
-      margin: 3.5rem auto 0;
-    }
-    .compare-title {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 1.5rem;
-      letter-spacing: 0.1em;
-      color: var(--white);
-      text-align: center;
-      margin-bottom: 1.5rem;
-    }
-    .compare-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .compare-table th, .compare-table td {
-      padding: 0.75rem 1rem;
-      text-align: center;
-      font-size: 0.82rem;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .compare-table th {
-      font-size: 0.72rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--gold);
-      background: rgba(212,175,55,0.05);
-    }
-    .compare-table td:first-child {
-      text-align: left;
-      color: var(--silver);
-    }
-    .compare-table tr:last-child td {
-      border-bottom: none;
-    }
-    .tick { color: var(--gold); font-size: 1rem; }
-    .cross { color: var(--muted); font-size: 1rem; }
-
-    /* ── Footer ──────────────────────────────────────────────── */
-    .page-footer {
-      margin-top: 5rem;
-      padding: 2rem 1.5rem;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      text-align: center;
-      font-size: 0.72rem;
-      color: rgba(255,255,255,0.3);
-      letter-spacing: 0.04em;
-    }
-
-    /* ── Responsive ──────────────────────────────────────────── */
-    @media (max-width: 640px) {
-      .products-grid {
-        grid-template-columns: 1fr;
-      }
-      .product-card.coming-soon {
-        opacity: 0.65;
-      }
-      .brand-title {
-        font-size: clamp(3rem, 16vw, 5rem);
-      }
-      .signup-card {
-        padding: 1.5rem 1.25rem;
-      }
-    }
+    /* Footer */
+    .footer{text-align:center;padding:24px;font-size:12px;color:var(--muted);border-top:1px solid var(--border)}
   </style>
 </head>
-
 <body>
-  <div class="hero">
-    <div class="hero-bg"></div>
-    <div class="hero-overlay"></div>
 
-    <div class="hero-content">
+  <!-- Nav -->
+  <nav class="nav">
+    <div class="nav-brand">
+      <img src="icon-192.png" alt="War Room" class="nav-logo">
+      <span class="nav-title">WAR ROOM</span>
+    </div>
+    <div class="nav-links">
+      <button class="nav-btn" id="navSignin" onclick="document.getElementById('auth').scrollIntoView({behavior:'smooth'})">Sign In</button>
+      <button class="nav-btn nav-btn-primary" onclick="document.getElementById('auth').scrollIntoView({behavior:'smooth'});switchTab('signup')">Get Started</button>
+    </div>
+  </nav>
 
-      <!-- Nav -->
-      <nav class="nav">
-        <a class="nav-logo" href="#">
-          <img src="icon-192.png" alt="Fantasy Wars">
-          <span class="nav-logo-text">Fantasy Wars</span>
-        </a>
-        <a class="nav-signin" href="#signup" id="navSignin">Sign In</a>
-      </nav>
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-eyebrow">Dynasty Fantasy Intelligence</div>
+    <h1>Your league. <span>Your edge.</span></h1>
+    <p class="hero-sub">AI-powered dynasty trade analysis, owner psychology mapping, and draft intelligence — built for the GM who takes their league seriously.</p>
+    <button class="hero-cta" onclick="document.getElementById('auth').scrollIntoView({behavior:'smooth'});switchTab('signup')">Start free</button>
+    <p class="hero-free">Free forever for one league. No credit card.</p>
+  </section>
 
-      <!-- Brand headline -->
-      <p class="brand-eyebrow">Dynasty Intelligence Platform</p>
-      <h1 class="brand-title">FANTASY<br><span>WARS</span></h1>
-      <p class="brand-tagline">One intelligence engine. Two surfaces. Every edge you need.</p>
+  <!-- Two Surfaces -->
+  <section class="surfaces">
+    <div class="surfaces-title">One product. Two surfaces.</div>
+    <div class="surfaces-grid">
+      <div class="surface-card">
+        <div class="surface-icon">📱</div>
+        <div class="surface-name">Scout</div>
+        <div class="surface-device">Mobile</div>
+        <p class="surface-desc">Quick decisions on the go. Start/sit, waiver bids, trade alerts, and your daily briefing — optimized for your phone.</p>
+      </div>
+      <div class="surface-card">
+        <div class="surface-icon">🖥️</div>
+        <div class="surface-name">War Room</div>
+        <div class="surface-device">Desktop &amp; iPad</div>
+        <p class="surface-desc">Full command center. Owner DNA mapping, trade planning with behavioral models, draft boards, and multi-year franchise projections.</p>
+      </div>
+    </div>
+  </section>
 
-      <div class="divider"></div>
+  <!-- Features -->
+  <section class="features">
+    <h2 class="features-title">Built for dynasty GMs</h2>
+    <p class="features-sub">Every tool you need to dominate your league</p>
+    <div class="features-grid">
+      <div class="feat-card"><div class="feat-icon">🤖</div><div class="feat-name">AI Trade Analysis</div><p class="feat-desc">Get buy/sell/hold verdicts backed by your league's actual scoring and trade history.</p></div>
+      <div class="feat-card"><div class="feat-icon">🧬</div><div class="feat-name">Owner DNA</div><p class="feat-desc">Behavioral profiles for every owner. Know who panic-sells, who hoards picks, who bites on hype.</p></div>
+      <div class="feat-card"><div class="feat-icon">📊</div><div class="feat-name">DHQ Values</div><p class="feat-desc">Dynasty values calibrated to your league — scoring, roster size, and trade market built in.</p></div>
+      <div class="feat-card"><div class="feat-icon">🏈</div><div class="feat-name">Draft Command</div><p class="feat-desc">Custom big boards, prospect tiers, fit scores, and live pick tracking for rookie and startup drafts.</p></div>
+      <div class="feat-card"><div class="feat-icon">📋</div><div class="feat-name">Daily Briefing</div><p class="feat-desc">Three things every morning: what to do now, what to monitor, and what to prepare for.</p></div>
+      <div class="feat-card"><div class="feat-icon">🔄</div><div class="feat-name">Trade Finder</div><p class="feat-desc">Surface the best trade partners based on roster needs, owner tendencies, and value gaps.</p></div>
+    </div>
+  </section>
 
-      <!-- Engine pitch -->
-      <section class="products-section">
-        <p class="products-label" style="max-width:600px;margin:0 auto 2rem;text-align:center;font-size:0.95rem;line-height:1.7;color:rgba(255,255,255,0.6)">Fantasy Wars is powered by DHQ — a league-specific valuation engine that analyzes 5 years of your league's history, models every owner's trading psychology, and tells you exactly what moves to make and why.</p>
+  <!-- Pricing -->
+  <section class="pricing" id="pricing">
+    <h2 class="pricing-title">Simple pricing</h2>
+    <p class="pricing-sub">Start free. Upgrade when you're ready.</p>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-name">Free</div>
+        <div class="price-amount">$0</div>
+        <div class="price-note">One league, forever</div>
+        <ul class="price-features">
+          <li>DHQ dynasty values</li>
+          <li>Player cards with age curves</li>
+          <li>Team diagnosis</li>
+          <li>Draft rankings (read-only)</li>
+          <li>1 AI query per day</li>
+        </ul>
+        <button class="price-btn" onclick="document.getElementById('auth').scrollIntoView({behavior:'smooth'});switchTab('signup')">Get started</button>
+      </div>
+      <div class="price-card price-card-pop">
+        <div class="price-badge">Most Popular</div>
+        <div class="price-name">War Room</div>
+        <div class="price-amount">$9.99 <span>/mo</span></div>
+        <div class="price-note">Unlimited leagues. Cancel anytime.</div>
+        <ul class="price-features">
+          <li>Everything in Free</li>
+          <li>Unlimited AI analysis</li>
+          <li>Owner DNA profiles</li>
+          <li>Behavioral trade model</li>
+          <li>Draft command center</li>
+          <li>Scout + War Room access</li>
+        </ul>
+        <button class="price-btn price-btn-gold" onclick="document.getElementById('auth').scrollIntoView({behavior:'smooth'});switchTab('signup')">Start free trial</button>
+      </div>
+      <div class="price-card">
+        <div class="price-name">War Room Annual</div>
+        <div class="price-amount">$79.99 <span>/yr</span></div>
+        <div class="price-note">Save 33% — $6.67/mo</div>
+        <ul class="price-features">
+          <li>Everything in monthly</li>
+          <li>Locked-in annual rate</li>
+          <li>Priority feature access</li>
+          <li>Unlimited leagues</li>
+        </ul>
+        <button class="price-btn" onclick="document.getElementById('auth').scrollIntoView({behavior:'smooth'});switchTab('signup')">Start free trial</button>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:13px;color:var(--muted);margin-top:24px">
+      <strong style="color:var(--gold)">League Pass</strong> — Get your whole league on War Room at a group discount. <a href="mailto:fantasywarsapp@gmail.com" style="color:var(--gold)">Contact us</a>
+    </p>
+  </section>
 
-        <p class="products-label">Three Tiers, One Engine</p>
+  <!-- Platforms -->
+  <section class="platforms">
+    <div class="platforms-title">Works with your league</div>
+    <div class="platforms-list">
+      <span>Sleeper</span>
+      <span>ESPN</span>
+      <span>Yahoo</span>
+      <span>MFL</span>
+      <span style="opacity:.5">NFL.com (soon)</span>
+    </div>
+  </section>
 
-        <div class="products-grid">
+  <!-- Auth -->
+  <section class="auth" id="auth">
+    <h2 class="auth-title">Get your War Room</h2>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabSignup" onclick="switchTab('signup')">Create Account</button>
+      <button class="auth-tab" id="tabSignin" onclick="switchTab('signin')">Sign In</button>
+    </div>
+    <div class="auth-panel active" id="panelSignup">
+      <div class="alert" id="alertSignup"></div>
+      <input class="auth-input" type="text" id="su-name" placeholder="Display name (optional)">
+      <input class="auth-input" type="email" id="su-email" placeholder="Email">
+      <input class="auth-input" type="password" id="su-password" placeholder="Password (8+ characters)">
+      <button class="auth-submit" id="btnSignup" onclick="handleSignup()">Create Free Account</button>
+    </div>
+    <div class="auth-panel" id="panelSignin">
+      <div class="alert" id="alertSignin"></div>
+      <input class="auth-input" type="email" id="si-email" placeholder="Email">
+      <input class="auth-input" type="password" id="si-password" placeholder="Password">
+      <button class="auth-submit" id="btnSignin" onclick="handleSignin()">Sign In</button>
+    </div>
+  </section>
 
-          <!-- Scout (Free) -->
-          <div class="product-card" onclick="scrollToSignup()" style="border-color:rgba(255,255,255,0.15)">
-            <span class="product-badge" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5)">Free</span>
-            <div class="product-icon" style="font-size:2.2rem">&#128269;</div>
-            <div class="product-name">Scout</div>
-            <p class="product-tagline">See your roster through a real league-specific valuation engine. Understand your team before you make moves.</p>
+  <footer class="footer">&copy; 2026 Fantasy Wars &middot; All rights reserved</footer>
 
-            <ul class="product-features">
-              <li><span class="feature-check">&#10003;</span> View your team's DHQ dynasty values</li>
-              <li><span class="feature-check">&#10003;</span> Basic player cards with age curves</li>
-              <li><span class="feature-check">&#10003;</span> Team diagnosis — strengths and weaknesses</li>
-              <li><span class="feature-check">&#10003;</span> Draft rankings (read-only)</li>
-              <li><span class="feature-check">&#10003;</span> 1 AI query per day</li>
-            </ul>
-
-            <div class="product-pricing">
-              <p class="price-free">Start free — no credit card required</p>
-              <div class="price-pro">
-                <span class="price-amount">$0</span>
-                <span class="price-period">/ forever</span>
-              </div>
-            </div>
-            <button class="product-cta" style="background:rgba(255,255,255,0.1);color:var(--white)">Get Started Free</button>
-          </div>
-
-          <!-- ReconAI -->
-          <div class="product-card" onclick="scrollToSignup()">
-            <span class="product-badge badge-active">&#9679; Live Now</span>
-            <div class="product-icon" style="font-size:2.2rem">&#9889;</div>
-            <div class="product-name">War Room Scout</div>
-            <p class="product-tagline">Your mobile AI advisor. Open your phone, get three things: what to do now, what to watch, and what to prepare for. Act in seconds.</p>
-
-            <ul class="product-features">
-              <li><span class="feature-check">✦</span> GM Briefing — Do Now / Monitor / Prepare</li>
-              <li><span class="feature-check">✦</span> Start/Sit optimizer with matchup context</li>
-              <li><span class="feature-check">✦</span> Waiver targets with FAAB bid confidence</li>
-              <li><span class="feature-check">✦</span> AI chat — ask anything about your league</li>
-              <li><span class="feature-check">✦</span> Trade quick-check — accept or reject in 10 seconds</li>
-              <li><span class="feature-check">✦</span> Player cards with career stats and trade profiles</li>
-            </ul>
-
-            <div class="product-pricing">
-              <p class="price-free">The execution layer — act fast, win weekly</p>
-              <div class="price-pro">
-                <span class="price-amount">$4.99</span>
-                <span class="price-period">/ month</span>
-              </div>
-            </div>
-            <button class="product-cta">Get War Room Scout →</button>
-          </div>
-
-          <!-- War Room -->
-          <div class="product-card" onclick="scrollToSignup()">
-            <span class="product-badge badge-active">&#9679; Live Now</span>
-            <div class="product-icon" style="font-size:2.2rem">&#9876;</div>
-            <div class="product-name">War Room</div>
-            <p class="product-tagline">The desktop command center for league-wide dynasty strategy. Map your leaguemates' psychology. Plan trades they'll actually accept.</p>
-
-            <ul class="product-features">
-              <li><span class="feature-check">✦</span> Owner DNA — model every manager's trade psychology</li>
-              <li><span class="feature-check">✦</span> Psychological tax calculator — predict acceptance</li>
-              <li><span class="feature-check">✦</span> Trade Finder — auto-generate offers across the league</li>
-              <li><span class="feature-check">✦</span> Analytics dashboard — winner patterns, roster gaps</li>
-              <li><span class="feature-check">✦</span> Draft command center — prospect tiers and fit scores</li>
-              <li><span class="feature-check">✦</span> FM-style roster management with 22 columns</li>
-              <li><span class="feature-check">✦</span> Multi-year franchise projections and league history</li>
-            </ul>
-
-            <div class="product-pricing">
-              <p class="price-free">The planning layer — think deep, build dynasties</p>
-              <div class="price-pro">
-                <span class="price-amount">$9.99</span>
-                <span class="price-period">/ month</span>
-              </div>
-            </div>
-            <button class="product-cta">Enter War Room →</button>
-          </div>
-
-          <!-- Signature Feature callout -->
-        </div>
-
-        <div style="max-width:700px;margin:2.5rem auto 0;padding:1.5rem 2rem;background:rgba(212,175,55,0.06);border:2px solid rgba(212,175,55,0.3);border-radius:12px;text-align:center">
-          <div style="font-family:'DM Sans',sans-serif;font-size:1.3rem;color:var(--gold);letter-spacing:0.1em;margin-bottom:0.5rem">THE ONLY TOOL THAT READS YOUR LEAGUEMATES</div>
-          <p style="font-size:0.85rem;color:rgba(255,255,255,0.6);line-height:1.6;margin-bottom:0">Owner DNA profiles every manager's trading behavior — Fleecer, Dominator, Stalwart, Acceptor, or Desperate — then calculates psychological taxes that adjust trade acceptance likelihood. You'll know what to offer before you send it.</p>
-        </div>
-      </section>
-
-      <!-- Keeping existing signup section below -->
-      <section class="products-section" style="display:none">
-        <div class="products-grid">
-          <div class="product-card" style="display:none">
-            <ul class="product-features">
-              <li><span class="feature-check">✦</span> Advanced AI decision engine</li>
-              <li><span class="feature-check">✦</span> Real-time matchup intelligence</li>
-              <li><span class="feature-check">✦</span> Predictive roster modeling</li>
-              <li><span class="feature-check">✦</span> AI trade negotiation assistant</li>
-              <li><span class="feature-check">✦</span> Cross-platform analytics</li>
-              <li><span class="feature-check">✦</span> Pro-grade scouting tools</li>
-            </ul>
-
-            <div class="product-pricing">
-              <p class="price-free">$9.99/mo &nbsp;·&nbsp; Bundle with Fantasy War Room for $14.99/mo</p>
-              <div class="price-pro">
-                <span class="price-amount">$9.99</span>
-                <span class="price-period">/ month · no contract required</span>
-              </div>
-            </div>
-            <button class="product-cta">Get Started →</button>
-          </div>
-
-        </div>
-      </section>
-
-      <!-- Sign Up / Sign In form -->
-      <section class="signup-section" id="signup">
-        <h2 class="signup-heading">Create Your Account</h2>
-        <p class="signup-sub">Join the arena. Select your plan after signing up.</p>
-
-        <div class="signup-card">
-
-          <!-- Tab switcher -->
-          <div class="tab-row">
-            <button class="tab-btn active" id="tabSignup" onclick="switchTab('signup')">Create Account</button>
-            <button class="tab-btn"        id="tabSignin" onclick="switchTab('signin')">Sign In</button>
-          </div>
-
-          <!-- SIGN UP panel -->
-          <div class="form-panel active" id="panelSignup">
-
-            <div id="alertSignup" class="alert"></div>
-
-            <div class="form-field">
-              <label class="form-label">Display Name</label>
-              <input class="form-input" type="text" id="su-name" placeholder="How you'll appear in the app" autocomplete="name">
-            </div>
-
-            <div class="form-field">
-              <label class="form-label">Email</label>
-              <input class="form-input" type="email" id="su-email" placeholder="you@example.com" autocomplete="email" required>
-            </div>
-
-            <div class="form-field">
-              <label class="form-label">Password</label>
-              <input class="form-input" type="password" id="su-password" placeholder="At least 8 characters" autocomplete="new-password" required>
-            </div>
-
-            <button class="submit-btn" id="btnSignup" onclick="handleSignup()">
-              Create Account
-            </button>
-
-            <p class="form-helper">
-              By signing up you agree to our Terms of Service.<br>
-              Select your product and plan once inside — no contract required.
-            </p>
-          </div>
-
-          <!-- SIGN IN panel -->
-          <div class="form-panel" id="panelSignin">
-
-            <div id="alertSignin" class="alert"></div>
-
-            <div class="form-field">
-              <label class="form-label">Email</label>
-              <input class="form-input" type="email" id="si-email" placeholder="you@example.com" autocomplete="email" required>
-            </div>
-
-            <div class="form-field">
-              <label class="form-label">Password</label>
-              <input class="form-input" type="password" id="si-password" placeholder="Your password" autocomplete="current-password" required>
-            </div>
-
-            <button class="submit-btn" id="btnSignin" onclick="handleSignin()">
-              Sign In
-            </button>
-
-            <p class="form-helper">
-              Don't have an account? <a href="#" onclick="switchTab('signup');return false;">Sign up free →</a>
-            </p>
-          </div>
-
-        </div>
-      </section>
-
-      <!-- Standard vs Pro comparison -->
-      <section class="compare-section">
-        <h2 class="compare-title">Standard vs Pro</h2>
-        <table class="compare-table">
-          <thead>
-            <tr>
-              <th style="text-align:left;"></th>
-              <th>Standard — $9.99/mo</th>
-              <th>Pro — $14.95/mo</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td rowspan="2" style="vertical-align:middle;">Products included</td>
-              <td style="border-bottom:none;padding-bottom:0.2rem;text-align:left;"><span style="color:var(--silver);">Fantasy War Room</span> <span style="font-size:0.78rem;color:var(--muted);">— choose one</span></td>
-              <td style="border-bottom:none;padding-bottom:0.2rem;text-align:left;"><span class="tick">✓</span> <span style="color:var(--silver);">Fantasy War Room</span></td>
-            </tr>
-            <tr>
-              <td style="padding-top:0.2rem;text-align:left;"><span style="color:var(--silver);">Dynasty HQ</span> <span style="font-size:0.78rem;color:var(--muted);">— choose one</span></td>
-              <td style="padding-top:0.2rem;text-align:left;"><span class="tick">✓</span> <span style="color:var(--silver);">Dynasty HQ</span></td>
-            </tr>
-            <tr>
-              <td>AI queries / month</td>
-              <td><span style="color:var(--silver);">20</span></td>
-              <td><span class="tick">200</span></td>
-            </tr>
-            <tr>
-              <td>BYO AI integration<br><span style="font-size:0.75rem;color:var(--muted);">Claude, Groq, Gemini, GPT-4o, Grok</span></td>
-              <td><span class="cross">—</span></td>
-              <td><span class="tick">✓</span></td>
-            </tr>
-            <tr>
-              <td>No contract · cancel anytime</td>
-              <td><span class="tick">✓</span></td>
-              <td><span class="tick">✓</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-    </div><!-- /hero-content -->
-  </div><!-- /hero -->
-
-  <footer class="page-footer">
-    &copy; 2026 Fantasy Wars · skjjcruz · All rights reserved
-  </footer>
-
-  <!-- ── Scripts ─────────────────────────────────────────────── -->
   <script>
-    // ── Config — update SUPABASE_URL when deploying ────────────
-    const FW_API_BASE  = 'https://sxshiqyxhhifvtfqawbq.supabase.co/functions/v1';
-    const FW_ANON_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4c2hpcXl4aGhpZnZ0ZnFhd2JxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MTExMzAsImV4cCI6MjA4ODI4NzEzMH0.zJi9W986ZLaANiZN6pt6ReFwaQU6yPeidsERIWo2ibI';
-    const SESSION_KEY  = 'fw_session_v1';
+    const FW_API_BASE = 'https://sxshiqyxhhifvtfqawbq.supabase.co/functions/v1';
+    const FW_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4c2hpcXl4aGhpZnZ0ZnFhd2JxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MTExMzAsImV4cCI6MjA4ODI4NzEzMH0.zJi9W986ZLaANiZN6pt6ReFwaQU6yPeidsERIWo2ibI';
+    const SESSION_KEY = 'fw_session_v1';
+    const SCOUT_URL = 'https://jcc100218.github.io/ReconAI/';
+    const WARROOM_URL = 'index.html';
 
-    // ── Redirect if already signed in ─────────────────────────
+    // Redirect if already signed in
     (function checkSession() {
       try {
         const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
         if (s?.token && s?.user) {
-          // Check if onboarding is complete before routing to the app
           const profile = JSON.parse(localStorage.getItem('od_profile_v1') || 'null');
           if (!profile || !profile.onboardingComplete) {
             window.location.href = 'onboarding.html';
           } else {
-            const dest = (s.user.products || []).includes('dynast_hq')
-              ? 'dynast-hq/index.html'
-              : 'index.html';
-            window.location.href = dest;
+            // Device-aware routing with preference override
+            const pref = localStorage.getItem('fw_preferred_view');
+            if (pref === 'scout') { window.location.href = SCOUT_URL; return; }
+            if (pref === 'warroom') { window.location.href = WARROOM_URL; return; }
+            // Default: mobile -> Scout, desktop -> War Room
+            if (window.innerWidth < 768) { window.location.href = SCOUT_URL; }
+            else { window.location.href = WARROOM_URL; }
           }
         }
       } catch {}
     })();
 
-    // ── Tab switching ─────────────────────────────────────────
     function switchTab(tab) {
       const isSignup = tab === 'signup';
       document.getElementById('tabSignup').classList.toggle('active', isSignup);
       document.getElementById('tabSignin').classList.toggle('active', !isSignup);
       document.getElementById('panelSignup').classList.toggle('active', isSignup);
       document.getElementById('panelSignin').classList.toggle('active', !isSignup);
-
-      document.getElementById('navSignin').textContent = isSignup ? 'Sign In' : 'Create Account';
-      document.getElementById('navSignin').onclick = (e) => { e.preventDefault(); switchTab(isSignup ? 'signin' : 'signup'); };
     }
 
-    // Nav sign in link: scroll to form and switch tab
-    document.getElementById('navSignin').addEventListener('click', (e) => {
-      e.preventDefault();
-      document.getElementById('signup').scrollIntoView({ behavior: 'smooth' });
-      switchTab('signin');
-    });
-
-    // ── Product card → scroll to signup ──────────────────────
-    function scrollToSignup() {
-      document.getElementById('signup').scrollIntoView({ behavior: 'smooth' });
-      switchTab('signup');
-    }
-
-    // ── Alerts ────────────────────────────────────────────────
     function showAlert(panelId, type, message) {
       const el = document.getElementById('alert' + panelId);
       el.className = 'alert alert-' + type + ' show';
@@ -935,104 +293,63 @@
       if (type !== 'success') setTimeout(() => el.classList.remove('show'), 6000);
     }
 
-    // ── Sign Up ───────────────────────────────────────────────
     async function handleSignup() {
-      const email       = document.getElementById('su-email').value.trim();
-      const password    = document.getElementById('su-password').value;
+      const email = document.getElementById('su-email').value.trim();
+      const password = document.getElementById('su-password').value;
       const displayName = document.getElementById('su-name').value.trim();
-      const btn         = document.getElementById('btnSignup');
-
-      if (!email || !password) {
-        showAlert('Signup', 'error', 'Email and password are required.');
-        return;
-      }
-      if (password.length < 8) {
-        showAlert('Signup', 'error', 'Password must be at least 8 characters.');
-        return;
-      }
-
-      btn.disabled = true;
-      btn.textContent = 'Creating account…';
-
+      const btn = document.getElementById('btnSignup');
+      if (!email || !password) { showAlert('Signup', 'error', 'Email and password are required.'); return; }
+      if (password.length < 8) { showAlert('Signup', 'error', 'Password must be at least 8 characters.'); return; }
+      btn.disabled = true; btn.textContent = 'Creating account\u2026';
       try {
-        const res  = await fetch(`${FW_API_BASE}/fw-signup`, {
-          method:  'POST',
+        const res = await fetch(`${FW_API_BASE}/fw-signup`, {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json', 'apikey': FW_ANON_KEY, 'Authorization': `Bearer ${FW_ANON_KEY}` },
-          body:    JSON.stringify({ email, password, displayName, productSlug: typeof selectedProduct !== 'undefined' ? selectedProduct : 'recon-ai' }),
+          body: JSON.stringify({ email, password, displayName, productSlug: 'war-room' }),
         });
         const data = await res.json();
-
-        if (!res.ok) {
-          showAlert('Signup', 'error', data.error || 'Sign-up failed. Please try again.');
-          btn.disabled = false;
-          btn.textContent = 'Create Free Account';
-          return;
-        }
-
-        // Save session
+        if (!res.ok) { showAlert('Signup', 'error', data.error || 'Sign-up failed.'); btn.disabled = false; btn.textContent = 'Create Free Account'; return; }
         localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-
-        showAlert('Signup', 'success', 'Account created! Setting up your War Room…');
+        showAlert('Signup', 'success', 'Account created! Setting up your War Room\u2026');
         setTimeout(() => { window.location.href = 'onboarding.html'; }, 1000);
-
       } catch (err) {
         showAlert('Signup', 'error', 'Network error: ' + (err?.message || String(err)));
-        btn.disabled = false;
-        btn.textContent = 'Create Free Account';
+        btn.disabled = false; btn.textContent = 'Create Free Account';
       }
     }
 
-    // ── Sign In ───────────────────────────────────────────────
     async function handleSignin() {
-      const email    = document.getElementById('si-email').value.trim();
+      const email = document.getElementById('si-email').value.trim();
       const password = document.getElementById('si-password').value;
-      const btn      = document.getElementById('btnSignin');
-
-      if (!email || !password) {
-        showAlert('Signin', 'error', 'Email and password are required.');
-        return;
-      }
-
-      btn.disabled = true;
-      btn.textContent = 'Signing in…';
-
+      const btn = document.getElementById('btnSignin');
+      if (!email || !password) { showAlert('Signin', 'error', 'Email and password are required.'); return; }
+      btn.disabled = true; btn.textContent = 'Signing in\u2026';
       try {
-        const res  = await fetch(`${FW_API_BASE}/fw-signin`, {
-          method:  'POST',
+        const res = await fetch(`${FW_API_BASE}/fw-signin`, {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json', 'apikey': FW_ANON_KEY, 'Authorization': `Bearer ${FW_ANON_KEY}` },
-          body:    JSON.stringify({ email, password }),
+          body: JSON.stringify({ email, password }),
         });
         const data = await res.json();
-
-        if (!res.ok) {
-          showAlert('Signin', 'error', data.error || 'Invalid email or password.');
-          btn.disabled = false;
-          btn.textContent = 'Sign In';
-          return;
-        }
-
+        if (!res.ok) { showAlert('Signin', 'error', data.error || 'Invalid email or password.'); btn.disabled = false; btn.textContent = 'Sign In'; return; }
         localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-        showAlert('Signin', 'success', 'Welcome back! Redirecting…');
-        const siProfile = JSON.parse(localStorage.getItem('od_profile_v1') || 'null');
-        const siDest = (!siProfile || !siProfile.onboardingComplete)
-          ? 'onboarding.html'
-          : ((data.user?.products || []).includes('dynast_hq') ? 'dynast-hq/index.html' : 'index.html');
-        setTimeout(() => { window.location.href = siDest; }, 800);
-
+        showAlert('Signin', 'success', 'Welcome back! Redirecting\u2026');
+        const pref = localStorage.getItem('fw_preferred_view');
+        let dest = WARROOM_URL;
+        if (pref === 'scout') dest = SCOUT_URL;
+        else if (!pref && window.innerWidth < 768) dest = SCOUT_URL;
+        setTimeout(() => { window.location.href = dest; }, 800);
       } catch (err) {
         showAlert('Signin', 'error', 'Network error: ' + (err?.message || String(err)));
-        btn.disabled = false;
-        btn.textContent = 'Sign In';
+        btn.disabled = false; btn.textContent = 'Sign In';
       }
     }
 
-    // Enter key submits the active form
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       if (document.getElementById('panelSignup').classList.contains('active')) handleSignup();
       else handleSignin();
     });
   </script>
-
 </body>
 </html>

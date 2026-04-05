@@ -208,7 +208,7 @@
 
         // Sub-nav button style
         const navBtn = (view) => ({
-            padding: '6px 16px', fontSize: '0.76rem', fontFamily: 'Oswald', textTransform: 'uppercase',
+            padding: '6px 16px', fontSize: '0.76rem', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
             letterSpacing: '0.06em', cursor: 'pointer', border: 'none', borderRadius: '4px',
             background: activeView === view ? 'rgba(212,175,55,0.2)' : 'transparent',
             color: activeView === view ? 'var(--gold)' : 'var(--silver)',
@@ -218,7 +218,7 @@
 
         return (
             <div style={{ padding: '16px' }}>
-                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '12px' }}>DRAFT ROOM</div>
+                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '12px' }}>DRAFT ROOM</div>
 
                 {/* Sub-view navigation */}
                 <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
@@ -234,13 +234,13 @@
                             const now = countdownNow;
                             const start = draftInfo.start_time;
                             const diff = start - now;
-                            if (diff <= 0) return <div style={{ background: 'rgba(46,204,113,0.1)', border: '1px solid rgba(46,204,113,0.3)', borderRadius: '8px', padding: '14px 16px', marginBottom: '14px', textAlign: 'center', fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: '#2ECC71', letterSpacing: '0.04em' }}>DRAFT IS LIVE</div>;
+                            if (diff <= 0) return <div style={{ background: 'rgba(46,204,113,0.1)', border: '1px solid rgba(46,204,113,0.3)', borderRadius: '8px', padding: '14px 16px', marginBottom: '14px', textAlign: 'center', fontFamily: 'Rajdhani, sans-serif', fontSize: '1.6rem', color: '#2ECC71', letterSpacing: '0.04em' }}>DRAFT IS LIVE</div>;
                             const days = Math.floor(diff / 86400000);
                             const hours = Math.floor((diff % 86400000) / 3600000);
                             const mins = Math.floor((diff % 3600000) / 60000);
                             return <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '14px 16px', marginBottom: '14px', textAlign: 'center' }}>
-                                <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Draft Countdown</div>
-                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '2rem', color: 'var(--white)', letterSpacing: '0.04em' }}>
+                                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Draft Countdown</div>
+                                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', color: 'var(--white)', letterSpacing: '0.04em' }}>
                                     {days > 0 ? days + 'd ' : ''}{hours}h {mins}m
                                 </div>
                                 <div style={{ fontSize: '0.76rem', color: 'var(--silver)', marginTop: '4px' }}>
@@ -254,13 +254,13 @@
 
                         {/* Draft Class Preview (moved from Rankings) */}
                         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
-                            <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Draft Class Preview</div>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Draft Class Preview</div>
                             <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.6 }}>
                                 Based on PFF and consensus rankings, the strongest position groups in the upcoming draft class are typically available via the AI advisor. Click the War Room Scout panel and ask about specific positions or prospects.
                             </div>
                             <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
                                 <button onClick={() => { if (typeof setReconPanelOpen === 'function') { setReconPanelOpen(true); sendReconMessage('What are the strongest position groups in the upcoming rookie draft class?'); } }}
-                                    style={{ padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Oswald', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '4px', color: 'var(--gold)', cursor: 'pointer' }}>
+                                    style={{ padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '4px', color: 'var(--gold)', cursor: 'pointer' }}>
                                     Ask Alex about draft class
                                 </button>
                             </div>
@@ -268,13 +268,13 @@
 
                         {/* Your Picks (moved from Rankings) */}
                         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
-                            <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Your Picks</div>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Your Picks</div>
                             {[leagueSeason, leagueSeason + 1, leagueSeason + 2].map(yr => {
                                 const yearPicks = myPicks.filter(pk => pk.year === yr);
                                 if (!yearPicks.length) return null;
                                 return (
                                     <div key={yr} style={{ marginBottom: '12px' }}>
-                                        <div style={{ fontSize: '0.74rem', color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>{yr}</div>
+                                        <div style={{ fontSize: '0.74rem', color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>{yr}</div>
                                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                                             {yearPicks.map((pk, i) => (
                                                 <div key={i} style={{ padding: '4px 8px', borderRadius: '4px', background: pk.own ? 'rgba(212,175,55,0.08)' : 'rgba(124,107,248,0.1)', border: '1px solid ' + (pk.own ? 'rgba(212,175,55,0.25)' : 'rgba(124,107,248,0.25)'), fontSize: '0.76rem' }}>
@@ -292,15 +292,15 @@
                         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2ECC71', animation: 'pulse 2s infinite' }} />
-                                <span style={{ fontFamily: 'Oswald', fontSize: '0.9rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>On The Clock</span>
+                                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.9rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>On The Clock</span>
                             </div>
                             {nextPick ? (
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '14px' }}>
-                                        <span style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '2rem', color: 'var(--gold)' }}>R{nextPick.round}</span>
+                                        <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', color: 'var(--gold)' }}>R{nextPick.round}</span>
                                         <span style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>{nextPick.year} {nextPick.own ? '' : '(acquired)'}</span>
                                     </div>
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', fontFamily: 'Oswald' }}>Likely Available at Your Pick</div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', fontFamily: 'Inter, sans-serif' }}>Likely Available at Your Pick</div>
                                     {recommendations.map((r, i) => {
                                         const pos = normPos(r.p.position) || r.p.position;
                                         const composite = Math.round(r.dhq * 0.7 + r.fit.score * 30);
@@ -312,7 +312,7 @@
                                                 style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', marginBottom: '4px', borderRadius: '6px', background: i === 0 ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)', border: i === 0 ? '1px solid rgba(212,175,55,0.2)' : '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', transition: 'background 0.1s' }}
                                                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.1)'}
                                                 onMouseLeave={e => e.currentTarget.style.background = i === 0 ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)'}>
-                                                <span style={{ fontFamily: 'Oswald', fontSize: '1.1rem', color: 'var(--gold)', width: '20px' }}>{i + 1}</span>
+                                                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '1.1rem', color: 'var(--gold)', width: '20px' }}>{i + 1}</span>
                                                 <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--white)' }}>{pName(r.p)}</div>
@@ -320,7 +320,7 @@
                                                 </div>
                                                 <span style={{ fontSize: '0.68rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)', padding: '2px 6px', background: 'rgba(0,0,0,0.3)', borderRadius: '3px' }}>{pos}</span>
                                                 <div style={{ textAlign: 'right', minWidth: '48px' }}>
-                                                    <div style={{ fontFamily: 'Oswald', fontWeight: 700, fontSize: '0.82rem', color: fitColor(r.fit.score) }}>{confidence}%</div>
+                                                    <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '0.82rem', color: fitColor(r.fit.score) }}>{confidence}%</div>
                                                     <div style={{ fontSize: '0.6rem', color: 'var(--silver)' }}>conf</div>
                                                 </div>
                                             </div>
@@ -334,10 +334,10 @@
 
                         {/* Draft Strategy card */}
                         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '14px 16px', marginBottom: '16px' }}>
-                            <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Draft Strategy</div>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Draft Strategy</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                                <span style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.3rem', color: strategyRec.type === 'target' ? '#F0A500' : '#2ECC71' }}>{strategyRec.label}</span>
-                                <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: strategyRec.type === 'target' ? 'rgba(240,165,0,0.15)' : 'rgba(46,204,113,0.15)', color: strategyRec.type === 'target' ? '#F0A500' : '#2ECC71', fontFamily: 'Oswald', textTransform: 'uppercase' }}>
+                                <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: strategyRec.type === 'target' ? '#F0A500' : '#2ECC71' }}>{strategyRec.label}</span>
+                                <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: strategyRec.type === 'target' ? 'rgba(240,165,0,0.15)' : 'rgba(46,204,113,0.15)', color: strategyRec.type === 'target' ? '#F0A500' : '#2ECC71', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
                                     {strategyRec.type === 'target' ? 'Position Target' : 'Best Player Available'}
                                 </span>
                             </div>
@@ -345,7 +345,7 @@
                             {assess?.needs?.length > 0 && (
                                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '8px' }}>
                                     {assess.needs.slice(0, 5).map(n => (
-                                        <span key={n.pos} style={{ padding: '2px 8px', fontSize: '0.68rem', borderRadius: '10px', fontFamily: 'Oswald', background: n.urgency === 'deficit' ? 'rgba(231,76,60,0.15)' : 'rgba(240,165,0,0.12)', color: n.urgency === 'deficit' ? '#E74C3C' : '#F0A500', border: '1px solid ' + (n.urgency === 'deficit' ? 'rgba(231,76,60,0.3)' : 'rgba(240,165,0,0.25)') }}>
+                                        <span key={n.pos} style={{ padding: '2px 8px', fontSize: '0.68rem', borderRadius: '10px', fontFamily: 'Inter, sans-serif', background: n.urgency === 'deficit' ? 'rgba(231,76,60,0.15)' : 'rgba(240,165,0,0.12)', color: n.urgency === 'deficit' ? '#E74C3C' : '#F0A500', border: '1px solid ' + (n.urgency === 'deficit' ? 'rgba(231,76,60,0.3)' : 'rgba(240,165,0,0.25)') }}>
                                             {n.pos} {n.urgency === 'deficit' ? 'CRITICAL' : 'THIN'}
                                         </span>
                                     ))}
@@ -355,7 +355,7 @@
 
                         {/* Tier 1 Prospects */}
                         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '14px 16px' }}>
-                            <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>Tier 1 Prospects</div>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>Tier 1 Prospects</div>
                             {topProspects.slice(0, 5).map((r, idx) => {
                                 const pos = normPos(r.p.position) || r.p.position;
                                 const dhqCol = r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#3498DB' : 'var(--silver)';
@@ -364,13 +364,13 @@
                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 8px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', transition: 'background 0.1s' }}
                                         onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}
                                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                        <span style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--silver)', width: '18px' }}>{idx + 1}</span>
+                                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--silver)', width: '18px' }}>{idx + 1}</span>
                                         <img className={'wr-ring wr-ring-' + pos} src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <span style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--white)' }}>{pName(r.p)}</span>
                                         </div>
                                         <span style={{ fontSize: '0.68rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
-                                        <span style={{ fontFamily: 'Oswald', fontWeight: 700, fontSize: '0.76rem', color: dhqCol, minWidth: '42px', textAlign: 'right' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span>
+                                        <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '0.76rem', color: dhqCol, minWidth: '42px', textAlign: 'right' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span>
                                         <span style={{ fontSize: '0.68rem', fontWeight: 700, color: fitColor(r.fit.score), padding: '1px 6px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', minWidth: '48px', textAlign: 'center' }}>
                                             Fit: {r.fit.score}
                                         </span>
@@ -450,7 +450,7 @@
                     const renderCompactBoard = (players, isDhq) => (
                         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px', overflow: 'hidden', maxHeight: 'none', overflowY: 'visible' }}>
                             {/* Header */}
-                            <div style={{ display: 'flex', height: '32px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.68rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1 }}>
+                            <div style={{ display: 'flex', height: '32px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.68rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1 }}>
                                 <div style={{ width: '24px', flexShrink: 0, textAlign: 'center' }}>#</div>
                                 <div style={{ flex: 1, padding: '0 4px', minWidth: 0 }}>Player</div>
                                 <div style={{ width: '30px', flexShrink: 0, textAlign: 'center' }}>Pos</div>
@@ -479,7 +479,7 @@
                                         style={{ display: 'flex', alignItems: 'center', height: '34px', opacity: isDrafted ? 0.3 : 1, borderBottom: isExp ? 'none' : '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', background: isExp ? 'rgba(212,175,55,0.06)' : idx % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent', transition: 'background 0.1s', position: 'relative' }}
                                         onMouseEnter={e => { if (!isExp) e.currentTarget.style.background = 'rgba(212,175,55,0.04)'; }}
                                         onMouseLeave={e => { if (!isExp) e.currentTarget.style.background = isExp ? 'rgba(212,175,55,0.06)' : idx % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent'; }}>
-                                        <div style={{ width: '24px', flexShrink: 0, textAlign: 'center', fontFamily: 'Oswald', fontSize: '0.7rem', color: idx < 3 ? 'var(--gold)' : 'var(--silver)' }}>{idx + 1}</div>
+                                        <div style={{ width: '24px', flexShrink: 0, textAlign: 'center', fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: idx < 3 ? 'var(--gold)' : 'var(--silver)' }}>{idx + 1}</div>
                                         <div className={'wr-ring wr-ring-' + pos} style={{ width: '20px', height: '20px', flexShrink: 0, marginRight: '4px' }}>
                                             <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
                                         </div>
@@ -490,7 +490,7 @@
                                             <span style={{ fontSize: '0.6rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)', padding: '1px 4px', background: (posColors[pos] || '#666') + '22', borderRadius: '3px' }}>{pos}</span>
                                         </div>
                                         <div style={{ width: '28px', flexShrink: 0, textAlign: 'center', fontSize: '0.7rem', color: 'var(--silver)' }}>{age || '\u2014'}</div>
-                                        <div style={{ width: '46px', flexShrink: 0, textAlign: 'right', fontFamily: 'Oswald', fontWeight: 700, fontSize: '0.7rem', color: dhqC }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</div>
+                                        <div style={{ width: '46px', flexShrink: 0, textAlign: 'right', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '0.7rem', color: dhqC }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</div>
                                         <div style={{ width: '60px', flexShrink: 0, padding: '0 4px', overflow: 'hidden' }}>
                                             <div style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{college || '\u2014'}</div>
                                         </div>
@@ -500,7 +500,7 @@
                                         {!isDhq && (
                                             <div style={{ width: '28px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
                                                 <button onClick={e => { e.stopPropagation(); setDraftedPids(prev => { const n = new Set(prev); if (n.has(r.pid)) n.delete(r.pid); else n.add(r.pid); return n; }); }}
-                                                    style={{ fontSize: '0.56rem', padding: '1px 4px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', cursor: 'pointer', background: isDrafted ? 'rgba(231,76,60,0.15)' : 'rgba(255,255,255,0.04)', color: isDrafted ? '#E74C3C' : 'var(--silver)', fontFamily: 'Oswald' }}>
+                                                    style={{ fontSize: '0.56rem', padding: '1px 4px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', cursor: 'pointer', background: isDrafted ? 'rgba(231,76,60,0.15)' : 'rgba(255,255,255,0.04)', color: isDrafted ? '#E74C3C' : 'var(--silver)', fontFamily: 'Inter, sans-serif' }}>
                                                     {isDrafted ? '\u21A9' : 'X'}
                                                 </button>
                                             </div>
@@ -517,9 +517,9 @@
                     <div>
                         {/* Position filters */}
                         <div style={{ display: 'flex', gap: '4px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                            <button onClick={() => setBoardPosFilter('')} style={{ padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Oswald', borderRadius: '14px', cursor: 'pointer', border: '1px solid ' + (!boardPosFilter ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.08)'), background: !boardPosFilter ? 'rgba(212,175,55,0.12)' : 'transparent', color: !boardPosFilter ? 'var(--gold)' : 'var(--silver)' }}>Master</button>
+                            <button onClick={() => setBoardPosFilter('')} style={{ padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', borderRadius: '14px', cursor: 'pointer', border: '1px solid ' + (!boardPosFilter ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.08)'), background: !boardPosFilter ? 'rgba(212,175,55,0.12)' : 'transparent', color: !boardPosFilter ? 'var(--gold)' : 'var(--silver)' }}>Master</button>
                             {['QB','RB','WR','TE','DL','LB','DB'].map(pos => (
-                                <button key={pos} onClick={() => setBoardPosFilter(boardPosFilter === pos ? '' : pos)} style={{ padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Oswald', borderRadius: '14px', cursor: 'pointer', border: '1px solid ' + (boardPosFilter === pos ? (posColors[pos] || '#666') + '55' : 'rgba(255,255,255,0.08)'), background: boardPosFilter === pos ? (posColors[pos] || '#666') + '18' : 'transparent', color: boardPosFilter === pos ? posColors[pos] : 'var(--silver)' }}>{pos}</button>
+                                <button key={pos} onClick={() => setBoardPosFilter(boardPosFilter === pos ? '' : pos)} style={{ padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', borderRadius: '14px', cursor: 'pointer', border: '1px solid ' + (boardPosFilter === pos ? (posColors[pos] || '#666') + '55' : 'rgba(255,255,255,0.08)'), background: boardPosFilter === pos ? (posColors[pos] || '#666') + '18' : 'transparent', color: boardPosFilter === pos ? posColors[pos] : 'var(--silver)' }}>{pos}</button>
                             ))}
                             <span style={{ marginLeft: 'auto', fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.4 }}>Click row to expand {'\u00B7'} Drag to reorder My Board</span>
                         </div>
@@ -544,21 +544,21 @@
                                       <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.7rem', fontWeight: 700, padding: '1px 8px', borderRadius: '8px', background: (posColors[pos]||'#666')+'25', color: posColors[pos]||'var(--silver)', whiteSpace: 'nowrap' }}>{pos}</div>
                                     </div>
                                     <div style={{ flex: 1 }}>
-                                      <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)', letterSpacing: '0.02em', lineHeight: 1.1 }}>{r.p.full_name || pName(r.p)}</div>
+                                      <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--white)', letterSpacing: '0.02em', lineHeight: 1.1 }}>{r.p.full_name || pName(r.p)}</div>
                                       <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginTop: '2px' }}>
                                         {pos} {'\u00B7'} {r.p.team || 'TBD'} {'\u00B7'} Age {age} {'\u00B7'} {college || 'Unknown'}
                                         {r.p.height ? ' \u00B7 ' + Math.floor(r.p.height/12)+"'"+r.p.height%12+'"' : ''}
                                         {r.p.weight ? ' \u00B7 ' + r.p.weight + 'lbs' : ''}
                                       </div>
                                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                                        <span style={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'Oswald', padding: '2px 10px', borderRadius: '10px', background: dhqColVal + '20', color: dhqColVal }}>{r.dhq > 0 ? r.dhq.toLocaleString() + ' DHQ' : 'No DHQ'}</span>
+                                        <span style={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'Inter, sans-serif', padding: '2px 10px', borderRadius: '10px', background: dhqColVal + '20', color: dhqColVal }}>{r.dhq > 0 ? r.dhq.toLocaleString() + ' DHQ' : 'No DHQ'}</span>
                                         <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 10px', borderRadius: '10px', background: fitColor(fit.score) + '15', color: fitColor(fit.score) }}>{fit.label} Fit</span>
                                         {tag && <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 10px', borderRadius: '10px', background: tagDefs[tag].color + '20', color: tagDefs[tag].color }}>{tagDefs[tag].icon} {tagDefs[tag].label}</span>}
                                       </div>
                                       {/* Quick tag buttons */}
                                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '8px' }}>
                                         {Object.entries(tagDefs).map(([tKey, tDef]) => (
-                                          <button key={tKey} onClick={(e) => { e.stopPropagation(); setBoardTags(prev => ({ ...prev, [r.pid]: prev[r.pid] === tKey ? undefined : tKey })); }} style={{ padding: '3px 10px', fontSize: '0.68rem', fontFamily: 'Oswald', fontWeight: 600, borderRadius: '12px', cursor: 'pointer', border: '1px solid ' + (tag === tKey ? tDef.color : 'rgba(255,255,255,0.12)'), background: tag === tKey ? tDef.color + '25' : 'rgba(255,255,255,0.03)', color: tag === tKey ? tDef.color : 'var(--silver)', transition: 'all 0.15s' }}>{tDef.icon} {tDef.label}</button>
+                                          <button key={tKey} onClick={(e) => { e.stopPropagation(); setBoardTags(prev => ({ ...prev, [r.pid]: prev[r.pid] === tKey ? undefined : tKey })); }} style={{ padding: '3px 10px', fontSize: '0.68rem', fontFamily: 'Inter, sans-serif', fontWeight: 600, borderRadius: '12px', cursor: 'pointer', border: '1px solid ' + (tag === tKey ? tDef.color : 'rgba(255,255,255,0.12)'), background: tag === tKey ? tDef.color + '25' : 'rgba(255,255,255,0.03)', color: tag === tKey ? tDef.color : 'var(--silver)', transition: 'all 0.15s' }}>{tDef.icon} {tDef.label}</button>
                                         ))}
                                       </div>
                                     </div>
@@ -577,7 +577,7 @@
                                       const dhqGaugeCol = r.dhq >= 7000 ? 'filled-green' : r.dhq >= 4000 ? 'filled' : 'filled-red';
                                       return (
                                       <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 6px', textAlign: 'center' }}>
-                                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: s.col, letterSpacing: '-0.02em' }}>{s.val}</div>
+                                        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.1rem', fontWeight: 600, color: s.col, letterSpacing: '-0.02em' }}>{s.val}</div>
                                         {s.gauge && <div className="wr-gauge" style={{ marginTop: '3px' }}>{Array.from({length: 10}, (_, gi) => <div key={gi} className={'wr-gauge-seg' + (gi < dhqFilled ? ' ' + dhqGaugeCol : '')}></div>)}</div>}
                                         <div style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px' }}>{s.label}</div>
                                       </div>
@@ -587,15 +587,15 @@
                                   <InlineCareerStats pid={r.pid} pos={pos} player={r.p} scoringSettings={currentLeague?.scoring_settings} statsData={statsData} />
 
                                   <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
-                                    <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Scouting Notes</div>
+                                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Scouting Notes</div>
                                     <textarea value={note} onChange={e => setBoardNotes(prev => ({...prev, [r.pid]: e.target.value}))} placeholder={'Add your scouting notes on ' + pName(r.p) + '...'} style={{ width: '100%', minHeight: '70px', padding: '8px 10px', fontSize: '0.78rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', color: 'var(--silver)', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5, outline: 'none' }} />
                                   </div>
 
                                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                    <a href={'https://www.sports-reference.com/cfb/search/search.fcgi?search=' + encodeURIComponent(pName(r.p))} target="_blank" rel="noopener" style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(52,152,219,0.12)', color: '#3498DB', border: '1px solid rgba(52,152,219,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\uD83C\uDFC8'} COLLEGE STATS</a>
-                                    <a href={'https://www.youtube.com/results?search_query=' + encodeURIComponent(pName(r.p) + ' highlights ' + leagueSeason)} target="_blank" rel="noopener" style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(231,76,60,0.12)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\u25B6'} HIGHLIGHTS</a>
-                                    <button onClick={() => { setReconPanelOpen(true); sendReconMessage('Give me a full scouting report on ' + pName(r.p) + ' (' + pos + ', ' + college + '). Include strengths, weaknesses, NFL comparison, and where I should draft them.'); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>ASK ALEX</button>
-                                    <button onClick={() => setExpandedDraftPid(null)} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>COLLAPSE</button>
+                                    <a href={'https://www.sports-reference.com/cfb/search/search.fcgi?search=' + encodeURIComponent(pName(r.p))} target="_blank" rel="noopener" style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(52,152,219,0.12)', color: '#3498DB', border: '1px solid rgba(52,152,219,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\uD83C\uDFC8'} COLLEGE STATS</a>
+                                    <a href={'https://www.youtube.com/results?search_query=' + encodeURIComponent(pName(r.p) + ' highlights ' + leagueSeason)} target="_blank" rel="noopener" style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(231,76,60,0.12)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\u25B6'} HIGHLIGHTS</a>
+                                    <button onClick={() => { setReconPanelOpen(true); sendReconMessage('Give me a full scouting report on ' + pName(r.p) + ' (' + pos + ', ' + college + '). Include strengths, weaknesses, NFL comparison, and where I should draft them.'); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>ASK ALEX</button>
+                                    <button onClick={() => setExpandedDraftPid(null)} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>COLLAPSE</button>
                                   </div>
                                 </div>
                             );
@@ -604,11 +604,11 @@
                         {/* Side-by-side boards */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
                             <div>
-                                <div style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>DHQ Board <span style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.5, textTransform: 'none' }}>engine rankings</span></div>
+                                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>DHQ Board <span style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.5, textTransform: 'none' }}>engine rankings</span></div>
                                 {renderCompactBoard(dhqBoardPlayers, true)}
                             </div>
                             <div>
-                                <div style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>My Board <span style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.5, textTransform: 'none' }}>your rankings</span></div>
+                                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>My Board <span style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.5, textTransform: 'none' }}>your rankings</span></div>
                                 {renderCompactBoard(myBoardPlayers, false)}
                             </div>
                         </div>
@@ -618,7 +618,7 @@
                         {/* OLD BOARD — REPLACED BY SIDE-BY-SIDE ABOVE */}
                         {false && <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px', overflow: 'hidden' }}>
                             {/* Header */}
-                            <div style={{ display: 'flex', height: '36px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.72rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', height: '36px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.72rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', alignItems: 'center' }}>
                                 <div style={{ width: '260px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 10px', gap: '4px', borderRight: '2px solid rgba(212,175,55,0.15)' }}>
                                     <span style={{ width: '30px', textAlign: 'center' }}>#</span>
                                     <span style={{ flex: 1 }} onClick={() => boardMode === 'dhq' && setBoardSort(prev => prev.key === 'name' ? {...prev, dir: prev.dir * -1} : {key: 'name', dir: 1})} style={{ flex: 1, cursor: boardMode === 'dhq' ? 'pointer' : 'default' }}>Player{boardSort.key === 'name' && boardMode === 'dhq' ? (boardSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}</span>
@@ -667,7 +667,7 @@
                                                     style={{ width: '28px', padding: '1px 2px', fontSize: '0.72rem', background: 'rgba(212,175,55,0.15)', border: '1px solid var(--gold)', borderRadius: '3px', color: 'var(--gold)', textAlign: 'center', outline: 'none', flexShrink: 0 }} />
                                             ) : (
                                                 <span onClick={e => { e.stopPropagation(); setEditingRank(r.pid); setRankInput(String(idx + 1)); }}
-                                                    style={{ fontFamily: 'Oswald', fontSize: '0.76rem', color: idx < 3 ? 'var(--gold)' : 'var(--silver)', cursor: 'pointer', textAlign: 'center', width: '24px', flexShrink: 0 }} title="Click to change rank">{idx + 1}</span>
+                                                    style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.76rem', color: idx < 3 ? 'var(--gold)' : 'var(--silver)', cursor: 'pointer', textAlign: 'center', width: '24px', flexShrink: 0 }} title="Click to change rank">{idx + 1}</span>
                                             )}
                                             <div style={{ width: '26px', height: '26px', flexShrink: 0 }}>
                                                 <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} />
@@ -684,7 +684,7 @@
                                                 <span style={{ fontSize: '0.7rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)', padding: '2px 8px', background: (posColors[pos] || '#666') + '22', borderRadius: '4px' }}>{pos}</span>
                                             </div>
                                             <div style={{ width: '42px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', color: 'var(--silver)' }}>{age}</div>
-                                            <div style={{ width: '64px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Oswald', fontWeight: 700, fontSize: '0.78rem', color: dhqColVal }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</div>
+                                            <div style={{ width: '64px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '0.78rem', color: dhqColVal }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</div>
                                             <div style={{ width: '70px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 <span title={fit.score + '/99'} style={{ fontSize: '0.68rem', fontWeight: 700, color: fitColor(fit.score), padding: '1px 8px', background: fitColor(fit.score) + '15', borderRadius: '8px' }}>{fit.label}</span>
                                             </div>
@@ -708,11 +708,11 @@
                                             </div>
                                             <div style={{ width: '62px', flexShrink: 0, display: 'flex', gap: '3px', alignItems: 'center', justifyContent: 'center' }}>
                                                 <button onClick={e => { e.stopPropagation(); setDraftedPids(prev => { const n = new Set(prev); if (n.has(r.pid)) n.delete(r.pid); else n.add(r.pid); return n; }); }}
-                                                    style={{ fontSize: '0.6rem', padding: '2px 5px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', cursor: 'pointer', background: isDrafted ? 'rgba(231,76,60,0.15)' : 'rgba(255,255,255,0.04)', color: isDrafted ? '#E74C3C' : 'var(--silver)', fontFamily: 'Oswald', textTransform: 'uppercase' }}>
+                                                    style={{ fontSize: '0.6rem', padding: '2px 5px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '3px', cursor: 'pointer', background: isDrafted ? 'rgba(231,76,60,0.15)' : 'rgba(255,255,255,0.04)', color: isDrafted ? '#E74C3C' : 'var(--silver)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
                                                     {isDrafted ? 'Undo' : 'Off'}
                                                 </button>
                                                 <button onClick={e => { e.stopPropagation(); const n = prompt('Note for ' + pName(r.p) + ':', note); if (n !== null) setBoardNotes(prev => ({...prev, [r.pid]: n})); }}
-                                                    title="Add note" style={{ fontSize: '0.6rem', padding: '2px 5px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px', cursor: 'pointer', background: note ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.04)', color: note ? 'var(--gold)' : 'var(--silver)', fontFamily: 'Oswald' }}>
+                                                    title="Add note" style={{ fontSize: '0.6rem', padding: '2px 5px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px', cursor: 'pointer', background: note ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.04)', color: note ? 'var(--gold)' : 'var(--silver)', fontFamily: 'Inter, sans-serif' }}>
                                                     {note ? '\u270E' : '+'}
                                                 </button>
                                             </div>
@@ -730,14 +730,14 @@
                                               <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.7rem', fontWeight: 700, padding: '1px 8px', borderRadius: '8px', background: (posColors[pos]||'#666')+'25', color: posColors[pos]||'var(--silver)', whiteSpace: 'nowrap' }}>{pos}</div>
                                             </div>
                                             <div style={{ flex: 1 }}>
-                                              <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)', letterSpacing: '0.02em', lineHeight: 1.1 }}>{r.p.full_name || pName(r.p)}</div>
+                                              <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--white)', letterSpacing: '0.02em', lineHeight: 1.1 }}>{r.p.full_name || pName(r.p)}</div>
                                               <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginTop: '2px' }}>
                                                 {pos} {'\u00B7'} {r.p.team || 'TBD'} {'\u00B7'} Age {age} {'\u00B7'} {college || 'Unknown'}
                                                 {r.p.height ? ' \u00B7 ' + Math.floor(r.p.height/12)+"'"+r.p.height%12+'"' : ''}
                                                 {r.p.weight ? ' \u00B7 ' + r.p.weight + 'lbs' : ''}
                                               </div>
                                               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                                                <span style={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'Oswald', padding: '2px 10px', borderRadius: '10px', background: dhqColVal + '20', color: dhqColVal }}>{r.dhq > 0 ? r.dhq.toLocaleString() + ' DHQ' : 'No DHQ'}</span>
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'Inter, sans-serif', padding: '2px 10px', borderRadius: '10px', background: dhqColVal + '20', color: dhqColVal }}>{r.dhq > 0 ? r.dhq.toLocaleString() + ' DHQ' : 'No DHQ'}</span>
                                                 <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 10px', borderRadius: '10px', background: fitColor(fit.score) + '15', color: fitColor(fit.score) }}>{fit.label} Fit</span>
                                                 {r.p.draft_round && <span style={{ fontSize: '0.72rem', padding: '2px 10px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', color: 'var(--silver)' }}>NFL Rd {r.p.draft_round}{r.p.draft_pick ? '.' + r.p.draft_pick : ''}</span>}
                                                 {tag && <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 10px', borderRadius: '10px', background: tagDefs[tag].color + '20', color: tagDefs[tag].color }}>{tagDefs[tag].icon} {tagDefs[tag].label}</span>}
@@ -756,7 +756,7 @@
                                               { label: 'DEPTH', val: r.p.depth_chart_order != null ? '#' + (r.p.depth_chart_order + 1) : '\u2014', col: r.p.depth_chart_order <= 1 ? '#2ECC71' : 'var(--silver)' },
                                             ].map((s, i) => (
                                               <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 6px', textAlign: 'center' }}>
-                                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: s.col, letterSpacing: '-0.02em' }}>{s.val}</div>
+                                                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.1rem', fontWeight: 600, color: s.col, letterSpacing: '-0.02em' }}>{s.val}</div>
                                                 <div style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px' }}>{s.label}</div>
                                               </div>
                                             ))}
@@ -764,7 +764,7 @@
 
                                           {/* Physical Profile */}
                                           <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px' }}>
-                                            <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Physical Profile</div>
+                                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Physical Profile</div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px', fontSize: '0.78rem' }}>
                                               <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Ht </span><span style={{ color: 'var(--white)' }}>{r.p.height ? Math.floor(r.p.height/12)+"'"+r.p.height%12+'"' : '\u2014'}</span></div>
                                               <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Wt </span><span style={{ color: 'var(--white)' }}>{r.p.weight ? r.p.weight+'lbs' : '\u2014'}</span></div>
@@ -779,7 +779,7 @@
 
                                           {/* Scouting Notes */}
                                           <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
-                                            <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Scouting Notes</div>
+                                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Scouting Notes</div>
                                             <textarea
                                               value={note}
                                               onChange={e => setBoardNotes(prev => ({...prev, [r.pid]: e.target.value}))}
@@ -792,12 +792,12 @@
                                           {/* Action buttons */}
                                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                             <a href={'https://www.sports-reference.com/cfb/search/search.fcgi?search=' + encodeURIComponent(pName(r.p))} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
-                                              style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(52,152,219,0.12)', color: '#3498DB', border: '1px solid rgba(52,152,219,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\uD83C\uDFC8'} COLLEGE STATS</a>
+                                              style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(52,152,219,0.12)', color: '#3498DB', border: '1px solid rgba(52,152,219,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\uD83C\uDFC8'} COLLEGE STATS</a>
                                             <a href={'https://www.youtube.com/results?search_query=' + encodeURIComponent(pName(r.p) + ' highlights ' + leagueSeason)} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
-                                              style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(231,76,60,0.12)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\u25B6'} HIGHLIGHTS</a>
+                                              style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(231,76,60,0.12)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\u25B6'} HIGHLIGHTS</a>
                                             <button onClick={e => { e.stopPropagation(); setReconPanelOpen(true); sendReconMessage('SEARCH FOR CURRENT INFO. Full dynasty scouting report on ' + pName(r.p) + ' (' + pos + ', ' + (college || 'Unknown') + ', ' + (r.p.height ? Math.floor(r.p.height/12)+"'"+r.p.height%12+'" ' : '') + (r.p.weight ? r.p.weight+'lbs' : '') + '). Format as:\n\nPROFILE: Physical build assessment, athletic traits, measurables analysis\n\nCOLLEGE PRODUCTION: Key stats from last 2 seasons, snap count, efficiency metrics\n\nPOSITION GRADES (1-10): ' + (pos==='RB'?'Vision/Patience, Power/Balance, Agility/Accel, Passing Game, Competitiveness':(pos==='WR'?'Route Running, Separation, Hands/Catch, YAC Ability, Contested Catch':(pos==='QB'?'Arm Strength, Accuracy, Pocket Presence, Mobility, Decision Making':(pos==='TE'?'Blocking, Route Running, Hands, YAC, Versatility':'Tackling, Pass Rush, Coverage, Football IQ, Athleticism')))) + '\n\nNFL COMPARISON: One specific NFL player comp with reasoning\n\nDYNASTY TAKEAWAY: Buy/sell/hold recommendation, ideal draft range, ceiling vs floor, fit for our roster (DHQ: ' + (r.dhq>0?r.dhq:'unranked') + '). Be specific and opinionated.'); }}
-                                              style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>{'\uD83D\uDD0D'} SCOUT REPORT</button>
-                                            <button onClick={e => { e.stopPropagation(); setExpandedDraftPid(null); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>COLLAPSE</button>
+                                              style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>{'\uD83D\uDD0D'} SCOUT REPORT</button>
+                                            <button onClick={e => { e.stopPropagation(); setExpandedDraftPid(null); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>COLLAPSE</button>
                                           </div>
                                         </div>
                                     )}

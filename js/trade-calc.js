@@ -606,7 +606,7 @@
                     </div>
                     <div className="tc-card-body">
                         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                            <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.5rem', color:scoreBarColor, lineHeight:1 }}>{healthScore}</span>
+                            <span style={{ fontFamily:'JetBrains Mono, monospace', fontSize:'1.5rem', fontWeight:600, color:scoreBarColor, lineHeight:1 }}>{healthScore}</span>
                             <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end' }}>
                                 <span style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.8 }}>{wins}-{losses}{ties>0?`-${ties}`:''}</span>
                                 <span style={{ fontSize:'0.72rem', color:'var(--silver)', opacity:0.65 }}>{pf > 0 ? `${pf.toFixed(0)} PF` : ''}</span>
@@ -660,7 +660,7 @@
                                             <div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.6 }}>{myAssessment.wins}-{myAssessment.losses}{myAssessment.ties>0?`-${myAssessment.ties}`:''} {myAssessment.pf > 0 ? `${myAssessment.pf.toFixed(0)} PF` : ''}</div>
                                         </div>
                                         <div style={{ textAlign:'center' }}>
-                                            {typeof MiniDonut !== 'undefined' ? React.createElement(MiniDonut, { value: myAssessment.healthScore, size: 56, label: 'HEALTH' }) : <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'2.2rem', lineHeight:1, color: myAssessment.healthScore>=85?'#D4AF37':myAssessment.healthScore>=70?'#2ECC71':myAssessment.healthScore>=55?'#F0A500':'#E74C3C' }}>{myAssessment.healthScore}</div>}
+                                            {typeof MiniDonut !== 'undefined' ? React.createElement(MiniDonut, { value: myAssessment.healthScore, size: 56, label: 'HEALTH' }) : <div style={{ fontFamily:'JetBrains Mono, monospace', fontSize:'2.2rem', fontWeight:600, lineHeight:1, color: myAssessment.healthScore>=85?'#D4AF37':myAssessment.healthScore>=70?'#2ECC71':myAssessment.healthScore>=55?'#F0A500':'#E74C3C' }}>{myAssessment.healthScore}</div>}
                                         </div>
                                     </div>
                                     <div className="tc-pos-grid">
@@ -701,12 +701,12 @@
                             <div className="tc-team-detail-panel">
                                 <div style={{ gridColumn:'1/-1', display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem' }}>
                                     <div style={{ fontWeight:700, fontSize:'0.9rem' }}>{detail.ownerName} <span style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.6, marginLeft:'0.5rem' }}>{detail.teamName}</span></div>
-                                    <button onClick={() => setSelectedAuditTeam(null)} style={{ background:'transparent', border:'1.5px solid var(--gold)', color:'var(--gold)', fontFamily:'Oswald,sans-serif', fontSize:'0.7rem', fontWeight:600, padding:'0.32rem 0.65rem', borderRadius:'4px', cursor:'pointer' }}>X Close</button>
+                                    <button onClick={() => setSelectedAuditTeam(null)} style={{ background:'transparent', border:'1.5px solid var(--gold)', color:'var(--gold)', fontFamily:'Inter, sans-serif', fontSize:'0.7rem', fontWeight:600, padding:'0.32rem 0.65rem', borderRadius:'4px', cursor:'pointer' }}>X Close</button>
                                 </div>
                                 <div>
                                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem' }}>
                                         <div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.6 }}>{detail.wins}-{detail.losses} {detail.pf>0?`${detail.pf.toFixed(0)} PF`:''}</div>
-                                        <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.8rem', lineHeight:1, color:detail.tierColor }}>{detail.healthScore}</div>
+                                        <div style={{ fontFamily:'JetBrains Mono, monospace', fontSize:'1.8rem', fontWeight:600, lineHeight:1, color:detail.tierColor }}>{detail.healthScore}</div>
                                     </div>
                                     <div className="tc-pos-grid">
                                         {Object.entries(detail.posAssessment).sort((a,b)=>(TC_POS_ORDER[a[0]]??9)-(TC_POS_ORDER[b[0]]??9)).map(([pos,data]) => <TcPosRow key={pos} pos={pos} assessment={data} />)}
@@ -773,13 +773,13 @@
                     {React.createElement(function DnaGuideInline() {
                         const [guideOpen, setGuideOpen] = React.useState(false);
                         return React.createElement('div', { style:{marginBottom:'0.75rem'} },
-                            React.createElement('button', { onClick:()=>setGuideOpen(!guideOpen), style:{fontSize:'0.76rem',color:'var(--gold)',background:'rgba(212,175,55,0.08)',border:'1px solid rgba(212,175,55,0.25)',borderRadius:'6px',padding:'0.4rem 0.8rem',cursor:'pointer',fontFamily:'Oswald',textTransform:'uppercase',letterSpacing:'0.04em'} }, guideOpen ? 'Hide DNA Guide' : 'Show DNA Guide'),
+                            React.createElement('button', { onClick:()=>setGuideOpen(!guideOpen), style:{fontSize:'0.76rem',color:'var(--gold)',background:'rgba(212,175,55,0.08)',border:'1px solid rgba(212,175,55,0.25)',borderRadius:'6px',padding:'0.4rem 0.8rem',cursor:'pointer',fontFamily:'Inter, sans-serif',textTransform:'uppercase',letterSpacing:'0.04em'} }, guideOpen ? 'Hide DNA Guide' : 'Show DNA Guide'),
                             guideOpen ? React.createElement('div', { style:{marginTop:'0.5rem',display:'grid',gap:'0.5rem'} },
                                 ...Object.entries(DNA_TYPES).filter(function(e){return e[0]!=='NONE'}).map(function(entry) {
                                     var key=entry[0], d=entry[1];
                                     return React.createElement('div', { key:key, style:{background:'rgba(255,255,255,0.02)',border:'1px solid '+d.color+'30',borderRadius:'8px',padding:'0.7rem 0.85rem'} },
                                         React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.5rem',marginBottom:'0.3rem'} },
-                                            React.createElement('span', { style:{fontFamily:'Bebas Neue,cursive',fontSize:'0.95rem',color:d.color} }, d.label),
+                                            React.createElement('span', { style:{fontFamily:'Rajdhani, sans-serif',fontSize:'0.95rem',color:d.color} }, d.label),
                                             React.createElement('span', { style:{fontSize:'0.7rem',color:'var(--silver)',opacity:0.65,background:d.color+'15',padding:'0.1rem 0.4rem',borderRadius:'3px'} }, 'x'+d.multiplier)
                                         ),
                                         React.createElement('div', { style:{fontSize:'0.76rem',color:'var(--silver)',lineHeight:1.5,marginBottom:'0.3rem'} }, d.desc),
@@ -881,9 +881,9 @@
                                         </div>
                                     )}
                                     <div style={{ display:'flex', gap:'0.75rem', paddingTop:'0.25rem' }}>
-                                        <div style={{ textAlign:'center' }}><div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1rem', color:a.tierColor }}>{a.healthScore}</div><div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.65 }}>HEALTH</div></div>
-                                        <div style={{ textAlign:'center' }}><div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1rem', color:a.panic>=3?'var(--loss-red)':'var(--silver)' }}>{a.panic}/5</div><div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.65 }}>PANIC</div></div>
-                                        <div style={{ textAlign:'center' }}><div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1rem', color:'var(--silver)' }}>{a.wins}-{a.losses}</div><div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.65 }}>RECORD</div></div>
+                                        <div style={{ textAlign:'center' }}><div style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'1rem', color:a.tierColor }}>{a.healthScore}</div><div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.65 }}>HEALTH</div></div>
+                                        <div style={{ textAlign:'center' }}><div style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'1rem', color:a.panic>=3?'var(--loss-red)':'var(--silver)' }}>{a.panic}/5</div><div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.65 }}>PANIC</div></div>
+                                        <div style={{ textAlign:'center' }}><div style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'1rem', color:'var(--silver)' }}>{a.wins}-{a.losses}</div><div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.65 }}>RECORD</div></div>
                                     </div>
                                     {expandedDnaOwner === rid && (() => {
                                         const trades = (window.App?.LI?.tradeHistory || []).filter(t => t.roster_ids?.includes(rid));
@@ -1051,7 +1051,7 @@
 
                 return (
                     <div className={`tc-ta-side tc-side-${side.toLowerCase()}`}>
-                        <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.95rem', color, letterSpacing:'0.08em' }}>{label}</span>
+                        <span style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'0.95rem', color, letterSpacing:'0.08em' }}>{label}</span>
                         <select className="tc-ta-owner-select" value={tradeOwner[side] || ''} onChange={e => { setTradeOwner(prev => ({ ...prev, [side]: e.target.value || null })); setSearchText(prev => ({ ...prev, [side]: '' })); }}>
                             {ownerOptions.map(o => <option key={o.id||'none'} value={o.id||''}>{o.label}</option>)}
                         </select>
@@ -1178,7 +1178,7 @@
 
                         {/* League Scouting Panel */}
                         <div className="tc-scout-panel">
-                            <div style={{ fontFamily:'Bebas Neue,cursive', fontSize:'0.92rem', color:'var(--gold)', letterSpacing:'0.1em', marginBottom:'0.2rem' }}>LEAGUE TEAMS</div>
+                            <div style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'0.92rem', color:'var(--gold)', letterSpacing:'0.1em', marginBottom:'0.2rem' }}>LEAGUE TEAMS</div>
                             <div style={{ fontSize:'0.74rem', color:'var(--silver)', opacity:0.65, marginBottom:'0.3rem' }}>Click a team to set as Side B.</div>
                             {assessments.filter(a => a.rosterId !== myRosterId).sort((a,b) => b.healthScore - a.healthScore).map(a => {
                                 const isSelected = tradeOwner.B === a.ownerId;
@@ -1214,7 +1214,7 @@
                             <div className="tc-section-hdr">TRADE ANALYSIS</div>
                             <div style={{ display:'flex', alignItems:'baseline', gap:'0.6rem', flexWrap:'wrap' }}>
                                 <span className="tc-verdict-diff" style={{ color: verdictColor }}>{diffDisplay}</span>
-                                <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.1rem', color: verdictColor }}>{verdictText}</span>
+                                <span style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'1.1rem', color: verdictColor }}>{verdictText}</span>
                                 <span style={{ fontSize:'0.74rem', color:'var(--silver)', opacity:0.655 }}>(gave {totalA.toLocaleString()} / received {totalB.toLocaleString()})</span>
                             </div>
                             {otherOwnerId && (
@@ -1254,7 +1254,7 @@
                             <div>
                                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.3rem' }}>
                                     <span style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.7, textTransform:'uppercase', letterSpacing:'0.06em' }}>Likelihood of Acceptance {React.createElement(Tip, null, 'Estimated chance the other owner accepts. Starts at 50%, adjusted by: value difference, DNA type multiplier, psychological taxes, and posture. Each DNA type has different thresholds.')}</span>
-                                    <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.4rem', color: likelihoodColor }}>{likelihood}%</span>
+                                    <span style={{ fontFamily:'JetBrains Mono, monospace', fontSize:'1.4rem', fontWeight:600, color: likelihoodColor }}>{likelihood}%</span>
                                 </div>
                                 <div className="tc-likelihood-bar-wrap"><div className="tc-likelihood-bar-fill" style={{ width:`${likelihood}%`, background: likelihoodColor }} /></div>
                             </div>
@@ -1301,7 +1301,7 @@
                                 <React.Fragment>
                                     <div className="ld"><span>.</span><span>.</span><span>.</span></div>
                                     <div style={{ marginTop:'8px' }}>Loading trade history from DHQ engine...</div>
-                                    <button onClick={() => { setTimeout(() => setTcTab('inbox'), 50); setTcTab('dna'); }} style={{ marginTop:'12px', padding:'6px 14px', background:'rgba(212,175,55,0.12)', color:'var(--gold)', border:'1px solid rgba(212,175,55,0.25)', borderRadius:'6px', fontFamily:'Oswald', fontSize:'0.78rem', cursor:'pointer' }}>Retry</button>
+                                    <button onClick={() => { setTimeout(() => setTcTab('inbox'), 50); setTcTab('dna'); }} style={{ marginTop:'12px', padding:'6px 14px', background:'rgba(212,175,55,0.12)', color:'var(--gold)', border:'1px solid rgba(212,175,55,0.25)', borderRadius:'6px', fontFamily:'Inter, sans-serif', fontSize:'0.78rem', cursor:'pointer' }}>Retry</button>
                                 </React.Fragment>
                             )}
                         </div>
@@ -1316,7 +1316,7 @@
                             <div key={t.idx} style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(212,175,55,0.15)', borderRadius:'8px', padding:'0.75rem', marginBottom:'0.6rem' }}>
                                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.5rem' }}>
                                     <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
-                                        <span style={{ fontFamily:'Bebas Neue,cursive', fontSize:'1.2rem', color:t.gradeCol }}>{t.grade}</span>
+                                        <span style={{ fontFamily:'JetBrains Mono, monospace', fontSize:'1.2rem', fontWeight:600, color:t.gradeCol }}>{t.grade}</span>
                                         <span style={{ fontSize:'0.72rem', color:'var(--silver)', opacity:0.65 }}>{t.pctDiff}% variance</span>
                                         {winner && <span style={{ fontSize:'0.7rem', color:'var(--win-green)', fontWeight:700 }}>{winner} wins</span>}
                                     </div>
@@ -1382,11 +1382,11 @@
             const renderTarget = (t, i, showCTA) => (
                 <div key={i} style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.2)', borderLeft: '4px solid ' + (t.dna.color || 'var(--gold)'), borderRadius: '10px', padding: '16px 20px', marginBottom: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.2rem', color: 'var(--white)' }}>{t.ownerName}</span>
+                        <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.2rem', color: 'var(--white)' }}>{t.ownerName}</span>
                         <span style={{ fontSize: '0.72rem', fontWeight: 700, color: t.labelCol, background: t.labelCol + '15', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>{t.label}</span>
                         {t.dk !== 'NONE' && <span style={{ fontSize: '0.72rem', fontWeight: 700, color: t.dna.color, background: t.dna.color + '15', padding: '2px 8px', borderRadius: '4px' }}>{t.dna.label}</span>}
                         <span style={{ fontSize: '0.72rem', color: t.posture.color }}>{t.posture.label}</span>
-                        <span style={{ marginLeft: 'auto', fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: t.compat >= 50 ? '#2ECC71' : t.compat >= 30 ? '#F0A500' : 'var(--silver)' }}>{t.compat}%</span>
+                        <span style={{ marginLeft: 'auto', fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: t.compat >= 50 ? '#2ECC71' : t.compat >= 30 ? '#F0A500' : 'var(--silver)' }}>{t.compat}%</span>
                     </div>
                     <div style={{ fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.6, marginBottom: '8px' }}>
                         Needs <strong style={{ color: '#E74C3C' }}>{t.theirNeeds.map(n => n.pos).join(', ') || 'unknown'}</strong>
@@ -1396,7 +1396,7 @@
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.5 }}>{t.healthScore} health {'\u00B7'} {t.wins}-{t.losses} {'\u00B7'} {t.tier}</span>
                         {showCTA && <React.Fragment>
-                            <button onClick={() => { const targetRoster = allRosters.find(r => r.roster_id === t.rosterId); const topPid = (targetRoster?.players || []).map(pid => ({ pid, val: getPlayerValue(pid).value })).filter(p => p.val > 0).sort((a, b) => b.val - a.val)[0]; if (topPid) { setFinderAutoTarget({ pid: topPid.pid, mode: 'acquire' }); } setTcTab('finder'); }} style={{ marginLeft: 'auto', padding: '5px 12px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '4px', fontFamily: 'Oswald', fontSize: '0.74rem', cursor: 'pointer', fontWeight: 700 }}>GENERATE TRADES</button>
+                            <button onClick={() => { const targetRoster = allRosters.find(r => r.roster_id === t.rosterId); const topPid = (targetRoster?.players || []).map(pid => ({ pid, val: getPlayerValue(pid).value })).filter(p => p.val > 0).sort((a, b) => b.val - a.val)[0]; if (topPid) { setFinderAutoTarget({ pid: topPid.pid, mode: 'acquire' }); } setTcTab('finder'); }} style={{ marginLeft: 'auto', padding: '5px 12px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '4px', fontFamily: 'Inter, sans-serif', fontSize: '0.74rem', cursor: 'pointer', fontWeight: 700 }}>GENERATE TRADES</button>
                         </React.Fragment>}
                     </div>
                 </div>
@@ -1404,7 +1404,7 @@
 
             return (
                 <div style={{ padding: '20px 24px', maxWidth: '1000px', margin: '0 auto' }} className="wr-fade-in">
-                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '4px' }}>INTELLIGENCE BRIEFING</div>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' }}>INTELLIGENCE BRIEFING</div>
 
                     {/* Strategy summary */}
                     <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px', fontSize: '0.85rem', color: 'var(--silver)', lineHeight: 1.7 }}>
@@ -1413,19 +1413,19 @@
 
                     {/* Best trade partners */}
                     {topTargets.length > 0 && <div style={{ marginBottom: '20px' }}>
-                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: '#2ECC71', letterSpacing: '0.06em', marginBottom: '8px' }}>BEST TRADE PARTNERS</div>
+                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: '#2ECC71', letterSpacing: '0.06em', marginBottom: '8px' }}>BEST TRADE PARTNERS</div>
                         {topTargets.map((t, i) => renderTarget(t, i, true))}
                     </div>}
 
                     {/* Desperate teams */}
                     {desperate.length > 0 && <div style={{ marginBottom: '20px' }}>
-                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: '#BB8FCE', letterSpacing: '0.06em', marginBottom: '8px' }}>DESPERATE TEAMS (EXPLOIT)</div>
+                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: '#BB8FCE', letterSpacing: '0.06em', marginBottom: '8px' }}>DESPERATE TEAMS (EXPLOIT)</div>
                         {desperate.map((t, i) => renderTarget(t, 'desp-' + i, true))}
                     </div>}
 
                     {/* Avoid / low probability */}
                     {avoid.length > 0 && <div style={{ marginBottom: '20px' }}>
-                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--silver)', letterSpacing: '0.06em', marginBottom: '8px', opacity: 0.6 }}>LOW PROBABILITY</div>
+                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: 'var(--silver)', letterSpacing: '0.06em', marginBottom: '8px', opacity: 0.6 }}>LOW PROBABILITY</div>
                         {avoid.map((t, i) => <div key={'avoid-'+i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', marginBottom: '4px', opacity: 0.5 }}>
                             <span style={{ fontSize: '0.82rem', color: 'var(--silver)' }}>{t.ownerName}</span>
                             <span style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>{t.compat}% fit {'\u00B7'} {t.dna.label}</span>
@@ -1435,7 +1435,7 @@
 
                     {/* Target map summary */}
                     <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
-                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', marginBottom: '8px' }}>LEAGUE TARGET MAP</div>
+                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', marginBottom: '8px' }}>LEAGUE TARGET MAP</div>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             {allTargets.map((t, i) => <span key={i} style={{ fontSize: '0.74rem', padding: '3px 10px', borderRadius: '4px', background: t.labelCol + '12', border: '1px solid ' + t.labelCol + '30', color: t.labelCol, fontWeight: 600 }}>{t.ownerName} {t.compat}%</span>)}
                         </div>
@@ -1445,14 +1445,14 @@
                     {(() => {
                         const tradeHist = window.App?.LI?.tradeHistory || [];
                         if (!tradeHist.length) return <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
-                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '4px' }}>LEAGUE TRADE PATTERNS</div>
+                            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '4px' }}>LEAGUE TRADE PATTERNS</div>
                             <div style={{ fontSize: '0.82rem', color: 'var(--silver)', opacity: 0.4 }}>No trade history available yet. As trades occur, patterns will emerge here.</div>
                         </div>;
                         const activeCounts = {};
                         tradeHist.forEach(t => (t.roster_ids || []).forEach(rid => { activeCounts[rid] = (activeCounts[rid] || 0) + 1; }));
                         const mostActive = Object.entries(activeCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
                         return <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
-                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', marginBottom: '6px' }}>WHAT WORKS IN THIS LEAGUE</div>
+                            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', marginBottom: '6px' }}>WHAT WORKS IN THIS LEAGUE</div>
                             <div style={{ fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.6 }}>
                                 {tradeHist.length} trades completed. Most active: {mostActive.map(([rid, cnt]) => (ownerNameForRosterId(parseInt(rid)) || 'Team ' + rid) + ' (' + cnt + ')').join(', ')}.
                             </div>
@@ -1467,11 +1467,11 @@
         // ── Analyst mode: full intelligence terminal ──
         return (
             <div style={{ padding: '16px' }}>
-                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: 'var(--gold)', marginBottom: '4px' }}>LEAGUE INTELLIGENCE</div>
+                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' }}>LEAGUE INTELLIGENCE</div>
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
                     {['dna','finder','analyzer','audit','inbox'].map(tab => (
                         <button key={tab} onClick={() => setTcTab(tab)} style={{
-                            padding: '6px 14px', fontSize: '0.78rem', fontFamily: 'Oswald',
+                            padding: '6px 14px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif',
                             textTransform: 'uppercase', letterSpacing: '0.04em',
                             background: tcTab === tab ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
                             color: tcTab === tab ? 'var(--black)' : 'var(--silver)',

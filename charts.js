@@ -168,7 +168,7 @@ function BarChart(props) {
                 x: labelW - 6, y: y + barH / 2,
                 textAnchor: 'end', dominantBaseline: 'central',
                 fill: CHART_COLORS.silver,
-                style: { fontSize: '11px', fontFamily: 'Oswald, sans-serif', fontWeight: 400 }
+                style: { fontSize: '11px', fontFamily: 'Inter, sans-serif', fontWeight: 400 }
             }, item.label),
             // Background track
             React.createElement('rect', {
@@ -185,7 +185,7 @@ function BarChart(props) {
                 x: labelW + barAreaW + 6, y: y + barH / 2,
                 textAnchor: 'start', dominantBaseline: 'central',
                 fill: CHART_COLORS.white,
-                style: { fontSize: '11px', fontFamily: 'Oswald, sans-serif', fontWeight: 600 }
+                style: { fontSize: '11px', fontFamily: 'Inter, sans-serif', fontWeight: 600 }
             }, typeof item.value === 'number' ? item.value.toFixed(1) : item.value)
         );
     });
@@ -321,7 +321,7 @@ function RadarChart(props) {
                 key: 'lbl-' + i, x: lp.x, y: lp.y,
                 textAnchor: anchor, dominantBaseline: 'central',
                 fill: CHART_COLORS.silver,
-                style: { fontSize: '10px', fontFamily: 'Oswald, sans-serif', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }
+                style: { fontSize: '10px', fontFamily: 'Inter, sans-serif', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }
             }, key)
         );
     });
@@ -395,7 +395,7 @@ function MiniDonut(props) {
             key: 'val', x: cx, y: label ? cy - 4 : cy,
             textAnchor: 'middle', dominantBaseline: 'central',
             fill: CHART_COLORS.white,
-            style: { fontSize: Math.round(size * 0.28) + 'px', fontFamily: 'Bebas Neue, Oswald, sans-serif', fontWeight: 400 }
+            style: { fontSize: Math.round(size * 0.28) + 'px', fontFamily: 'Rajdhani, sans-serif', fontWeight: 400 }
         }, Math.round(value))
     );
 
@@ -406,7 +406,7 @@ function MiniDonut(props) {
                 key: 'lbl', x: cx, y: cy + Math.round(size * 0.18),
                 textAnchor: 'middle', dominantBaseline: 'central',
                 fill: CHART_COLORS.silver,
-                style: { fontSize: Math.max(8, Math.round(size * 0.13)) + 'px', fontFamily: 'Oswald, sans-serif', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.06em' }
+                style: { fontSize: Math.max(8, Math.round(size * 0.13)) + 'px', fontFamily: 'Inter, sans-serif', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.06em' }
             }, label)
         );
     }

@@ -16,7 +16,7 @@
                 children,
                 React.createElement('div', { style: { textAlign:'center', padding:'12px', background:'rgba(212,175,55,0.06)', border:'1px solid rgba(212,175,55,0.2)', borderRadius:'8px', marginTop:'12px' } },
                     React.createElement('div', { style: { fontSize:'0.82rem', color:'var(--gold)', fontWeight:700, marginBottom:'4px' } }, 'Free preview — upgrade to keep using this feature'),
-                    React.createElement('button', { onClick: () => setTasteUsed(true), style: { padding:'6px 16px', background:'var(--gold)', color:'var(--black)', border:'none', borderRadius:'6px', fontFamily:'Bebas Neue', fontSize:'0.9rem', cursor:'pointer' } }, 'Got it')
+                    React.createElement('button', { onClick: () => setTasteUsed(true), style: { padding:'6px 16px', background:'var(--gold)', color:'var(--black)', border:'none', borderRadius:'6px', fontFamily:'Rajdhani, sans-serif', fontSize:'0.9rem', cursor:'pointer' } }, 'Got it')
                 )
             );
         }
@@ -25,10 +25,10 @@
         const tierPrice = targetTier === 'scout' ? '$4.99/mo' : '$9.99/mo';
 
         return React.createElement('div', { style: { background:'linear-gradient(135deg, var(--off-black), var(--charcoal))', border:'1px solid rgba(212,175,55,0.2)', borderRadius:'10px', padding:'28px 24px', textAlign:'center', maxWidth:'480px', margin:'20px auto' } },
-            React.createElement('div', { style: { fontFamily:'Bebas Neue', fontSize:'1.6rem', color:'var(--gold)', letterSpacing:'0.06em', marginBottom:'8px' } }, title || 'UPGRADE TO UNLOCK'),
+            React.createElement('div', { style: { fontFamily:'Rajdhani, sans-serif', fontSize:'1.6rem', color:'var(--gold)', letterSpacing:'0.06em', marginBottom:'8px' } }, title || 'UPGRADE TO UNLOCK'),
             React.createElement('div', { style: { fontSize:'0.88rem', color:'var(--silver)', lineHeight:1.7, marginBottom:'16px' } }, description || 'This feature requires a paid subscription.'),
             React.createElement('div', { style: { display:'flex', gap:'10px', justifyContent:'center', marginBottom:'12px' } },
-                React.createElement('button', { onClick: () => { window.location.href = 'landing.html'; }, style: { padding:'10px 24px', background:'var(--gold)', color:'var(--black)', border:'none', borderRadius:'6px', fontFamily:'Bebas Neue', fontSize:'1.1rem', letterSpacing:'0.05em', cursor:'pointer' } }, 'Unlock ' + tierLabel + ' — ' + tierPrice),
+                React.createElement('button', { onClick: () => { window.location.href = 'landing.html'; }, style: { padding:'10px 24px', background:'var(--gold)', color:'var(--black)', border:'none', borderRadius:'6px', fontFamily:'Rajdhani, sans-serif', fontSize:'1.1rem', letterSpacing:'0.05em', cursor:'pointer' } }, 'Unlock ' + tierLabel + ' — ' + tierPrice),
             ),
             React.createElement('div', { style: { fontSize:'0.76rem', color:'var(--silver)', opacity:0.5 } }, 'Currently on Scout (free) plan'),
             onClose ? React.createElement('button', { onClick: onClose, style: { marginTop:'10px', background:'none', border:'none', color:'var(--silver)', cursor:'pointer', fontSize:'0.78rem' } }, 'Maybe later') : null
@@ -84,7 +84,7 @@
                     React.createElement('img', { src:'https://sleepercdn.com/content/nfl/players/'+pid+'.jpg', style:{width:'48px',height:'48px',objectFit:'cover'}, onError:function(e){ e.target.style.display='none'; const s=document.createElement('span'); s.style.cssText='font-size:16px;font-weight:700;color:#D4AF37'; s.textContent=initials; e.target.after(s);; } })
                 ),
                 React.createElement('div', { style:{flex:1} },
-                    React.createElement('div', { style:{ fontFamily:'Bebas Neue', fontSize:'1.2rem', color:'#f0f0f3', letterSpacing:'0.02em' } }, name),
+                    React.createElement('div', { style:{ fontFamily:'Rajdhani, sans-serif', fontSize:'1.2rem', color:'#f0f0f3', letterSpacing:'0.02em' } }, name),
                     React.createElement('div', { style:{ fontSize:'0.78rem', color:'#D0D0D0' } }, nPos+' \u00B7 '+(p.team||'FA')+' \u00B7 Age '+(age||'?')+(p.college ? ' \u00B7 '+p.college : ''))
                 ),
                 React.createElement('button', { onClick:onClose, style:{ background:'none', border:'none', color:'#7d8291', cursor:'pointer', fontSize:'1.1rem', padding:'2px' } }, '\u2715')
@@ -97,7 +97,7 @@
                     { val:peakYrs+'yr', lbl:'PEAK', col:peakCol },
                     { val:rec, lbl:'ACTION', col:recCol }
                 ].map(function(s,i){ var dhqFilled=s.gauge?Math.round(Math.min(10,dhq/1000)):0; var gCol=dhq>=7000?'filled-green':dhq>=4000?'filled':'filled-red'; return React.createElement('div', { key:i, style:{textAlign:'center'} },
-                    React.createElement('div', { style:{ fontFamily:'Bebas Neue', fontSize:'1rem', color:s.col } }, s.val),
+                    React.createElement('div', { style:{ fontFamily:'JetBrains Mono, monospace', fontSize:'1rem', fontWeight:600, color:s.col } }, s.val),
                     s.gauge ? React.createElement('div', { className:'wr-gauge', style:{marginTop:'2px'} }, Array.from({length:10}, function(_,gi){ return React.createElement('div', { key:gi, className:'wr-gauge-seg'+(gi<dhqFilled?' '+gCol:'') }); })) : null,
                     React.createElement('div', { style:{ fontSize:'0.68rem', color:'#7d8291', textTransform:'uppercase', letterSpacing:'0.06em' } }, s.lbl)
                 ); })
@@ -119,7 +119,7 @@
             ),
             // Recommendation line — Alex Ingram insight
             React.createElement('div', { style:{ padding:'6px 12px', margin:'0 8px', background:'rgba(212,175,55,0.04)', borderLeft:'3px solid rgba(212,175,55,0.4)', borderRadius:'0 6px 6px 0', display:'flex', gap:'6px', alignItems:'flex-start' } },
-                React.createElement('div', { style:{ width:'18px', height:'18px', borderRadius:'5px', background:'linear-gradient(135deg, #D4AF37, #B8941E)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:'0.5rem', fontWeight:800, color:'#0A0A0A', fontFamily:'Bebas Neue', marginTop:'2px' } }, 'AI'),
+                React.createElement('div', { style:{ width:'18px', height:'18px', borderRadius:'5px', background:'linear-gradient(135deg, #D4AF37, #B8941E)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:'0.5rem', fontWeight:800, color:'#0A0A0A', fontFamily:'Rajdhani, sans-serif', marginTop:'2px' } }, 'AI'),
                 React.createElement('div', { style:{ fontSize:'0.78rem', color:'#D0D0D0', lineHeight:1.5 } },
                     (() => {
                         const S = window.S || {};
@@ -143,8 +143,8 @@
             ),
             // Action buttons
             React.createElement('div', { style:{ padding:'10px 16px', display:'flex', gap:'6px', borderTop:'1px solid rgba(255,255,255,0.06)' } },
-                React.createElement('button', { onClick:onFullProfile, style:{ flex:1, padding:'8px', background:'#D4AF37', color:'#0A0A0A', border:'none', borderRadius:'6px', fontFamily:'Bebas Neue', fontSize:'0.9rem', cursor:'pointer' } }, 'FULL PROFILE'),
-                React.createElement('button', { onClick:onClose, style:{ padding:'8px 14px', background:'transparent', border:'1px solid rgba(212,175,55,0.3)', color:'#D4AF37', borderRadius:'6px', fontFamily:'Bebas Neue', fontSize:'0.9rem', cursor:'pointer' } }, 'CLOSE')
+                React.createElement('button', { onClick:onFullProfile, style:{ flex:1, padding:'8px', background:'#D4AF37', color:'#0A0A0A', border:'none', borderRadius:'6px', fontFamily:'Rajdhani, sans-serif', fontSize:'0.9rem', cursor:'pointer' } }, 'FULL PROFILE'),
+                React.createElement('button', { onClick:onClose, style:{ padding:'8px 14px', background:'transparent', border:'1px solid rgba(212,175,55,0.3)', color:'#D4AF37', borderRadius:'6px', fontFamily:'Rajdhani, sans-serif', fontSize:'0.9rem', cursor:'pointer' } }, 'CLOSE')
             )
         );
     }
@@ -197,7 +197,7 @@
         if (av && av.src) {
             return React.createElement('img', { src: av.src, alt: 'Alex', style: { width: sz+'px', height: sz+'px', borderRadius: sz > 24 ? '8px' : '6px', objectFit: 'cover', flexShrink: 0, border: '2px solid rgba(212,175,55,0.4)' } });
         }
-        return React.createElement('div', { style: { width: sz+'px', height: sz+'px', borderRadius: sz > 24 ? '8px' : '6px', background: 'linear-gradient(135deg, #D4AF37, #B8941E)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: (sz * 0.024) + 'rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Bebas Neue' } }, 'AI');
+        return React.createElement('div', { style: { width: sz+'px', height: sz+'px', borderRadius: sz > 24 ? '8px' : '6px', background: 'linear-gradient(135deg, #D4AF37, #B8941E)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: (sz * 0.024) + 'rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Rajdhani, sans-serif' } }, 'AI');
     }
     window.AlexAvatar = AlexAvatar;
     window.ALEX_AVATARS = ALEX_AVATARS;
@@ -214,7 +214,7 @@
                 React.createElement(AlexAvatar, { size: 20 }),
                 React.createElement('div', { style: { flex: 1 } },
                     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1px' } },
-                        React.createElement('span', { style: { fontFamily: 'Bebas Neue', fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.03em' } }, 'Alex Ingram')
+                        React.createElement('span', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.03em' } }, 'Alex Ingram')
                     ),
                     React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.4 } }, children)
                 )
@@ -228,12 +228,12 @@
                 React.createElement(AlexAvatar, { size: 28 }),
                 React.createElement('div', { style: { flex: 1 } },
                     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
-                        React.createElement('span', { style: { fontFamily: 'Bebas Neue', fontSize: '0.86rem', color: 'var(--gold)', letterSpacing: '0.03em' } }, 'Alex Ingram')
+                        React.createElement('span', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.86rem', color: 'var(--gold)', letterSpacing: '0.03em' } }, 'Alex Ingram')
                     ),
                     React.createElement('span', { style: { fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.35 } }, now)
                 )
             ),
-            title && React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' } }, title),
+            title && React.createElement('div', { style: { fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' } }, title),
             React.createElement('div', { style: { fontSize: '0.82rem', color: '#D0D0D0', lineHeight: 1.4 } }, children)
         );
     }
@@ -287,7 +287,7 @@
         // College stats section
         if (collegeHtml) {
             sections.push(React.createElement('div', { key: 'college', style: { marginBottom: html ? '14px' : 0 } },
-                React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' } },
+                React.createElement('div', { style: { fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' } },
                     'College Stats',
                     collegeData && React.createElement('span', { style: { fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.5, textTransform: 'none', fontFamily: 'inherit', letterSpacing: 0 } }, collegeData.school + ' \u00B7 ' + collegeData.conf + ' \u00B7 ' + collegeData.years)
                 ),
@@ -299,7 +299,7 @@
         const isRookie = (player?.years_exp || 0) === 0;
         if (html && !isRookie) {
             sections.push(React.createElement('div', { key: 'nfl' },
-                React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' } }, 'NFL Stats'),
+                React.createElement('div', { style: { fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' } }, 'NFL Stats'),
                 React.createElement('div', { dangerouslySetInnerHTML: { __html: html }, style: { fontSize: '13px' } })
             ));
         } else if (loading && !isRookie) {
@@ -308,7 +308,7 @@
 
         if (!sections.length) {
             sections.push(React.createElement('div', { key: 'empty' },
-                React.createElement('div', { style: { fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' } }, 'Career Stats'),
+                React.createElement('div', { style: { fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' } }, 'Career Stats'),
                 React.createElement('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.5 } }, 'No stats available')
             ));
         }
@@ -421,16 +421,16 @@
                     }
                 },
                     React.createElement('div', { style: { fontSize: '2rem', marginBottom: '12px' } }, '\u26A0\uFE0F'),
-                    React.createElement('div', { style: { fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--white)', marginBottom: '8px' } }, 'Something went wrong'),
+                    React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.4rem', color: 'var(--white)', marginBottom: '8px' } }, 'Something went wrong'),
                     React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.6, marginBottom: '16px' } },
                         'War Room encountered an error. This usually fixes itself on reload.'),
                     React.createElement('button', {
                         onClick: () => { this.setState({ hasError: false, error: null }); },
-                        style: { padding: '10px 24px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Oswald', fontSize: '1rem', cursor: 'pointer', marginRight: '8px' }
+                        style: { padding: '10px 24px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Inter, sans-serif', fontSize: '1rem', cursor: 'pointer', marginRight: '8px' }
                     }, 'Try Again'),
                     React.createElement('button', {
                         onClick: () => window.location.reload(),
-                        style: { padding: '10px 24px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', fontFamily: 'Oswald', fontSize: '1rem', cursor: 'pointer' }
+                        style: { padding: '10px 24px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', fontFamily: 'Inter, sans-serif', fontSize: '1rem', cursor: 'pointer' }
                     }, 'Reload Page'),
                     React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.5, marginTop: '12px' } },
                         String(this.state.error?.message || '').substring(0, 100))
@@ -569,20 +569,20 @@
             ) : null,
             React.createElement('div', {style:{fontSize:'0.78rem',color:'var(--silver)',opacity:0.65,marginBottom:'0.75rem',lineHeight:1.5}}, 'Select any player to generate trade proposals. Shows offers within 20% value variance ranked by acceptance likelihood. ', React.createElement(Tip, null, 'Builds 1-for-1, 2-for-1, and player+pick combos. Acceptance % uses DNA type, psychological taxes, and trade posture.')),
             React.createElement('div', {style:{display:'flex',gap:'0.5rem',marginBottom:'1rem'}},
-                React.createElement('button', {onClick:()=>{setFinderMode('my');setFinderAsset(null);setFinderResults(null);},style:{padding:'7px 16px',fontSize:'0.78rem',fontFamily:'Oswald',textTransform:'uppercase',background:finderMode==='my'?'var(--gold)':'rgba(255,255,255,0.04)',color:finderMode==='my'?'var(--black)':'var(--silver)',border:'1px solid '+(finderMode==='my'?'var(--gold)':'rgba(255,255,255,0.08)'),borderRadius:'4px',cursor:'pointer'}}, 'Trade My Player'),
-                React.createElement('button', {onClick:()=>{setFinderMode('acquire');setFinderAsset(null);setFinderResults(null);},style:{padding:'7px 16px',fontSize:'0.78rem',fontFamily:'Oswald',textTransform:'uppercase',background:finderMode==='acquire'?'var(--gold)':'rgba(255,255,255,0.04)',color:finderMode==='acquire'?'var(--black)':'var(--silver)',border:'1px solid '+(finderMode==='acquire'?'var(--gold)':'rgba(255,255,255,0.08)'),borderRadius:'4px',cursor:'pointer'}}, 'Acquire a Player')
+                React.createElement('button', {onClick:()=>{setFinderMode('my');setFinderAsset(null);setFinderResults(null);},style:{padding:'7px 16px',fontSize:'0.78rem',fontFamily:'Inter, sans-serif',textTransform:'uppercase',background:finderMode==='my'?'var(--gold)':'rgba(255,255,255,0.04)',color:finderMode==='my'?'var(--black)':'var(--silver)',border:'1px solid '+(finderMode==='my'?'var(--gold)':'rgba(255,255,255,0.08)'),borderRadius:'4px',cursor:'pointer'}}, 'Trade My Player'),
+                React.createElement('button', {onClick:()=>{setFinderMode('acquire');setFinderAsset(null);setFinderResults(null);},style:{padding:'7px 16px',fontSize:'0.78rem',fontFamily:'Inter, sans-serif',textTransform:'uppercase',background:finderMode==='acquire'?'var(--gold)':'rgba(255,255,255,0.04)',color:finderMode==='acquire'?'var(--black)':'var(--silver)',border:'1px solid '+(finderMode==='acquire'?'var(--gold)':'rgba(255,255,255,0.08)'),borderRadius:'4px',cursor:'pointer'}}, 'Acquire a Player')
             ),
             React.createElement('div', {style:{fontSize:'0.74rem',color:'var(--gold)',textTransform:'uppercase',marginBottom:'0.3rem',fontWeight:700}}, finderMode==='my'?'Select your player to shop':'Select a player to acquire'),
             React.createElement('div', {style:{display:'flex',flexWrap:'wrap',gap:'0.35rem',maxHeight:'200px',overflowY:'auto',marginBottom:'1rem',padding:'10px',background:'rgba(255,255,255,0.02)',borderRadius:'8px',border:'1px solid rgba(212,175,55,0.12)'}},
                 ...(finderMode==='my'?myPlayers:allLeaguePlayers).slice(0,60).map(p=>
-                    React.createElement('button', {key:p.pid, onClick:()=>{setFinderAsset(p.pid);setFinderResults(null);generateTrades(p.pid,finderMode);}, style:{padding:'5px 12px',fontSize:'0.74rem',fontFamily:'Oswald',borderRadius:'4px',cursor:'pointer',background:finderAsset===p.pid?'var(--gold)':'rgba(255,255,255,0.04)',color:finderAsset===p.pid?'var(--black)':'var(--silver)',border:'1px solid '+(finderAsset===p.pid?'var(--gold)':'rgba(255,255,255,0.06)')}}, p.name+' '+p.val.toLocaleString())
+                    React.createElement('button', {key:p.pid, onClick:()=>{setFinderAsset(p.pid);setFinderResults(null);generateTrades(p.pid,finderMode);}, style:{padding:'5px 12px',fontSize:'0.74rem',fontFamily:'Inter, sans-serif',borderRadius:'4px',cursor:'pointer',background:finderAsset===p.pid?'var(--gold)':'rgba(255,255,255,0.04)',color:finderAsset===p.pid?'var(--black)':'var(--silver)',border:'1px solid '+(finderAsset===p.pid?'var(--gold)':'rgba(255,255,255,0.06)')}}, p.name+' '+p.val.toLocaleString())
                 )
             ),
             finderResults && !finderResults.length ? React.createElement('div', {style:{color:'var(--silver)',fontSize:'0.82rem',textAlign:'center',padding:'2rem'}}, 'No viable trades found within 20% value variance.') : null,
             finderResults ? finderResults.map((r,ri) =>
                 React.createElement('div', {key:ri, style:{marginBottom:'1.25rem'}, className:'wr-fade-in'},
                     React.createElement('div', {style:{display:'flex',alignItems:'center',gap:'0.5rem',marginBottom:'0.5rem',paddingBottom:'0.4rem',borderBottom:'1px solid rgba(212,175,55,0.15)'}},
-                        React.createElement('span', {style:{fontFamily:'Bebas Neue,cursive',fontSize:'1rem',color:'var(--white)'}}, r.team.ownerName),
+                        React.createElement('span', {style:{fontFamily:'Rajdhani, sans-serif',fontSize:'1rem',color:'var(--white)'}}, r.team.ownerName),
                         React.createElement('span', {style:{fontSize:'0.72rem',color:'var(--silver)',opacity:0.65}}, r.team.teamName),
                         React.createElement('span', {style:{fontSize:'0.7rem',fontWeight:700,color:r.team.tierColor,background:r.team.tierBg,padding:'0.15rem 0.4rem',borderRadius:'3px'}}, r.team.tier),
                         r.dnaKey!=='NONE'?React.createElement('span', {style:{fontSize:'0.7rem',color:(DNA_TYPES[r.dnaKey]||{}).color,fontWeight:700}}, (DNA_TYPES[r.dnaKey]||{}).label):null

@@ -85,7 +85,7 @@
         }, [availablePlayers, faFilter, faSort, statsData]);
 
         const faGridCols = '28px 1fr 36px 32px 54px 42px 42px 42px 36px 42px';
-        const faHeaderStyle = { fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' };
+        const faHeaderStyle = { fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' };
 
         // Compute roster needs for recommendations
         const assess = useMemo(() => typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal(myRoster?.roster_id) : null, [myRoster]);
@@ -245,7 +245,7 @@
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                         <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--white)' }}>{r.p?.full_name || 'Unknown'}</span>
                         <span style={{ fontSize: '0.74rem', color: posColors[r.pos] || 'var(--silver)', fontWeight: 700 }}>{r.pos}</span>
-                        <span style={{ marginLeft: 'auto', fontFamily: 'Oswald', fontSize: '0.88rem', fontWeight: 700, color: 'var(--gold)' }}>{r.dhq?.toLocaleString()}</span>
+                        <span style={{ marginLeft: 'auto', fontFamily: 'Inter, sans-serif', fontSize: '0.88rem', fontWeight: 700, color: 'var(--gold)' }}>{r.dhq?.toLocaleString()}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.76rem' }}>
                         {r.ppg > 0 && <span style={{ color: 'var(--silver)' }}>{r.ppg} PPG</span>}
@@ -259,21 +259,21 @@
 
             return (
                 <div style={{ padding: '20px 24px', maxWidth: '1200px', margin: '0 auto' }} className="wr-fade-in">
-                    <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', marginBottom: '16px' }}>WAIVER DECISIONS</div>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '16px' }}>WAIVER DECISIONS</div>
 
                     {/* Decision summary */}
                     <div style={{ display: 'grid', gridTemplateColumns: hasFAAB ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
                         {hasFAAB && <div className="wr-glass" style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.8rem', color: remaining > budget * 0.5 ? '#2ECC71' : remaining > budget * 0.25 ? '#F0A500' : '#E74C3C' }}>{'$' + remaining}</div>
+                            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.8rem', fontWeight: 600, color: remaining > budget * 0.5 ? '#2ECC71' : remaining > budget * 0.25 ? '#F0A500' : '#E74C3C' }}>{'$' + remaining}</div>
                             <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>FAAB remaining</div>
                             {recSpend > 0 && <div style={{ fontSize: '0.74rem', color: 'var(--gold)', marginTop: '4px' }}>Recommended spend: ${recSpend}</div>}
                         </div>}
                         <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--white)' }}>{assess?.needs?.slice(0, 3).map(n => n.pos).join(', ') || 'None'}</div>
+                            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.4rem', color: 'var(--white)' }}>{assess?.needs?.slice(0, 3).map(n => n.pos).join(', ') || 'None'}</div>
                             <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>Priority positions</div>
                         </div>
                         <div style={{ background: 'var(--black)', border: '2px solid ' + pressureCol + '40', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: pressureCol }}>{pressure}</div>
+                            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.4rem', fontWeight: 600, color: pressureCol }}>{pressure}</div>
                             <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>Market pressure</div>
                         </div>
                     </div>
@@ -282,21 +282,21 @@
                     <div style={{ display: 'grid', gridTemplateColumns: faSelectedPid ? '1fr 380px' : '1fr', gap: '20px' }}>
                         <div>
                             {mustAdd.length > 0 && <div style={{ marginBottom: '16px' }}>
-                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: '#E74C3C', letterSpacing: '0.06em', marginBottom: '8px' }}>MUST ADD</div>
+                                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: '#E74C3C', letterSpacing: '0.06em', marginBottom: '8px' }}>MUST ADD</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {mustAdd.map(r => renderFaCard(r, 'must', '#E74C3C'))}
                                 </div>
                             </div>}
 
                             {strongBuys.length > 0 && <div style={{ marginBottom: '16px' }}>
-                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: '#2ECC71', letterSpacing: '0.06em', marginBottom: '8px' }}>STRONG BUYS</div>
+                                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: '#2ECC71', letterSpacing: '0.06em', marginBottom: '8px' }}>STRONG BUYS</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {strongBuys.map(r => renderFaCard(r, 'strong', '#2ECC71'))}
                                 </div>
                             </div>}
 
                             {valuePlays.length > 0 && <div style={{ marginBottom: '16px' }}>
-                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: '#3498DB', letterSpacing: '0.06em', marginBottom: '8px' }}>VALUE PLAYS</div>
+                                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: '#3498DB', letterSpacing: '0.06em', marginBottom: '8px' }}>VALUE PLAYS</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {valuePlays.map(r => renderFaCard(r, 'value', '#3498DB'))}
                                 </div>
@@ -314,7 +314,7 @@
                                     <img src={'https://sleepercdn.com/content/nfl/players/' + faSelectedPid + '.jpg'} style={{ width: '56px', height: '56px', objectFit: 'cover' }} onError={e => { e.target.style.display='none'; const s=document.createElement('span'); s.style.cssText='font-size:18px;font-weight:700;color:var(--gold)'; s.textContent=selInitials; e.target.after(s); }} />
                                 </div>
                                 <div>
-                                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)' }}>{selPlayer.full_name}</div>
+                                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--white)' }}>{selPlayer.full_name}</div>
                                     <div style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>{selPos} {'\u00B7'} {selPlayer.team || 'FA'} {'\u00B7'} Age {selPlayer.age || '?'}</div>
                                 </div>
                                 <button onClick={() => setFaSelectedPid(null)} style={{ marginLeft: 'auto', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--silver)', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', fontSize: '12px' }}>&times;</button>
@@ -324,13 +324,13 @@
                                   { val: selPpg || '\u2014', label: 'PPG', col: selPpg >= 10 ? '#2ECC71' : 'var(--silver)' },
                                   { val: selPeakYrs + 'yr', label: 'PEAK', col: selPeakYrs >= 4 ? '#2ECC71' : selPeakYrs >= 1 ? 'var(--gold)' : '#E74C3C' }
                                 ].map((s, i) => <div key={i} style={{ textAlign: 'center', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
-                                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.2rem', color: s.col }}>{s.val}</div>
+                                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.2rem', fontWeight: 600, color: s.col }}>{s.val}</div>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6 }}>{s.label}</div>
                                 </div>)}
                             </div>
                             {selFaab && <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
-                                <div style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '4px' }}>BID RECOMMENDATION</div>
-                                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: 'var(--gold)' }}>{'$' + selFaab.lo + ' \u2013 $' + selFaab.hi}</div>
+                                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '4px' }}>BID RECOMMENDATION</div>
+                                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.6rem', fontWeight: 600, color: 'var(--gold)' }}>{'$' + selFaab.lo + ' \u2013 $' + selFaab.hi}</div>
                                 <div style={{ fontSize: '0.76rem', color: 'var(--silver)', marginTop: '2px' }}>Suggested: <strong style={{ color: 'var(--white)' }}>{'$' + selFaab.sug}</strong></div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
                                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: selFaab.confCol }} />
@@ -344,7 +344,7 @@
                                     {selPeakYrs >= 4 ? 'Long dynasty window.' : selPeakYrs >= 1 ? 'In production window.' : 'Past peak — short-term only.'}
                                 </div>;
                             })()}
-                            <button onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(faSelectedPid); }} style={{ width: '100%', padding: '8px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.9rem', cursor: 'pointer' }}>FULL PLAYER CARD</button>
+                            <button onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(faSelectedPid); }} style={{ width: '100%', padding: '8px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Rajdhani, sans-serif', fontSize: '0.9rem', cursor: 'pointer' }}>FULL PLAYER CARD</button>
                         </div>}
                     </div>
 
@@ -365,7 +365,7 @@
                         });
                         if (!pairs.length) return null;
                         return React.createElement('div', { style: { marginTop: '20px' } },
-                            React.createElement('div', { style: { fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: '#2ECC71', letterSpacing: '0.06em', marginBottom: '4px' } }, 'RECOMMENDED MOVES'),
+                            React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: '#2ECC71', letterSpacing: '0.06em', marginBottom: '4px' } }, 'RECOMMENDED MOVES'),
                             React.createElement('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' } }, 'Drop + add pairs that upgrade your roster'),
                             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
                                 ...pairs.slice(0, 4).map((pair, i) =>
@@ -381,7 +381,7 @@
                                             )
                                         ),
                                         React.createElement('div', { style: { textAlign: 'right', flexShrink: 0 } },
-                                            React.createElement('div', { style: { fontSize: '0.88rem', fontWeight: 800, fontFamily: 'Oswald', color: '#2ECC71' } }, '+' + pair.gain.toLocaleString()),
+                                            React.createElement('div', { style: { fontSize: '0.88rem', fontWeight: 800, fontFamily: 'Inter, sans-serif', color: '#2ECC71' } }, '+' + pair.gain.toLocaleString()),
                                             pair.faab && React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--gold)' } }, '$' + pair.faab.lo + '-' + pair.faab.hi)
                                         )
                                     )
@@ -409,7 +409,7 @@
                             .slice(0, 5);
                         if (!dropCandidates.length) return null;
                         return React.createElement('div', { style: { marginTop: '20px' } },
-                            React.createElement('div', { style: { fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: '#E74C3C', letterSpacing: '0.06em', marginBottom: '8px' } }, 'DROP CANDIDATES'),
+                            React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: '#E74C3C', letterSpacing: '0.06em', marginBottom: '8px' } }, 'DROP CANDIDATES'),
                             React.createElement('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' } }, 'Lowest-value bench players — cut to make room for upgrades'),
                             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
                                 ...dropCandidates.map(d =>
@@ -420,7 +420,7 @@
                                             React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)' } }, d.pos + ' \u00B7 ' + (d.p.team || 'FA') + ' \u00B7 Age ' + (d.age || '?'))
                                         ),
                                         React.createElement('div', { style: { textAlign: 'right' } },
-                                            React.createElement('div', { style: { fontSize: '0.88rem', fontWeight: 800, fontFamily: 'Oswald', color: d.dhq > 0 ? 'var(--silver)' : '#E74C3C' } }, d.dhq > 0 ? d.dhq.toLocaleString() : 'No value'),
+                                            React.createElement('div', { style: { fontSize: '0.88rem', fontWeight: 800, fontFamily: 'Inter, sans-serif', color: d.dhq > 0 ? 'var(--silver)' : '#E74C3C' } }, d.dhq > 0 ? d.dhq.toLocaleString() : 'No value'),
                                             React.createElement('div', { style: { fontSize: '0.68rem', color: d.peakYrs <= 0 ? '#E74C3C' : 'var(--silver)' } }, d.peakYrs > 0 ? d.peakYrs + 'yr peak' : 'Past peak')
                                         )
                                     )
@@ -431,7 +431,7 @@
 
                     {/* ── LEAGUE FAAB TRACKER ── */}
                     {hasFAAB && React.createElement('div', { style: { marginTop: '20px' } },
-                        React.createElement('div', { style: { fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' } }, 'LEAGUE FAAB TRACKER'),
+                        React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' } }, 'LEAGUE FAAB TRACKER'),
                         React.createElement('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' } }, 'See who can outbid you \u2014 and who\u2019s tapped out'),
                         React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '6px' } },
                             ...(currentLeague.rosters || []).map(r => {
@@ -449,7 +449,7 @@
                                         React.createElement('div', { style: { flex: 1, height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' } },
                                             React.createElement('div', { style: { height: '100%', width: pct + '%', background: col, borderRadius: '3px' } })
                                         ),
-                                        React.createElement('span', { style: { fontSize: '0.78rem', fontWeight: 700, fontFamily: 'Oswald', color: col, minWidth: '32px', textAlign: 'right' } }, '$' + rRemaining)
+                                        React.createElement('span', { style: { fontSize: '0.78rem', fontWeight: 700, fontFamily: 'Inter, sans-serif', color: col, minWidth: '32px', textAlign: 'right' } }, '$' + rRemaining)
                                     )
                                 );
                             }).sort((a, b) => {
@@ -481,7 +481,7 @@
                         }
                         if (!recentDrops.length) return null;
                         return React.createElement('div', { style: { marginTop: '20px' } },
-                            React.createElement('div', { style: { fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: '#F0A500', letterSpacing: '0.06em', marginBottom: '4px' } }, 'ROSTER CHURN ALERTS'),
+                            React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: '#F0A500', letterSpacing: '0.06em', marginBottom: '4px' } }, 'ROSTER CHURN ALERTS'),
                             React.createElement('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' } }, 'Startable players dropped in the last 2 weeks'),
                             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
                                 ...recentDrops.slice(0, 6).map(d =>
@@ -499,7 +499,7 @@
 
                     {/* ── BIDDING STRATEGY ── */}
                     {hasFAAB && recommendations.length > 0 && React.createElement('div', { style: { marginTop: '20px' } },
-                        React.createElement('div', { style: { fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' } }, 'BIDDING STRATEGY'),
+                        React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' } }, 'BIDDING STRATEGY'),
                         React.createElement('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' } }, 'Competitor-aware bid recommendations for your top targets'),
                         React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
                             ...recommendations.slice(0, 4).map(r => {
@@ -526,7 +526,7 @@
                                 return React.createElement('div', { key: r.pid, style: { padding: '10px 14px', background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px' } },
                                     React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' } },
                                         React.createElement('span', { style: { fontSize: '0.84rem', fontWeight: 700, color: 'var(--white)' } }, r.p.full_name || 'Unknown'),
-                                        React.createElement('span', { style: { fontSize: '0.88rem', fontWeight: 800, fontFamily: 'Oswald', color: 'var(--gold)' } }, '$' + strategyBid)
+                                        React.createElement('span', { style: { fontSize: '0.88rem', fontWeight: 800, fontFamily: 'Inter, sans-serif', color: 'var(--gold)' } }, '$' + strategyBid)
                                     ),
                                     React.createElement('div', { style: { fontSize: '0.74rem', color: 'var(--silver)', lineHeight: 1.5 } }, strategy)
                                 );
@@ -542,7 +542,7 @@
         // ── ANALYST VIEW: full market terminal ──
         return (
             <div style={{ padding: '20px 24px', maxWidth: '1400px', margin: '0 auto' }} className="wr-fade-in">
-                <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.8rem', color: 'var(--gold)', marginBottom: '4px', letterSpacing: '0.05em' }}>FREE AGENCY</div>
+                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' }}>FREE AGENCY</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '20px' }}>Full market analysis and player evaluation</div>
 
                 {/* ── TOP: FAAB + Position Needs Grid ── */}
@@ -550,13 +550,13 @@
                     {/* FAAB gauge */}
                     {hasFAAB && <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
                         {typeof MiniDonut !== 'undefined' && React.createElement(MiniDonut, { value: Math.round(remaining / Math.max(1, budget) * 100), size: 80, label: 'FAAB' })}
-                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: remaining > budget * 0.5 ? '#2ECC71' : remaining > budget * 0.25 ? '#F0A500' : '#E74C3C', marginTop: '8px' }}>{'$' + remaining}</div>
+                        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.6rem', fontWeight: 600, color: remaining > budget * 0.5 ? '#2ECC71' : remaining > budget * 0.25 ? '#F0A500' : '#E74C3C', marginTop: '8px' }}>{'$' + remaining}</div>
                         <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>of ${budget} remaining</div>
                     </div>}
 
                     {/* Position Needs — Enhanced Grid with Rostered Players */}
                     {assess && <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '12px', padding: '16px' }}>
-                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '10px' }}>ROSTER NEEDS</div>
+                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '10px' }}>ROSTER NEEDS</div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
                             {Object.entries(assess.posAssessment || {}).sort((a,b) => {
                                 const ord = {deficit:0, thin:1, ok:2, surplus:3};
@@ -581,7 +581,7 @@
                                 const peakColor = (y) => y >= 4 ? '#2ECC71' : y >= 1 ? 'var(--gold)' : '#E74C3C';
                                 return <div key={pos} style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '10px', marginBottom: '0' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                        <span style={{ fontFamily: 'Oswald', fontSize: '0.82rem', fontWeight: 700, color: gradeCol }}>{pos}</span>
+                                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', fontWeight: 700, color: gradeCol }}>{pos}</span>
                                         <span style={{ fontSize: '0.72rem', color: gradeCol, fontWeight: 700 }}>{grade} · {data.nflStarters}/{data.minQuality || data.startingReq}</span>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -589,7 +589,7 @@
                                             <div key={pl.pid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem' }}>
                                                 <span style={{ color: 'var(--white)', fontWeight: 500 }}>{pl.abbr}</span>
                                                 <span style={{ display: 'flex', gap: '8px' }}>
-                                                    <span style={{ color: dhqColor(pl.dhq), fontFamily: 'Oswald', fontWeight: 700 }}>{pl.dhq > 0 ? pl.dhq.toLocaleString() : '\u2014'}</span>
+                                                    <span style={{ color: dhqColor(pl.dhq), fontFamily: 'Inter, sans-serif', fontWeight: 700 }}>{pl.dhq > 0 ? pl.dhq.toLocaleString() : '\u2014'}</span>
                                                     <span style={{ color: peakColor(pl.peakYrs) }}>{pl.peakYrs}yr</span>
                                                 </span>
                                             </div>
@@ -604,7 +604,7 @@
 
                 {/* ── WAIVER PRIORITY BOARD — full ranked pickup list ── */}
                 {React.createElement('div', { style: { marginBottom: '20px' } },
-                    React.createElement('div', { style: { fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' } }, 'WAIVER PRIORITY BOARD'),
+                    React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' } }, 'WAIVER PRIORITY BOARD'),
                     React.createElement('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' } }, 'All available players ranked by pickup priority'),
                     React.createElement('div', { style: { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden', maxHeight: 'none', overflowY: 'visible' } },
                         ...availablePlayers.slice(0, 25).map((x, i) => {
@@ -619,14 +619,14 @@
                                 onMouseEnter: e => { e.currentTarget.style.background = 'rgba(212,175,55,0.06)'; },
                                 onMouseLeave: e => { e.currentTarget.style.background = myNeed ? 'rgba(46,204,113,0.03)' : 'transparent'; }
                             },
-                                React.createElement('span', { style: { fontFamily: 'Oswald', color: i < 3 ? 'var(--gold)' : 'var(--silver)' } }, i + 1),
+                                React.createElement('span', { style: { fontFamily: 'Inter, sans-serif', color: i < 3 ? 'var(--gold)' : 'var(--silver)' } }, i + 1),
                                 React.createElement('div', { style: { overflow: 'hidden' } },
                                     React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, x.p.full_name || 'Unknown'),
                                     React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--silver)' } }, x.pos + ' \u00B7 ' + (x.p.team || 'FA') + (myNeed ? ' \u00B7 fills ' + myNeed.urgency : ''))
                                 ),
                                 React.createElement('span', { style: { fontWeight: 700, color: posColors[x.pos] || 'var(--silver)' } }, x.pos),
                                 React.createElement('span', { style: { color: 'var(--silver)' } }, ppg > 0 ? ppg : '\u2014'),
-                                React.createElement('span', { style: { fontWeight: 700, fontFamily: 'Oswald', color: dhqCol2 } }, x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'),
+                                React.createElement('span', { style: { fontWeight: 700, fontFamily: 'Inter, sans-serif', color: dhqCol2 } }, x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'),
                                 faab2 ? React.createElement('span', { style: { fontWeight: 700, color: 'var(--gold)', fontSize: '0.72rem' } }, '$' + faab2.lo + '-' + faab2.hi) : React.createElement('span', null, '\u2014')
                             );
                         })
@@ -635,9 +635,9 @@
 
                 {/* ── POSITION FILTER + FULL LIST ── */}
                 <React.Fragment><div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginRight: '8px' }}>ALL FREE AGENTS</span>
+                    <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginRight: '8px' }}>ALL FREE AGENTS</span>
                     {['', 'QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'].map(pos =>
-                        <button key={pos} onClick={() => setFaFilter(pos)} style={{ padding: '5px 12px', fontSize: '0.76rem', fontFamily: 'Oswald', textTransform: 'uppercase', background: faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.04)', color: faFilter === pos ? 'var(--black)' : 'var(--silver)', border: '1px solid ' + (faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.08)'), borderRadius: '4px', cursor: 'pointer' }}>{pos || 'All'}</button>
+                        <button key={pos} onClick={() => setFaFilter(pos)} style={{ padding: '5px 12px', fontSize: '0.76rem', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', background: faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.04)', color: faFilter === pos ? 'var(--black)' : 'var(--silver)', border: '1px solid ' + (faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.08)'), borderRadius: '4px', cursor: 'pointer' }}>{pos || 'All'}</button>
                     )}
                 </div>
 
@@ -677,7 +677,7 @@
                                 </div>
                                 <span style={{ fontSize: '0.76rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
                                 <span style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>{p.age || '\u2014'}</span>
-                                <span style={{ fontSize: '0.82rem', fontWeight: 700, fontFamily: 'Oswald', color: dhqCol }}>{dhq > 0 ? dhq.toLocaleString() : '\u2014'}</span>
+                                <span style={{ fontSize: '0.82rem', fontWeight: 700, fontFamily: 'Inter, sans-serif', color: dhqCol }}>{dhq > 0 ? dhq.toLocaleString() : '\u2014'}</span>
                                 <span style={{ fontSize: '0.78rem', color: ppg >= 10 ? '#2ECC71' : ppg >= 5 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{ppg > 0 ? ppg : '\u2014'}</span>
                                 <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--gold)' }}>{faab ? '$' + faab.lo + '-' + faab.hi : '\u2014'}</span>
                                 <span style={{ fontSize: '0.74rem', color: peakCol, fontWeight: 600 }}>{peakLabel}</span>
@@ -697,7 +697,7 @@
                             <img src={'https://sleepercdn.com/content/nfl/players/' + faSelectedPid + '.jpg'} style={{ width: '64px', height: '64px', objectFit: 'cover' }} onError={e => { e.target.style.display='none'; const s=document.createElement('span'); s.style.cssText='font-size:20px;font-weight:700;color:var(--gold)'; s.textContent=selInitials; e.target.after(s); }} />
                         </div>
                         <div>
-                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--white)', letterSpacing: '0.02em' }}>{selPlayer.full_name || 'Unknown'}</div>
+                            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.4rem', color: 'var(--white)', letterSpacing: '0.02em' }}>{selPlayer.full_name || 'Unknown'}</div>
                             <div style={{ fontSize: '0.82rem', color: 'var(--silver)' }}>{selPos} · {selPlayer.team || 'FA'} · Age {selPlayer.age || '?'} · {selPlayer.years_exp ?? 0}yr exp{selPlayer.college ? ' · ' + selPlayer.college : ''}</div>
                         </div>
                     </div>
@@ -709,15 +709,15 @@
                             { val: selPpg || '\u2014', label: 'PPG', col: selPpg >= 10 ? '#2ECC71' : selPpg >= 5 ? 'var(--silver)' : 'var(--silver)' },
                             { val: selPeakYrs + 'yr', label: 'PEAK LEFT', col: selPeakYrs >= 4 ? '#2ECC71' : selPeakYrs >= 1 ? 'var(--gold)' : '#E74C3C' },
                         ].map((s, i) => <div key={i} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '10px 6px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: s.col }}>{s.val}</div>
+                            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.3rem', fontWeight: 600, color: s.col }}>{s.val}</div>
                             <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</div>
                         </div>)}
                     </div>
 
                     {/* FAAB Recommendation */}
                     {selFaab && <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
-                        <div style={{ fontFamily: 'Oswald', fontSize: '0.82rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>FAAB Recommendation</div>
-                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.8rem', color: 'var(--gold)' }}>{'$' + selFaab.lo + ' \u2013 $' + selFaab.hi}</div>
+                        <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>FAAB Recommendation</div>
+                        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.8rem', fontWeight: 600, color: 'var(--gold)' }}>{'$' + selFaab.lo + ' \u2013 $' + selFaab.hi}</div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginTop: '4px' }}>Suggested: <strong style={{ color: 'var(--white)' }}>{'$' + selFaab.sug}</strong> of ${remaining} remaining</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
                             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: selFaab.confCol }} />
@@ -731,7 +731,7 @@
                         const need = assess.needs?.find(n => n.pos === selPos);
                         const strength = assess.strengths?.includes(selPos);
                         return <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
-                            <div style={{ fontFamily: 'Oswald', fontSize: '0.82rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>ROSTER FIT</div>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>ROSTER FIT</div>
                             {need && <div style={{ fontSize: '0.82rem', color: '#2ECC71', fontWeight: 600, marginBottom: '4px' }}>Fills {selPos} {need.urgency}</div>}
                             {strength && <div style={{ fontSize: '0.82rem', color: 'var(--silver)', opacity: 0.7, marginBottom: '4px' }}>You already have {selPos} surplus — stash only</div>}
                             {!need && !strength && <div style={{ fontSize: '0.82rem', color: 'var(--silver)', marginBottom: '4px' }}>Depth add at {selPos}</div>}
@@ -743,7 +743,7 @@
 
                     {/* Season Stats */}
                     {selStats.gp > 0 && <div style={{ marginBottom: '16px' }}>
-                        <div style={{ fontFamily: 'Oswald', fontSize: '0.82rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>SEASON STATS</div>
+                        <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>SEASON STATS</div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                             {[
                                 ['Games', selStats.gp],
@@ -765,7 +765,7 @@
                     </div>}
 
                     {/* Action */}
-                    <button onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(faSelectedPid); }} style={{ width: '100%', padding: '10px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '8px', fontFamily: 'Bebas Neue', fontSize: '1rem', letterSpacing: '0.06em', cursor: 'pointer' }}>FULL PLAYER CARD</button>
+                    <button onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(faSelectedPid); }} style={{ width: '100%', padding: '10px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '8px', fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', letterSpacing: '0.06em', cursor: 'pointer' }}>FULL PLAYER CARD</button>
                 </div>}
             </div>
         );

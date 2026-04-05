@@ -7,7 +7,7 @@
     <title>Behavioral Trade Calculator - Fantasy War Room</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --gold: #D4AF37; --dark-gold: #B8941E; --black: #0A0A0A;
@@ -16,7 +16,7 @@
             --amber: #F0A500; --blue: #5DADE2;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DM Sans', sans-serif; background: var(--black); color: var(--white); min-height: 100vh; overflow-x: hidden; }
+        body { font-family: 'Inter', sans-serif; background: var(--black); color: var(--white); min-height: 100vh; overflow-x: hidden; }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: rgba(212,175,55,0.05); }
         ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 2px; }
@@ -28,19 +28,19 @@
             display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; flex-shrink: 0;
         }
         .page-title {
-            font-family: 'DM Sans', sans-serif; font-size: 1.2rem;
+            font-family: 'Inter', sans-serif; font-size: 1.2rem;
             color: var(--gold); letter-spacing: 0.12em; flex: 1; white-space: nowrap;
         }
         .back-btn {
             background: transparent; border: 1.5px solid var(--gold); color: var(--gold);
-            font-family: 'DM Sans', sans-serif; font-size: 0.7rem; font-weight: 600;
+            font-family: 'Inter', sans-serif; font-size: 0.7rem; font-weight: 600;
             padding: 0.32rem 0.65rem; border-radius: 4px; cursor: pointer;
             text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0;
         }
         .back-btn:hover { background: rgba(212,175,55,0.1); }
         .league-select {
             background: var(--charcoal); border: 1.5px solid rgba(212,175,55,0.4);
-            color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.76rem;
+            color: var(--white); font-family: 'Inter', sans-serif; font-size: 0.76rem;
             padding: 0.32rem 0.55rem; border-radius: 4px; cursor: pointer; max-width: 220px;
         }
         .league-select:focus { outline: none; border-color: var(--gold); }
@@ -51,7 +51,7 @@
         }
         .tab-btn {
             flex: 1; min-width: 100px; padding: 0.6rem 0.5rem; border: none; background: transparent;
-            color: rgba(255,255,255,0.4); font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
+            color: rgba(255,255,255,0.4); font-family: 'Inter', sans-serif; font-size: 0.72rem;
             font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
             border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; white-space: nowrap;
         }
@@ -129,7 +129,7 @@
 
         /* Section header */
         .section-hdr {
-            font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--gold);
+            font-family: 'Inter', sans-serif; font-size: 0.9rem; color: var(--gold);
             letter-spacing: 0.12em; border-bottom: 1px solid rgba(212,175,55,0.2);
             padding-bottom: 0.3rem; margin-bottom: 0.6rem;
         }
@@ -138,7 +138,7 @@
         .filter-bar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
         .filter-select {
             background: var(--charcoal); border: 1px solid rgba(212,175,55,0.3);
-            color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
+            color: var(--white); font-family: 'Inter', sans-serif; font-size: 0.72rem;
             padding: 0.28rem 0.5rem; border-radius: 4px; cursor: pointer;
         }
         .filter-select:focus { outline: none; border-color: var(--gold); }
@@ -174,7 +174,7 @@
         .dna-avatar img { width: 100%; height: 100%; object-fit: cover; }
         .dna-select {
             width: 100%; background: var(--charcoal); border: 1px solid rgba(212,175,55,0.3);
-            color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
+            color: var(--white); font-family: 'Inter', sans-serif; font-size: 0.72rem;
             padding: 0.28rem 0.45rem; border-radius: 4px; cursor: pointer;
         }
         .dna-select:focus { outline: none; border-color: var(--gold); }
@@ -186,13 +186,13 @@
 
         /* Loading / error */
         .center-screen { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; }
-        .load-title { font-family: 'DM Sans', sans-serif; font-size: 1.4rem; color: var(--gold); letter-spacing: 0.12em; }
+        .load-title { font-family: 'Inter', sans-serif; font-size: 1.4rem; color: var(--gold); letter-spacing: 0.12em; }
         .load-sub { font-size: 0.75rem; color: var(--silver); opacity: 0.5; }
 
         /* Summary bar */
         .summary-bar { display: flex; gap: 1rem; padding: 0.5rem 0.75rem; background: rgba(212,175,55,0.05); border: 1px solid rgba(212,175,55,0.1); border-radius: 6px; margin-bottom: 0.75rem; flex-wrap: wrap; }
         .summary-stat { display: flex; flex-direction: column; align-items: center; }
-        .summary-val { font-family: 'DM Sans', sans-serif; font-size: 1.1rem; color: var(--gold); }
+        .summary-val { font-family: 'Inter', sans-serif; font-size: 1.1rem; color: var(--gold); }
         .summary-lbl { font-size: 0.55rem; color: var(--silver); opacity: 0.6; letter-spacing: 0.06em; text-transform: uppercase; }
 
         .my-team-badge { font-size: 0.55rem; background: var(--gold); color: var(--black); padding: 0.08rem 0.3rem; border-radius: 2px; font-weight: 700; letter-spacing: 0.04em; flex-shrink: 0; }
@@ -204,7 +204,7 @@
         .proj-below { color: var(--loss-red); }
         .proj-close  { color: var(--amber); }
 
-        .health-score { font-family: 'DM Sans', sans-serif; font-size: 1.6rem; line-height: 1; }
+        .health-score { font-family: 'Inter', sans-serif; font-size: 1.6rem; line-height: 1; }
 
         .no-data-msg { text-align: center; color: var(--silver); opacity: 0.4; padding: 2rem 1rem; font-size: 0.78rem; }
 
@@ -219,7 +219,7 @@
         .ta-search-wrap { position: relative; }
         .ta-search {
             width: 100%; background: var(--charcoal); border: 1px solid rgba(212,175,55,0.25);
-            color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.78rem;
+            color: var(--white); font-family: 'Inter', sans-serif; font-size: 0.78rem;
             padding: 0.4rem 0.6rem; border-radius: 4px;
         }
         .ta-search:focus { outline: none; border-color: var(--gold); }
@@ -255,10 +255,10 @@
             padding: 0.45rem 0.55rem; border-radius: 5px; margin-top: 0.25rem;
         }
         .ta-total-label { font-size: 0.65rem; color: var(--silver); opacity: 0.7; text-transform: uppercase; letter-spacing: 0.06em; }
-        .ta-total-val { font-family: 'DM Sans', sans-serif; font-size: 1.3rem; }
+        .ta-total-val { font-family: 'Inter', sans-serif; font-size: 1.3rem; }
         .ta-add-btn {
             background: transparent; border: 1px dashed rgba(212,175,55,0.3); color: rgba(212,175,55,0.5);
-            font-family: 'DM Sans', sans-serif; font-size: 0.7rem; padding: 0.3rem 0.6rem;
+            font-family: 'Inter', sans-serif; font-size: 0.7rem; padding: 0.3rem 0.6rem;
             border-radius: 4px; cursor: pointer; width: 100%; text-align: center; transition: all 0.15s;
         }
         .ta-add-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(212,175,55,0.06); }
@@ -267,7 +267,7 @@
             background: var(--off-black); border: 1px solid rgba(212,175,55,0.2); border-radius: 8px;
             padding: 0.75rem; display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.5rem;
         }
-        .verdict-diff { font-family: 'DM Sans', sans-serif; font-size: 2rem; line-height: 1; }
+        .verdict-diff { font-family: 'Inter', sans-serif; font-size: 2rem; line-height: 1; }
         .verdict-label { font-size: 0.62rem; color: var(--silver); opacity: 0.6; margin-top: -0.1rem; text-transform: uppercase; letter-spacing: 0.06em; }
         .likelihood-bar-wrap { height: 10px; background: rgba(255,255,255,0.07); border-radius: 5px; overflow: hidden; }
         .likelihood-bar-fill { height: 100%; border-radius: 5px; transition: width 0.5s ease; }
@@ -276,14 +276,14 @@
         .dna-tax-val { font-weight: 700; }
         .ta-owner-select {
             background: var(--charcoal); border: 1px solid rgba(212,175,55,0.25);
-            color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
+            color: var(--white); font-family: 'Inter', sans-serif; font-size: 0.72rem;
             padding: 0.3rem 0.5rem; border-radius: 4px; cursor: pointer; width: 100%;
         }
         .ta-owner-select:focus { outline: none; border-color: var(--gold); }
         .ta-roster-filter {
             width: 100%; background: var(--charcoal);
             border: 1px solid rgba(212,175,55,0.25); border-bottom: 1px solid rgba(255,255,255,0.07);
-            color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 0.75rem;
+            color: var(--white); font-family: 'Inter', sans-serif; font-size: 0.75rem;
             padding: 0.38rem 0.6rem; border-radius: 4px 4px 0 0;
         }
         .ta-roster-filter:focus { outline: none; border-color: var(--gold); }
@@ -337,7 +337,7 @@
 
         /* Outcome flow buttons */
         .outcome-btn {
-            font-family: 'DM Sans', sans-serif; font-size: 0.72rem; font-weight: 700;
+            font-family: 'Inter', sans-serif; font-size: 0.72rem; font-weight: 700;
             letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
             padding: 0.35rem 0.75rem; border-radius: 4px; border: 1.5px solid;
             transition: all 0.15s; background: transparent;
@@ -357,7 +357,7 @@
         .outcome-btn.purple:hover  { background:rgba(187,143,206,0.12); }
         .outcome-row { display:flex; gap:0.4rem; flex-wrap:wrap; }
         .outcome-question { font-size:0.68rem; color:var(--silver); opacity:0.8; margin-bottom:0.4rem; font-style:italic; }
-        .back-link { background:transparent; border:none; color:rgba(255,255,255,0.3); font-size:0.62rem; cursor:pointer; padding:0.2rem 0; font-family:'DM Sans',sans-serif; }
+        .back-link { background:transparent; border:none; color:rgba(255,255,255,0.3); font-size:0.62rem; cursor:pointer; padding:0.2rem 0; font-family:'Inter',sans-serif; }
         .back-link:hover { color:var(--silver); }
         .counter-verdict-row { display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0.6rem; border-radius:5px; }
         .derived-dna-chip { font-size:0.55rem; font-weight:700; padding:0.1rem 0.35rem; border-radius:3px; letter-spacing:0.05em; text-transform:uppercase; border:1px solid; }
@@ -367,15 +367,15 @@
 
         /* ── Guide Tab ─────────────────────────────────────────────────────── */
         .guide-hero { background:linear-gradient(135deg,rgba(212,175,55,0.08),rgba(212,175,55,0.02)); border:1px solid rgba(212,175,55,0.2); border-radius:10px; padding:1.25rem 1.5rem; margin-bottom:1.25rem; }
-        .guide-hero-title { font-family:'DM Sans',sans-serif; font-size:1.6rem; color:var(--gold); letter-spacing:0.12em; margin-bottom:0.3rem; }
+        .guide-hero-title { font-family:'Inter',sans-serif; font-size:1.6rem; color:var(--gold); letter-spacing:0.12em; margin-bottom:0.3rem; }
         .guide-hero-sub { font-size:0.72rem; color:var(--silver); opacity:0.75; line-height:1.55; max-width:700px; }
         .guide-grid { display:grid; grid-template-columns:1fr; gap:0.9rem; }
         @media(min-width:650px){ .guide-grid { grid-template-columns:1fr 1fr; } }
         @media(min-width:1050px){ .guide-grid { grid-template-columns:1fr 1fr 1fr; } }
         .guide-card { background:var(--off-black); border:1px solid rgba(212,175,55,0.15); border-radius:8px; padding:0.9rem 1rem; display:flex; flex-direction:column; gap:0.5rem; }
-        .guide-card-title { font-family:'DM Sans',sans-serif; font-size:0.95rem; color:var(--gold); letter-spacing:0.1em; }
+        .guide-card-title { font-family:'Inter',sans-serif; font-size:0.95rem; color:var(--gold); letter-spacing:0.1em; }
         .guide-step { display:flex; gap:0.6rem; align-items:flex-start; }
-        .guide-step-num { font-family:'DM Sans',sans-serif; font-size:1.5rem; color:var(--gold); opacity:0.4; line-height:1; min-width:1.4rem; }
+        .guide-step-num { font-family:'Inter',sans-serif; font-size:1.5rem; color:var(--gold); opacity:0.4; line-height:1; min-width:1.4rem; }
         .guide-step-body { flex:1; }
         .guide-step-title { font-size:0.75rem; font-weight:700; color:var(--white); margin-bottom:0.15rem; }
         .guide-step-desc { font-size:0.65rem; color:var(--silver); opacity:0.72; line-height:1.5; }
@@ -394,7 +394,7 @@
         .commentary-card-title { font-size:0.62rem; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:0.07em; margin-bottom:0.3rem; }
         .commentary-card-text { font-size:0.7rem; color:var(--silver); line-height:1.55; }
         .elite-tag { font-size:0.5rem; font-weight:700; background:rgba(212,175,55,0.18); border:1px solid rgba(212,175,55,0.45); color:var(--gold); padding:0.05rem 0.28rem; border-radius:3px; letter-spacing:0.05em; margin-left:0.3rem; vertical-align:middle; }
-        .identity-badge { display:inline-block; font-family:'DM Sans',sans-serif; font-size:0.8rem; letter-spacing:0.1em; padding:0.2rem 0.6rem; border-radius:4px; border:1px solid; }
+        .identity-badge { display:inline-block; font-family:'Inter',sans-serif; font-size:0.8rem; letter-spacing:0.1em; padding:0.2rem 0.6rem; border-radius:4px; border:1px solid; }
 
         /* Team detail expanded panel (for non-my-team) */
         .team-detail-panel { display:grid; grid-template-columns:1fr; gap:1rem; background:var(--off-black); border:1px solid rgba(212,175,55,0.35); border-radius:8px; padding:1rem; margin-bottom:1rem; }
@@ -406,7 +406,7 @@
         .team-card .pos-label { font-size:0.65rem; }
         .team-card .pos-count { font-size:0.62rem; }
         .team-card .dot { width:9px; height:9px; }
-        .team-card-link { background:transparent; border:1px solid rgba(212,175,55,0.25); color:rgba(212,175,55,0.6); font-family:'DM Sans',sans-serif; font-size:0.62rem; font-weight:600; padding:0.22rem 0.55rem; border-radius:3px; cursor:pointer; text-transform:uppercase; letter-spacing:0.05em; transition:all 0.15s; width:100%; margin-top:0.1rem; }
+        .team-card-link { background:transparent; border:1px solid rgba(212,175,55,0.25); color:rgba(212,175,55,0.6); font-family:'Inter',sans-serif; font-size:0.62rem; font-weight:600; padding:0.22rem 0.55rem; border-radius:3px; cursor:pointer; text-transform:uppercase; letter-spacing:0.05em; transition:all 0.15s; width:100%; margin-top:0.1rem; }
         .team-card-link:hover { border-color:var(--gold); color:var(--gold); background:rgba(212,175,55,0.06); }
 
         /* ── Trade Finder — Partner Tiers ───────────────────────────────────── */
@@ -488,8 +488,8 @@
         /* ── Trade Outcome / Trade Complete ──────────────────────────────────── */
         .trade-complete { display:flex; flex-direction:column; align-items:center; gap:0.8rem; padding:1.5rem 1rem; background:rgba(46,204,113,0.05); border:1px solid rgba(46,204,113,0.3); border-radius:8px; text-align:center; margin-top:0.5rem; }
         .trade-complete-icon { font-size:2.8rem; line-height:1; }
-        .trade-complete-title { font-family:'DM Sans',sans-serif; font-size:2.2rem; color:var(--win-green); letter-spacing:0.12em; line-height:1; }
-        .trade-complete-result { font-family:'DM Sans',sans-serif; font-size:1.1rem; letter-spacing:0.1em; padding:0.25rem 0.75rem; border-radius:4px; }
+        .trade-complete-title { font-family:'Inter',sans-serif; font-size:2.2rem; color:var(--win-green); letter-spacing:0.12em; line-height:1; }
+        .trade-complete-result { font-family:'Inter',sans-serif; font-size:1.1rem; letter-spacing:0.1em; padding:0.25rem 0.75rem; border-radius:4px; }
         .trade-complete-sub { font-size:0.7rem; color:var(--silver); opacity:0.7; line-height:1.5; max-width:400px; }
         .trade-players-wrap { display:flex; gap:1rem; flex-wrap:wrap; justify-content:center; width:100%; }
         .trade-players-col { flex:1; min-width:150px; max-width:220px; text-align:left; }
@@ -506,15 +506,15 @@
         /* ── AI Scout Panel (hidden beta) ────────────────────────────────────── */
         .ai-scout-wrap { max-width:900px; margin:0 auto; }
         .ai-mode-bar { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; }
-        .ai-mode-btn { padding:0.42rem 0.9rem; border:1.5px solid rgba(212,175,55,0.3); background:transparent; color:rgba(255,255,255,0.45); font-family:'DM Sans',sans-serif; font-size:0.7rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; border-radius:4px; cursor:pointer; transition:all 0.2s; }
+        .ai-mode-btn { padding:0.42rem 0.9rem; border:1.5px solid rgba(212,175,55,0.3); background:transparent; color:rgba(255,255,255,0.45); font-family:'Inter',sans-serif; font-size:0.7rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; border-radius:4px; cursor:pointer; transition:all 0.2s; }
         .ai-mode-btn.active { border-color:var(--gold); color:var(--gold); background:rgba(212,175,55,0.08); }
         .ai-mode-btn:hover:not(.active) { border-color:rgba(212,175,55,0.5); color:rgba(212,175,55,0.7); }
         .ai-controls { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.75rem; }
-        .ai-team-select { background:var(--charcoal); border:1.5px solid rgba(212,175,55,0.3); color:var(--white); font-family:'DM Sans',sans-serif; font-size:0.78rem; padding:0.42rem 0.65rem; border-radius:4px; cursor:pointer; }
+        .ai-team-select { background:var(--charcoal); border:1.5px solid rgba(212,175,55,0.3); color:var(--white); font-family:'Inter',sans-serif; font-size:0.78rem; padding:0.42rem 0.65rem; border-radius:4px; cursor:pointer; }
         .ai-team-select:focus { outline:none; border-color:var(--gold); }
-        .ai-chat-input { width:100%; background:var(--charcoal); border:1.5px solid rgba(212,175,55,0.3); color:var(--white); font-family:'DM Sans',sans-serif; font-size:0.78rem; padding:0.6rem 0.8rem; border-radius:4px; margin-bottom:0.75rem; resize:vertical; min-height:72px; }
+        .ai-chat-input { width:100%; background:var(--charcoal); border:1.5px solid rgba(212,175,55,0.3); color:var(--white); font-family:'Inter',sans-serif; font-size:0.78rem; padding:0.6rem 0.8rem; border-radius:4px; margin-bottom:0.75rem; resize:vertical; min-height:72px; }
         .ai-chat-input:focus { outline:none; border-color:var(--gold); }
-        .ai-analyze-btn { display:inline-flex; align-items:center; gap:0.45rem; padding:0.5rem 1.3rem; background:linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.07)); border:1.5px solid var(--gold); color:var(--gold); font-family:'DM Sans',sans-serif; font-size:0.78rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; border-radius:5px; cursor:pointer; transition:all 0.2s; }
+        .ai-analyze-btn { display:inline-flex; align-items:center; gap:0.45rem; padding:0.5rem 1.3rem; background:linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.07)); border:1.5px solid var(--gold); color:var(--gold); font-family:'Inter',sans-serif; font-size:0.78rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; border-radius:5px; cursor:pointer; transition:all 0.2s; }
         .ai-analyze-btn:hover:not(:disabled) { background:rgba(212,175,55,0.2); box-shadow:0 0 10px rgba(212,175,55,0.18); }
         .ai-analyze-btn:disabled { opacity:0.38; cursor:not-allowed; }
         .ai-spinner { display:inline-block; width:13px; height:13px; border:2px solid rgba(212,175,55,0.3); border-top-color:var(--gold); border-radius:50%; animation:ai-spin 0.75s linear infinite; }
@@ -1612,7 +1612,7 @@ function TeamCard({ assessment, isMyTeam, ownerDna }) {
             <div className="card-body">
                 {/* Health score + record */}
                 <div className="record-row">
-                    <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:'1.5rem', color:scoreBarColor, lineHeight:1 }}>{healthScore}</span>
+                    <span style={{ fontFamily:'Inter,sans-serif', fontSize:'1.5rem', color:scoreBarColor, lineHeight:1 }}>{healthScore}</span>
                     <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end' }}>
                         <span className="record-text">{wins}-{losses}{ties>0?`-${ties}`:''}</span>
                         <span className="pts-text">{pf > 0 ? `${pf.toFixed(0)} PF` : ''}</span>
@@ -2360,7 +2360,7 @@ function TradeCalculator() {
                         <div onClick={() => setShowEliteModal(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem' }}>
                             <div onClick={e => e.stopPropagation()} style={{ background:'#13171e', border:'1px solid rgba(212,175,55,0.35)', borderRadius:8, padding:'1.2rem', maxWidth:420, width:'100%', maxHeight:'80vh', overflowY:'auto' }}>
                                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.8rem' }}>
-                                    <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:'1.2rem', color:'var(--gold)', letterSpacing:'0.08em' }}>★ ELITE PLAYERS ({eliteList.length})</div>
+                                    <div style={{ fontFamily:'Inter,sans-serif', fontSize:'1.2rem', color:'var(--gold)', letterSpacing:'0.08em' }}>★ ELITE PLAYERS ({eliteList.length})</div>
                                     <button onClick={() => setShowEliteModal(false)} style={{ background:'none', border:'none', color:'var(--silver)', fontSize:'1.1rem', cursor:'pointer', opacity:0.6, lineHeight:1 }}>✕</button>
                                 </div>
                                 <div style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.45, marginBottom:'0.8rem' }}>Top 5 at their position league-wide</div>
@@ -2398,7 +2398,7 @@ function TradeCalculator() {
                                         <div style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.6 }}>{myAssessment.wins}–{myAssessment.losses}{myAssessment.ties>0?`–${myAssessment.ties}`:''} · {myAssessment.pf > 0 ? `${myAssessment.pf.toFixed(0)} PF` : ''}</div>
                                     </div>
                                     <div style={{ textAlign:'right' }}>
-                                        <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:'2.2rem', lineHeight:1, color: myAssessment.healthScore>=85?'#D4AF37':myAssessment.healthScore>=70?'#2ECC71':myAssessment.healthScore>=55?'#F0A500':'#E74C3C' }}>
+                                        <div style={{ fontFamily:'Inter,sans-serif', fontSize:'2.2rem', lineHeight:1, color: myAssessment.healthScore>=85?'#D4AF37':myAssessment.healthScore>=70?'#2ECC71':myAssessment.healthScore>=55?'#F0A500':'#E74C3C' }}>
                                             {myAssessment.healthScore}
                                         </div>
                                         <div style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.5 }}>HEALTH SCORE</div>
@@ -2463,7 +2463,7 @@ function TradeCalculator() {
                         <div>
                             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.5rem' }}>
                                 <div style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.6 }}>{selectedDetail.wins}–{selectedDetail.losses} · {selectedDetail.pf>0?`${selectedDetail.pf.toFixed(0)} PF`:''}</div>
-                                <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:'1.8rem', lineHeight:1, color:selectedDetail.tierColor }}>{selectedDetail.healthScore}</div>
+                                <div style={{ fontFamily:'Inter,sans-serif', fontSize:'1.8rem', lineHeight:1, color:selectedDetail.tierColor }}>{selectedDetail.healthScore}</div>
                             </div>
                             <div className="score-row" style={{ marginBottom:'0.4rem' }}>
                                 <span className="score-label">WEEKLY</span>
@@ -2701,7 +2701,7 @@ function TradeCalculator() {
                                     <div style={{ background:'rgba(99,102,241,0.06)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:'6px', padding:'0.4rem 0.6rem' }}>
                                         <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', marginBottom:'0.2rem' }}>
                                             <span style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.5, textTransform:'uppercase', letterSpacing:'0.06em' }}>Draft DNA</span>
-                                            <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#a5b4fc', fontFamily:'DM Sans,sans-serif', letterSpacing:'0.03em' }}>{draftDna.label}</span>
+                                            <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#a5b4fc', fontFamily:'Inter,sans-serif', letterSpacing:'0.03em' }}>{draftDna.label}</span>
                                             <span style={{ fontSize:'0.55rem', color:'var(--silver)', opacity:0.4, marginLeft:'auto' }}>{draftDna.seasons} · {draftDna.picksAnalyzed} picks</span>
                                         </div>
                                         <div style={{ fontSize:'0.6rem', color:'var(--silver)', opacity:0.55, fontStyle:'italic' }}>{draftDna.tendency}</div>
@@ -2711,19 +2711,19 @@ function TradeCalculator() {
                                 {/* Roster quick-stats */}
                                 <div style={{ display:'flex', gap:'0.75rem', paddingTop:'0.25rem' }}>
                                     <div style={{ textAlign:'center' }}>
-                                        <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:'1rem', color:a.tierColor }}>{a.healthScore}</div>
+                                        <div style={{ fontFamily:'Inter,sans-serif', fontSize:'1rem', color:a.tierColor }}>{a.healthScore}</div>
                                         <div style={{ fontSize:'0.52rem', color:'var(--silver)', opacity:0.5 }}>HEALTH</div>
                                     </div>
                                     <div style={{ textAlign:'center' }}>
-                                        <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:'1rem', color: a.panic>=3?'var(--loss-red)':'var(--silver)' }}>{a.panic}/5</div>
+                                        <div style={{ fontFamily:'Inter,sans-serif', fontSize:'1rem', color: a.panic>=3?'var(--loss-red)':'var(--silver)' }}>{a.panic}/5</div>
                                         <div style={{ fontSize:'0.52rem', color:'var(--silver)', opacity:0.5 }}>PANIC</div>
                                     </div>
                                     <div style={{ textAlign:'center' }}>
-                                        <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:'1rem', color:'var(--silver)' }}>{a.wins}-{a.losses}</div>
+                                        <div style={{ fontFamily:'Inter,sans-serif', fontSize:'1rem', color:'var(--silver)' }}>{a.wins}-{a.losses}</div>
                                         <div style={{ fontSize:'0.52rem', color:'var(--silver)', opacity:0.5 }}>RECORD</div>
                                     </div>
                                     <div style={{ textAlign:'center' }}>
-                                        <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:'1rem', color:'var(--silver)' }}>{a.weeklyPts > 0 ? a.weeklyPts : '—'}</div>
+                                        <div style={{ fontFamily:'Inter,sans-serif', fontSize:'1rem', color:'var(--silver)' }}>{a.weeklyPts > 0 ? a.weeklyPts : '—'}</div>
                                         <div style={{ fontSize:'0.52rem', color:'var(--silver)', opacity:0.5 }}>WK/PTS</div>
                                     </div>
                                 </div>
@@ -2914,7 +2914,7 @@ function TradeCalculator() {
 
             return (
                 <div className={`ta-side side-${side.toLowerCase()}`}>
-                    <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:'0.95rem', color, letterSpacing:'0.08em' }}>{label}</span>
+                    <span style={{ fontFamily:'Inter,sans-serif', fontSize:'0.95rem', color, letterSpacing:'0.08em' }}>{label}</span>
 
                     {/* Owner selector — both sides */}
                     <select
@@ -3101,7 +3101,7 @@ function TradeCalculator() {
 
                     {/* ── League Scouting Panel ── */}
                     <div className="scout-panel">
-                        <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:'0.92rem', color:'var(--gold)', letterSpacing:'0.1em', marginBottom:'0.2rem' }}>
+                        <div style={{ fontFamily:'Inter,sans-serif', fontSize:'0.92rem', color:'var(--gold)', letterSpacing:'0.1em', marginBottom:'0.2rem' }}>
                             LEAGUE TEAMS
                         </div>
                         <div style={{ fontSize:'0.62rem', color:'var(--silver)', opacity:0.5, marginBottom:'0.3rem', lineHeight:1.4 }}>
@@ -3185,7 +3185,7 @@ function TradeCalculator() {
                         {/* Value differential */}
                         <div style={{ display:'flex', alignItems:'baseline', gap:'0.6rem', flexWrap:'wrap' }}>
                             <span className="verdict-diff" style={{ color: verdictColor }}>{diffDisplay}</span>
-                            <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:'1.1rem', color: verdictColor }}>{verdictText}</span>
+                            <span style={{ fontFamily:'Inter,sans-serif', fontSize:'1.1rem', color: verdictColor }}>{verdictText}</span>
                             <span style={{ fontSize:'0.62rem', color:'var(--silver)', opacity:0.55 }}>
                                 (gave {totalA.toLocaleString()} · received {totalB.toLocaleString()})
                             </span>
@@ -3244,7 +3244,7 @@ function TradeCalculator() {
                         <div>
                             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.3rem' }}>
                                 <span style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.7, textTransform:'uppercase', letterSpacing:'0.06em' }}>Likelihood of Acceptance</span>
-                                <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:'1.4rem', color: likelihoodColor }}>{likelihood}%</span>
+                                <span style={{ fontFamily:'Inter,sans-serif', fontSize:'1.4rem', color: likelihoodColor }}>{likelihood}%</span>
                             </div>
                             <div className="likelihood-bar-wrap">
                                 <div className="likelihood-bar-fill" style={{ width:`${likelihood}%`, background: likelihoodColor }} />
@@ -3269,9 +3269,9 @@ function TradeCalculator() {
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             return escaped
                 .replace(/\*\*([^*\n]+)\*\*/g, '<strong style="color:var(--gold);font-weight:700">$1</strong>')
-                .replace(/^### (.+)$/gm, '<div style="font-family:DM Sans,sans-serif;font-size:0.95rem;color:var(--gold);margin:0.85rem 0 0.25rem;letter-spacing:0.08em">$1</div>')
-                .replace(/^## (.+)$/gm,  '<div style="font-family:DM Sans,sans-serif;font-size:1.05rem;color:var(--gold);margin:1rem 0 0.35rem;letter-spacing:0.1em">$1</div>')
-                .replace(/^# (.+)$/gm,   '<div style="font-family:DM Sans,sans-serif;font-size:1.2rem;color:var(--gold);margin:1rem 0 0.4rem;letter-spacing:0.12em">$1</div>')
+                .replace(/^### (.+)$/gm, '<div style="font-family:Inter,sans-serif;font-size:0.95rem;color:var(--gold);margin:0.85rem 0 0.25rem;letter-spacing:0.08em">$1</div>')
+                .replace(/^## (.+)$/gm,  '<div style="font-family:Inter,sans-serif;font-size:1.05rem;color:var(--gold);margin:1rem 0 0.35rem;letter-spacing:0.1em">$1</div>')
+                .replace(/^# (.+)$/gm,   '<div style="font-family:Inter,sans-serif;font-size:1.2rem;color:var(--gold);margin:1rem 0 0.4rem;letter-spacing:0.12em">$1</div>')
                 .replace(/^- (.+)$/gm, '<div style="padding-left:0.8rem;margin:0.12rem 0">• $1</div>')
                 .replace(/\n\n/g, '<div style="margin:0.45rem 0"></div>')
                 .replace(/\n/g, '<br>');
@@ -3390,7 +3390,7 @@ function TradeCalculator() {
                 {/* Header */}
                 <div style={{ marginBottom:'1rem' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.3rem' }}>
-                        <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:'1.3rem', color:'var(--gold)', letterSpacing:'0.1em' }}>AI Scout</div>
+                        <div style={{ fontFamily:'Inter,sans-serif', fontSize:'1.3rem', color:'var(--gold)', letterSpacing:'0.1em' }}>AI Scout</div>
                         <span className="ai-beta-tag">Beta</span>
                     </div>
                     <div style={{ fontSize:'0.65rem', color:'var(--silver)', opacity:0.55, lineHeight:1.5 }}>
@@ -3484,7 +3484,7 @@ function TradeCalculator() {
                 <select
                     value={selectedYear}
                     onChange={e => setSelectedYear(e.target.value)}
-                    style={{ background:'var(--charcoal)', border:'1px solid rgba(212,175,55,0.4)', borderRadius:'4px', color:'var(--gold)', fontFamily:'DM Sans,sans-serif', fontWeight:'700', fontSize:'0.72rem', padding:'0.18rem 0.45rem', cursor:'pointer', outline:'none', flexShrink:0 }}
+                    style={{ background:'var(--charcoal)', border:'1px solid rgba(212,175,55,0.4)', borderRadius:'4px', color:'var(--gold)', fontFamily:'Inter,sans-serif', fontWeight:'700', fontSize:'0.72rem', padding:'0.18rem 0.45rem', cursor:'pointer', outline:'none', flexShrink:0 }}
                 >
                     {AVAILABLE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>

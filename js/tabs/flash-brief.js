@@ -32,7 +32,7 @@ function FlashBriefPanel({
 
     return (
         <div style={{ padding: '16px', maxWidth: '800px', margin: '0 auto' }} className="wr-fade-in">
-            <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '12px' }}>BRIEF</div>
+            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '12px' }}>BRIEF</div>
 
             {/* 1. Alex Ingram Diagnosis */}
             <GMMessage compact>
@@ -62,7 +62,7 @@ function FlashBriefPanel({
                     .sort((a, b) => b.dhq - a.dhq)[0] : null;
                 return (
                     <div style={{ background: 'rgba(46,204,113,0.06)', border: '1px solid rgba(46,204,113,0.2)', borderRadius: '10px', padding: '10px 14px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#2ECC71', background: 'rgba(46,204,113,0.15)', padding: '2px 8px', borderRadius: '4px', fontFamily: 'Oswald' }}>BUY</span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#2ECC71', background: 'rgba(46,204,113,0.15)', padding: '2px 8px', borderRadius: '4px', fontFamily: 'Inter, sans-serif' }}>BUY</span>
                         <div>
                             {_waiverTarget ? (<>
                                 <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)' }}>Target {_waiverTarget.name} on waivers</div>
@@ -81,13 +81,13 @@ function FlashBriefPanel({
 
             {/* 3. Navigation CTAs */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                <button onClick={() => setActiveTab('trades')} style={{ flex: 1, padding: '8px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Oswald', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}>FIND TRADES</button>
-                <button onClick={() => setActiveTab('fa')} style={{ flex: 1, padding: '8px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', fontFamily: 'Oswald', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}>FREE AGENTS</button>
+                <button onClick={() => setActiveTab('trades')} style={{ flex: 1, padding: '8px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}>FIND TRADES</button>
+                <button onClick={() => setActiveTab('fa')} style={{ flex: 1, padding: '8px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}>FREE AGENTS</button>
             </div>
 
             {/* 4. FAAB Remaining */}
             {budget > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', marginBottom: '12px' }}>
-                <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: faabRemaining > budget * 0.5 ? '#2ECC71' : faabRemaining > budget * 0.25 ? 'var(--gold)' : '#E74C3C' }}>{'$' + faabRemaining}</span>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.3rem', fontWeight: 600, color: faabRemaining > budget * 0.5 ? '#2ECC71' : faabRemaining > budget * 0.25 ? 'var(--gold)' : '#E74C3C' }}>{'$' + faabRemaining}</span>
                 <span style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>FAAB remaining of ${budget}</span>
             </div>}
 
@@ -113,7 +113,7 @@ function FlashBriefPanel({
                 }
                 if (!recentDrops.length) return null;
                 return <div style={{ marginBottom: '12px' }}>
-                    <div style={{ fontFamily: 'Oswald', fontSize: '0.82rem', color: '#F0A500', letterSpacing: '0.04em', marginBottom: '6px' }}>CHURN ALERTS</div>
+                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', color: '#F0A500', letterSpacing: '0.04em', marginBottom: '6px' }}>CHURN ALERTS</div>
                     {recentDrops.slice(0, 3).map(d =>
                         <div key={d.pid} onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(d.pid); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'rgba(240,165,0,0.04)', border: '1px solid rgba(240,165,0,0.12)', borderRadius: '6px', marginBottom: '4px', cursor: 'pointer', fontSize: '0.78rem' }}>
                             <span style={{ color: 'var(--white)', fontWeight: 600 }}>{d.name}</span>
@@ -130,7 +130,7 @@ function FlashBriefPanel({
                 const days = Math.floor(diff / 86400000);
                 const hours = Math.floor((diff % 86400000) / 3600000);
                 return <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', marginBottom: '12px' }}>
-                    <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)' }}>{days}D {hours}H</span>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.1rem', fontWeight: 600, color: 'var(--gold)' }}>{days}D {hours}H</span>
                     <span style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>until draft · {new Date(briefDraftInfo.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                 </div>;
             })()}
@@ -138,17 +138,17 @@ function FlashBriefPanel({
             {/* 9. Draft Class Preview */}
             <div style={{ padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', marginBottom: '12px' }}>
                 <div style={{ fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.5 }}>Draft class intel available via the AI advisor.</div>
-                <button onClick={() => { if (typeof setReconPanelOpen === 'function') setReconPanelOpen(true); if (typeof sendReconMessage === 'function') sendReconMessage('What are the strongest position groups in the upcoming rookie draft class?'); }} style={{ marginTop: '6px', padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Oswald', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '4px', color: 'var(--gold)', cursor: 'pointer' }}>Ask Alex about draft class</button>
+                <button onClick={() => { if (typeof setReconPanelOpen === 'function') setReconPanelOpen(true); if (typeof sendReconMessage === 'function') sendReconMessage('What are the strongest position groups in the upcoming rookie draft class?'); }} style={{ marginTop: '6px', padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '4px', color: 'var(--gold)', cursor: 'pointer' }}>Ask Alex about draft class</button>
             </div>
 
             {/* 10. Your Power Rank */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px' }}>
-                <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--gold)' }}>#{myRank}</span>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.3rem', fontWeight: 600, color: 'var(--gold)' }}>#{myRank}</span>
                 <div>
                     <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--white)' }}>Power Ranking</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>{tier} · {myRank} of {rankedTeams.length}</div>
                 </div>
-                <button onClick={() => setActiveTab('league')} style={{ marginLeft: 'auto', fontSize: '0.68rem', fontFamily: 'Oswald', color: 'var(--gold)', background: 'none', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>View All</button>
+                <button onClick={() => setActiveTab('league')} style={{ marginLeft: 'auto', fontSize: '0.68rem', fontFamily: 'Inter, sans-serif', color: 'var(--gold)', background: 'none', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>View All</button>
             </div>
         </div>
     );

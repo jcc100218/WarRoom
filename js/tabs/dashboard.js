@@ -16,9 +16,9 @@ function DashboardPanel({
   setSelectedKpis,
 }) {
     const kpiCardStyle = { background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', padding: '10px 12px', textAlign: 'center' };
-    const kpiLabelStyle = { fontSize: '0.68rem', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif', letterSpacing: '0.08em', marginBottom: '4px', fontWeight: '700' };
-    const kpiValueStyle = { fontSize: '1.3rem', fontWeight: '700', color: 'var(--white)', fontFamily: 'Bebas Neue, cursive', lineHeight: 1, letterSpacing: '0.03em' };
-    const kpiSubStyle = { fontSize: '0.68rem', color: 'var(--silver)', marginTop: '2px', fontFamily: 'Oswald, sans-serif', opacity: 0.7 };
+    const kpiLabelStyle = { fontSize: '0.75rem', color: 'var(--gold)', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em', marginBottom: '4px', fontWeight: 500, opacity: 0.9 };
+    const kpiValueStyle = { fontSize: '1.3rem', fontWeight: '600', color: 'var(--white)', fontFamily: 'JetBrains Mono, monospace', lineHeight: 1, letterSpacing: '-0.02em' };
+    const kpiSubStyle = { fontSize: '0.6875rem', color: 'var(--silver)', marginTop: '2px', fontFamily: 'Inter, sans-serif', fontWeight: 500, opacity: 0.85 };
 
     const myRankIdx = rankedTeams.findIndex(t => t.userId === sleeperUserId);
     const myTeam = myRankIdx >= 0 ? rankedTeams[myRankIdx] : null;
@@ -65,12 +65,12 @@ function DashboardPanel({
                                 const _first = val.sparkData[0], _last = val.sparkData[val.sparkData.length - 1];
                                 if (!_first) return null;
                                 const _pct = Math.round((_last - _first) / Math.abs(_first) * 100);
-                                if (Math.abs(_pct) < 2) return React.createElement('div', { style:{ fontSize:'0.65rem', color:'var(--silver)', marginTop:'2px', fontFamily:'Oswald, sans-serif', opacity:0.6 } }, '\u2192 Stable');
+                                if (Math.abs(_pct) < 2) return React.createElement('div', { style:{ fontSize:'0.65rem', color:'var(--silver)', marginTop:'2px', fontFamily:'Inter, sans-serif', opacity:0.6 } }, '\u2192 Stable');
                                 const _up = _pct > 0;
-                                return React.createElement('div', { style:{ fontSize:'0.65rem', color: _up ? '#2ECC71' : '#E74C3C', marginTop:'2px', fontFamily:'Oswald, sans-serif', fontWeight:600 } }, (_up ? '\u2191 ' : '\u2193 ') + Math.abs(_pct) + '% projected');
+                                return React.createElement('div', { style:{ fontSize:'0.65rem', color: _up ? '#2ECC71' : '#E74C3C', marginTop:'2px', fontFamily:'Inter, sans-serif', fontWeight:600 } }, (_up ? '\u2191 ' : '\u2193 ') + Math.abs(_pct) + '% projected');
                             })()}
                             {/* Contextual annotation */}
-                            {(() => { const ann = getKpiAnnotation(kpiKey, val.value); return ann ? React.createElement('div', { style:{fontSize:'0.7rem',color:'var(--gold)',marginTop:'6px',fontFamily:'Oswald',fontWeight:600,letterSpacing:'0.02em',borderTop:'1px solid rgba(212,175,55,0.15)',paddingTop:'6px'} }, ann) : null; })()}
+                            {(() => { const ann = getKpiAnnotation(kpiKey, val.value); return ann ? React.createElement('div', { style:{fontSize:'0.7rem',color:'var(--gold)',marginTop:'6px',fontFamily:'Inter, sans-serif',fontWeight:600,letterSpacing:'0.02em',borderTop:'1px solid rgba(212,175,55,0.15)',paddingTop:'6px'} }, ann) : null; })()}
 
                             {/* Dropdown picker */}
                             {isEditing && (
@@ -128,11 +128,11 @@ function DashboardPanel({
             {rankedTeams.length > 0 && (() => {
                 return <div style={{ padding: '0 24px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em' }}>POWER RANKINGS</div>
-                        <button onClick={() => setActiveTab('league')} style={{ fontSize: '0.7rem', fontFamily: 'Oswald', color: 'var(--gold)', background: 'none', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>View All</button>
+                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em' }}>POWER RANKINGS</div>
+                        <button onClick={() => setActiveTab('league')} style={{ fontSize: '0.7rem', fontFamily: 'Inter, sans-serif', color: 'var(--gold)', background: 'none', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>View All</button>
                     </div>
                     {myTeam && <div className="wr-my-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px' }}>
-                        <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--gold)' }}>#{myRankIdx + 1}</span>
+                        <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.4rem', color: 'var(--gold)' }}>#{myRankIdx + 1}</span>
                         <div style={{ flex: 1 }}>
                             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)' }}>{myTeam.displayName}</div>
                             <div style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>{myTeam.tier} {'\u00B7'} Health {myTeam.healthScore}</div>

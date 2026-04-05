@@ -113,15 +113,15 @@
         }
 
         const sectionStyle = { marginBottom: '1.25rem', padding: '1rem', background: 'rgba(212,175,55,0.07)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px' };
-        const sectionTitle = { fontFamily: 'Bebas Neue, cursive', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.12em', marginBottom: '0.75rem' };
-        const inputStyle = { width: '100%', padding: '0.55rem 0.75rem', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--white)', fontFamily: 'Oswald, sans-serif', fontSize: '0.85rem', marginBottom: '0.5rem' };
-        const btnPrimary = { flex: 1, padding: '0.6rem', background: 'var(--gold)', border: 'none', borderRadius: '6px', color: 'var(--black)', fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' };
-        const btnOutline = { flex: 1, padding: '0.6rem', background: 'transparent', border: '1px solid var(--gold)', borderRadius: '6px', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' };
+        const sectionTitle = { fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.12em', marginBottom: '0.75rem' };
+        const inputStyle = { width: '100%', padding: '0.55rem 0.75rem', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--white)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', marginBottom: '0.5rem' };
+        const btnPrimary = { flex: 1, padding: '0.6rem', background: 'var(--gold)', border: 'none', borderRadius: '6px', color: 'var(--black)', fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' };
+        const btnOutline = { flex: 1, padding: '0.6rem', background: 'transparent', border: '1px solid var(--gold)', borderRadius: '6px', color: 'var(--gold)', fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' };
 
         return (
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={onClose}>
                 <div style={{ background: 'linear-gradient(135deg, var(--off-black) 0%, var(--charcoal) 100%)', border: '3px solid var(--gold)', borderRadius: '12px', padding: '1.5rem', maxWidth: '440px', width: '100%', boxShadow: '0 8px 32px rgba(0,0,0,0.8)', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                    <h2 style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.5rem', color: 'var(--gold)', marginBottom: '0.75rem', textAlign: 'center', letterSpacing: '0.1em' }}>SETTINGS</h2>
+                    <h2 style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.5rem', color: 'var(--gold)', marginBottom: '0.75rem', textAlign: 'center', letterSpacing: '0.1em' }}>SETTINGS</h2>
 
                     <div style={{ fontSize: '0.85rem', color: 'var(--silver)', marginBottom: '1rem' }}>
                         Logged in as: <strong style={{ color: 'var(--white)' }}>{sleeperUsername}</strong>
@@ -141,7 +141,7 @@
                                 borderBottom: settingsTab === tab.id ? '2px solid var(--gold)' : '2px solid transparent',
                                 marginBottom: '-2px',
                                 color: settingsTab === tab.id ? 'var(--gold)' : 'var(--silver)',
-                                fontFamily: 'Oswald, sans-serif', fontSize: '0.82rem',
+                                fontFamily: 'Inter, sans-serif', fontSize: '0.82rem',
                                 fontWeight: settingsTab === tab.id ? 700 : 400,
                                 letterSpacing: '0.05em', textTransform: 'uppercase',
                                 cursor: 'pointer', transition: 'all 0.15s'
@@ -204,7 +204,7 @@
                                                     ? <span style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>checking…</span>
                                                     : hasAccess
                                                         ? <span style={{ fontSize: '0.76rem', color: 'var(--win-green)', fontWeight: 700 }}>ok Has access</span>
-                                                        : <button onClick={() => handleGiftAccess(mate)} disabled={isGifting} style={{ padding: '0.2rem 0.55rem', background: 'var(--gold)', border: 'none', borderRadius: '4px', color: 'var(--black)', fontFamily: 'Oswald,sans-serif', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+                                                        : <button onClick={() => handleGiftAccess(mate)} disabled={isGifting} style={{ padding: '0.2rem 0.55rem', background: 'var(--gold)', border: 'none', borderRadius: '4px', color: 'var(--black)', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
                                                             {isGifting ? '…' : 'Generate Link'}
                                                         </button>
                                                 }
@@ -265,7 +265,7 @@
                                 {!hasServer && <div style={{ marginTop: '8px' }}>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '4px' }}>OPTIONAL: Add your own API key (power users)</div>
                                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                        <select id="wr-ai-provider" defaultValue="gemini" style={{ padding: '6px 10px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--silver)', fontFamily: 'Oswald', fontSize: '0.78rem' }}>
+                                        <select id="wr-ai-provider" defaultValue="gemini" style={{ padding: '6px 10px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--silver)', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem' }}>
                                             <option value="gemini">Gemini (Free)</option>
                                             <option value="anthropic">Claude</option>
                                         </select>
@@ -296,11 +296,11 @@
                                 Object.keys(localStorage).filter(k => k.startsWith('dhq_hist_')).forEach(k => localStorage.removeItem(k));
                                 if (window.App) { window.App.LI = {}; window.App.LI_LOADED = false; }
                                 alert('DHQ cache cleared. Reload to rebuild.');
-                            }} style={{ padding: '6px 12px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '4px', color: '#E74C3C', cursor: 'pointer' }}>
+                            }} style={{ padding: '6px 12px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '4px', color: '#E74C3C', cursor: 'pointer' }}>
                                 Clear DHQ Cache
                             </button>
                             <button onClick={() => { sessionStorage.clear(); alert('Session cache cleared.'); }}
-                                style={{ padding: '6px 12px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--silver)', cursor: 'pointer' }}>
+                                style={{ padding: '6px 12px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--silver)', cursor: 'pointer' }}>
                                 Clear Session Cache
                             </button>
                         </div>
@@ -316,10 +316,10 @@
                     </>)}
 
                     <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column', marginTop: '1.5rem' }}>
-                        <button onClick={handleLogout} style={{ padding: '0.75rem', background: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)', border: 'none', borderRadius: '8px', color: 'white', fontFamily: 'Oswald, sans-serif', fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>
+                        <button onClick={handleLogout} style={{ padding: '0.75rem', background: 'linear-gradient(135deg, #E74C3C 0%, #C0392B 100%)', border: 'none', borderRadius: '8px', color: 'white', fontFamily: 'Inter, sans-serif', fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>
                             Logout
                         </button>
-                        <button onClick={onClose} style={{ padding: '0.75rem', background: 'var(--black)', border: '2px solid var(--gold)', borderRadius: '8px', color: 'var(--gold)', fontFamily: 'Oswald, sans-serif', fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>
+                        <button onClick={onClose} style={{ padding: '0.75rem', background: 'var(--black)', border: '2px solid var(--gold)', borderRadius: '8px', color: 'var(--gold)', fontFamily: 'Inter, sans-serif', fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>
                             Close
                         </button>
                     </div>

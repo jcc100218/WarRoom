@@ -69,7 +69,7 @@ function LeagueMapTab({
     return b.losses - a.losses;
   });
   const sortBtnStyle = (active) => ({
-    padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Oswald, sans-serif', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', transition: 'all 0.15s',
+    padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', transition: 'all 0.15s',
     border: '1px solid ' + (active ? 'var(--gold)' : 'rgba(212,175,55,0.3)'),
     background: active ? 'var(--gold)' : 'transparent',
     color: active ? 'var(--black)' : 'var(--gold)',
@@ -77,7 +77,7 @@ function LeagueMapTab({
 
   return (
     <div style={{ padding: '16px' }}>
-      <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--gold)', marginBottom: '2px' }}>LEAGUE MAP</div>
+      <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '2px' }}>LEAGUE MAP</div>
       <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' }}>Every team, asset, and competitive position in your league</div>
       {/* League Overview — always shown */}
       {(() => {
@@ -115,13 +115,13 @@ function LeagueMapTab({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Tier Overview */}
             <div>
-              <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '10px' }}>COMPETITIVE TIERS</div>
+              <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '10px' }}>COMPETITIVE TIERS</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
                 {Object.entries(tiers).map(([tierName, teams]) => (
                   <div key={tierName} className="wr-glass" style={{ background: 'var(--black)', border: '2px solid ' + (tierColors[tierName] || '#666') + '44', borderRadius: '10px', padding: '14px', borderLeft: '4px solid ' + (tierColors[tierName] || '#666') }}>
-                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: tierColors[tierName], marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: tierColors[tierName], marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       {tierName}
-                      <span style={{ fontSize: '0.74rem', fontFamily: 'Oswald', color: 'var(--silver)', fontWeight: 400 }}>{teams.length} team{teams.length !== 1 ? 's' : ''}</span>
+                      <span style={{ fontSize: '0.74rem', fontFamily: 'Inter, sans-serif', color: 'var(--silver)', fontWeight: 400 }}>{teams.length} team{teams.length !== 1 ? 's' : ''}</span>
                     </div>
                     {teams.length === 0 ? <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.5 }}>None</div> : teams.map(t => (
                       <div key={t.rosterId} className={t.ownerId === sleeperUserId ? 'wr-my-row' : undefined} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px' }}>
@@ -164,9 +164,9 @@ function LeagueMapTab({
 
               return <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                  <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.06em' }}>POWER RANKINGS</div>
+                  <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.06em' }}>POWER RANKINGS</div>
                   <div style={{ display: 'flex', gap: '4px', marginLeft: 'auto' }}>
-                    {views.map(v => <button key={v.key} onClick={() => { window._wrPrView = v.key; setTimeRecomputeTs(Date.now()); }} style={{ padding: '3px 10px', fontSize: '0.68rem', fontFamily: 'Oswald', borderRadius: '4px', cursor: 'pointer', border: '1px solid ' + (prView === v.key ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'), background: prView === v.key ? 'rgba(212,175,55,0.12)' : 'transparent', color: prView === v.key ? 'var(--gold)' : 'var(--silver)' }}>{v.label}</button>)}
+                    {views.map(v => <button key={v.key} onClick={() => { window._wrPrView = v.key; setTimeRecomputeTs(Date.now()); }} style={{ padding: '3px 10px', fontSize: '0.68rem', fontFamily: 'Inter, sans-serif', borderRadius: '4px', cursor: 'pointer', border: '1px solid ' + (prView === v.key ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'), background: prView === v.key ? 'rgba(212,175,55,0.12)' : 'transparent', color: prView === v.key ? 'var(--gold)' : 'var(--silver)' }}>{v.label}</button>)}
                   </div>
                 </div>
                 <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
@@ -185,7 +185,7 @@ function LeagueMapTab({
                         const pct = Math.min(100, Math.round((val / maxVal) * 100));
                         return (
                           <div key={t.rosterId} className={isMe ? 'wr-my-row' : undefined} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', background: isMe ? 'rgba(212,175,55,0.04)' : 'transparent', ...(showMe && di === 5 ? { borderTop: '1px dashed rgba(212,175,55,0.2)' } : {}) }}>
-                            <span style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', width: '20px', textAlign: 'center' }}>{i + 1}</span>
+                            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', width: '20px', textAlign: 'center' }}>{i + 1}</span>
                             <div style={{ flex: 1, overflow: 'hidden' }}>
                               <span style={{ fontSize: '0.78rem', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.ownerName}{isMe ? ' (You)' : ''}</span>
                             </div>
@@ -193,7 +193,7 @@ function LeagueMapTab({
                             <div style={{ width: '60px', height: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', flexShrink: 0 }}>
                               <div style={{ width: pct + '%', height: '100%', borderRadius: '3px', background: view.colFn(val, i) }}></div>
                             </div>
-                            <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'Oswald', color: view.colFn(val, i), width: '36px', textAlign: 'right' }}>{view.fmtFn(val)}</span>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'Inter, sans-serif', color: view.colFn(val, i), width: '36px', textAlign: 'right' }}>{view.fmtFn(val)}</span>
                           </div>
                         );
                       })}
@@ -207,7 +207,7 @@ function LeagueMapTab({
             {/* Trade Targets (players on rebuilding/transitioning teams) */}
             {tradeTargets.length > 0 && (
               <div>
-                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '10px' }}>TOP TRADE TARGETS</div>
+                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '10px' }}>TOP TRADE TARGETS</div>
                 <div style={{ fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '8px' }}>High-value players on rebuilding or transitioning teams</div>
                 <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
                   {tradeTargets.slice(0, 10).map((t, i) => {
@@ -226,7 +226,7 @@ function LeagueMapTab({
                           <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--white)' }}>{p.full_name || (p.first_name + ' ' + p.last_name)}</div>
                           <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.7 }}>{p.position} {'\u00B7'} {p.team || 'FA'} {'\u00B7'} Owned by {t.owner} ({t.tier})</div>
                         </div>
-                        <span style={{ fontWeight: 700, fontFamily: 'Oswald', fontSize: '0.84rem', color: t.dhq >= 7000 ? '#2ECC71' : '#3498DB' }}>{t.dhq.toLocaleString()}</span>
+                        <span style={{ fontWeight: 700, fontFamily: 'Inter, sans-serif', fontSize: '0.84rem', color: t.dhq >= 7000 ? '#2ECC71' : '#3498DB' }}>{t.dhq.toLocaleString()}</span>
                       </div>
                     );
                   })}
@@ -237,7 +237,7 @@ function LeagueMapTab({
             {/* Power Balance Radar — Top 3 Teams */}
             {top3.length >= 2 && typeof RadarChart !== 'undefined' && (
               <div>
-                <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '10px' }}>POWER BALANCE — TOP 3</div>
+                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '10px' }}>POWER BALANCE — TOP 3</div>
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 250px', display: 'flex', justifyContent: 'center' }}>
                     {React.createElement(RadarChart, {
@@ -262,7 +262,7 @@ function LeagueMapTab({
                   <div style={{ flex: '1 1 200px' }}>
                     {top3.map((t, i) => (
                       <div key={t.rosterId} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0' }}>
-                        <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.2rem', color: i === 0 ? '#D4AF37' : i === 1 ? '#C0C0C0' : '#CD7F32', width: '20px' }}>{i + 1}</span>
+                        <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.2rem', color: i === 0 ? '#D4AF37' : i === 1 ? '#C0C0C0' : '#CD7F32', width: '20px' }}>{i + 1}</span>
                         <div>
                           <div style={{ fontSize: '0.84rem', fontWeight: 600, color: t.ownerId === sleeperUserId ? 'var(--gold)' : 'var(--white)' }}>{t.ownerName}</div>
                           <div style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>{t.tier} {'\u00B7'} Health: {t.healthScore} {'\u00B7'} {t.strengths?.length ? 'Strong: ' + t.strengths.join(', ') : ''}</div>
@@ -371,7 +371,7 @@ function LeagueMapTab({
                   <div style={{ fontSize: '0.74rem', color: 'var(--silver)', lineHeight: 1.4 }}>
                     {/* Status tag + health */}
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
-                      {tier2 && <span style={{ fontSize: '0.7rem', fontWeight: 700, color: tierCol2, background: tierCol2 + '15', padding: '1px 8px', borderRadius: '4px', textTransform: 'uppercase', fontFamily: 'Oswald' }}>{tier2}</span>}
+                      {tier2 && <span style={{ fontSize: '0.7rem', fontWeight: 700, color: tierCol2, background: tierCol2 + '15', padding: '1px 8px', borderRadius: '4px', textTransform: 'uppercase', fontFamily: 'Inter, sans-serif' }}>{tier2}</span>}
                       {hs2 > 0 && <span style={{ fontSize: '0.72rem', color: hs2 >= 75 ? '#2ECC71' : hs2 >= 55 ? '#F0A500' : '#E74C3C', fontWeight: 600 }}>{hs2} health</span>}
                     </div>
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '4px', opacity: 0.7 }}>
@@ -385,7 +385,7 @@ function LeagueMapTab({
                     {scored.sort((a2,b2) => b2.dhq - a2.dhq).slice(0, 3).map(x => (
                       <div key={x.pid} style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>{playersData[x.pid]?.full_name || '?'}</span>
-                        <span style={{ color: x.dhq >= 7000 ? '#2ECC71' : x.dhq >= 4000 ? '#3498DB' : 'var(--silver)', fontFamily: 'Oswald' }}>{x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'}</span>
+                        <span style={{ color: x.dhq >= 7000 ? '#2ECC71' : x.dhq >= 4000 ? '#3498DB' : 'var(--silver)', fontFamily: 'Inter, sans-serif' }}>{x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'}</span>
                       </div>
                     ))}
                   </div>
@@ -427,7 +427,7 @@ function LeagueMapTab({
                 <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
                     {['','QB','RB','WR','TE','DL','LB','DB','K'].map(pos => (
                         <button key={pos} onClick={() => setLpFilter(pos)} style={{
-                            padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Oswald', textTransform: 'uppercase',
+                            padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
                             background: lpFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
                             color: lpFilter === pos ? 'var(--black)' : 'var(--silver)',
                             border: '1px solid ' + (lpFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
@@ -437,7 +437,7 @@ function LeagueMapTab({
                     <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: 'var(--silver)', alignSelf: 'center' }}>{filtered.length} players</span>
                 </div>
                 <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '24px 28px 1fr 36px 32px 54px 42px 100px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '24px 28px 1fr 36px 32px 54px 42px 100px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
                         <span>#</span><span></span>
                         <span style={{ cursor: 'pointer' }} onClick={() => setLpSort(prev => prev.key === 'name' ? {...prev, dir: prev.dir*-1} : {key:'name',dir:1})}>Player{lpSort.key==='name'?(lpSort.dir===-1?' \u25BC':' \u25B2'):''}</span>
                         <span>Pos</span>
@@ -452,12 +452,12 @@ function LeagueMapTab({
                                 style={{ display: 'grid', gridTemplateColumns: '24px 28px 1fr 36px 32px 54px 42px 100px', gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.72rem', alignItems: 'center', background: x.isMe ? 'rgba(212,175,55,0.04)' : 'transparent', transition: 'background 0.1s' }}
                                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}
                                 onMouseLeave={e => e.currentTarget.style.background = x.isMe ? 'rgba(212,175,55,0.04)' : 'transparent'}>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--silver)', fontFamily: 'Oswald' }}>{idx+1}</span>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--silver)', fontFamily: 'Inter, sans-serif' }}>{idx+1}</span>
                                 <div style={{ width: '22px', height: '22px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+x.pid+'.jpg'} onError={e=>e.target.style.display='none'} style={{ width:'22px',height:'22px',borderRadius:'50%',objectFit:'cover' }} /></div>
                                 <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontWeight: 600, color: x.isMe ? 'var(--gold)' : 'var(--white)' }}>{x.p.full_name || (x.p.first_name+' '+x.p.last_name).trim()}</div>
                                 <span style={{ fontSize: '0.7rem', fontWeight: 700, color: posColors[x.pos] || 'var(--silver)' }}>{x.pos}</span>
                                 <span style={{ color: 'var(--silver)' }}>{x.age || '\u2014'}</span>
-                                <span style={{ fontWeight: 700, fontFamily: 'Oswald', color: x.dhq >= 7000 ? '#2ECC71' : x.dhq >= 4000 ? '#3498DB' : x.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'}</span>
+                                <span style={{ fontWeight: 700, fontFamily: 'Inter, sans-serif', color: x.dhq >= 7000 ? '#2ECC71' : x.dhq >= 4000 ? '#3498DB' : x.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'}</span>
                                 <span style={{ color: 'var(--silver)' }}>{x.ppg || '\u2014'}</span>
                                 <span style={{ fontSize: '0.74rem', color: x.isMe ? 'var(--gold)' : 'var(--silver)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.teamName}{x.isMe ? ' (You)' : ''}</span>
                             </div>
@@ -479,9 +479,9 @@ function LeagueMapTab({
             <div>
                 {years.map(yr => (
                     <div key={yr} style={{ marginBottom: '16px' }}>
-                        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.2rem', color: 'var(--gold)', marginBottom: '8px' }}>{yr} DRAFT PICKS</div>
+                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.2rem', color: 'var(--gold)', marginBottom: '8px' }}>{yr} DRAFT PICKS</div>
                         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 60px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 60px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
                                 <span>Pick</span><span>Current Owner</span><span>Original Owner</span><span>Status</span>
                             </div>
                             <div style={{ maxHeight: '500px', overflow: 'auto' }}>
@@ -507,7 +507,7 @@ function LeagueMapTab({
                                                 fontSize: '0.72rem', alignItems: 'center',
                                                 background: isMyPick ? 'rgba(212,175,55,0.04)' : 'transparent'
                                             }}>
-                                                <span style={{ fontFamily: 'Oswald', fontWeight: 700, color: rd === 1 ? 'var(--gold)' : 'var(--silver)' }}>R{rd}</span>
+                                                <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, color: rd === 1 ? 'var(--gold)' : 'var(--silver)' }}>R{rd}</span>
                                                 <span style={{ color: isMyPick ? 'var(--gold)' : 'var(--white)', fontWeight: isMyPick ? 700 : 400 }}>
                                                     {getOwnerName(currentOwnerRid)}{isMyPick ? ' (You)' : ''}
                                                 </span>
@@ -549,8 +549,8 @@ function LeagueMapTab({
 
     return (
       <div style={{ padding: '16px' }}>
-        <button onClick={() => { setSelectedTeam(null); setLeagueViewMode('roster'); }} style={{ background: 'none', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '4px', padding: '4px 12px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'Oswald', fontSize: '0.78rem', marginBottom: '12px' }}>Back to League</button>
-        <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--gold)', marginBottom: '4px' }}>{team.displayName}</div>
+        <button onClick={() => { setSelectedTeam(null); setLeagueViewMode('roster'); }} style={{ background: 'none', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '4px', padding: '4px 12px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', marginBottom: '12px' }}>Back to League</button>
+        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.4rem', color: 'var(--gold)', marginBottom: '4px' }}>{team.displayName}</div>
         <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginBottom: '12px' }}>
           {roster?.settings?.wins ?? team.wins}-{roster?.settings?.losses ?? team.losses}{(roster?.settings?.ties > 0) ? '-' + roster.settings.ties : ''} Regular Season
           {roster?.settings?.fpts ? ' (' + roster.settings.fpts + ' PF)' : ''}
@@ -560,14 +560,14 @@ function LeagueMapTab({
         {/* Roster / History toggle */}
         <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
             <button onClick={() => setLeagueViewMode('roster')} style={{
-                padding: '5px 14px', fontSize: '0.76rem', fontFamily: 'Oswald', textTransform: 'uppercase',
+                padding: '5px 14px', fontSize: '0.76rem', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
                 background: leagueViewMode === 'roster' ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
                 color: leagueViewMode === 'roster' ? 'var(--black)' : 'var(--silver)',
                 border: '1px solid ' + (leagueViewMode === 'roster' ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
                 borderRadius: '4px', cursor: 'pointer'
             }}>Roster</button>
             <button onClick={() => setLeagueViewMode('history')} style={{
-                padding: '5px 14px', fontSize: '0.76rem', fontFamily: 'Oswald', textTransform: 'uppercase',
+                padding: '5px 14px', fontSize: '0.76rem', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
                 background: leagueViewMode === 'history' ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
                 color: leagueViewMode === 'history' ? 'var(--black)' : 'var(--silver)',
                 border: '1px solid ' + (leagueViewMode === 'history' ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
@@ -617,8 +617,8 @@ function LeagueMapTab({
                             { label: 'Trade Record', value: h.tradesWon + '-' + h.tradesLost + '-' + h.tradesFair, sub: (h.avgValueDiff >= 0 ? '+' : '') + h.avgValueDiff + ' avg DHQ', color: h.avgValueDiff >= 0 ? '#2ECC71' : '#E74C3C' },
                         ].map((stat, i) => (
                             <div key={i} style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
-                                <div style={{ fontSize: '0.78rem', color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>{stat.label}</div>
-                                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: stat.color, fontFamily: 'Bebas Neue' }}>{stat.value}</div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>{stat.label}</div>
+                                <div style={{ fontSize: '1.2rem', fontWeight: 600, color: stat.color, fontFamily: 'JetBrains Mono, monospace' }}>{stat.value}</div>
                                 <div style={{ fontSize: '0.7rem', color: 'var(--silver)', marginTop: '2px' }}>{stat.sub}</div>
                             </div>
                         ))}
@@ -626,10 +626,10 @@ function LeagueMapTab({
 
                     {/* Season by season */}
                     <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '12px 16px' }}>
-                        <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Season History</div>
+                        <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Season History</div>
                         {h.seasonHistory.map(s => (
                             <div key={s.season} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.75rem' }}>
-                                <span style={{ fontFamily: 'Bebas Neue', fontSize: '0.95rem', color: 'var(--gold)', minWidth: '40px' }}>{s.season}</span>
+                                <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.95rem', color: 'var(--gold)', minWidth: '40px' }}>{s.season}</span>
                                 <span style={{
                                     fontSize: '0.74rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px',
                                     background: s.finish === 'Champion' ? 'rgba(212,175,55,0.15)' : s.finish === 'Runner-Up' ? 'rgba(192,192,192,0.15)' : s.finish === 'Semi-Finals' ? 'rgba(205,127,50,0.15)' : s.finish === 'Playoffs' ? 'rgba(46,204,113,0.1)' : 'rgba(255,255,255,0.04)',
@@ -643,10 +643,10 @@ function LeagueMapTab({
                     {/* #1 Overall Picks */}
                     {h.numberOnePicks.length > 0 && (
                         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '12px 16px' }}>
-                            <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>#1 Overall Picks</div>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>#1 Overall Picks</div>
                             {h.numberOnePicks.map((pk, i) => (
                                 <div key={i} style={{ fontSize: '0.75rem', color: 'var(--white)', padding: '4px 0' }}>
-                                    <span style={{ color: 'var(--gold)', fontFamily: 'Bebas Neue', fontSize: '0.85rem' }}>{pk.season}</span> — {pk.player} <span style={{ color: 'var(--silver)', fontSize: '0.74rem' }}>({pk.pos})</span>
+                                    <span style={{ color: 'var(--gold)', fontFamily: 'Rajdhani, sans-serif', fontSize: '0.85rem' }}>{pk.season}</span> — {pk.player} <span style={{ color: 'var(--silver)', fontSize: '0.74rem' }}>({pk.pos})</span>
                                 </div>
                             ))}
                         </div>
@@ -656,14 +656,14 @@ function LeagueMapTab({
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                         {h.bestPick && (
                             <div style={{ background: 'rgba(46,204,113,0.06)', border: '1px solid rgba(46,204,113,0.15)', borderRadius: '8px', padding: '10px 14px' }}>
-                                <div style={{ fontSize: '0.7rem', color: '#2ECC71', fontFamily: 'Oswald', textTransform: 'uppercase', marginBottom: '4px' }}>Best Draft Pick</div>
+                                <div style={{ fontSize: '0.7rem', color: '#2ECC71', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', marginBottom: '4px' }}>Best Draft Pick</div>
                                 <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)' }}>{h.bestPick.name}</div>
                                 <div style={{ fontSize: '0.74rem', color: 'var(--silver)' }}>{h.bestPick.season} Round {h.bestPick.round} ({h.bestPick.pos})</div>
                             </div>
                         )}
                         {h.bustPicks.length > 0 && (
                             <div style={{ background: 'rgba(231,76,60,0.06)', border: '1px solid rgba(231,76,60,0.15)', borderRadius: '8px', padding: '10px 14px' }}>
-                                <div style={{ fontSize: '0.7rem', color: '#E74C3C', fontFamily: 'Oswald', textTransform: 'uppercase', marginBottom: '4px' }}>Draft Busts (R1-R2)</div>
+                                <div style={{ fontSize: '0.7rem', color: '#E74C3C', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', marginBottom: '4px' }}>Draft Busts (R1-R2)</div>
                                 {h.bustPicks.map((bp, i) => (
                                     <div key={i} style={{ fontSize: '0.72rem', color: 'var(--silver)', padding: '2px 0' }}>{bp.name} — {bp.season} R{bp.round}</div>
                                 ))}
@@ -674,7 +674,7 @@ function LeagueMapTab({
                     {/* Rivalries */}
                     {h.rivalries.length > 0 && (
                         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '12px 16px' }}>
-                            <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Playoff Rivalries</div>
+                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Playoff Rivalries</div>
                             {h.rivalries.map((r, i) => {
                                 const rivalUser = (currentLeague.users || []).find(u => {
                                     const rivalRoster = (currentLeague.rosters || []).find(ros => ros.roster_id === r.rosterId);
@@ -698,7 +698,7 @@ function LeagueMapTab({
         <div>
         {/* TODO: integrate shared ROSTER_COLUMNS + renderCell system */}
         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '3px 28px 1fr 36px 32px 54px 42px 60px 52px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '3px 28px 1fr 36px 32px 54px 42px 60px 52px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
             <span></span><span></span><span>Player</span><span>Pos</span><span>Age</span><span>DHQ</span><span>PPG</span><span>Acquired</span><span>Date</span>
           </div>
           <div style={{ maxHeight: '600px', overflow: 'auto' }}>
@@ -716,7 +716,7 @@ function LeagueMapTab({
                 </div>
                 <span style={{ fontSize: '0.7rem', fontWeight: 700, color: r.posCol }}>{r.pos}</span>
                 <span style={{ color: 'var(--silver)' }}>{r.p.age || '\u2014'}</span>
-                <span style={{ fontWeight: 700, fontFamily: 'Oswald', color: r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#3498DB' : r.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span>
+                <span style={{ fontWeight: 700, fontFamily: 'Inter, sans-serif', color: r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#3498DB' : r.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span>
                 <span style={{ color: 'var(--silver)' }}>{r.ppg || '\u2014'}</span>
                 <span style={{ fontSize: '0.7rem', fontWeight: 600, color: r.acq.method === 'Drafted' ? '#a78bfa' : r.acq.method === 'Traded' ? '#F0A500' : r.acq.method === 'Waiver' ? '#2ECC71' : r.acq.method === 'FA' ? '#1ABC9C' : 'var(--silver)' }}>{r.acq.method}{r.acq.cost ? ' ' + r.acq.cost : ''}</span>
                 <span style={{ fontSize: '0.56rem', color: 'var(--silver)', opacity: 0.65 }}>{r.acq.date}</span>

@@ -21,7 +21,7 @@
   <script src="../draft-history.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
       theme: {
@@ -37,8 +37,8 @@
             'loss-red': '#E74C3C',
           },
           fontFamily: {
-            'bebas': ['Bebas Neue', 'cursive'],
-            'oswald': ['Oswald', 'sans-serif'],
+            'bebas': ['Rajdhani', 'sans-serif'],
+            'oswald': ['Inter', 'sans-serif'],
           }
         }
       }
@@ -49,7 +49,7 @@
       margin: 0;
       padding: 0;
       overflow: hidden;
-      font-family: 'Oswald', sans-serif;
+      font-family: 'Inter', sans-serif;
       background: #0A0A0A;
     }
     .scroll-container {
@@ -642,9 +642,9 @@
         const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         return esc
           .replace(/\*\*([^*\n]+)\*\*/g, '<strong style="color:#D4AF37;font-weight:700">$1</strong>')
-          .replace(/^### (.+)$/gm, '<div style="font-family:Bebas Neue,cursive;font-size:0.88rem;color:#D4AF37;margin:0.75rem 0 0.2rem;letter-spacing:0.08em">$1</div>')
-          .replace(/^## (.+)$/gm,  '<div style="font-family:Bebas Neue,cursive;font-size:0.95rem;color:#D4AF37;margin:0.9rem 0 0.25rem;letter-spacing:0.1em">$1</div>')
-          .replace(/^# (.+)$/gm,   '<div style="font-family:Bebas Neue,cursive;font-size:1.05rem;color:#D4AF37;margin:1rem 0 0.3rem;letter-spacing:0.12em">$1</div>')
+          .replace(/^### (.+)$/gm, '<div style="font-family:Rajdhani, sans-serif;font-size:0.88rem;color:#D4AF37;margin:0.75rem 0 0.2rem;letter-spacing:0.08em">$1</div>')
+          .replace(/^## (.+)$/gm,  '<div style="font-family:Rajdhani, sans-serif;font-size:0.95rem;color:#D4AF37;margin:0.9rem 0 0.25rem;letter-spacing:0.1em">$1</div>')
+          .replace(/^# (.+)$/gm,   '<div style="font-family:Rajdhani, sans-serif;font-size:1.05rem;color:#D4AF37;margin:1rem 0 0.3rem;letter-spacing:0.12em">$1</div>')
           .replace(/\n\n/g, '<div style="margin:0.25rem 0"></div>');
       }
 

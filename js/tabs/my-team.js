@@ -236,7 +236,7 @@ function MyTeamTab({
     switch(colKey) {
       case 'pos': return <div key={colKey} style={{...base}}><span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '1px 4px', borderRadius: '2px', background: (posColors[r.pos]||'#666')+'22', color: posColors[r.pos]||'var(--silver)' }}>{r.pos}</span></div>;
       case 'age': return <div key={colKey} style={{...base, background: ageBg(r.age)}}><span style={{ color: ageCol(r.age), fontWeight: 600 }}>{r.age||'\u2014'}</span></div>;
-      case 'dhq': return <div key={colKey} style={{...base, background: dhqBg(r.dhq)}}><span style={{ color: dhqCol(r.dhq), fontWeight: 700, fontFamily: 'Oswald', fontSize: '0.82rem' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span></div>;
+      case 'dhq': return <div key={colKey} style={{...base, background: dhqBg(r.dhq)}}><span style={{ color: dhqCol(r.dhq), fontWeight: 700, fontFamily: 'Inter, sans-serif', fontSize: '0.82rem' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span></div>;
       case 'ppg': return <div key={colKey} style={{...base, background: ppgBg(r.effectivePPG, r.pos)}}><span style={{ color: r.effectivePPG >= (posP75[r.pos]||10) ? '#2ECC71' : 'var(--silver)' }}>{r.effectivePPG > 0 ? r.effectivePPG : '\u2014'}{r.curPPG === 0 && r.prevPPG > 0 ? '*' : ''}</span></div>;
       case 'prev': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', opacity: 0.6 }}>{r.prevPPG > 0 ? r.prevPPG : '\u2014'}</span></div>;
       case 'trend': {
@@ -310,7 +310,7 @@ function MyTeamTab({
         if (!sos) return <div key={colKey} style={{...base}}><span style={{ color: 'rgba(255,255,255,0.2)' }}>\u2014</span></div>;
         const sosBg = sos.avgRank >= 25 ? 'rgba(46,204,113,0.12)' : sos.avgRank <= 8 ? 'rgba(231,76,60,0.1)' : 'transparent';
         return <div key={colKey} style={{...base, background: sosBg, flexDirection: 'column', gap: '1px'}} title={sos.label + ' schedule (' + sos.avgRank + '/32)'}>
-          <span style={{ color: sos.color, fontWeight: 700, fontSize: '0.82rem', fontFamily: 'Oswald' }}>{sos.avgRank}</span>
+          <span style={{ color: sos.color, fontWeight: 700, fontSize: '0.82rem', fontFamily: 'Inter, sans-serif' }}>{sos.avgRank}</span>
           <span style={{ color: sos.color, fontSize: '0.58rem', opacity: 0.8 }}>{sos.label.toUpperCase()}</span>
         </div>;
       }
@@ -321,7 +321,7 @@ function MyTeamTab({
   return (
     <div style={{ padding: '16px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '12px' }}>
-        <span style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.3rem', color: 'var(--gold)', letterSpacing: '0.05em' }}>MY TEAM</span>
+        <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--gold)', letterSpacing: '0.05em' }}>MY TEAM</span>
         {(() => {
           const champs = window.App?.LI?.championships || {};
           const myChampCount = Object.values(champs).filter(c => c.champion === myRoster?.roster_id).length;
@@ -405,7 +405,7 @@ function MyTeamTab({
               { label: 'WINDOW', value: competeWindow > 0 ? competeWindow + 'yr' : 'Now', color: competeWindow >= 3 ? '#2ECC71' : competeWindow >= 1 ? 'var(--gold)' : '#E74C3C' },
               { label: 'PICK CAPITAL', value: Math.round(pickCapital / 1000) + 'K', color: pickCapital >= 20000 ? '#2ECC71' : pickCapital >= 10000 ? 'var(--gold)' : '#E74C3C' },
             ].map((kpi, i) => <div key={i} style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: kpi.color }}>{kpi.value}</div>
+              <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: kpi.color }}>{kpi.value}</div>
               <div style={{ fontSize: '0.64rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</div>
             </div>)}
           </div>
@@ -414,14 +414,14 @@ function MyTeamTab({
 
       <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
         <button onClick={() => setMyTeamView('roster')} style={{
-          padding: '5px 14px', fontSize: '0.76rem', fontFamily: 'Oswald', textTransform: 'uppercase',
+          padding: '5px 14px', fontSize: '0.76rem', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
           background: myTeamView === 'roster' ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
           color: myTeamView === 'roster' ? 'var(--black)' : 'var(--silver)',
           border: '1px solid ' + (myTeamView === 'roster' ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
           borderRadius: '6px', cursor: 'pointer', fontWeight: 700, letterSpacing: '0.04em'
         }}>Roster</button>
         <button onClick={() => setMyTeamView('compare')} style={{
-          padding: '5px 14px', fontSize: '0.76rem', fontFamily: 'Oswald', textTransform: 'uppercase',
+          padding: '5px 14px', fontSize: '0.76rem', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
           background: myTeamView === 'compare' ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
           color: myTeamView === 'compare' ? 'var(--black)' : 'var(--silver)',
           border: '1px solid ' + (myTeamView === 'compare' ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
@@ -432,7 +432,7 @@ function MyTeamTab({
       {myTeamView === 'compare' && (
         <div>
           <select value={compareTeamId || ''} onChange={e => setCompareTeamId(parseInt(e.target.value) || null)} style={{
-            padding: '6px 12px', fontSize: '0.72rem', fontFamily: 'Oswald',
+            padding: '6px 12px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif',
             background: 'var(--charcoal)', border: '1px solid rgba(212,175,55,0.3)',
             borderRadius: '6px', color: 'var(--white)', marginBottom: '16px', width: '100%', maxWidth: '300px'
           }}>
@@ -489,8 +489,8 @@ function MyTeamTab({
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', marginBottom: '16px', alignItems: 'start' }}>
                   {/* You */}
                   <div style={{ textAlign: 'center', padding: '14px', background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px' }}>
-                    <div style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '6px' }}>You</div>
-                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)', marginBottom: '4px' }}>{myWins}-{myLosses}</div>
+                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '6px' }}>You</div>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--white)', marginBottom: '4px' }}>{myWins}-{myLosses}</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.4 }}>
                       {myTotal.toLocaleString()} DHQ<br/>
                       Playoffs: {myPW}-{myPL}<br/>
@@ -499,7 +499,7 @@ function MyTeamTab({
                   </div>
                   {/* VS + H2H */}
                   <div style={{ textAlign: 'center', paddingTop: '10px' }}>
-                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)', marginBottom: '6px' }}>VS</div>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: 'var(--gold)', marginBottom: '6px' }}>VS</div>
                     {(h2hWins > 0 || h2hLosses > 0) ? (
                       <div style={{ fontSize: '0.74rem', color: 'var(--silver)' }}>
                         <div style={{ fontWeight: 700, color: h2hWins > h2hLosses ? '#2ECC71' : h2hWins < h2hLosses ? '#E74C3C' : 'var(--silver)' }}>H2H: {h2hWins}-{h2hLosses}</div>
@@ -511,8 +511,8 @@ function MyTeamTab({
                   </div>
                   {/* Them */}
                   <div style={{ textAlign: 'center', padding: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }}>
-                    <div style={{ fontFamily: 'Oswald', fontSize: '0.78rem', color: 'var(--silver)', textTransform: 'uppercase', marginBottom: '6px' }}>{theirUser?.display_name || 'Opponent'}</div>
-                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)', marginBottom: '4px' }}>{theirWins}-{theirLosses}</div>
+                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--silver)', textTransform: 'uppercase', marginBottom: '6px' }}>{theirUser?.display_name || 'Opponent'}</div>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--white)', marginBottom: '4px' }}>{theirWins}-{theirLosses}</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.4 }}>
                       {theirTotal.toLocaleString()} DHQ<br/>
                       Playoffs: {theirPW}-{theirPL}<br/>
@@ -522,7 +522,7 @@ function MyTeamTab({
                 </div>
                 {/* Full roster comparison by position */}
                 <div style={{ marginTop: '16px' }}>
-                    <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>Full Roster by Position</div>
+                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>Full Roster by Position</div>
                     {['QB','RB','WR','TE','K','DL','LB','DB'].map(pos => {
                         const myAtPos = myPlayers.filter(pid => normPos(playersData[pid]?.position) === pos)
                             .map(pid => ({ pid, p: playersData[pid], dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
@@ -539,7 +539,7 @@ function MyTeamTab({
                         return (
                             <div key={pos} style={{ marginBottom: '12px', background: 'var(--black)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', overflow: 'hidden' }}>
                                 <div style={{ padding: '6px 10px', background: (posColors[pos] || '#666') + '15', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <span style={{ fontFamily: 'Oswald', fontSize: '0.72rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
+                                    <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
                                     <div style={{ display: 'flex', gap: '12px', fontSize: '0.72rem' }}>
                                         <span style={{ color: myPosDHQ >= theirPosDHQ ? '#2ECC71' : 'var(--silver)' }}>You: {myPosDHQ.toLocaleString()}</span>
                                         <span style={{ color: theirPosDHQ >= myPosDHQ ? '#2ECC71' : 'var(--silver)' }}>Them: {theirPosDHQ.toLocaleString()}</span>
@@ -557,7 +557,7 @@ function MyTeamTab({
                                                 {my ? (<>
                                                     <div style={{ width: '18px', height: '18px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+my.pid+'.jpg'} onError={e=>e.target.style.display='none'} style={{ width:'18px',height:'18px',borderRadius:'50%',objectFit:'cover' }} /></div>
                                                     <span style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: 'var(--white)', cursor: 'pointer' }}>{my.p?.full_name || '?'}</span>
-                                                    <span style={{ fontFamily: 'Oswald', fontWeight: 700, fontSize: '0.76rem', color: my.dhq >= 7000 ? '#2ECC71' : my.dhq >= 4000 ? '#3498DB' : 'var(--silver)' }}>{my.dhq > 0 ? my.dhq.toLocaleString() : '\u2014'}</span>
+                                                    <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '0.76rem', color: my.dhq >= 7000 ? '#2ECC71' : my.dhq >= 4000 ? '#3498DB' : 'var(--silver)' }}>{my.dhq > 0 ? my.dhq.toLocaleString() : '\u2014'}</span>
                                                 </>) : <span style={{ color: 'var(--silver)', opacity: 0.3, fontSize: '0.72rem' }}>{'\u2014'}</span>}
                                             </div>
                                             {/* Their player */}
@@ -566,7 +566,7 @@ function MyTeamTab({
                                                 {their ? (<>
                                                     <div style={{ width: '18px', height: '18px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+their.pid+'.jpg'} onError={e=>e.target.style.display='none'} style={{ width:'18px',height:'18px',borderRadius:'50%',objectFit:'cover' }} /></div>
                                                     <span style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: 'var(--white)', cursor: 'pointer' }}>{their.p?.full_name || '?'}</span>
-                                                    <span style={{ fontFamily: 'Oswald', fontWeight: 700, fontSize: '0.76rem', color: their.dhq >= 7000 ? '#2ECC71' : their.dhq >= 4000 ? '#3498DB' : 'var(--silver)' }}>{their.dhq > 0 ? their.dhq.toLocaleString() : '\u2014'}</span>
+                                                    <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '0.76rem', color: their.dhq >= 7000 ? '#2ECC71' : their.dhq >= 4000 ? '#3498DB' : 'var(--silver)' }}>{their.dhq > 0 ? their.dhq.toLocaleString() : '\u2014'}</span>
                                                 </>) : <span style={{ color: 'var(--silver)', opacity: 0.3, fontSize: '0.72rem' }}>{'\u2014'}</span>}
                                             </div>
                                         </div>
@@ -591,7 +591,7 @@ function MyTeamTab({
         }}>
           <AlexAvatar size={28} />
           <div style={{ flex: 1, textAlign: 'left' }}>
-            <div style={{ fontFamily: 'Bebas Neue', fontSize: '0.9rem', color: 'var(--gold)', letterSpacing: '0.04em' }}>GM STRATEGY</div>
+            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.9rem', color: 'var(--gold)', letterSpacing: '0.04em' }}>GM STRATEGY</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6 }}>
               {gmStrategy.mode === 'contend' ? 'Win Now' : gmStrategy.mode === 'rebuild' ? 'Rebuilding' : 'Balanced'} · {gmStrategy.riskTolerance} risk
               {gmStrategy.untouchable?.length > 0 ? ' · ' + gmStrategy.untouchable.length + ' untouchable' : ''}
@@ -603,7 +603,7 @@ function MyTeamTab({
           <div style={{ background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.2)', borderTop: 'none', borderRadius: '0 0 10px 10px', padding: '16px' }}>
             {/* Mode */}
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontFamily: 'Oswald', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Team Mode</div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Team Mode</div>
               <div style={{ display: 'flex', gap: '6px' }}>
                 {[{id:'contend',label:'Win Now',desc:'Maximize this season'},{id:'balanced',label:'Balanced',desc:'Compete + build'},{id:'rebuild',label:'Rebuild',desc:'Accumulate youth & picks'}].map(m => (
                   <button key={m.id} onClick={() => setGmStrategy(prev => ({...prev, mode: m.id}))} style={{
@@ -612,7 +612,7 @@ function MyTeamTab({
                     border: '1px solid ' + (gmStrategy.mode === m.id ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
                     borderRadius: '8px', cursor: 'pointer', textAlign: 'center'
                   }}>
-                    <div style={{ fontFamily: 'Bebas Neue', fontSize: '0.9rem', letterSpacing: '0.03em' }}>{m.label}</div>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.9rem', letterSpacing: '0.03em' }}>{m.label}</div>
                     <div style={{ fontSize: '0.66rem', opacity: 0.6, marginTop: '2px' }}>{m.desc}</div>
                   </button>
                 ))}
@@ -620,11 +620,11 @@ function MyTeamTab({
             </div>
             {/* Risk Tolerance */}
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontFamily: 'Oswald', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Risk Tolerance</div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Risk Tolerance</div>
               <div style={{ display: 'flex', gap: '6px' }}>
                 {['conservative','moderate','aggressive'].map(r => (
                   <button key={r} onClick={() => setGmStrategy(prev => ({...prev, riskTolerance: r}))} style={{
-                    flex: 1, padding: '8px', fontFamily: 'Oswald', fontSize: '0.78rem', textTransform: 'capitalize',
+                    flex: 1, padding: '8px', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', textTransform: 'capitalize',
                     background: gmStrategy.riskTolerance === r ? (r==='aggressive'?'#E74C3C':r==='conservative'?'#3498DB':'var(--gold)') : 'rgba(255,255,255,0.04)',
                     color: gmStrategy.riskTolerance === r ? (r==='aggressive'||r==='conservative'?'#fff':'var(--black)') : 'var(--silver)',
                     border: '1px solid ' + (gmStrategy.riskTolerance === r ? 'transparent' : 'rgba(255,255,255,0.08)'),
@@ -635,7 +635,7 @@ function MyTeamTab({
             </div>
             {/* Positional Priorities */}
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontFamily: 'Oswald', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Positional Priorities <span style={{ fontSize: '0.66rem', color: 'var(--silver)', opacity: 0.5, textTransform: 'none' }}>— click to increase priority</span></div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Positional Priorities <span style={{ fontSize: '0.66rem', color: 'var(--silver)', opacity: 0.5, textTransform: 'none' }}>— click to increase priority</span></div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                 {['QB','RB','WR','TE','DL','LB','DB','K'].map(pos => {
                   const val = gmStrategy.positionalNeeds?.[pos] || 5;
@@ -645,7 +645,7 @@ function MyTeamTab({
                       padding: '8px 4px', background: 'rgba(255,255,255,0.02)', border: '1px solid ' + (posColors[pos] || '#666') + (val >= 7 ? '55' : '22'),
                       borderRadius: '6px', cursor: 'pointer', textAlign: 'center'
                     }}>
-                      <div style={{ fontFamily: 'Oswald', fontSize: '0.76rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</div>
+                      <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.76rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</div>
                       <div style={{ display: 'flex', gap: '1px', justifyContent: 'center', marginTop: '3px' }}>
                         {Array.from({length: 10}).map((_, i) => (
                           <div key={i} style={{ width: '4px', height: '8px', borderRadius: '1px', background: i < val ? (posColors[pos] || '#666') : 'rgba(255,255,255,0.08)' }} />
@@ -659,7 +659,7 @@ function MyTeamTab({
             </div>
             {/* Untouchable Players */}
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontFamily: 'Oswald', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Untouchable Players</div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Untouchable Players</div>
               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
                 {(gmStrategy.untouchable || []).map(pid => {
                   const p = playersData[pid];
@@ -673,7 +673,7 @@ function MyTeamTab({
                 {(gmStrategy.untouchable || []).length === 0 && <span style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.4 }}>No untouchable players set</span>}
               </div>
               <select onChange={e => { const pid = e.target.value; if (pid && !(gmStrategy.untouchable || []).includes(pid)) setGmStrategy(prev => ({...prev, untouchable: [...(prev.untouchable || []), pid]})); e.target.value = ''; }} style={{
-                width: '100%', padding: '6px 10px', fontSize: '0.76rem', fontFamily: 'Oswald',
+                width: '100%', padding: '6px 10px', fontSize: '0.76rem', fontFamily: 'Inter, sans-serif',
                 background: 'var(--charcoal)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: 'var(--white)'
               }}>
                 <option value="">+ Add untouchable player...</option>
@@ -685,12 +685,12 @@ function MyTeamTab({
             </div>
             {/* Trade Targets (positions) */}
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ fontFamily: 'Oswald', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Target Positions in Trades</div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Target Positions in Trades</div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {['QB','RB','WR','TE','DL','LB','DB','Picks'].map(t => {
                   const active = (gmStrategy.targets || []).includes(t);
                   return <button key={t} onClick={() => setGmStrategy(prev => ({...prev, targets: active ? (prev.targets || []).filter(x => x !== t) : [...(prev.targets || []), t]}))} style={{
-                    padding: '5px 12px', fontSize: '0.74rem', fontFamily: 'Oswald',
+                    padding: '5px 12px', fontSize: '0.74rem', fontFamily: 'Inter, sans-serif',
                     background: active ? 'rgba(46,204,113,0.15)' : 'rgba(255,255,255,0.04)',
                     color: active ? '#2ECC71' : 'var(--silver)',
                     border: '1px solid ' + (active ? 'rgba(46,204,113,0.3)' : 'rgba(255,255,255,0.08)'),
@@ -701,16 +701,16 @@ function MyTeamTab({
             </div>
             {/* Strategy Notes */}
             <div>
-              <div style={{ fontFamily: 'Oswald', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Strategy Notes</div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Strategy Notes</div>
               <textarea value={gmStrategy.notes || ''} onChange={e => setGmStrategy(prev => ({...prev, notes: e.target.value}))} placeholder="Add your personal strategy notes... (e.g., 'Looking to move RB depth for a WR1 before the trade deadline')" style={{
                 width: '100%', minHeight: '60px', padding: '8px 10px', fontSize: '0.78rem',
                 background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '6px', color: 'var(--silver)', fontFamily: 'Oswald', resize: 'vertical', lineHeight: 1.5
+                borderRadius: '6px', color: 'var(--silver)', fontFamily: 'Inter, sans-serif', resize: 'vertical', lineHeight: 1.5
               }} />
             </div>
             {/* Alex Ingram Avatar Picker */}
             <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ fontFamily: 'Oswald', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Customize Alex Ingram</div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.76rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Customize Alex Ingram</div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {ALEX_AVATARS.map(av => (
                   <button key={av.id} onClick={() => { setAlexAvatar(av.id); setAvatarKey(k => k+1); }} style={{
@@ -722,7 +722,7 @@ function MyTeamTab({
                     {av.src ? (
                       <img src={av.src} alt={av.label} style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover' }} />
                     ) : (
-                      <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: 'linear-gradient(135deg, #D4AF37, #B8941E)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Bebas Neue' }}>AI</div>
+                      <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: 'linear-gradient(135deg, #D4AF37, #B8941E)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem', fontWeight: 800, color: '#0A0A0A', fontFamily: 'Rajdhani, sans-serif' }}>AI</div>
                     )}
                     <span style={{ fontSize: '0.62rem', color: getAlexAvatar() === av.id ? 'var(--gold)' : 'var(--silver)', textAlign: 'center', lineHeight: 1.2 }}>{av.label}</span>
                   </button>
@@ -739,7 +739,7 @@ function MyTeamTab({
         {['All','Starters','Bench','Taxi','IR','Offense','IDP'].map(f => (
           <button key={f} onClick={() => setRosterFilter(f)} style={{
             padding: '4px 10px', fontSize: '0.72rem', fontWeight: rosterFilter === f ? 700 : 400,
-            fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.03em',
+            fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.03em',
             background: rosterFilter === f ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
             color: rosterFilter === f ? 'var(--black)' : 'var(--silver)',
             border: '1px solid ' + (rosterFilter === f ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
@@ -759,12 +759,12 @@ function MyTeamTab({
 
       {/* Preset buttons + column picker */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
-        <span style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.65, fontFamily: 'Oswald' }}>VIEW:</span>
+        <span style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.65, fontFamily: 'Inter, sans-serif' }}>VIEW:</span>
         {Object.entries(COLUMN_PRESETS).map(([key, cols]) => (
           <button key={key} onClick={() => { setVisibleCols(cols); setColPreset(key); }}
             style={{
               padding: '3px 10px', fontSize: '0.7rem', fontWeight: colPreset === key ? 700 : 400,
-              fontFamily: 'Oswald', textTransform: 'uppercase',
+              fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
               background: colPreset === key ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
               color: colPreset === key ? 'var(--black)' : 'var(--silver)',
               border: '1px solid ' + (colPreset === key ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
@@ -773,7 +773,7 @@ function MyTeamTab({
         ))}
         <button onClick={() => setShowColPicker(!showColPicker)} style={{
           marginLeft: 'auto', padding: '3px 10px', fontSize: '0.7rem',
-          fontFamily: 'Oswald', background: showColPicker ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)',
+          fontFamily: 'Inter, sans-serif', background: showColPicker ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)',
           color: showColPicker ? 'var(--gold)' : 'var(--silver)',
           border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px', cursor: 'pointer'
         }}>COLUMNS</button>
@@ -812,7 +812,7 @@ function MyTeamTab({
       <div style={{ border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden', background: 'var(--black)' }}>
         {/* Header row */}
         <div style={{ display: 'flex', height: '36px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)' }}>
-          <div style={{ width: '220px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none', borderRight: '2px solid rgba(212,175,55,0.15)' }}
+          <div style={{ width: '220px', flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 8px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none', borderRight: '2px solid rgba(212,175,55,0.15)' }}
             onClick={() => setRosterSort(prev => prev.key === 'name' ? {...prev, dir: prev.dir*-1} : {key: 'name', dir: 1})}>
             Player{rosterSort.key === 'name' ? (rosterSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
           </div>
@@ -822,7 +822,7 @@ function MyTeamTab({
               if (!col) return null;
               return (
                 <div key={colKey} onClick={() => setRosterSort(prev => prev.key === colKey ? {...prev, dir: prev.dir*-1} : {key: colKey, dir: 1})}
-                  style={{ width: col.width, minWidth: col.width, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' }}>
+                  style={{ width: col.width, minWidth: col.width, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' }}>
                   {col.shortLabel || col.label}{rosterSort.key === colKey ? (rosterSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
                 </div>
               );
@@ -881,7 +881,7 @@ function MyTeamTab({
                       <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.7rem', fontWeight: 700, padding: '1px 8px', borderRadius: '8px', background: (posColors[r.pos]||'#666')+'25', color: posColors[r.pos]||'var(--silver)', whiteSpace: 'nowrap' }}>{r.pos}</div>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)', letterSpacing: '0.02em', lineHeight: 1.1 }}>{r.p.full_name || getPlayerName(r.pid)}</div>
+                      <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--white)', letterSpacing: '0.02em', lineHeight: 1.1 }}>{r.p.full_name || getPlayerName(r.pid)}</div>
                       <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginTop: '2px' }}>
                         {r.pos} {'\u00B7'} {r.p.team || 'FA'} {'\u00B7'} Age {r.age || '?'} {'\u00B7'} {r.p.years_exp||0}yr exp
                         {r.p.college ? ' \u00B7 '+r.p.college : ''}
@@ -889,7 +889,7 @@ function MyTeamTab({
                       {r.injury && <div style={{ fontSize: '0.74rem', color: '#E74C3C', fontWeight: 600, marginTop: '3px' }}>{r.injury}</div>}
                       {/* Verdict badge */}
                       <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'Oswald', padding: '2px 10px', borderRadius: '10px', background: r.rec.includes('SELL') ? 'rgba(231,76,60,0.15)' : r.rec.includes('BUY') ? 'rgba(46,204,113,0.15)' : 'rgba(212,175,55,0.12)', color: r.rec.includes('SELL') ? '#E74C3C' : r.rec.includes('BUY') ? '#2ECC71' : 'var(--gold)', letterSpacing: '0.04em' }}>{r.rec}</span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'Inter, sans-serif', padding: '2px 10px', borderRadius: '10px', background: r.rec.includes('SELL') ? 'rgba(231,76,60,0.15)' : r.rec.includes('BUY') ? 'rgba(46,204,113,0.15)' : 'rgba(212,175,55,0.12)', color: r.rec.includes('SELL') ? '#E74C3C' : r.rec.includes('BUY') ? '#2ECC71' : 'var(--gold)', letterSpacing: '0.04em' }}>{r.rec}</span>
                         <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '2px 10px', borderRadius: '10px', background: dhqBg(r.dhq), color: dhqCol(r.dhq) }}>
                           {(typeof window.App?.isElitePlayer === 'function' ? window.App.isElitePlayer(r.pid) : r.dhq >= 7000) ? 'Elite' : r.dhq >= 4000 ? 'Starter' : r.dhq >= 2000 ? 'Depth' : 'Stash'} {'\u00B7'} {r.dhq.toLocaleString()} DHQ
                         </span>
@@ -900,7 +900,7 @@ function MyTeamTab({
 
                   {/* Dynasty Profile */}
                   <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
-                    <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Dynasty Profile</div>
+                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Dynasty Profile</div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.5 }}>
                       {r.peakPhase === 'PRE' && r.dhq >= 4000 ? 'Rising asset with ' + r.peakYrsLeft + ' peak years ahead. Buy window closing \u2014 value only goes up from here.' :
                        r.peakPhase === 'PRIME' && r.dhq >= 7000 ? 'Elite producer in prime. Cornerstone dynasty asset \u2014 hold unless offered a king\'s ransom.' :
@@ -931,7 +931,7 @@ function MyTeamTab({
                         { label: 'DEPTH', val: r.p.depth_chart_order != null ? r.pos + (r.p.depth_chart_order + 1) : '\u2014', col: r.p.depth_chart_order != null && r.p.depth_chart_order <= 1 ? '#2ECC71' : 'var(--silver)' },
                       ].map((s, i) => (
                         <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 6px', textAlign: 'center' }}>
-                          <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: s.col, letterSpacing: '-0.02em' }}>{s.val}</div>
+                          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.1rem', fontWeight: 600, color: s.col, letterSpacing: '-0.02em' }}>{s.val}</div>
                           {s.gauge && <div className="wr-gauge" style={{ marginTop: '3px' }}>{Array.from({length: 10}, (_, gi) => <div key={gi} className={'wr-gauge-seg' + (gi < dhqFilled ? ' ' + dhqColor : '')}></div>)}</div>}
                           <div style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px' }}>{s.label}</div>
                         </div>
@@ -941,7 +941,7 @@ function MyTeamTab({
 
                   {/* Physical + Draft Profile */}
                   <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px' }}>
-                    <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Profile</div>
+                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Profile</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px', fontSize: '0.78rem' }}>
                       <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Ht </span><span style={{ color: 'var(--white)' }}>{r.p.height ? Math.floor(r.p.height/12)+"'"+r.p.height%12+'"' : '\u2014'}</span></div>
                       <div><span style={{ color: 'var(--silver)', opacity: 0.6 }}>Wt </span><span style={{ color: 'var(--white)' }}>{r.p.weight ? r.p.weight+'lbs' : '\u2014'}</span></div>
@@ -960,7 +960,7 @@ function MyTeamTab({
                     const ages = Array.from({length: 17}, (_, i) => i + 20);
                     return <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                        <div style={{ fontFamily: 'Oswald', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Age Curve</div>
+                        <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Age Curve</div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>{'Currently age ' + (r.age || '?') + ' \u00B7 ' + r.peakPhase + ' \u00B7 ' + (r.peakYrsLeft > 0 ? '~' + r.peakYrsLeft + 'yr left' : 'Past peak')}</div>
                       </div>
                       <div style={{ display: 'flex', height: '22px', borderRadius: '5px', overflow: 'hidden', gap: '1px' }}>
@@ -981,12 +981,12 @@ function MyTeamTab({
 
                   {/* Action buttons */}
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button onClick={e => { e.stopPropagation(); setReconPanelOpen(true); sendReconMessage('What trades can I make involving ' + (r.p.full_name || getPlayerName(r.pid)) + '? Consider their DHQ value (' + r.dhq + '), age (' + r.age + '), and peak window (' + r.peakPhase + ').'); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>TRADE</button>
+                    <button onClick={e => { e.stopPropagation(); setReconPanelOpen(true); sendReconMessage('What trades can I make involving ' + (r.p.full_name || getPlayerName(r.pid)) + '? Consider their DHQ value (' + r.dhq + '), age (' + r.age + '), and peak window (' + r.peakPhase + ').'); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>TRADE</button>
                     {[{tag:'trade',label:'TRADE BLOCK',bg:'rgba(240,165,0,0.15)',col:'#F0A500',border:'rgba(240,165,0,0.3)'},{tag:'cut',label:'CUT',bg:'rgba(231,76,60,0.15)',col:'#E74C3C',border:'rgba(231,76,60,0.3)'},{tag:'untouchable',label:'UNTOUCHABLE',bg:'rgba(46,204,113,0.15)',col:'#2ECC71',border:'rgba(46,204,113,0.3)'},{tag:'watch',label:'WATCH',bg:'rgba(52,152,219,0.15)',col:'#3498DB',border:'rgba(52,152,219,0.3)'}].map(t => {
                       const isActive = window._playerTags?.[r.pid] === t.tag;
-                      return <button key={t.tag} onClick={e => { e.stopPropagation(); const leagueId = currentLeague.id || currentLeague.league_id || ''; const tags = window._playerTags || {}; if (tags[r.pid] === t.tag) delete tags[r.pid]; else tags[r.pid] = t.tag; window._playerTags = { ...tags }; if (window.OD?.savePlayerTags) window.OD.savePlayerTags(leagueId, tags); setTimeRecomputeTs(Date.now()); }} style={{ padding: '7px 12px', fontSize: '0.72rem', fontFamily: 'Oswald', background: isActive ? t.bg : 'transparent', color: isActive ? t.col : 'var(--silver)', border: '1px solid ' + (isActive ? t.border : 'rgba(255,255,255,0.1)'), borderRadius: '6px', cursor: 'pointer', fontWeight: isActive ? 700 : 400, letterSpacing: '0.03em' }}>{t.label}</button>;
+                      return <button key={t.tag} onClick={e => { e.stopPropagation(); const leagueId = currentLeague.id || currentLeague.league_id || ''; const tags = window._playerTags || {}; if (tags[r.pid] === t.tag) delete tags[r.pid]; else tags[r.pid] = t.tag; window._playerTags = { ...tags }; if (window.OD?.savePlayerTags) window.OD.savePlayerTags(leagueId, tags); setTimeRecomputeTs(Date.now()); }} style={{ padding: '7px 12px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', background: isActive ? t.bg : 'transparent', color: isActive ? t.col : 'var(--silver)', border: '1px solid ' + (isActive ? t.border : 'rgba(255,255,255,0.1)'), borderRadius: '6px', cursor: 'pointer', fontWeight: isActive ? 700 : 400, letterSpacing: '0.03em' }}>{t.label}</button>;
                     })}
-                    <button onClick={e => { e.stopPropagation(); setExpandedPid(null); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Oswald', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>COLLAPSE</button>
+                    <button onClick={e => { e.stopPropagation(); setExpandedPid(null); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>COLLAPSE</button>
                   </div>
                 </div>
               )}
@@ -1001,10 +1001,10 @@ function MyTeamTab({
             .sort((a, b) => a.dhq - b.dhq).slice(0, 3);
         if (!drops.length) return null;
         return <div style={{ marginTop: '12px' }}>
-            <div style={{ fontFamily: 'Oswald', fontSize: '0.82rem', color: '#E74C3C', letterSpacing: '0.04em', marginBottom: '6px' }}>DROP CANDIDATES</div>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', color: '#E74C3C', letterSpacing: '0.04em', marginBottom: '6px' }}>DROP CANDIDATES</div>
             {drops.map(d => <div key={d.pid} onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(d.pid); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.78rem' }}>
                 <span style={{ color: 'var(--white)' }}>{getPlayerName(d.pid)}</span>
-                <span style={{ color: d.dhq > 0 ? 'var(--silver)' : '#E74C3C', fontFamily: 'Oswald' }}>{d.dhq > 0 ? d.dhq.toLocaleString() : 'No value'}</span>
+                <span style={{ color: d.dhq > 0 ? 'var(--silver)' : '#E74C3C', fontFamily: 'Inter, sans-serif' }}>{d.dhq > 0 ? d.dhq.toLocaleString() : 'No value'}</span>
             </div>)}
         </div>;
       })()}

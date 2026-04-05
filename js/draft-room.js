@@ -256,7 +256,7 @@
                         <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
                             <div style={{ fontFamily: 'Oswald', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Draft Class Preview</div>
                             <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.6 }}>
-                                Based on PFF and consensus rankings, the strongest position groups in the upcoming draft class are typically available via the AI advisor. Click the ReconAI panel and ask about specific positions or prospects.
+                                Based on PFF and consensus rankings, the strongest position groups in the upcoming draft class are typically available via the AI advisor. Click the War Room Scout panel and ask about specific positions or prospects.
                             </div>
                             <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
                                 <button onClick={() => { if (typeof setReconPanelOpen === 'function') { setReconPanelOpen(true); sendReconMessage('What are the strongest position groups in the upcoming rookie draft class?'); } }}

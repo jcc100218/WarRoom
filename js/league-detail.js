@@ -162,7 +162,7 @@
                 { cat: 'Valuations', items: [
                     { term: 'DHQ Value', def: 'Dynasty valuation score on a 0-10,000 scale. Combines on-field production, age trajectory, roster situation, positional scarcity, and market consensus. Updated when you refresh data.' },
                     { term: 'Elite Player', def: 'A player ranked top 5 at their position across all rosters in your league. Championship rosters typically have 2-4 elite assets.' },
-                    { term: 'Player Tags', def: 'Tag any player as Trade Block, Cut, Untouchable, or Watch List. Tags sync between War Room and ReconAI so your decisions carry across both apps.' },
+                    { term: 'Player Tags', def: 'Tag any player as Trade Block, Cut, Untouchable, or Watch List. Tags sync between War Room and War Room Scout so your decisions carry across both apps.' },
                     { term: 'Trend', def: 'Year-over-year production change as a percentage. A player who went from 15 PPG to 18 PPG has a +20% trend. During the season, trend directly influences DHQ values (up to \u00B18%).' },
                 ]},
                 { cat: 'Team Assessment', items: [
@@ -1585,7 +1585,7 @@
           if (!text?.trim()) return;
           // Free tier: 1 AI call per day
           if (!canUseAI()) {
-            setReconMessages(prev => [...prev, { role: 'user', content: text.trim() }, { role: 'assistant', content: 'You\'ve used your free AI query for today. Upgrade to ReconAI ($4.99/mo) or War Room ($9.99/mo) for unlimited AI access.' }]);
+            setReconMessages(prev => [...prev, { role: 'user', content: text.trim() }, { role: 'assistant', content: 'You\'ve used your free AI query for today. Upgrade to War Room Scout ($4.99/mo) or War Room ($9.99/mo) for unlimited AI access.' }]);
             return;
           }
           trackAIUse();

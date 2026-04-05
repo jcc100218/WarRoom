@@ -71,7 +71,7 @@
                       )
                     : React.createElement('div', { style: { padding:'1.5rem 0',textAlign:'center' } },
                         React.createElement('div', { style: { fontSize:'2rem',marginBottom:'0.5rem' } }, '📋'),
-                        React.createElement('div', { style: { fontSize:'0.78rem',color:'var(--silver)',lineHeight:1.6 } }, 'No field log entries yet. Actions you take in ReconAI Scout — trade scenarios, draft targets, waiver bids — will appear here automatically after syncing.')
+                        React.createElement('div', { style: { fontSize:'0.78rem',color:'var(--silver)',lineHeight:1.6 } }, 'No field log entries yet. Actions you take in War Room Scout — trade scenarios, draft targets, waiver bids — will appear here automatically after syncing.')
                       )
                   )
                 : React.createElement('div', { style: { maxHeight:'340px',overflowY:'auto',paddingRight:'2px' } },
@@ -103,7 +103,7 @@
                     })
                   ),
             // Footer
-            entries !== null && pendingCount > 0 && React.createElement('div', { style: { marginTop:'8px',paddingTop:'8px',borderTop:'1px solid rgba(255,255,255,0.06)',fontSize:'0.68rem',color:'var(--silver)',opacity:0.7 } }, pendingCount + ' entries pending sync from Scout. Open ReconAI to push them.')
+            entries !== null && pendingCount > 0 && React.createElement('div', { style: { marginTop:'8px',paddingTop:'8px',borderTop:'1px solid rgba(255,255,255,0.06)',fontSize:'0.68rem',color:'var(--silver)',opacity:0.7 } }, pendingCount + ' entries pending sync from Scout. Open War Room Scout to push them.')
         );
     }
 
@@ -389,7 +389,7 @@
                                 </svg>
                             </div>
                             <div>
-                                <div className="product-card-title">RECON<span style={{ color: '#7c6bf8' }}>AI</span></div>
+                                <div className="product-card-title">WAR ROOM <span style={{ color: '#7c6bf8' }}>SCOUT</span></div>
                                 <div className="product-card-subtitle">Your AI front office</div>
                             </div>
                         </div>
@@ -400,8 +400,8 @@
 
                             {!sleeperUsername ? (
                                 <div style={{ padding: '1rem 0', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.82rem', color: 'var(--silver)', marginBottom: '12px' }}>Connect your Sleeper account to unlock ReconAI</div>
-                                    <a href={RECONAI_BASE} target="_blank" rel="noopener noreferrer" className="hub-cta ghost-purple" style={{ textDecoration: 'none' }}>Open ReconAI Directly</a>
+                                    <div style={{ fontSize: '0.82rem', color: 'var(--silver)', marginBottom: '12px' }}>Connect your Sleeper account to unlock War Room Scout</div>
+                                    <a href={RECONAI_BASE} target="_blank" rel="noopener noreferrer" className="hub-cta ghost-purple" style={{ textDecoration: 'none' }}>Open War Room Scout Directly</a>
                                 </div>
                             ) : (
                                 <>
@@ -410,7 +410,7 @@
                                         WrStorage.set(WR_KEYS.LAST_LEAGUE_ID, league.id);
                                         WrStorage.set(WR_KEYS.LAST_LEAGUE_NAME, league.name);
                                     }} accent="purple" />
-                                    <a href={reconUrl(reconLeagueId || lastLeagueId)} target="_blank" rel="noopener noreferrer" className="hub-cta purple" style={{ textDecoration: 'none' }}>ENTER RECONAI</a>
+                                    <a href={reconUrl(reconLeagueId || lastLeagueId)} target="_blank" rel="noopener noreferrer" className="hub-cta purple" style={{ textDecoration: 'none' }}>ENTER WAR ROOM SCOUT</a>
                                     {resumeLeague && (
                                         <div className="hub-cta-row">
                                             <a href={reconUrl(lastLeagueId)} target="_blank" rel="noopener noreferrer" className="hub-cta ghost-purple" style={{ textDecoration: 'none' }}>Open {lastLeagueName}</a>

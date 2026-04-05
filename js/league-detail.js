@@ -1153,16 +1153,32 @@
                                     weekFetches.push(fetchJSON(`${SLEEPER_BASE_URL}/league/${currentLeague.id}/transactions/${w}`).catch(() => []));
                                 }
                             } else {
-                                for (let w = Math.max(0, currentWeek - 3); w <= Math.min(18, currentWeek); w++) {
-                                    weekFetches.push(fetchJSON(`${SLEEPER_BASE_URL}/league/${currentLeague.id}/transactions/${w}`).catch(() => []));
+                                // Fetch all weeks 0–currentWeek to capture full-season trade history, not just last 3
+                                for (let w = 0; w <= Math.min(18, currentWeek); w++) {
+                                    weekFetches.push(fetchJSON(`${SLEEPER_BASE_URL}/league/${currentLeague.id}/transactions/${w}`).catch(e => { console.warn('[War Room] txn fetch failed W:'+w, e?.message||e); return []; }));
                                 }
                             }
                             const weekResults = await Promise.all(weekFetches);
                             let allTxns = weekResults.flat().filter(t => t && t.type && t.status !== 'failed').sort((a,b) => (b.created || 0) - (a.created || 0));
-                            // Also merge DHQ historical trades if available and current fetch is sparse
-                            if (allTxns.filter(t => t.type === 'trade').length === 0 && window.App?.LI?.tradeHistory?.length > 0) {
-                                const histTrades = window.App.LI.tradeHistory.map(t => ({ ...t, type: 'trade', status: 'complete', created: t.ts || 0, _fromDHQ: true }));
+                            // Always merge DHQ historical trades (pre-analyzed with value data)
+                            // Deduplicate by timestamp so recent Sleeper txns aren't doubled
+                            if (window.App?.LI?.tradeHistory?.length > 0) {
+                                const sleeperTradeTs = new Set(allTxns.filter(t => t.type === 'trade').map(t => t.created || 0));
+                                const histTrades = window.App.LI.tradeHistory
+                                    .filter(t => !sleeperTradeTs.has(t.ts || 0))
+                                    .map(t => ({ ...t, type: 'trade', status: 'complete', created: t.ts || 0, _fromDHQ: true }));
                                 allTxns = [...allTxns, ...histTrades].sort((a,b) => (b.created || 0) - (a.created || 0));
+                            }
+                            // Populate window.S.transactions keyed by week for free-agency.js / flash-brief.js
+                            if (window.S) {
+                                const txnsByWeek = {};
+                                allTxns.forEach(t => {
+                                    const key = 'w' + (t.leg ?? t.week ?? 0);
+                                    if (!txnsByWeek[key]) txnsByWeek[key] = [];
+                                    txnsByWeek[key].push(t);
+                                });
+                                window.S.transactions = txnsByWeek;
+                                window.S.currentWeek = currentWeek;
                             }
                             setTransactions(allTxns.slice(0, 50));
                         } catch(e) { console.warn('Transaction fetch error:', e); }
@@ -2377,30 +2393,26 @@
                     timeYear={timeYear}
                     setTradeSubTab={setTradeSubTab}
                     getOwnerName={getOwnerName}
-                />                ) : activeTab === 'fa' ? (
-                    React.createElement(FreeAgencyTab, {
-                        playersData: playersData,
-                        statsData: statsData,
-                        prevStatsData: stats2025Data,
-                        myRoster: myRoster,
-                        currentLeague: currentLeague,
-                        sleeperUserId: sleeperUserId,
-                        timeRecomputeTs: timeRecomputeTs,
-                        viewMode: viewMode
-                    })
-                ) : activeTab === 'draft' ? (
-                    React.createElement(DraftTab, {
-                        playersData: playersData,
-                        statsData: statsData,
-                        myRoster: myRoster,
-                        currentLeague: currentLeague,
-                        sleeperUserId: sleeperUserId,
-                        setReconPanelOpen: setReconPanelOpen,
-                        sendReconMessage: sendReconMessage,
-                        timeRecomputeTs: timeRecomputeTs,
-                        viewMode: viewMode
-                    })
-                ) : (
+                /> : activeTab === 'fa' ? <FreeAgencyTab
+                    playersData={playersData}
+                    statsData={statsData}
+                    prevStatsData={stats2025Data}
+                    myRoster={myRoster}
+                    currentLeague={currentLeague}
+                    sleeperUserId={sleeperUserId}
+                    timeRecomputeTs={timeRecomputeTs}
+                    viewMode={viewMode}
+                /> : activeTab === 'draft' ? <DraftTab
+                    playersData={playersData}
+                    statsData={statsData}
+                    myRoster={myRoster}
+                    currentLeague={currentLeague}
+                    sleeperUserId={sleeperUserId}
+                    setReconPanelOpen={setReconPanelOpen}
+                    sendReconMessage={sendReconMessage}
+                    timeRecomputeTs={timeRecomputeTs}
+                    viewMode={viewMode}
+                /> : (
                 <React.Fragment>
                 {/* THE ATHLETIC-STYLE DASHBOARD */}
                 <div style={{ padding: '24px 32px', maxWidth: '1200px', margin: '0 auto' }} className="wr-fade-in">

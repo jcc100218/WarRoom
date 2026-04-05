@@ -61,7 +61,6 @@
 
         // ── VIEW MODE — Analyst is now the only mode (Brief tab replaces Flash Brief) ──
         const [viewMode, setViewMode] = useState('analyst');
-        const isCommand = false;
         const isAnalyst = true;
 
         // Open full player modal instead of mini card
@@ -2332,7 +2331,6 @@
                     setActiveTab={setActiveTab}
                     setReconPanelOpen={setReconPanelOpen}
                     sendReconMessage={sendReconMessage}
-                    isCommand={isCommand}
                     timeRecomputeTs={timeRecomputeTs}
                     setTimeRecomputeTs={setTimeRecomputeTs}
                 /> : activeTab === 'league' ? <LeagueMapTab

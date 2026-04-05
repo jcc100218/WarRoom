@@ -8,7 +8,6 @@
         // ── Constants ──
         const STATS_YEAR_TC = (() => { const d = new Date(); return String(d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1); })();
         let WEEKLY_TARGET = 243;
-        let ANNUAL_TARGET = 3402;
         // Shared roster-construction constants from window.App.PlayerValue
         const { IDEAL_ROSTER, DRAFT_ROUNDS, PICK_HORIZON, PICK_IDEAL,
                 LINEUP_STARTERS, MIN_STARTER_QUALITY, NFL_STARTER_POOL,
@@ -478,7 +477,6 @@
             return computeWeeklyTarget(allRosters);
         }, [allRosters, playersData, statsData]);
         WEEKLY_TARGET = wt;
-        ANNUAL_TARGET = wt * 14;
 
         // Load DNA + grudges on mount
         useEffect(() => {

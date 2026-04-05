@@ -1,6 +1,8 @@
 // ══════════════════════════════════════════════════════════════════
 // draft-room.js — DraftTab component (Flash Brief, Big Board)
 // ══════════════════════════════════════════════════════════════════
+    const WR_KEYS  = window.App.WR_KEYS;
+    const WrStorage = window.App.WrStorage;
     // ══════════════════════════════════════════════════════════════════════════
     // END FREE AGENCY TAB
     // ══════════════════════════════════════════════════════════════════════════
@@ -15,7 +17,7 @@
         const [draftSort, setDraftSort] = useState({ key: 'dhq', dir: -1 });
         const [draftView, setDraftView] = useState('command'); // 'command' | 'board'
         const [draftInfo, setDraftInfo] = useState(null);
-        const [boardData, setBoardData] = useState(() => { try { const s = localStorage.getItem('wr_bigboard_' + (currentLeague.id||'')); return s ? JSON.parse(s) : null; } catch(e) { return null; } });
+        const [boardData, setBoardData] = useState(() => WrStorage.get(WR_KEYS.BIGBOARD(currentLeague.id || ''), null));
         const [draftedPids, setDraftedPids] = useState(new Set());
         const [boardNotes, setBoardNotes] = useState({});
         const [boardTags, setBoardTags] = useState({}); // pid -> 'target'|'avoid'|'sleeper'|'must'
@@ -27,14 +29,9 @@
         const [dragPid, setDragPid] = useState(null); // currently dragging pid
         const [editingRank, setEditingRank] = useState(null); // pid being rank-edited
         const [rankInput, setRankInput] = useState('');
+        const [countdownNow, setCountdownNow] = useState(Date.now());
 
-        function normPos(pos) {
-            if (!pos) return null;
-            if (['DB','CB','S','SS','FS'].includes(pos)) return 'DB';
-            if (['DL','DE','DT','NT','IDL','EDGE'].includes(pos)) return 'DL';
-            if (['LB','OLB','ILB','MLB'].includes(pos)) return 'LB';
-            return pos;
-        }
+        const normPos = window.App.normPos;
 
         // Build my picks
         const myPicks = useMemo(() => {
@@ -77,7 +74,7 @@
                 .sort((a, b) => b.dhq - a.dhq);
         }, [playersData, timeRecomputeTs]);
 
-        const posColors = {QB:'#E74C3C',RB:'#2ECC71',WR:'#3498DB',TE:'#F0A500',K:'#9B59B6',DL:'#E67E22',LB:'#1ABC9C',DB:'#E91E63'};
+        const posColors = window.App.POS_COLORS;
 
         function draftSortIndicator(key) { return draftSort.key === key ? (draftSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''; }
         function handleDraftSort(key) { setDraftSort(prev => prev.key === key ? { ...prev, dir: prev.dir * -1 } : { key, dir: -1 }); }
@@ -101,9 +98,6 @@
             }).slice(0, 50);
         }, [rookies, draftSort, boardPosFilter]);
 
-        const draftGridCols = '24px 28px 1fr 36px 32px 54px 60px';
-        const draftHeaderStyle = { fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Oswald', textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', userSelect: 'none' };
-
         // Team assessment for fit scoring
         const assess = useMemo(() => typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal(myRoster?.roster_id) : null, [myRoster, timeRecomputeTs]);
 
@@ -126,11 +120,8 @@
 
         // Auto-save board data to localStorage on changes
         useEffect(() => {
-            try {
-                const key = 'wr_bigboard_' + (currentLeague.id || '');
-                const data = { tags: boardTags, notes: boardNotes, drafted: Array.from(draftedPids), myOrder: myBoardOrder };
-                localStorage.setItem(key, JSON.stringify(data));
-            } catch(e) {}
+            WrStorage.set(WR_KEYS.BIGBOARD(currentLeague.id || ''),
+                { tags: boardTags, notes: boardNotes, drafted: Array.from(draftedPids), myOrder: myBoardOrder });
         }, [boardTags, boardNotes, draftedPids, myBoardOrder, currentLeague.id]);
 
         // Restore board data from localStorage on mount
@@ -152,8 +143,15 @@
                     const upcoming = drafts.find(d => d.status === 'pre_draft') || drafts[0];
                     if (upcoming) setDraftInfo(upcoming);
                 })
-                .catch(() => {});
+                .catch(err => window.wrLog('draft.draftFetch', err));
         }, [currentLeague]);
+
+        // Tick countdown clock every minute while a pre-draft is active
+        useEffect(() => {
+            if (!draftInfo?.start_time || draftInfo.status !== 'pre_draft') return;
+            const id = setInterval(() => setCountdownNow(Date.now()), 60000);
+            return () => clearInterval(id);
+        }, [draftInfo]);
 
         // Helper: get player display name
         const pName = (p) => p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || 'Unknown';
@@ -165,6 +163,16 @@
         const topProspects = useMemo(() => {
             return rookies.slice(0, 20).map(r => ({ ...r, fit: computeFitScore(r) }));
         }, [rookies, computeFitScore]);
+
+        // Strategy recommendation — must be declared before recommendations (which depends on it)
+        const strategyRec = useMemo(() => {
+            if (!assess || !assess.needs || !assess.needs.length) return { type: 'bpa', label: 'Go BPA', reason: 'No clear positional needs detected.' };
+            const critical = assess.needs.filter(n => n.urgency === 'deficit');
+            if (critical.length > 0) {
+                return { type: 'target', label: 'Target ' + critical[0].pos, reason: critical[0].pos + ' is a critical need (' + critical.length + ' deficit position' + (critical.length > 1 ? 's' : '') + ').' };
+            }
+            return { type: 'bpa', label: 'Go BPA', reason: 'Needs are thin but not critical. Take the best player available.' };
+        }, [assess]);
 
         // Best recommendations for next pick
         const recommendations = useMemo(() => {
@@ -191,16 +199,6 @@
                 })
                 .slice(0, 5);
         }, [topProspects, draftedPids, strategyRec, myPicks, myRoster]);
-
-        // Strategy recommendation
-        const strategyRec = useMemo(() => {
-            if (!assess || !assess.needs || !assess.needs.length) return { type: 'bpa', label: 'Go BPA', reason: 'No clear positional needs detected.' };
-            const critical = assess.needs.filter(n => n.urgency === 'deficit');
-            if (critical.length > 0) {
-                return { type: 'target', label: 'Target ' + critical[0].pos, reason: critical[0].pos + ' is a critical need (' + critical.length + ' deficit position' + (critical.length > 1 ? 's' : '') + ').' };
-            }
-            return { type: 'bpa', label: 'Go BPA', reason: 'Needs are thin but not critical. Take the best player available.' };
-        }, [assess]);
 
         // Fit color helper
         const fitColor = (score) => score >= 80 ? '#2ECC71' : score >= 60 ? '#D4AF37' : score >= 40 ? '#3498DB' : 'var(--silver)';
@@ -233,7 +231,7 @@
                     <div>
                         {/* Draft Countdown Clock */}
                         {draftInfo?.start_time && draftInfo.status === 'pre_draft' && (() => {
-                            const now = Date.now();
+                            const now = countdownNow;
                             const start = draftInfo.start_time;
                             const diff = start - now;
                             if (diff <= 0) return <div style={{ background: 'rgba(46,204,113,0.1)', border: '1px solid rgba(46,204,113,0.3)', borderRadius: '8px', padding: '14px 16px', marginBottom: '14px', textAlign: 'center', fontFamily: 'Bebas Neue', fontSize: '1.6rem', color: '#2ECC71', letterSpacing: '0.04em' }}>DRAFT IS LIVE</div>;

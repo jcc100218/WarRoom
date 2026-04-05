@@ -50,7 +50,6 @@ function MyTeamTab({
   sendReconMessage,
 
   // Misc
-  isCommand,
   timeRecomputeTs,
   setTimeRecomputeTs,
 }) {
@@ -576,76 +575,6 @@ function MyTeamTab({
           })()}
         </div>
       )}
-
-      {/* ── ROSTER STRATEGY SUMMARY (Command-aware) ── */}
-      {isCommand && (() => {
-        const assess = typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal(myRoster?.roster_id) : null;
-        const tier = (assess?.tier || '').toUpperCase();
-        const needs = assess?.needs?.slice(0, 3) || [];
-        const strengths = assess?.strengths || [];
-        const totalDhq = rows.reduce((s, r) => s + r.dhq, 0);
-        const elites = typeof window.App?.countElitePlayers === 'function' ? window.App.countElitePlayers(rows.map(r => r.pid)) : rows.filter(r => r.dhq >= 7000).length;
-
-        // Categorize players
-        const sellNow = rows.filter(r => r.peakYrsLeft <= 0 && r.dhq >= 2000 && r.trend <= -10).sort((a,b) => b.dhq - a.dhq).slice(0, 3);
-        const sellHigh = rows.filter(r => r.peakYrsLeft <= 2 && r.dhq >= 3000 && r.trend >= 0 && !sellNow.find(s => s.pid === r.pid)).sort((a,b) => b.dhq - a.dhq).slice(0, 3);
-        const core = rows.filter(r => r.dhq >= 5000 && r.peakYrsLeft >= 3).sort((a,b) => b.dhq - a.dhq).slice(0, 5);
-        const holdMonitor = rows.filter(r => r.dhq >= 1500 && !sellNow.find(s => s.pid === r.pid) && !sellHigh.find(s => s.pid === r.pid) && !core.find(s => s.pid === r.pid)).sort((a,b) => b.dhq - a.dhq).slice(0, 5);
-
-        // Strategy diagnosis
-        const stratParts = [];
-        stratParts.push(tier === 'ELITE' ? 'Championship-caliber roster.' : tier === 'CONTENDER' ? 'Legitimate contender.' : tier === 'CROSSROADS' ? 'At a crossroads \u2014 decide: push or rebuild.' : 'Rebuilding phase.');
-        if (needs.length) stratParts.push('Weakest at ' + needs.map(n => n.pos).join(', ') + '.');
-        if (elites < 2) stratParts.push('Need more elite assets (top 5 at position).');
-        if (sellNow.length) stratParts.push('Move ' + sellNow.map(s => s.p.last_name || s.p.full_name?.split(' ').pop()).join(', ') + ' before further decline.');
-
-        // Top 3 moves
-        const moves = [];
-        if (sellNow.length) moves.push({ type: 'SELL', label: 'Sell ' + (sellNow[0].p.full_name || 'veteran'), detail: sellNow[0].dhq.toLocaleString() + ' DHQ, ' + sellNow[0].peakYrsLeft + 'yr past peak, trend ' + sellNow[0].trend + '%', col: '#E74C3C' });
-        if (needs.length) {
-          const bestBuy = needs[0];
-          moves.push({ type: 'BUY', label: 'Acquire ' + bestBuy.pos + ' starter', detail: bestBuy.urgency + ' \u2014 biggest positional gap', col: '#2ECC71' });
-        }
-        if (sellHigh.length) moves.push({ type: 'UPGRADE', label: 'Sell high on ' + (sellHigh[0].p.full_name || 'asset'), detail: sellHigh[0].dhq.toLocaleString() + ' DHQ, ' + sellHigh[0].peakYrsLeft + 'yr window left', col: '#F0A500' });
-
-        const renderGroup = (title, color, players) => {
-          if (!players.length) return null;
-          return <div style={{ marginBottom: '10px' }}>
-            <div style={{ fontSize: '0.76rem', fontWeight: 700, color: color, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Oswald', marginBottom: '4px' }}>{title}</div>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              {players.map(r => <span key={r.pid} onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(r.pid); }} style={{ fontSize: '0.76rem', padding: '3px 10px', background: color + '15', border: '1px solid ' + color + '30', borderRadius: '6px', color: 'var(--silver)', cursor: 'pointer' }}>{r.p.full_name || r.pid} <span style={{ color: color, fontWeight: 700 }}>{r.dhq.toLocaleString()}</span></span>)}
-            </div>
-          </div>;
-        };
-
-        return <div style={{ marginBottom: '16px' }} className="wr-fade-in">
-          {/* Strategy diagnosis */}
-          <div style={{ marginBottom: '14px' }}>
-            <GMMessage>{stratParts.join(' ')}</GMMessage>
-            {/* Top 3 Moves */}
-            {moves.length > 0 && <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {moves.map((m, i) => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: m.col + '08', border: '1px solid ' + m.col + '25', borderRadius: '6px' }}>
-                <span style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: m.col, minWidth: '60px' }}>{m.type}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.82rem', color: 'var(--white)', fontWeight: 600 }}>{m.label}</div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.6 }}>{m.detail}</div>
-                </div>
-              </div>)}
-            </div>}
-          </div>
-          {/* Player groups */}
-          <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', padding: '14px 16px', marginBottom: '14px' }}>
-            {renderGroup('Sell Now', '#E74C3C', sellNow)}
-            {renderGroup('Sell High', '#F0A500', sellHigh)}
-            {renderGroup('Core Assets', '#2ECC71', core)}
-            {renderGroup('Hold / Monitor', 'var(--silver)', holdMonitor)}
-          </div>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
-            <button onClick={() => setActiveTab('trades')} style={{ padding: '8px 18px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.9rem', cursor: 'pointer' }}>FIND TRADES</button>
-            <button onClick={() => setActiveTab('fa')} style={{ padding: '8px 18px', background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', borderRadius: '6px', fontFamily: 'Bebas Neue', fontSize: '0.9rem', cursor: 'pointer' }}>FREE AGENTS</button>
-          </div>
-        </div>;
-      })()}
 
       {/* ── GM STRATEGY PANEL ── */}
       <div style={{ marginBottom: '14px' }}>

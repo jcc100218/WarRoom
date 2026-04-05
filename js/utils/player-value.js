@@ -109,7 +109,7 @@ window.App.PlayerValue = (function () {
     function projectPlayerValue(pid, baseDhq, baseAge, pos, delta, meta) {
         if (!baseDhq || baseDhq <= 0 || delta === 0) return baseDhq;
         const peakWindows = window.App.peakWindows;
-        const decayRates  = window.App?.decayRates || DECAY_RATES;
+        const decayRates  = window.App.decayRates;
         const nPos = pos === 'DE' || pos === 'DT'   ? 'DL'
                    : pos === 'CB' || pos === 'S'    ? 'DB'
                    : pos === 'OLB' || pos === 'ILB' ? 'LB'
@@ -216,7 +216,6 @@ window.App.PlayerValue = (function () {
         TOTAL_WEIGHT,
         PICK_VALUES,
         PICK_COLORS,
-        DECAY_RATES,
         POS_CEILINGS,
         getPickValue,
         projectPlayerValue,

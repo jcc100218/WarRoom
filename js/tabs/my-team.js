@@ -101,6 +101,10 @@ function MyTeamTab({
       if (key === 'slot') { const ord = {starter:0,taxi:1,bench:2,ir:3}; return ((ord[a.section]||9) - (ord[b.section]||9)) * dir; }
       if (key === 'acquired') { const aa = getAcquisitionInfo(a.pid, myRoster?.roster_id), ab = getAcquisitionInfo(b.pid, myRoster?.roster_id); return (aa.method < ab.method ? -1 : aa.method > ab.method ? 1 : 0) * dir; }
       if (key === 'acquiredDate') { const aa = getAcquisitionInfo(a.pid, myRoster?.roster_id), ab = getAcquisitionInfo(b.pid, myRoster?.roster_id); return (aa.date < ab.date ? -1 : aa.date > ab.date ? 1 : 0) * dir; }
+      if (key === 'sos') {
+        const getSosRank = (r) => { const s = window.App?.SOS?.getPlayerSOS?.(r.pid, r.pos, r.p?.team); return s?.avgRank || 16; };
+        return (getSosRank(b) - getSosRank(a)) * dir; // higher rank = easier = sort first by default
+      }
       return 0;
     });
   }
@@ -130,11 +134,12 @@ function MyTeamTab({
     slot:       { label: 'Roster Slot', shortLabel: 'Slot', width: '40px', group: 'core' },
     acquired:   { label: 'Acquisition Method', shortLabel: 'Acquired', width: '66px', group: 'core' },
     acquiredDate: { label: 'Date Acquired', shortLabel: 'Date', width: '58px', group: 'core' },
+    sos:        { label: 'Sched Strength (1=hardest, 32=easiest)', shortLabel: 'SOS', width: '44px', group: 'stats' },
   };
 
   const COLUMN_PRESETS = {
     dynasty: ['pos','age','dhq','peak','trend','action','acquired'],
-    stats:   ['pos','age','dhq','ppg','prev','trend','gp','durability'],
+    stats:   ['pos','age','dhq','ppg','prev','trend','gp','durability','sos'],
     scout:   ['pos','age','college','slot','height','weight','depthChart','yrsExp'],
     full:    Object.keys(ROSTER_COLUMNS),
   };
@@ -291,6 +296,19 @@ function MyTeamTab({
         const acq = getAcquisitionInfo(r.pid, myRoster?.roster_id);
         return <div key={colKey} style={{...base}}><span style={{ fontSize: '0.56rem', color: 'var(--silver)', opacity: 0.6 }}>{acq.date}</span></div>;
       }
+      case 'sos': {
+        const sosMod = window.App?.SOS;
+        if (!sosMod?.ready) return <div key={colKey} style={{...base}}><span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.72rem' }}>\u2014</span></div>;
+        const team = r.p?.team;
+        if (!team) return <div key={colKey} style={{...base}}><span style={{ color: 'rgba(255,255,255,0.2)' }}>\u2014</span></div>;
+        const sos = sosMod.getPlayerSOS(r.pid, r.pos, team);
+        if (!sos) return <div key={colKey} style={{...base}}><span style={{ color: 'rgba(255,255,255,0.2)' }}>\u2014</span></div>;
+        const sosBg = sos.avgRank >= 25 ? 'rgba(46,204,113,0.12)' : sos.avgRank <= 8 ? 'rgba(231,76,60,0.1)' : 'transparent';
+        return <div key={colKey} style={{...base, background: sosBg, flexDirection: 'column', gap: '1px'}} title={sos.label + ' schedule (' + sos.avgRank + '/32)'}>
+          <span style={{ color: sos.color, fontWeight: 700, fontSize: '0.82rem', fontFamily: 'Oswald' }}>{sos.avgRank}</span>
+          <span style={{ color: sos.color, fontSize: '0.58rem', opacity: 0.8 }}>{sos.label.toUpperCase()}</span>
+        </div>;
+      }
       default: return <div key={colKey} style={{...base}}>{'\u2014'}</div>;
     }
   }
@@ -334,13 +352,14 @@ function MyTeamTab({
         const dVals = (currentLeague.rosters || []).map(r => {
           const pDHQ = (r.players || []).reduce((s, pid) => s + ((window.App?.LI?.playerScores || {})[pid] || 0), 0);
           let pickDHQ = 0;
-          if (typeof getIndustryPickValue === 'function') {
+          {
             const draftRounds = currentLeague.settings?.draft_rounds || 5;
             const leagueSeason = parseInt(currentLeague.season) || new Date().getFullYear();
             for (let yr = leagueSeason; yr <= leagueSeason + 2; yr++) for (let rd = 1; rd <= draftRounds; rd++) {
+              const pv = typeof getIndustryPickValue === 'function' ? getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams) : window.App.PlayerValue?.getPickValue?.(yr, rd, totalTeams) ?? 0;
               const ta = (_sTradedPicks).find(p => parseInt(p.season) === yr && p.round === rd && p.roster_id === r.roster_id && p.owner_id !== r.roster_id);
-              if (!ta) pickDHQ += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams);
-              (_sTradedPicks).filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === r.roster_id && p.roster_id !== r.roster_id).forEach(() => { pickDHQ += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams); });
+              if (!ta) pickDHQ += pv;
+              (_sTradedPicks).filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === r.roster_id && p.roster_id !== r.roster_id).forEach(() => { pickDHQ += pv; });
             }
           }
           return { rid: r.roster_id, total: pDHQ + pickDHQ };
@@ -353,14 +372,14 @@ function MyTeamTab({
 
         // Pick capital
         const pickCapital = (() => {
-          if (typeof getIndustryPickValue !== 'function') return 0;
           let val = 0;
           const draftRounds = currentLeague.settings?.draft_rounds || 5;
           const leagueSeason = parseInt(currentLeague.season) || new Date().getFullYear();
           for (let yr = leagueSeason; yr <= leagueSeason + 2; yr++) for (let rd = 1; rd <= draftRounds; rd++) {
+            const pv = typeof getIndustryPickValue === 'function' ? getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams) : window.App.PlayerValue?.getPickValue?.(yr, rd, totalTeams) ?? 0;
             const ta = (_sTradedPicks).find(p => parseInt(p.season) === yr && p.round === rd && p.roster_id === myRoster?.roster_id && p.owner_id !== myRoster?.roster_id);
-            if (!ta) val += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams);
-            (_sTradedPicks).filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === myRoster?.roster_id && p.roster_id !== myRoster?.roster_id).forEach(() => { val += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams); });
+            if (!ta) val += pv;
+            (_sTradedPicks).filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === myRoster?.roster_id && p.roster_id !== myRoster?.roster_id).forEach(() => { val += pv; });
           }
           return val;
         })();

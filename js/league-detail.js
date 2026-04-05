@@ -126,10 +126,22 @@
         }, []);
 
         // Save base player data on first load (before any age projection)
+        // Also expose on window.App for cross-module reads (SOS projection, trade-calc)
         useEffect(() => {
-            if (Object.keys(playersData).length > 100 && !basePlayersData) {
-                setBasePlayersData(playersData);
+            if (Object.keys(playersData).length > 100) {
+                window.App._playersCache = playersData;
+                if (!basePlayersData) setBasePlayersData(playersData);
             }
+        }, [playersData]);
+
+        // ── SOS engine init — fires once playersData is populated ──
+        useEffect(() => {
+            if (Object.keys(playersData).length < 100) return;
+            if (window.App.SOS?.ready) return;
+            const season = String(parseInt(currentLeague?.season) || new Date().getFullYear());
+            window.App.SOS?.initialize(season, playersData, () => {
+                setTimeRecomputeTs(Date.now()); // trigger KPI + roster re-render
+            });
         }, [playersData]);
 
         // ── PROJECTION ENGINE: canonical implementation lives in js/utils/player-value.js ──
@@ -247,7 +259,15 @@
                             const baseAge = p.age || 0;
                             const projAge = baseAge ? baseAge + delta : 0;
                             const baseDhq = originalScores[pid] || 0;
-                            const projDhq = projectPlayerValue(pid, baseDhq, baseAge, p.position || '', delta);
+                            // Derive YoY trend from prevAvg vs seasonAvg when both are available
+                            const pStats = window.S?.playerStats?.[pid];
+                            const trendMeta = (() => {
+                                const prev = pStats?.prevAvg;
+                                const cur  = pStats?.seasonAvg;
+                                if (prev > 0 && cur > 0) return { trend: (cur - prev) / prev };
+                                return undefined;
+                            })();
+                            const projDhq = projectPlayerValue(pid, baseDhq, baseAge, p.position || '', delta, trendMeta);
                             projScores[pid] = projDhq;
                             projected[pid] = {
                                 ...p,
@@ -390,6 +410,7 @@
             'roster-turnover':  { label: 'Roster Turnover', icon: '', category: 'Roster', tip: 'Trades completed this cycle' },
             'pick-capital':     { label: 'Pick Capital', icon: '', category: 'Roster', tip: 'Total value of your draft picks across next 3 seasons. Includes traded picks.' },
             'trade-leverage':   { label: 'Trade Leverage', icon: '', category: 'Trades', tip: 'How many league teams need positions where you have surplus. Higher = more trade partners available.' },
+            'sched-sos':        { label: 'Schedule SOS', icon: '', category: 'Roster', tip: 'Average opponent defense rank faced by your starters (1=hardest, 32=easiest). Based on last completed season. Higher = easier schedule.' },
         };
         const DEFAULT_KPIS = ['contender-rank', 'dynasty-rank', 'health-score', 'window'];
         const [selectedKpis, setSelectedKpis] = useState(() =>
@@ -439,16 +460,17 @@
                         const playerDHQ = (r.players || []).reduce((s, pid) => s + (scores[pid] || 0), 0);
                         // Add pick capital value
                         let pickDHQ = 0;
-                        if (typeof getIndustryPickValue === 'function') {
+                        {
                             const totalTeams = (currentLeague.rosters || []).length || 16;
                             const draftRounds = currentLeague.settings?.draft_rounds || 5;
                             const leagueSeason = parseInt(currentLeague.season) || new Date().getFullYear();
                             for (let yr = leagueSeason; yr <= leagueSeason + 2; yr++) {
                                 for (let rd = 1; rd <= draftRounds; rd++) {
+                                    const pv = typeof getIndustryPickValue === 'function' ? getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams) : window.App.PlayerValue?.getPickValue?.(yr, rd, totalTeams) ?? 0;
                                     const tradedAway = (window.S?.tradedPicks || []).find(p => parseInt(p.season) === yr && p.round === rd && p.roster_id === r.roster_id && p.owner_id !== r.roster_id);
-                                    if (!tradedAway) pickDHQ += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams);
+                                    if (!tradedAway) pickDHQ += pv;
                                     const acquired = (window.S?.tradedPicks || []).filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === r.roster_id && p.roster_id !== r.roster_id);
-                                    acquired.forEach(() => { pickDHQ += getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams); });
+                                    acquired.forEach(() => { pickDHQ += pv; });
                                 }
                             }
                         }
@@ -483,7 +505,9 @@
                 }
                 case 'avg-age': {
                     if (!myPlayers.length) return { value: '\u2014', sub: 'Avg age', color: 'var(--silver)' };
-                    const avg = myPlayers.reduce((s, pid) => s + (playersData[pid]?.age || 26), 0) / myPlayers.length;
+                    const totalDhq = myPlayers.reduce((s, pid) => s + (scores[pid] || 1), 0);
+                    const weightedAge = myPlayers.reduce((s, pid) => s + ((playersData[pid]?.age || 26) * (scores[pid] || 1)), 0);
+                    const avg = totalDhq > 0 ? weightedAge / totalDhq : 26;
                     return { value: avg.toFixed(1), sub: 'Avg age', color: avg <= 25 ? '#2ECC71' : avg <= 27 ? 'var(--gold)' : '#E74C3C' };
                 }
                 case 'top5-conc': {
@@ -697,12 +721,12 @@
                         for (let rd = 1; rd <= draftRounds; rd++) {
                             const tradedAway = tp.find(p => parseInt(p.season) === yr && p.round === rd && p.roster_id === myRoster?.roster_id && p.owner_id !== myRoster?.roster_id);
                             if (!tradedAway) {
-                                totalPickValue += typeof getIndustryPickValue === 'function' ? getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams) : 0;
+                                totalPickValue += typeof getIndustryPickValue === 'function' ? getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams) : window.App.PlayerValue?.getPickValue?.(yr, rd, totalTeams) ?? 0;
                                 pickCount++;
                             }
                             const acquired = tp.filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === myRoster?.roster_id && p.roster_id !== myRoster?.roster_id);
                             acquired.forEach(() => {
-                                totalPickValue += typeof getIndustryPickValue === 'function' ? getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams) : 0;
+                                totalPickValue += typeof getIndustryPickValue === 'function' ? getIndustryPickValue(rd, Math.ceil(totalTeams / 2), totalTeams) : window.App.PlayerValue?.getPickValue?.(yr, rd, totalTeams) ?? 0;
                                 pickCount++;
                             });
                         }
@@ -720,6 +744,24 @@
                         if (myStrengths.some(s => theirNeeds.includes(s))) leverageCount++;
                     });
                     return { value: leverageCount, sub: leverageCount + ' teams need your surplus', color: leverageCount >= 6 ? '#2ECC71' : leverageCount >= 3 ? 'var(--gold)' : '#E74C3C' };
+                }
+                case 'sched-sos': {
+                    const sosMod = window.App?.SOS;
+                    if (!sosMod?.ready) return { value: '\u2014', sub: 'Loading SOS\u2026', color: 'var(--silver)' };
+                    const starters = myRoster?.starters || [];
+                    const teamSOS = sosMod.getTeamSOS(starters, playersData);
+                    if (!teamSOS) return { value: '\u2014', sub: 'No SOS data', color: 'var(--silver)' };
+                    // sparkData: all teams' avg ranks for comparison
+                    const sparkData = (currentLeague.rosters || []).map(r => {
+                        const sos = sosMod.getTeamSOS(r.starters || [], playersData);
+                        return sos?.avgRank || 16;
+                    }).sort((a, b) => a - b);
+                    return {
+                        value: teamSOS.avgRank,
+                        sub: teamSOS.label + ' schedule (avg rank)',
+                        color: teamSOS.color,
+                        sparkData,
+                    };
                 }
                 default: return { value: '\u2014', sub: '', color: 'var(--silver)' };
             }

@@ -46,18 +46,66 @@ window.App.PlayerValue = (function () {
         return PICK_VALUES[round] || 100;
     }
 
+    // ── Usage signal helpers ─────────────────────────────────────────
+    // Reads from window.S.playerStats[pid].prevRawStats (Sleeper season totals).
+    // Returns a multiplier on the base decay rate.  > 1 = faster decline, < 1 = slower.
+    function computeUsageDecayMultiplier(pid, nPos) {
+        const raw = window.S?.playerStats?.[pid]?.prevRawStats;
+        if (!raw) return 1.0;
+        const gp = raw.gp || 0;
+        if (gp < 4) return 1.0; // too few games for a reliable signal
+
+        if (nPos === 'RB') {
+            const cpg = (raw.rush_att || 0) / gp;
+            if (cpg >= 20) return 1.10;  // workhorse — tread wears faster
+            if (cpg < 12)  return 0.90;  // pass-catching back — lighter load
+            return 1.0;
+        }
+        if (nPos === 'WR' || nPos === 'TE') {
+            const tpg = (raw.rec_tgt || raw.rec_att || 0) / gp;
+            const hiThreshold = nPos === 'TE' ? 7 : 8;
+            if (tpg >= hiThreshold) return 0.93; // featured target — established role, more stable
+            return 1.0;
+        }
+        if (nPos === 'QB') {
+            const rapg = (raw.rush_att || 0) / gp;
+            if (rapg >= 7) return 1.05; // mobile QB — physical wear from running
+            return 1.0;
+        }
+        return 1.0;
+    }
+
+    // Returns a one-time additive DHQ adjustment for WR/TE based on target share trend.
+    // Positive trend (rising share) → positive bonus; negative → penalty.
+    // Applied only in year 1 of the projection; dampened to avoid over-weighting one signal.
+    function computeUsageTrendBonus(nPos, baseDhq, trend) {
+        if (nPos !== 'WR' && nPos !== 'TE') return 0;
+        if (Math.abs(trend) < 0.10) return 0;  // below noise threshold
+        // Cap trend influence at ±50%; scale to ±5% of base DHQ
+        const capped = Math.min(Math.max(trend, -0.50), 0.50);
+        return Math.round(baseDhq * capped * 0.10);
+    }
+
     // ── projectPlayerValue ───────────────────────────────────────────
     // Projects (or retro-jects) a player's DHQ value `delta` seasons away.
-    // Uses position-specific peak windows, decay rates, and a confidence
-    // half-life to produce calibrated multi-year projections.
+    // Uses position-specific peak windows, usage-adjusted decay rates, and
+    // a confidence half-life to produce calibrated multi-year projections.
     //
     // Parameters:
-    //   pid      — player id (used only for isElitePlayer lookup)
+    //   pid      — player id (used for isElitePlayer lookup + usage stat read)
     //   baseDhq  — current DHQ score
     //   baseAge  — player's current age
     //   pos      — position string (may be variant like 'DE', 'CB', 'OLB')
     //   delta    — years offset; positive = future, negative = past
     //   meta     — optional { trend: Number } where trend ≈ YoY PPG change fraction
+    //
+    // Usage signals (read from window.S.playerStats[pid].prevRawStats):
+    //   RB carries/game  ≥20 → decay ×1.10 (workhorse ages faster)
+    //   RB carries/game  <12 → decay ×0.90 (pass-catcher ages slower)
+    //   WR/TE targets/game ≥8/7 → decay ×0.93 (featured role, more stable)
+    //   QB rush att/game  ≥7  → decay ×1.05 (mobile QB wear)
+    //   WR/TE rising target share (meta.trend >10%) → year-1 value bonus
+    //   WR/TE declining target share (meta.trend <-10%) → year-1 value penalty
     function projectPlayerValue(pid, baseDhq, baseAge, pos, delta, meta) {
         if (!baseDhq || baseDhq <= 0 || delta === 0) return baseDhq;
         const peakWindows = window.App.peakWindows;
@@ -85,6 +133,13 @@ window.App.PlayerValue = (function () {
         const isProven = baseDhq >= 4000;
         const peakMid  = Math.floor((pLo + pHi) / 2);
 
+        // ── Usage-adjusted decay rate ──────────────────────────────
+        const usageMult    = computeUsageDecayMultiplier(pid, nPos);
+        const effectiveDecay = decay * usageMult;
+
+        // ── Target share trend bonus (WR/TE only, year 1) ──────────
+        const trendBonus = computeUsageTrendBonus(nPos, baseDhq, trend);
+
         let val = baseDhq;
 
         if (delta > 0) {
@@ -103,12 +158,31 @@ window.App.PlayerValue = (function () {
                     val *= (1 + rate * trendBoost);
                 } else if (ageAtYr <= pHi) {
                     // Late-peak: holding or starting to decline
-                    val *= isElite ? 1.0 : isProven ? (1 - decay * 0.1) : (1 - decay * 0.25);
+                    val *= isElite ? 1.0 : isProven ? (1 - effectiveDecay * 0.1) : (1 - effectiveDecay * 0.25);
                 } else {
                     // Post-peak: steeper decline, 0.25 acceleration per year past peak
                     const yearsPast = ageAtYr - pHi;
                     const accel = 1 + yearsPast * 0.25;
-                    val *= (1 - decay * accel);
+                    val *= (1 - effectiveDecay * accel);
+                }
+                // Apply target share trend pressure in year 1 only (signal fades quickly)
+                if (yr === 1 && trendBonus !== 0) val += trendBonus;
+                // SOS adjustment: year 1 only, current season projections (not dynasty multi-year)
+                // Easy schedule (rank 25-32) → small positive; Hard (rank 1-8) → small negative
+                // Range: ±5% max; uses last completed season's average opponent defense rank
+                if (yr === 1 && window.App?.SOS?.ready) {
+                    const pd = window.App?.SOS?.defenseRankings; // existence check only
+                    if (pd) {
+                        const playerTeam = window.App?._playersCache?.[pid]?.team;
+                        const sos = playerTeam
+                            ? window.App.SOS.getPlayerSOS(pid, nPos, playerTeam)
+                            : null;
+                        if (sos?.avgRank != null) {
+                            // rank 16.5 = league average; ±16.5 range → ±5% adjustment
+                            const sosAdj = (sos.avgRank - 16.5) / 16.5 * 0.05;
+                            val = val * (1 + sosAdj);
+                        }
+                    }
                 }
                 val = Math.min(val, ceiling);
             }
@@ -117,11 +191,11 @@ window.App.PlayerValue = (function () {
             for (let yr = 1; yr <= Math.abs(delta); yr++) {
                 const ageAtYr = (baseAge || 25) - yr;
                 if (ageAtYr < pLo - 2) {
-                    val *= (1 - 0.15);       // worth less when very young
+                    val *= (1 - 0.15);                // worth less when very young
                 } else if (ageAtYr <= pHi) {
-                    val *= (1 + decay * 0.1); // in window, similar value
+                    val *= (1 + effectiveDecay * 0.1); // in window, similar value
                 } else {
-                    val *= (1 + decay * 0.5); // worth more when younger past peak
+                    val *= (1 + effectiveDecay * 0.5); // worth more when younger past peak
                 }
             }
         }

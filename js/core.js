@@ -99,23 +99,23 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
     // ──────────────────────────────────────────────────────────────────────────
 
     // ===== PRODUCT TIER SYSTEM =====
-    // Tiers: 'scout' (free), 'reconai' ($4.99), 'warroom' ($9.99)
+    // Tiers: 'scout' ($4.99), 'warroom' ($9.99)
     function getUserTier() {
         try {
             const p = JSON.parse(localStorage.getItem('od_profile_v1') || '{}');
             if (p.tier === 'warroom' || p.tier === 'commissioner' || p.tier === 'power' || p.tier === 'pro') return 'warroom';
-            if (p.tier === 'reconai') return 'reconai';
+            if (p.tier === 'scout' || p.tier === 'reconai') return 'scout'; // reconai = legacy pre-rename value
         } catch(e) { wrLog('getUserTier.parse', e); }
         // Check if dev mode
         if (new URLSearchParams(window.location.search).has('dev') || window.location.hostname.includes('sandbox')) return 'warroom';
-        return 'scout';
+        return 'free';
     }
 
     const TIER_FEATURES = {
-        // Scout (free) gets these
-        scout: new Set(['my-roster-basic', 'player-cards-basic', 'team-diagnosis-basic', 'ai-1-per-day', 'draft-rankings']),
-        // ReconAI adds these
-        reconai: new Set(['my-roster-basic', 'player-cards-basic', 'team-diagnosis-basic', 'ai-1-per-day', 'draft-rankings',
+        // Free gets these
+        free: new Set(['my-roster-basic', 'player-cards-basic', 'team-diagnosis-basic', 'ai-1-per-day', 'draft-rankings']),
+        // Scout adds these
+        scout: new Set(['my-roster-basic', 'player-cards-basic', 'team-diagnosis-basic', 'ai-1-per-day', 'draft-rankings',
             'ai-unlimited', 'player-cards-full', 'team-diagnosis-full', 'waiver-targets', 'trade-quick-check']),
         // War Room gets everything
         warroom: new Set(['my-roster-basic', 'player-cards-basic', 'team-diagnosis-basic', 'ai-1-per-day', 'draft-rankings',
@@ -283,6 +283,10 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
         BIGBOARD:         (leagueId) => `wr_bigboard_${leagueId}`,
         // Session cache (sessionStorage, not localStorage)
         PLAYERS_CACHE:    'fw_players_cache',
+        // SOS engine caches (sessionStorage, 24hr TTL — managed by sos-engine.js)
+        SOS_DEF_CACHE:   (season) => `wr_sos_def_${season}`,
+        SOS_SCHED_CACHE: (season) => `wr_sos_sch_${season}`,
+        SOS_WEEK_CACHE:  (season, week) => `wr_sos_wk_${season}_${week}`,
     };
 
     // WrStorage — thin wrappers that handle JSON serialisation and call wrLog on errors.

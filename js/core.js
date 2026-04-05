@@ -2,7 +2,101 @@
 // core.js — Tier system, access control, fetch helpers
 // Must load FIRST — all other modules depend on these.
 // ══════════════════════════════════════════════════════════════════
+//
+// ── WINDOW GLOBAL CONTRACT ────────────────────────────────────────
+// Cross-module communication goes through window.*. All contracts
+// are listed here so load-order bugs and implicit deps are visible.
+// DO NOT add new globals without updating this block.
+//
+// window.App  (object)
+//   Set by:  ReconAI CDN (dhq-engine.js) before any War Room script loads.
+//   Extended by: core.js (this file) with War Room constants.
+//   Required: yes — app fails silently if missing.
+//   Key fields:
+//     .LI              — League Intel: { playerScores, playerMeta, playerTrends,
+//                        playerPeaks, championships, dhqPickValueFn }
+//     .LI_LOADED       — boolean; true once loadLeagueIntel() resolves
+//     .loadLeagueIntel()— async fn; fetches and populates .LI
+//     .calcOptimalPPG(roster, scoring) — from ReconAI
+//     .peakWindows     — { QB:[lo,hi], RB:[lo,hi], … } — set by ReconAI CDN;
+//                        core.js provides fallback default via PEAK_WINDOWS_DEFAULT
+//     .POS_COLORS      — { QB:'#E74C3C', … }  (set by core.js)
+//     .POS_GROUPS      — { DB:[…], DL:[…], LB:[…] }  (set by core.js)
+//     .PEAK_WINDOWS_DEFAULT — frozen copy of fallback values  (set by core.js)
+//     .normPos(pos)    — canonical position normalizer  (set by core.js)
+//     .calcRawPts(stats, scoring) — fantasy pts calculation  (set by core.js)
+//     .calcPPG(stats, scoring)    — pts/game  (set by core.js)
+//     .WR_KEYS         — localStorage key registry  (set by core.js)
+//     .WrStorage       — localStorage/sessionStorage abstraction  (set by core.js)
+//
+// window.S  (object)
+//   Set by:  ReconAI CDN; mutated by league-detail.js inside useEffect.
+//   Required: no — War Room degrades gracefully if absent.
+//   Key fields (written by league-detail.js):
+//     .season          — active year string e.g. '2025'
+//     .playerStats     — { [pid]: { prevTotal, prevAvg, prevRawStats } }
+//     ._timeContextTs  — Date.now() of last stats sync
+//   Key fields (read from ReconAI):
+//     .rosters         — all league rosters array
+//     .myRosterId      — current user's roster_id
+//     .leagues         — array of league objects (used for scoring_settings)
+//     .tradedPicks     — traded picks array
+//     .apiKey          — AI provider API key
+//     .aiProvider      — 'gemini' | 'anthropic'
+//
+// window.OD  (object)
+//   Set by:  ReconAI CDN (supabase-client.js).
+//   Required: no — features degrade; cloud sync is disabled when absent.
+//   Key methods (all async, all optional-chained before calling):
+//     .loadDisplayName() → string | null
+//     .saveDisplayName(name)
+//     .loadTargets(leagueId) → { targets, startingBudget }
+//     .loadPlayerTags(leagueId) → { [pid]: tag }
+//     .checkUsersAccess(usernames[]) → Set<string>
+//     .createGiftUser({ … })
+//     .verifySupabasePassword(username, pw)
+//     .updatePassword(username, pw)
+//
+// window.wrLog(context, err)
+//   Set by:  core.js (this file).
+//   Required: no — all callers guard with window.wrLog?.()
+//   Purpose:  unified error logger; swap body here to route to a reporting svc.
+//
+// window._wrSelectPlayer(pid)
+//   Set by:  league-detail.js (resets on every render of LeagueDetail).
+//   Read by: components, ReconAI card, any cross-tab "open player" action.
+//   Risk:    stale closure if held across renders — always call at event time.
+//
+// window._wrGmStrategy  (object)
+//   Set by:  league-detail.js when GM strategy changes.
+//   Read by: ReconAI AI context builder for personalised responses.
+//
+// window._playerTags  (object)
+//   Set by:  league-detail.js after OD.loadPlayerTags resolves.
+//   Read by: player card rendering throughout the app.
+//
+// window._liLoading  (boolean)
+//   Set by:  league-detail.js to prevent duplicate loadLeagueIntel() calls.
+//
+// ── ReconAI bridge functions (set by CDN scripts, optional) ──────
+// window.assessTeamFromGlobal(rosterId) → assessment | null
+// window.assessAllTeamsFromGlobal()     → assessment[]
+// window.dynastyValue(pid, age, pos, stats, scoring, peakWindows) → number
+// window.getPlayerAction(pid)           → { label, color }
+// window.Sleeper.fetchTrending(type, hours, limit) → async array
+// window.DraftHistory.syncDraftDNA(leagueId)       → async Map
+// window.DraftHistory.loadDraftDNA(leagueId)        → Map (sync, cached)
+// ─────────────────────────────────────────────────────────────────
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+    // ─── Error Logger ──────────────────────────────────────────────────────────
+    // Thin wrapper so failures show up in the console with a consistent prefix.
+    // Replace the body here to route to an error reporting service in the future.
+    function wrLog(context, err) {
+        if (typeof console !== 'undefined') console.warn('[WarRoom]', context, err);
+    }
+    window.wrLog = wrLog; // expose for cross-module access
+    // ──────────────────────────────────────────────────────────────────────────
 
     // ===== PRODUCT TIER SYSTEM =====
     // Tiers: 'scout' (free), 'reconai' ($4.99), 'warroom' ($9.99)
@@ -11,7 +105,7 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
             const p = JSON.parse(localStorage.getItem('od_profile_v1') || '{}');
             if (p.tier === 'warroom' || p.tier === 'commissioner' || p.tier === 'power' || p.tier === 'pro') return 'warroom';
             if (p.tier === 'reconai') return 'reconai';
-        } catch(e) {}
+        } catch(e) { wrLog('getUserTier.parse', e); }
         // Check if dev mode
         if (new URLSearchParams(window.location.search).has('dev') || window.location.hostname.includes('sandbox')) return 'warroom';
         return 'scout';
@@ -37,26 +131,23 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
     // One-time taste tracking
     function useTaste() {
-        const key = 'wr_taste_used';
-        const used = localStorage.getItem(key);
-        if (used) return false;
-        localStorage.setItem(key, '1');
+        if (WrStorage.get(WR_KEYS.TASTE_USED)) return false;
+        WrStorage.set(WR_KEYS.TASTE_USED, '1');
         return true; // first time = allow
     }
-    function hasTasteLeft() { return !localStorage.getItem('wr_taste_used'); }
+    function hasTasteLeft() { return !WrStorage.get(WR_KEYS.TASTE_USED); }
 
     // AI daily limit for scout tier
     function canUseAI() {
         const tier = getUserTier();
         if (tier !== 'scout') return true;
-        const key = 'wr_ai_daily_' + new Date().toISOString().split('T')[0];
-        const count = parseInt(localStorage.getItem(key) || '0');
-        return count < 1;
+        const key = WR_KEYS.AI_DAILY(new Date().toISOString().split('T')[0]);
+        return parseInt(WrStorage.get(key, '0')) < 1;
     }
     function trackAIUse() {
-        const key = 'wr_ai_daily_' + new Date().toISOString().split('T')[0];
-        const count = parseInt(localStorage.getItem(key) || '0');
-        localStorage.setItem(key, String(count + 1));
+        const key = WR_KEYS.AI_DAILY(new Date().toISOString().split('T')[0]);
+        const count = parseInt(WrStorage.get(key, '0'));
+        WrStorage.set(key, String(count + 1));
     }
 
 
@@ -102,17 +193,137 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
     async function fetchAllPlayers() {
         if (_wrPlayersCache) return _wrPlayersCache;
         // Check sessionStorage first (avoid re-fetching 10k players on every load)
-        try {
-            const cached = sessionStorage.getItem('fw_players_cache');
-            if (cached) {
-                const d = JSON.parse(cached);
-                if (Date.now() - d.ts < 3600000) { _wrPlayersCache = d.data; return d.data; }
-            }
-        } catch(e) {}
+        const cached = WrStorage.getSession(WR_KEYS.PLAYERS_CACHE);
+        if (cached && Date.now() - cached.ts < 3600000) { _wrPlayersCache = cached.data; return cached.data; }
         _wrPlayersCache = await fetchJSON(`${SLEEPER_BASE_URL}/players/nfl`);
-        try { sessionStorage.setItem('fw_players_cache', JSON.stringify({ data: _wrPlayersCache, ts: Date.now() })); } catch(e) {}
+        WrStorage.setSession(WR_KEYS.PLAYERS_CACHE, { data: _wrPlayersCache, ts: Date.now() });
         return _wrPlayersCache;
     }
+
+    // ─── Shared Constants ──────────────────────────────────────────────────────
+    // window.App is populated by ReconAI CDN scripts before this file loads.
+    // We extend it here with War Room constants all tabs need in one place.
+    window.App = window.App || {};
+
+    // Position colors — single source of truth (was copy-pasted across 6 locations)
+    window.App.POS_COLORS = window.App.POS_COLORS || {
+        QB:'#E74C3C', RB:'#2ECC71', WR:'#3498DB', TE:'#F0A500',
+        K:'#9B59B6',  DL:'#E67E22', LB:'#1ABC9C', DB:'#E91E63'
+    };
+
+    // Position groups — canonical arrays for normPos (was inline in 20+ locations)
+    window.App.POS_GROUPS = window.App.POS_GROUPS || {
+        DB: ['DB','CB','S','SS','FS'],
+        DL: ['DL','DE','DT','NT','IDL','EDGE'],
+        LB: ['LB','OLB','ILB','MLB'],
+    };
+
+    // Peak windows default — single source of truth (was inlined in 11+ fallback patterns)
+    window.App.PEAK_WINDOWS_DEFAULT = {
+        QB:[23,39], RB:[21,31], WR:[21,33], TE:[21,34],
+        DL:[26,33], LB:[26,32], DB:[21,34]
+    };
+    // Set only if ReconAI CDN hasn't provided them
+    window.App.peakWindows = window.App.peakWindows || window.App.PEAK_WINDOWS_DEFAULT;
+
+    // normPos — canonical position normalizer (was identical in draft-room, free-agency, trade-calc)
+    window.App.normPos = window.App.normPos || function normPos(pos) {
+        if (!pos) return null;
+        for (const [canonical, variants] of Object.entries(window.App.POS_GROUPS)) {
+            if (variants.includes(pos)) return canonical;
+        }
+        return pos;
+    };
+
+    // calcRawPts — fantasy points from stats + scoring settings
+    // (replaces diverging implementations in trade-calc, free-agency, league-detail, components)
+    window.App.calcRawPts = window.App.calcRawPts || function calcRawPts(stats, scoring) {
+        if (!stats) return null;
+        if (scoring) {
+            let total = 0;
+            for (const [field, weight] of Object.entries(scoring)) {
+                if (typeof weight !== 'number') continue;
+                if (stats[field] != null) total += Number(stats[field]) * weight;
+            }
+            return total;
+        }
+        const pre = stats.pts_half_ppr ?? stats.pts_ppr ?? stats.pts_std ?? null;
+        return pre !== null ? Number(pre) : null;
+    };
+
+    // calcPPG — points per game, derived from calcRawPts
+    window.App.calcPPG = window.App.calcPPG || function calcPPG(stats, scoring) {
+        const raw = window.App.calcRawPts(stats, scoring);
+        if (raw === null) return 0;
+        const gp = stats?.gp || 0;
+        return gp > 0 ? Math.max(0, raw / gp) : 0;
+    };
+
+    // ─── Storage Keys & Abstraction ───────────────────────────────────────────
+    // Centralised registry of all War Room-owned localStorage/sessionStorage keys.
+    // od_ / dhq_ / dynastyhq_ prefixed keys are ReconAI-owned — access them directly.
+    const WR_KEYS = {
+        // User preferences
+        TASTE_USED:       'wr_taste_used',
+        AI_DAILY:         (date) => `wr_ai_daily_${date}`,
+        ALEX_AVATAR:      'wr_alex_avatar',
+        // League navigation
+        LAST_LEAGUE_ID:   'wr_last_league_id',
+        LAST_LEAGUE_NAME: 'wr_last_league_name',
+        DEMO_MODE:        'wr_demo_mode',
+        // League-level state
+        TIME_YEAR:        'wr_time_year',
+        ROSTER_COLS:      'wr_roster_cols',
+        KPI_SELECTION:    (leagueId) => `wr_kpi_selection_${leagueId}`,
+        GM_STRATEGY:      (leagueId) => `wr_gm_strategy_${leagueId}`,
+        CHAT:             (leagueId) => `wr_chat_${leagueId}`,
+        SAVED_TRADES:     (leagueId) => `wr_saved_trades_${leagueId}`,
+        WELCOMED:         (leagueId) => `wr_welcomed_v2_${leagueId}`,
+        // Draft
+        BIGBOARD:         (leagueId) => `wr_bigboard_${leagueId}`,
+        // Session cache (sessionStorage, not localStorage)
+        PLAYERS_CACHE:    'fw_players_cache',
+    };
+
+    // WrStorage — thin wrappers that handle JSON serialisation and call wrLog on errors.
+    // All War Room localStorage reads/writes should go through here.
+    const WrStorage = {
+        get(key, fallback = null) {
+            try {
+                const v = localStorage.getItem(key);
+                if (v === null) return fallback;
+                try { return JSON.parse(v); } catch { return v; } // raw string if not JSON
+            } catch(e) { wrLog('storage.get:' + key, e); return fallback; }
+        },
+        set(key, value) {
+            try {
+                localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+            } catch(e) { wrLog('storage.set:' + key, e); }
+        },
+        remove(key) {
+            try { localStorage.removeItem(key); } catch(e) { wrLog('storage.remove:' + key, e); }
+        },
+        getSession(key, fallback = null) {
+            try {
+                const v = sessionStorage.getItem(key);
+                if (v === null) return fallback;
+                try { return JSON.parse(v); } catch { return v; }
+            } catch(e) { wrLog('storage.getSession:' + key, e); return fallback; }
+        },
+        setSession(key, value) {
+            try {
+                sessionStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+            } catch(e) { wrLog('storage.setSession:' + key, e); }
+        },
+        removeSession(key) {
+            try { sessionStorage.removeItem(key); } catch(e) { wrLog('storage.removeSession:' + key, e); }
+        },
+    };
+
+    window.App.WR_KEYS  = WR_KEYS;
+    window.App.WrStorage = WrStorage;
+    // ──────────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────────────
 
     const STATS_YEAR = '2025'; // Most recent completed season — used until Sleeper publishes projections
 
@@ -139,4 +350,10 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
         }
         return _projectionsCache[season];
     }
+
+    // ── SeasonContext ────────────────────────────────────────────────────────
+    // Reactive bridge between league-detail.js and tab components.
+    // Provides: season, playerStats, tradedPicks, rosters, myRosterId, lastUpdated, selectPlayer
+    // write-through: window.S remains intact for ReconAI CDN bridge compatibility.
+    window.App.SeasonContext = React.createContext(null);
 

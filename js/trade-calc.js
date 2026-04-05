@@ -9,20 +9,13 @@
         const STATS_YEAR_TC = (() => { const d = new Date(); return String(d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1); })();
         let WEEKLY_TARGET = 243;
         let ANNUAL_TARGET = 3402;
-        const IDEAL_ROSTER = { QB:3, RB:7, WR:7, TE:4, K:2, DL:7, LB:6, DB:6 };
-        const DRAFT_ROUNDS = 7;
-        const PICK_HORIZON = 3;
-        const PICK_IDEAL = DRAFT_ROUNDS * PICK_HORIZON;
-        const LINEUP_STARTERS = { QB:1, RB:2, WR:3, TE:1, K:1, DL:3, LB:2, DB:3 };
-        const MIN_STARTER_QUALITY = { QB:2, RB:3, WR:3, TE:2, K:1, DL:4, LB:5, DB:4 };
-        const NFL_STARTER_POOL = { QB:32, RB:40, WR:64, TE:32, K:32, DL:64, LB:64, DB:64 };
-        const POS_PT_TARGETS = { QB:20, RB:36, WR:36, TE:10, K:9, DL:24, LB:16, DB:24 };
-        const POS_WEIGHTS = { QB:14, RB:14, WR:14, TE:8, K:3, DL:13, LB:10, DB:12 };
-        const TOTAL_WEIGHT = Object.values(POS_WEIGHTS).reduce((a,b)=>a+b,0);
+        // Shared roster-construction constants from window.App.PlayerValue
+        const { IDEAL_ROSTER, DRAFT_ROUNDS, PICK_HORIZON, PICK_IDEAL,
+                LINEUP_STARTERS, MIN_STARTER_QUALITY, NFL_STARTER_POOL,
+                POS_PT_TARGETS, POS_WEIGHTS, TOTAL_WEIGHT,
+                PICK_VALUES, PICK_COLORS } = window.App.PlayerValue;
         const TC_POS_ORDER = { QB:0, RB:1, WR:2, TE:3, K:4, DL:5, LB:6, DB:7 };
         const MAX_VALUE = 10000;
-        const PICK_VALUES = { 1:6250, 2:3150, 3:1650, 4:850, 5:450, 6:225, 7:125 };
-        const PICK_COLORS = { 1:'#D4AF37', 2:'#5DADE2', 3:'#2ECC71', 4:'#BB8FCE', 5:'#95A5A6', 6:'#7F8C8D', 7:'#6C7A7D' };
         const FAAB_RATE = 2.0;
 
         const FLEX_ALLOWED = {
@@ -58,42 +51,17 @@
         };
 
         // ── Helper functions ──
-        function normPos(pos) {
-            if (!pos) return null;
-            if (['DB','CB','S','SS','FS'].includes(pos)) return 'DB';
-            if (['DL','DE','DT','NT','IDL','EDGE'].includes(pos)) return 'DL';
-            if (['LB','OLB','ILB','MLB'].includes(pos)) return 'LB';
-            return pos;
-        }
+        const normPos = window.App.normPos;
         function posColor(pos) {
             const c = { QB:'#FF6B6B', RB:'#4ECDC4', WR:'#45B7D1', TE:'#F7DC6F', K:'#BB8FCE', DL:'#E67E22', LB:'#F0A500', DB:'#5DADE2' };
             return c[pos] || 'var(--silver)';
         }
         function avatarUrl(id) { return id ? `https://sleepercdn.com/avatars/thumbs/${id}` : null; }
 
-        function calcRawPtsTc(stats, scoring) {
-            if (!stats) return null;
-            if (scoring) {
-                let t = 0;
-                for (const [f, w] of Object.entries(scoring)) {
-                    if (typeof w !== 'number') continue;
-                    if (stats[f] != null) t += Number(stats[f]) * w;
-                }
-                return t;
-            }
-            const p = stats.pts_half_ppr ?? stats.pts_ppr ?? stats.pts_std ?? null;
-            return p !== null ? Number(p) : null;
-        }
-        function calcPPG(pid, scoring) {
-            const s = statsData[pid]; if (!s) return 0;
-            const total = calcRawPtsTc(s, scoring);
-            const gp = s.gp || 0;
-            if (total === null || gp === 0) return 0;
-            return Math.max(0, total / gp);
-        }
+        const calcPPG = (pid, scoring) => window.App.calcPPG(statsData[pid], scoring);
         function calcSeasonPts(pid, scoring) {
             const s = statsData[pid]; if (!s) return 0;
-            const total = calcRawPtsTc(s, scoring);
+            const total = window.App.calcRawPts(s, scoring);
             return total !== null ? Math.max(0, total) : 0;
         }
         function parseStarterSlots(rosterPositions) {
@@ -152,13 +120,7 @@
             if (dhqScore != null && dhqScore > 0) return { value: dhqScore, source: 'dhq' };
             return { value: 0, source: 'none' };
         }
-        function getPickValue(season, round, totalTeams) {
-            if (window.App?.LI?.dhqPickValueFn) {
-                const val = window.App.LI.dhqPickValueFn(season, round, Math.ceil((totalTeams || 12) / 2));
-                if (val > 0) return val;
-            }
-            return PICK_VALUES[round] || 100;
-        }
+        const getPickValue = window.App.PlayerValue.getPickValue;
 
         function detectPickIdMode(rosters, tradedPicks) {
             const rosterIds = new Set(rosters.map(r => String(r.roster_id)));
@@ -465,7 +427,7 @@
             }
             setGrudges(loadGrudges(leagueId));
             if (window.DraftHistory?.loadDraftDNA) setOwnerDraftDna(window.DraftHistory.loadDraftDNA(leagueId) || {});
-            if (window.DraftHistory?.syncDraftDNA) window.DraftHistory.syncDraftDNA(leagueId).then(map => setOwnerDraftDna(map || {})).catch(() => {});
+            if (window.DraftHistory?.syncDraftDNA) window.DraftHistory.syncDraftDNA(leagueId).then(map => setOwnerDraftDna(map || {})).catch(err => window.wrLog('tradecalc.syncDraftDNA', err));
         }, [leagueId]);
 
         // Compute assessments

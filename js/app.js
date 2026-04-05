@@ -107,6 +107,100 @@
         );
     }
 
+    // ── ESPN Connect Card ─────────────────────────────────────────
+    function ESPNConnectCard({ leagues, connecting, error, onConnect, onSelectLeague, reconBase }) {
+        const [leagueId, setLeagueId]   = React.useState('');
+        const [espnS2, setEspnS2]       = React.useState('');
+        const [swid, setSwid]           = React.useState('');
+        const [showCreds, setShowCreds] = React.useState(false);
+
+        const RED = '#cc0000';
+        const RED_BG = 'rgba(204,0,0,0.08)';
+        const RED_BORDER = 'rgba(204,0,0,0.3)';
+
+        function espnScoutUrl(numericId) {
+            return reconBase + '?espn_league=' + numericId;
+        }
+
+        if (leagues.length > 0) {
+            return React.createElement('div', null,
+                leagues.map(function(l) {
+                    return React.createElement('div', {
+                        key: l.id,
+                        style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: RED_BG, border: '1px solid ' + RED_BORDER, borderRadius: 10, marginBottom: 8, cursor: 'pointer' },
+                        onClick: function() { onSelectLeague(l); }
+                    },
+                        React.createElement('div', { style: { width: 32, height: 32, borderRadius: 8, background: RED, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 } },
+                            React.createElement('span', { style: { fontSize: 13, fontWeight: 800, color: '#fff' } }, 'E')
+                        ),
+                        React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+                            React.createElement('div', { style: { fontSize: '0.86rem', fontWeight: 600, color: 'var(--white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, l.name),
+                            React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)', marginTop: 2 } },
+                                (l.rosters || []).length + ' teams · ' + l.season + ' · ESPN'
+                            )
+                        ),
+                        React.createElement('span', { style: { fontSize: '0.64rem', fontWeight: 800, background: RED, color: '#fff', borderRadius: 4, padding: '2px 6px', flexShrink: 0 } }, 'ESPN')
+                    );
+                }),
+                React.createElement('a', {
+                    href: espnScoutUrl(leagues[0]._espnLeagueId),
+                    target: '_blank', rel: 'noopener noreferrer',
+                    className: 'hub-cta',
+                    style: { textDecoration: 'none', background: RED, marginTop: 4, display: 'block', textAlign: 'center', padding: '10px', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, color: '#fff', letterSpacing: '.06em' }
+                }, 'OPEN IN WAR ROOM SCOUT →'),
+                React.createElement('button', {
+                    onClick: function() { /* allow reconnecting */ },
+                    style: { background: 'none', border: 'none', color: 'var(--silver)', fontSize: '0.72rem', cursor: 'pointer', marginTop: 6, padding: 0 }
+                }, '+ Connect another league')
+            );
+        }
+
+        return React.createElement('div', null,
+            React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', marginBottom: '0.75rem', lineHeight: 1.6 } },
+                'Connect any ESPN Fantasy Football league. Your League ID is in the URL: fantasy.espn.com/football/league?leagueId=',
+                React.createElement('strong', { style: { color: 'var(--white)' } }, '123456')
+            ),
+            React.createElement('input', {
+                placeholder: 'ESPN League ID (e.g. 123456)',
+                value: leagueId,
+                onChange: function(e) { setLeagueId(e.target.value); },
+                onKeyDown: function(e) { if (e.key === 'Enter') onConnect(leagueId, espnS2, swid); },
+                style: { width: '100%', fontSize: '0.9rem', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--white)', boxSizing: 'border-box', marginBottom: 8, fontFamily: 'inherit' }
+            }),
+            React.createElement('div', {
+                onClick: function() { setShowCreds(!showCreds); },
+                style: { fontSize: '0.72rem', color: 'var(--silver)', cursor: 'pointer', marginBottom: showCreds ? 8 : 0, display: 'flex', alignItems: 'center', gap: 4 }
+            },
+                React.createElement('span', null, showCreds ? '▾' : '▸'),
+                ' Private league? Add cookies for access'
+            ),
+            showCreds && React.createElement('div', { style: { marginBottom: 8 } },
+                React.createElement('div', { style: { fontSize: '0.7rem', color: 'var(--silver)', lineHeight: 1.5, marginBottom: 6 } },
+                    'F12 → Application → Cookies → fantasy.espn.com — copy espn_s2 and SWID values.'
+                ),
+                React.createElement('input', {
+                    placeholder: 'espn_s2 cookie value',
+                    type: 'password',
+                    value: espnS2,
+                    onChange: function(e) { setEspnS2(e.target.value); },
+                    style: { width: '100%', fontSize: '0.78rem', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--white)', boxSizing: 'border-box', marginBottom: 6, fontFamily: 'monospace' }
+                }),
+                React.createElement('input', {
+                    placeholder: 'SWID cookie value {XXXXXXXX-...}',
+                    value: swid,
+                    onChange: function(e) { setSwid(e.target.value); },
+                    style: { width: '100%', fontSize: '0.78rem', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--white)', boxSizing: 'border-box', fontFamily: 'monospace' }
+                })
+            ),
+            error && React.createElement('div', { style: { fontSize: '0.75rem', color: '#E74C3C', marginBottom: 8, padding: '6px 10px', background: 'rgba(231,76,60,0.08)', borderRadius: 6, lineHeight: 1.5 } }, error),
+            React.createElement('button', {
+                onClick: function() { onConnect(leagueId, espnS2, swid); },
+                disabled: connecting,
+                style: { width: '100%', padding: '10px', background: connecting ? 'rgba(204,0,0,0.5)' : RED, color: '#fff', border: 'none', borderRadius: 8, fontSize: '0.82rem', fontWeight: 700, cursor: connecting ? 'not-allowed' : 'pointer', letterSpacing: '.05em', fontFamily: 'inherit' }
+            }, connecting ? 'Connecting...' : 'CONNECT ESPN LEAGUE')
+        );
+    }
+
     // Main Dashboard
     function OwnerDashboard() {
         const [showSettings, setShowSettings] = useState(false);
@@ -117,6 +211,10 @@
         const [sleeperLeagues, setSleeperLeagues] = useState([]);
         const [activeLeagueId, setActiveLeagueId] = useState(null);
         const [selectedLeague, setSelectedLeague] = useState(null);
+        // ESPN state
+        const [espnLeagues, setEspnLeagues] = useState([]);
+        const [espnConnecting, setEspnConnecting] = useState(false);
+        const [espnError, setEspnError] = useState(null);
         // Display name state
         const [customDisplayName, setCustomDisplayName] = useState(() => {
             return localStorage.getItem('od_display_name') || '';
@@ -303,6 +401,42 @@
             WrStorage.set(WR_KEYS.LAST_LEAGUE_NAME, league.name);
         }
 
+        async function handleESPNConnect(leagueId, espnS2, swid) {
+            if (!leagueId) { setEspnError('Enter your ESPN league ID'); return; }
+            const numericId = leagueId.replace(/\D/g, '');
+            if (!numericId) { setEspnError('League ID must be a number from your ESPN URL'); return; }
+            if (!window.ESPN) { setEspnError('ESPN connector not loaded — refresh and try again'); return; }
+            setEspnConnecting(true);
+            setEspnError(null);
+            try {
+                const year = parseInt(selectedYear);
+                // Persist credentials for Scout deep-link
+                if (espnS2) localStorage.setItem('espn_s2', espnS2);
+                if (swid)   localStorage.setItem('espn_swid', swid);
+                const result = await window.ESPN.connectLeague(numericId, year, espnS2 || null, swid || null);
+                const league = {
+                    id:              result.league.league_id,
+                    name:            result.league.name,
+                    season:          String(year),
+                    wins:            0, losses: 0, ties: 0,
+                    rosters:         result.rosters,
+                    scoring_settings: result.league.scoring_settings,
+                    roster_positions: result.league.roster_positions,
+                    settings:         result.league.settings || {},
+                    _espn:            true,
+                    _espnLeagueId:    numericId,
+                };
+                setEspnLeagues(prev => {
+                    const filtered = prev.filter(l => l._espnLeagueId !== numericId);
+                    return [...filtered, league];
+                });
+            } catch (e) {
+                setEspnError(e.message || 'ESPN connection failed');
+            } finally {
+                setEspnConnecting(false);
+            }
+        }
+
         const resumeLeague = sleeperLeagues.find(l => l.id === lastLeagueId);
 
         return (
@@ -421,6 +555,31 @@
                         </div>
                     </div>
 
+                </div>
+
+                {/* ──── ESPN Leagues Card ──── */}
+                <div style={{ padding: '0 12px', marginTop: '12px' }}>
+                    <div className="product-card" style={{ borderColor: 'rgba(204,0,0,0.25)' }}>
+                        <div className="product-card-header">
+                            <div className="product-card-icon" style={{ background: 'rgba(204,0,0,0.15)', width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#cc0000" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+                            </div>
+                            <div>
+                                <div className="product-card-title">ESPN <span style={{ color: '#cc0000' }}>LEAGUES</span></div>
+                                <div className="product-card-subtitle">Connect your ESPN Fantasy league</div>
+                            </div>
+                        </div>
+                        <div className="product-card-body">
+                            <ESPNConnectCard
+                                leagues={espnLeagues}
+                                connecting={espnConnecting}
+                                error={espnError}
+                                onConnect={handleESPNConnect}
+                                onSelectLeague={handleSelectLeague}
+                                reconBase={RECONAI_BASE}
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 {/* ── Notes from the Front — Field Log feed ── */}

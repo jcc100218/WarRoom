@@ -15,34 +15,15 @@
         const [faSort, setFaSort] = useState({ key: 'dhq', dir: -1 });
         const [faSelectedPid, setFaSelectedPid] = useState(null);
 
-        function normPos(pos) {
-            if (!pos) return null;
-            if (['DB','CB','S','SS','FS'].includes(pos)) return 'DB';
-            if (['DL','DE','DT','NT','IDL','EDGE'].includes(pos)) return 'DL';
-            if (['LB','OLB','ILB','MLB'].includes(pos)) return 'LB';
-            return pos;
-        }
-
-        function calcRawPts(s) {
-            if (!s) return 0;
-            const scoring = currentLeague?.scoring_settings;
-            if (scoring) {
-                let total = 0;
-                for (const [field, weight] of Object.entries(scoring)) {
-                    if (typeof weight !== 'number') continue;
-                    if (s[field] != null) total += Number(s[field]) * weight;
-                }
-                return total;
-            }
-            return Number(s.pts_half_ppr ?? s.pts_ppr ?? s.pts_std ?? 0);
-        }
+        const normPos = window.App.normPos;
+        const calcRawPts = (s) => window.App.calcRawPts(s, currentLeague?.scoring_settings);
 
         // Load FA targets from Supabase/localStorage
         useEffect(() => {
             if (window.OD?.loadTargets) {
                 window.OD.loadTargets(currentLeague.league_id || currentLeague.id).then(data => {
                     if (data) { setFaTargets(data.targets || []); setFaBudget({ total: data.startingBudget || 200, spent: 0 }); }
-                }).catch(() => {});
+                }).catch(err => window.wrLog('fa.loadTargets', err));
             }
         }, []);
 
@@ -61,7 +42,7 @@
                 .slice(0, 300);
         }, [playersData, rostered, timeRecomputeTs]);
 
-        const posColors = {QB:'#E74C3C',RB:'#2ECC71',WR:'#3498DB',TE:'#F0A500',K:'#9B59B6',DL:'#E67E22',LB:'#1ABC9C',DB:'#E91E63'};
+        const posColors = window.App.POS_COLORS;
 
         function faSortIndicator(key) { return faSort.key === key ? (faSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''; }
         function handleFaSort(key) { setFaSort(prev => prev.key === key ? { ...prev, dir: prev.dir * -1 } : { key, dir: -1 }); }
@@ -108,26 +89,67 @@
 
         // Compute roster needs for recommendations
         const assess = useMemo(() => typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal(myRoster?.roster_id) : null, [myRoster]);
-        const peaks = window.App?.peakWindows || {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]};
+        const peaks = window.App.peakWindows;
         const budget = currentLeague?.settings?.waiver_budget || myRoster?.settings?.waiver_budget || 0;
         const spent = myRoster?.settings?.waiver_budget_used || 0;
         const remaining = Math.max(0, budget - spent);
         const hasFAAB = budget > 0;
         const faabMinBid = currentLeague?.settings?.waiver_budget_min ?? 0;
 
-        // Smart FAAB recommendation
-        function faabSuggest(dhq, pos) {
+        // ── League format detection (for scarcity multipliers) ──
+        const rosterPositions = currentLeague?.roster_positions || [];
+        const isSuperFlex = rosterPositions.includes('SUPER_FLEX');
+        const scoring = currentLeague?.scoring_settings || {};
+        const isTEP = (scoring.bonus_rec_te || scoring.rec_te || 0) > 0;
+        const teamTier = assess?.tier || '';
+        const teamWindow = assess?.window || '';
+        const isRebuilding = teamTier === 'REBUILDING' || teamWindow === 'REBUILDING';
+        const isContending = teamTier === 'ELITE' || teamTier === 'CONTENDER' || teamWindow === 'CONTENDING';
+
+        // ── Positional scarcity multipliers based on league format ──
+        function getScarcityMultiplier(pos) {
+            let mult = 1.0;
+            if (isSuperFlex && pos === 'QB') mult = 1.8;
+            if (isTEP && pos === 'TE') mult = 1.5;
+            // RB scarcity: if league has 2+ RB slots + FLEX, RBs are scarce
+            const rbSlots = rosterPositions.filter(s => s === 'RB').length;
+            if (pos === 'RB' && rbSlots >= 2) mult = Math.max(mult, 1.3);
+            return mult;
+        }
+
+        // Smart FAAB recommendation — now with team mode + scarcity awareness
+        function faabSuggest(dhq, pos, playerAge) {
             if (!hasFAAB || dhq <= 0) return null;
+
+            // ── Quality gate: skip replacement-level players ──
+            if (dhq < 500) return null; // Below minimum quality threshold
+
+            // ── Team mode gate ──
+            if (isRebuilding && (playerAge || 30) > 25 && dhq < 2000) {
+                // Rebuilding teams should NOT bid on older low-value players
+                return null;
+            }
+
             const floor = faabMinBid || 1;
-            const base = Math.round(dhq / 250);
+            // Apply scarcity multiplier to base valuation
+            const scarcity = getScarcityMultiplier(pos);
+            const base = Math.round((dhq / 250) * scarcity);
             const cap = Math.round(remaining * 0.15);
-            const sug = Math.max(floor, Math.min(cap, base));
+
+            // Team mode adjustment
+            let modeMultiplier = 1.0;
+            if (isRebuilding) modeMultiplier = 0.6; // Rebuilders spend less, save FAAB
+            if (isContending) modeMultiplier = 1.2; // Contenders bid aggressively on starters
+
+            const adjusted = Math.round(base * modeMultiplier);
+            const sug = Math.max(floor, Math.min(cap, adjusted));
             const lo = Math.max(floor, Math.round(sug * 0.7));
             const hi = Math.min(remaining, Math.round(sug * 1.4));
+
             // Competition: count teams with deficit at this position
             let competitors = 0;
             if (assess && currentLeague.rosters) {
-                const reqCount = (currentLeague.roster_positions || []).filter(s => normPos(s) === pos || s === 'FLEX' || s === 'SUPER_FLEX').length;
+                const reqCount = rosterPositions.filter(s => normPos(s) === pos || s === 'FLEX' || s === 'SUPER_FLEX').length;
                 currentLeague.rosters.forEach(r => {
                     if (r.roster_id === myRoster?.roster_id) return;
                     const cnt = (r.players || []).filter(pid => normPos(playersData[pid]?.position) === pos).length;
@@ -136,25 +158,36 @@
             }
             const conf = competitors <= 1 ? 'Low competition' : competitors <= 3 ? 'Moderate' : 'High demand';
             const confCol = competitors <= 1 ? '#2ECC71' : competitors <= 3 ? '#F0A500' : '#E74C3C';
-            return { sug, lo, hi, conf, confCol, competitors };
+            return { sug, lo, hi, conf, confCol, competitors, scarcity, modeMultiplier };
         }
 
-        // Top recommendations at weak positions
+        // Top recommendations at weak positions — with quality + mode filtering
         const recommendations = useMemo(() => {
             if (!assess?.needs?.length) return [];
             const needPositions = assess.needs.slice(0, 3).map(n => n.pos);
+
+            // ── Minimum quality threshold: DHQ > 500 ──
+            // ── Rebuild mode: age ≤ 25 unless DHQ > 2000 (genuinely good player) ──
             return availablePlayers
-                .filter(x => needPositions.includes(x.pos) && x.dhq > 500)
+                .filter(x => {
+                    if (!needPositions.includes(x.pos)) return false;
+                    if (x.dhq < 500) return false; // Quality floor
+                    if (isRebuilding && (x.p.age || 30) > 25 && x.dhq < 2000) return false; // Rebuilders skip old low-value
+                    return true;
+                })
                 .slice(0, 8)
                 .map(x => {
                     const st = statsData[x.pid] || {};
                     const ppg = st.gp > 0 ? +(calcRawPts(st) / st.gp).toFixed(1) : 0;
+                    // PPG quality check: skip if PPG < 5 with enough games
+                    if (ppg > 0 && ppg < 5.0 && (st.gp || 0) >= 6) return null;
                     const need = assess.needs.find(n => n.pos === x.pos);
                     const [, pHi] = peaks[x.pos] || [24, 29];
                     const peakYrs = Math.max(0, pHi - (x.p.age || 25));
-                    const faab = faabSuggest(x.dhq, x.pos);
+                    const faab = faabSuggest(x.dhq, x.pos, x.p.age);
                     return { ...x, ppg, need, peakYrs, faab };
-                });
+                })
+                .filter(Boolean);
         }, [availablePlayers, assess, statsData]);
 
         // Selected player detail
@@ -167,7 +200,7 @@
         const selPos = selPlayer ? normPos(selPlayer.position) : '';
         const selPeaks = peaks[selPos] || [24,29];
         const selPeakYrs = selPlayer ? Math.max(0, selPeaks[1] - (selPlayer.age || 25)) : 0;
-        const selFaab = faSelectedPid ? faabSuggest(selDhq, selPos) : null;
+        const selFaab = faSelectedPid ? faabSuggest(selDhq, selPos, selPlayer?.age) : null;
         const selInitials = selPlayer ? ((selPlayer.first_name||'?')[0] + (selPlayer.last_name||'?')[0]).toUpperCase() : '';
 
         // ── COMMAND VIEW: FAAB decision engine ──
@@ -183,12 +216,17 @@
             // Categorize recommendations into tiers
             const mustAdd = recommendations.filter(r => r.need?.urgency === 'deficit' && r.dhq >= 800).slice(0, 3);
             const strongBuys = recommendations.filter(r => r.need && !mustAdd.find(m => m.pid === r.pid) && r.dhq >= 500).slice(0, 4);
-            const valuePlays = availablePlayers.filter(x => x.dhq >= 400 && x.dhq < 2000 && (x.p.age || 30) <= 25).slice(0, 4).map(x => {
-                const st2 = statsData[x.pid] || {};
-                const ppg2 = st2.gp > 0 ? +(calcRawPts(st2) / st2.gp).toFixed(1) : 0;
-                const fb = faabSuggest(x.dhq, x.pos);
-                return { ...x, ppg: ppg2, faab: fb };
-            });
+            // Value plays: young upside — but still enforce quality floor (DHQ >= 500)
+            const valuePlays = availablePlayers
+                .filter(x => x.dhq >= 500 && x.dhq < 2000 && (x.p.age || 30) <= 25)
+                .slice(0, 4)
+                .map(x => {
+                    const st2 = statsData[x.pid] || {};
+                    const ppg2 = st2.gp > 0 ? +(calcRawPts(st2) / st2.gp).toFixed(1) : 0;
+                    const fb = faabSuggest(x.dhq, x.pos, x.p.age);
+                    return { ...x, ppg: ppg2, faab: fb };
+                })
+                .filter(x => x.faab !== null); // Respect mode-based filtering
 
             // Market pressure
             const needCount = assess?.needs?.length || 0;
@@ -273,7 +311,7 @@
                         {faSelectedPid && selPlayer && <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '20px', alignSelf: 'start', position: 'sticky', top: '80px' }}>
                             <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '14px' }}>
                                 <div style={{ width: '56px', height: '56px', borderRadius: '12px', overflow: 'hidden', background: 'rgba(212,175,55,0.1)', border: '2px solid rgba(212,175,55,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <img src={'https://sleepercdn.com/content/nfl/players/' + faSelectedPid + '.jpg'} style={{ width: '56px', height: '56px', objectFit: 'cover' }} onError={e => { e.target.style.display='none'; e.target.insertAdjacentHTML('afterend','<span style="font-size:18px;font-weight:700;color:var(--gold)">' + selInitials + '</span>'); }} />
+                                    <img src={'https://sleepercdn.com/content/nfl/players/' + faSelectedPid + '.jpg'} style={{ width: '56px', height: '56px', objectFit: 'cover' }} onError={e => { e.target.style.display='none'; const s=document.createElement('span'); s.style.cssText='font-size:18px;font-weight:700;color:var(--gold)'; s.textContent=selInitials; e.target.after(s); }} />
                                 </div>
                                 <div>
                                     <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--white)' }}>{selPlayer.full_name}</div>
@@ -631,7 +669,7 @@
                             const peakCol = peakYrs >= 4 ? '#2ECC71' : peakYrs >= 1 ? 'var(--gold)' : '#E74C3C';
                             return <div key={pid} onClick={() => setFaSelectedPid(pid)} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 40px 34px 58px 44px 50px 44px', background: faSelectedPid===pid?'rgba(212,175,55,0.08)':'transparent', gap: '4px', padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                 <div className={'wr-ring wr-ring-' + pos} style={{ width: '26px', height: '26px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.target.style.display='none'; e.target.insertAdjacentHTML('afterend','<span style="font-size:10px;font-weight:700;color:var(--gold)">' + ((p.first_name||'?')[0] + (p.last_name||'?')[0]).toUpperCase() + '</span>'); }} />
+                                    <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.target.style.display='none'; const s=document.createElement('span'); s.style.cssText='font-size:10px;font-weight:700;color:var(--gold)'; s.textContent=((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase(); e.target.after(s); }} />
                                 </div>
                                 <div style={{ overflow: 'hidden' }}>
                                     <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.full_name || 'Unknown'}</div>
@@ -656,7 +694,7 @@
                     {/* Photo + Name */}
                     <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '16px' }}>
                         <div style={{ width: '64px', height: '64px', borderRadius: '12px', overflow: 'hidden', background: 'rgba(212,175,55,0.1)', border: '2px solid rgba(212,175,55,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <img src={'https://sleepercdn.com/content/nfl/players/' + faSelectedPid + '.jpg'} style={{ width: '64px', height: '64px', objectFit: 'cover' }} onError={e => { e.target.style.display='none'; e.target.insertAdjacentHTML('afterend','<span style="font-size:20px;font-weight:700;color:var(--gold)">' + selInitials + '</span>'); }} />
+                            <img src={'https://sleepercdn.com/content/nfl/players/' + faSelectedPid + '.jpg'} style={{ width: '64px', height: '64px', objectFit: 'cover' }} onError={e => { e.target.style.display='none'; const s=document.createElement('span'); s.style.cssText='font-size:20px;font-weight:700;color:var(--gold)'; s.textContent=selInitials; e.target.after(s); }} />
                         </div>
                         <div>
                             <div style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--white)', letterSpacing: '0.02em' }}>{selPlayer.full_name || 'Unknown'}</div>

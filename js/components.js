@@ -1,6 +1,8 @@
 // ══════════════════════════════════════════════════════════════════
 // components.js — Shared UI components (UpgradeGate, GMMessage, etc.)
 // ══════════════════════════════════════════════════════════════════
+    const WR_KEYS  = window.App.WR_KEYS;
+    const WrStorage = window.App.WrStorage;
     function UpgradeGate({ feature, title, description, targetTier, children, onClose }) {
         const tier = getUserTier();
         const hasAccess = canAccess(feature);
@@ -19,8 +21,8 @@
             );
         }
 
-        const tierLabel = targetTier === 'reconai' ? 'ReconAI' : 'War Room';
-        const tierPrice = targetTier === 'reconai' ? '$4.99/mo' : '$9.99/mo';
+        const tierLabel = targetTier === 'scout' ? 'Scout' : 'War Room';
+        const tierPrice = targetTier === 'scout' ? '$4.99/mo' : '$9.99/mo';
 
         return React.createElement('div', { style: { background:'linear-gradient(135deg, var(--off-black), var(--charcoal))', border:'2px solid rgba(212,175,55,0.3)', borderRadius:'12px', padding:'28px 24px', textAlign:'center', maxWidth:'480px', margin:'20px auto' } },
             React.createElement('div', { style: { fontFamily:'Bebas Neue', fontSize:'1.6rem', color:'var(--gold)', letterSpacing:'0.06em', marginBottom:'8px' } }, title || 'UPGRADE TO UNLOCK'),
@@ -45,7 +47,7 @@
         const dhq = window.App?.LI?.playerScores?.[pid] || 0;
         const meta = window.App?.LI?.playerMeta?.[pid] || {};
         const st = statsData?.[pid] || {};
-        const peaks = window.App?.peakWindows || {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]};
+        const peaks = window.App.peakWindows;
         const nPos = ['DE','DT','NT'].includes(pos)?'DL':['CB','S','SS','FS'].includes(pos)?'DB':['OLB','ILB','MLB'].includes(pos)?'LB':pos;
         const [pLo, pHi] = peaks[nPos] || [24,29];
         const age = p.age || 0;
@@ -55,16 +57,7 @@
         const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : dhq >= 2000 ? '#D0D0D0' : 'rgba(255,255,255,0.3)';
         // Use league scoring_settings for PPG (matches roster table calculation)
         const scoring = window.S?.leagues?.[0]?.scoring_settings;
-        let ppgRaw = 0;
-        if (st.gp > 0 && scoring) {
-            let total = 0;
-            for (const [field, weight] of Object.entries(scoring)) {
-                if (typeof weight === 'number' && st[field] != null) total += Number(st[field]) * weight;
-            }
-            ppgRaw = total / st.gp;
-        } else if (st.gp > 0) {
-            ppgRaw = (st.pts_half_ppr || st.pts_ppr || 0) / st.gp;
-        }
+        const ppgRaw = window.App.calcPPG(st, scoring);
         const ppg = ppgRaw > 0 ? +ppgRaw.toFixed(1) : (meta.ppg || 0);
         const trend = meta.trend || 0;
         // Use shared getPlayerAction if available (ownership-aware)
@@ -88,7 +81,7 @@
             // Header with photo
             React.createElement('div', { style:{ padding:'14px 16px', background:'linear-gradient(135deg, rgba(212,175,55,0.08), transparent)', borderBottom:'1px solid rgba(212,175,55,0.15)', display:'flex', gap:'12px', alignItems:'center' } },
                 React.createElement('div', { className: 'wr-ring wr-ring-' + nPos, style:{ width:'48px', height:'48px', borderRadius:'10px', overflow:'hidden', background:'rgba(212,175,55,0.1)', border:'1px solid rgba(212,175,55,0.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 } },
-                    React.createElement('img', { src:'https://sleepercdn.com/content/nfl/players/'+pid+'.jpg', style:{width:'48px',height:'48px',objectFit:'cover'}, onError:function(e){ e.target.style.display='none'; e.target.insertAdjacentHTML('afterend','<span style="font-size:16px;font-weight:700;color:#D4AF37">'+initials+'</span>'); } })
+                    React.createElement('img', { src:'https://sleepercdn.com/content/nfl/players/'+pid+'.jpg', style:{width:'48px',height:'48px',objectFit:'cover'}, onError:function(e){ e.target.style.display='none'; const s=document.createElement('span'); s.style.cssText='font-size:16px;font-weight:700;color:#D4AF37'; s.textContent=initials; e.target.after(s);; } })
                 ),
                 React.createElement('div', { style:{flex:1} },
                     React.createElement('div', { style:{ fontFamily:'Bebas Neue', fontSize:'1.2rem', color:'#f0f0f3', letterSpacing:'0.02em' } }, name),
@@ -193,10 +186,10 @@
         { id: 'scout', label: 'The Scout', src: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&h=120&fit=crop&crop=face' },
     ];
     function getAlexAvatar() {
-        try { return localStorage.getItem('wr_alex_avatar') || 'badge'; } catch { return 'badge'; }
+        return WrStorage.get(WR_KEYS.ALEX_AVATAR, 'badge') || 'badge';
     }
     function setAlexAvatar(id) {
-        try { localStorage.setItem('wr_alex_avatar', id); } catch {}
+        WrStorage.set(WR_KEYS.ALEX_AVATAR, id);
     }
     function AlexAvatar({ size }) {
         const sz = size || 28;
@@ -355,7 +348,7 @@
         if (!meta || !dhq) return null;
         const age = meta.age || 0;
         const pos = meta.pos || '';
-        const peaks = window.App?.peakWindows || {QB:[23,39],RB:[21,31],WR:[21,33],TE:[21,34],DL:[26,33],LB:[26,32],DB:[21,34]};
+        const peaks = window.App.peakWindows;
         const [pLo, pHi] = peaks[pos] || [24,29];
         const peakYrsLeft = meta.peakYrsLeft || Math.max(0, pHi - age);
         const trend = meta.trend || 0;
@@ -554,13 +547,13 @@
             const givePeakTotal = tradeObj.give.reduce((s, p) => {
                 const age = playersData[p.pid]?.age || 25;
                 const pos = playersData[p.pid]?.position || '';
-                const pk = (window.App?.peakWindows || {})[pos] || [24, 29];
+                const pk = window.App.peakWindows[pos] || [24, 29];
                 return s + Math.max(0, pk[1] - age);
             }, 0);
             const getPeakTotal = tradeObj.receive.reduce((s, p) => {
                 const age = playersData[p.pid]?.age || 25;
                 const pos = playersData[p.pid]?.position || '';
-                const pk = (window.App?.peakWindows || {})[pos] || [24, 29];
+                const pk = window.App.peakWindows[pos] || [24, 29];
                 return s + Math.max(0, pk[1] - age);
             }, 0);
             const peakDelta = getPeakTotal - givePeakTotal;

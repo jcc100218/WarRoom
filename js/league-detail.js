@@ -2942,3 +2942,4 @@
           </window.App.SeasonContext.Provider>
         );
     }
+    window.LeagueDetail = LeagueDetail;

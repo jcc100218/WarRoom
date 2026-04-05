@@ -199,6 +199,7 @@
         const [reconLeagueId, setReconLeagueId] = useState(null);
 
         // Show league detail if selected
+        const LeagueDetail = window.LeagueDetail;
         if (selectedLeague) {
             return <>
                 <ErrorBoundary>

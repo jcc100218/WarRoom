@@ -60,6 +60,15 @@ function DashboardPanel({
                             <div style={kpiSubStyle}>{val.sub}</div>
                             {/* Sparkline visualization */}
                             {typeof Sparkline !== 'undefined' && val.sparkData && React.createElement(Sparkline, { data: val.sparkData, width: 90, height: 24, color: val.color || '#D4AF37' })}
+                            {/* Sparkline trend annotation */}
+                            {typeof Sparkline !== 'undefined' && val.sparkData && val.sparkData.length >= 2 && (() => {
+                                const _first = val.sparkData[0], _last = val.sparkData[val.sparkData.length - 1];
+                                if (!_first) return null;
+                                const _pct = Math.round((_last - _first) / Math.abs(_first) * 100);
+                                if (Math.abs(_pct) < 2) return React.createElement('div', { style:{ fontSize:'0.65rem', color:'var(--silver)', marginTop:'2px', fontFamily:'Oswald, sans-serif', opacity:0.6 } }, '\u2192 Stable');
+                                const _up = _pct > 0;
+                                return React.createElement('div', { style:{ fontSize:'0.65rem', color: _up ? '#2ECC71' : '#E74C3C', marginTop:'2px', fontFamily:'Oswald, sans-serif', fontWeight:600 } }, (_up ? '\u2191 ' : '\u2193 ') + Math.abs(_pct) + '% projected');
+                            })()}
                             {/* Contextual annotation */}
                             {(() => { const ann = getKpiAnnotation(kpiKey, val.value); return ann ? React.createElement('div', { style:{fontSize:'0.7rem',color:'var(--gold)',marginTop:'6px',fontFamily:'Oswald',fontWeight:600,letterSpacing:'0.02em',borderTop:'1px solid rgba(212,175,55,0.15)',paddingTop:'6px'} }, ann) : null; })()}
 
@@ -122,7 +131,7 @@ function DashboardPanel({
                         <div style={{ fontFamily: 'Bebas Neue', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em' }}>POWER RANKINGS</div>
                         <button onClick={() => setActiveTab('league')} style={{ fontSize: '0.7rem', fontFamily: 'Oswald', color: 'var(--gold)', background: 'none', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>View All</button>
                     </div>
-                    {myTeam && <div className="wr-my-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px' }}>
+                    {myTeam && <div className="wr-my-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px' }}>
                         <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.4rem', color: 'var(--gold)' }}>#{myRankIdx + 1}</span>
                         <div style={{ flex: 1 }}>
                             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)' }}>{myTeam.displayName}</div>

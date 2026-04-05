@@ -24,11 +24,11 @@
         const tierLabel = targetTier === 'scout' ? 'Scout' : 'War Room';
         const tierPrice = targetTier === 'scout' ? '$4.99/mo' : '$9.99/mo';
 
-        return React.createElement('div', { style: { background:'linear-gradient(135deg, var(--off-black), var(--charcoal))', border:'2px solid rgba(212,175,55,0.3)', borderRadius:'12px', padding:'28px 24px', textAlign:'center', maxWidth:'480px', margin:'20px auto' } },
+        return React.createElement('div', { style: { background:'linear-gradient(135deg, var(--off-black), var(--charcoal))', border:'1px solid rgba(212,175,55,0.2)', borderRadius:'10px', padding:'28px 24px', textAlign:'center', maxWidth:'480px', margin:'20px auto' } },
             React.createElement('div', { style: { fontFamily:'Bebas Neue', fontSize:'1.6rem', color:'var(--gold)', letterSpacing:'0.06em', marginBottom:'8px' } }, title || 'UPGRADE TO UNLOCK'),
             React.createElement('div', { style: { fontSize:'0.88rem', color:'var(--silver)', lineHeight:1.7, marginBottom:'16px' } }, description || 'This feature requires a paid subscription.'),
             React.createElement('div', { style: { display:'flex', gap:'10px', justifyContent:'center', marginBottom:'12px' } },
-                React.createElement('button', { onClick: () => { window.location.href = 'landing.html'; }, style: { padding:'10px 24px', background:'var(--gold)', color:'var(--black)', border:'none', borderRadius:'8px', fontFamily:'Bebas Neue', fontSize:'1.1rem', letterSpacing:'0.05em', cursor:'pointer' } }, 'Unlock ' + tierLabel + ' — ' + tierPrice),
+                React.createElement('button', { onClick: () => { window.location.href = 'landing.html'; }, style: { padding:'10px 24px', background:'var(--gold)', color:'var(--black)', border:'none', borderRadius:'6px', fontFamily:'Bebas Neue', fontSize:'1.1rem', letterSpacing:'0.05em', cursor:'pointer' } }, 'Unlock ' + tierLabel + ' — ' + tierPrice),
             ),
             React.createElement('div', { style: { fontSize:'0.76rem', color:'var(--silver)', opacity:0.5 } }, 'Currently on Scout (free) plan'),
             onClose ? React.createElement('button', { onClick: onClose, style: { marginTop:'10px', background:'none', border:'none', color:'var(--silver)', cursor:'pointer', fontSize:'0.78rem' } }, 'Maybe later') : null
@@ -416,8 +416,8 @@
                 return React.createElement('div', {
                     style: {
                         padding: '40px 20px', textAlign: 'center', maxWidth: '500px',
-                        margin: '80px auto', background: 'var(--black)', border: '2px solid rgba(231,76,60,0.3)',
-                        borderRadius: '14px'
+                        margin: '80px auto', background: 'var(--black)', border: '1px solid rgba(231,76,60,0.3)',
+                        borderRadius: '10px'
                     }
                 },
                     React.createElement('div', { style: { fontSize: '2rem', marginBottom: '12px' } }, '\u26A0\uFE0F'),
@@ -426,11 +426,11 @@
                         'War Room encountered an error. This usually fixes itself on reload.'),
                     React.createElement('button', {
                         onClick: () => { this.setState({ hasError: false, error: null }); },
-                        style: { padding: '10px 24px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '8px', fontFamily: 'Oswald', fontSize: '1rem', cursor: 'pointer', marginRight: '8px' }
+                        style: { padding: '10px 24px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: 'Oswald', fontSize: '1rem', cursor: 'pointer', marginRight: '8px' }
                     }, 'Try Again'),
                     React.createElement('button', {
                         onClick: () => window.location.reload(),
-                        style: { padding: '10px 24px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '8px', fontFamily: 'Oswald', fontSize: '1rem', cursor: 'pointer' }
+                        style: { padding: '10px 24px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', fontFamily: 'Oswald', fontSize: '1rem', cursor: 'pointer' }
                     }, 'Reload Page'),
                     React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.5, marginTop: '12px' } },
                         String(this.state.error?.message || '').substring(0, 100))

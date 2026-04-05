@@ -36,7 +36,7 @@ function AnalyticsPanel({
         playerStats: _seasonCtx.playerStats || window.S?.playerStats || {},
     };
 
-    const aCardStyle = { background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '12px 16px', marginBottom: '12px' };
+    const aCardStyle = { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', padding: '12px 16px', marginBottom: '12px' };
     const aHeaderStyle = { fontFamily: 'Bebas Neue, cursive', color: 'var(--gold)', fontSize: '1.2rem', letterSpacing: '0.08em', marginBottom: '12px', borderBottom: '1px solid rgba(212,175,55,0.2)', paddingBottom: '8px' };
     const aValStyle = { fontFamily: 'Oswald, sans-serif', fontSize: '0.95rem' };
     const goodColor = '#2ECC71';
@@ -59,7 +59,7 @@ function AnalyticsPanel({
         { key: 'timeline', label: 'Timeline' },
     ];
     const subTabBtnStyle = (active) => ({
-        padding: '8px 18px', borderRadius: '8px', cursor: 'pointer', fontFamily: 'Bebas Neue, cursive', fontSize: '1rem', letterSpacing: '0.06em', transition: 'all 0.2s',
+        padding: '8px 18px', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Bebas Neue, cursive', fontSize: '1rem', letterSpacing: '0.06em', transition: 'all 0.2s',
         border: active ? '2px solid var(--gold)' : '2px solid rgba(212,175,55,0.3)',
         background: active ? 'var(--gold)' : 'transparent',
         color: active ? 'var(--black)' : 'var(--gold)',
@@ -73,6 +73,35 @@ function AnalyticsPanel({
             <div style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.4rem', color: 'var(--gold)', letterSpacing: '0.05em' }}>LEAGUE ANALYTICS</div>
         </div>
         <div style={{ fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '16px' }}>Winners = playoff bracket champions, runner-ups, and semi-finalists when available. Falls back to top 3 by record in the current season.</div>
+
+        {/* Overview card — most important finding at a glance */}
+        {d && d.roster && (() => {
+            const _m = d.roster.myProfile || {};
+            const _w = d.roster.winnerProfile || {};
+            const _l = d.roster.leagueProfile || {};
+            let _hs = 0, _tier = 'UNKNOWN';
+            try { const _a = window.assessTeamFromGlobal?.(_SS?.myRosterId); if (_a) { _hs = _a.healthScore || 0; _tier = (_a.tier || 'UNKNOWN').toUpperCase(); } } catch(e) {}
+            const _tierColor = _tier === 'ELITE' ? '#2ECC71' : _tier === 'CONTENDER' ? '#D4AF37' : _tier === 'CROSSROADS' ? '#F0A500' : '#E74C3C';
+            const _pctVsLeague = _l.avgTotalDHQ > 0 ? Math.round((_m.avgTotalDHQ - _l.avgTotalDHQ) / _l.avgTotalDHQ * 100) : 0;
+            const _gapsList = d.gaps || d.roster.gaps || [];
+            const _topGap = _gapsList[0];
+            const _finding = _pctVsLeague > 0
+                ? `Portfolio is ${_pctVsLeague}% above league average${_topGap ? `, but ${_topGap.pos || _topGap} depth needs attention` : ''}.`
+                : `Portfolio trails league average by ${Math.abs(_pctVsLeague)}%${_topGap ? ` — prioritize adding ${_topGap.pos || _topGap}` : ''}.`;
+            return (
+                <div style={{ background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                        <span style={{ fontFamily: 'Bebas Neue, cursive', fontSize: '1.6rem', color: _tierColor, lineHeight: 1 }}>{_hs}</span>
+                        <div>
+                            <div style={{ fontSize: '0.62rem', color: 'var(--silver)', fontFamily: 'Oswald, sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.7 }}>Health</div>
+                            <div style={{ fontSize: '0.72rem', color: _tierColor, fontFamily: 'Oswald, sans-serif', fontWeight: 700, letterSpacing: '0.04em' }}>{_tier}</div>
+                        </div>
+                    </div>
+                    <div style={{ width: '1px', height: '32px', background: 'rgba(212,175,55,0.2)', flexShrink: 0 }} />
+                    <div style={{ fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.45, flex: 1, minWidth: '180px' }}>{_finding}</div>
+                </div>
+            );
+        })()}
 
         {/* Sub-tab navigation */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>

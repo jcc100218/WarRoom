@@ -15,9 +15,11 @@
         var _s1 = React.useState(null);  var entries = _s1[0]; var setEntries = _s1[1];
         var _s2 = React.useState(false); var syncing = _s2[0]; var setSyncing = _s2[1];
         var _s3 = React.useState(0);     var lastRefresh = _s3[0]; var setLastRefresh = _s3[1];
+        var _s4 = React.useState(false); var noSupabase = _s4[0]; var setNoSupabase = _s4[1];
 
         React.useEffect(function() {
-            if (!window.OD || !window.OD.loadFieldLog) { setEntries([]); return; }
+            if (!window.OD || !window.OD.loadFieldLog) { setNoSupabase(true); setEntries([]); return; }
+            setNoSupabase(false);
             window.OD.loadFieldLog(null, 60)
                 .then(function(data) { setEntries(data || []); })
                 .catch(function() { setEntries([]); });
@@ -62,9 +64,15 @@
             entries === null
                 ? React.createElement('div', { style: { padding:'1rem 0',textAlign:'center',color:'var(--silver)',fontSize:'0.78rem' } }, 'Loading field log…')
                 : entries.length === 0
-                ? React.createElement('div', { style: { padding:'1.5rem 0',textAlign:'center' } },
-                    React.createElement('div', { style: { fontSize:'2rem',marginBottom:'0.5rem' } }, '📋'),
-                    React.createElement('div', { style: { fontSize:'0.78rem',color:'var(--silver)',lineHeight:1.6 } }, 'No field log entries yet. Actions you take in ReconAI Scout — trade scenarios, draft targets, waiver bids — will appear here automatically after syncing.')
+                ? (noSupabase
+                    ? React.createElement('div', { style: { padding:'1.5rem 0',textAlign:'center' } },
+                        React.createElement('div', { style: { fontSize:'1.6rem',marginBottom:'0.5rem' } }, '🔌'),
+                        React.createElement('div', { style: { fontSize:'0.78rem',color:'var(--silver)',lineHeight:1.6 } }, 'Connect your Scout account to see field notes.')
+                      )
+                    : React.createElement('div', { style: { padding:'1.5rem 0',textAlign:'center' } },
+                        React.createElement('div', { style: { fontSize:'2rem',marginBottom:'0.5rem' } }, '📋'),
+                        React.createElement('div', { style: { fontSize:'0.78rem',color:'var(--silver)',lineHeight:1.6 } }, 'No field log entries yet. Actions you take in ReconAI Scout — trade scenarios, draft targets, waiver bids — will appear here automatically after syncing.')
+                      )
                   )
                 : React.createElement('div', { style: { maxHeight:'340px',overflowY:'auto',paddingRight:'2px' } },
                     grouped.map(function(group) {

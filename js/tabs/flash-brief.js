@@ -44,13 +44,40 @@ function FlashBriefPanel({
             </GMMessage>
 
             {/* 2. BUY action — biggest need */}
-            {needs.length > 0 && <div style={{ background: 'rgba(46,204,113,0.06)', border: '1px solid rgba(46,204,113,0.2)', borderRadius: '8px', padding: '10px 14px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#2ECC71', background: 'rgba(46,204,113,0.15)', padding: '2px 8px', borderRadius: '4px', fontFamily: 'Oswald' }}>BUY</span>
-                <div>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)' }}>Acquire {typeof needs[0] === 'string' ? needs[0] : needs[0].pos} starter</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>{typeof needs[0] === 'string' ? needs[0] : needs[0].urgency} — biggest positional gap</div>
-                </div>
-            </div>}
+            {needs.length > 0 && (() => {
+                const _normPos = window.App?.normPos || (p => p);
+                const _rosteredSet = new Set();
+                (currentLeague?.rosters || []).forEach(r => {
+                    (r.players || []).concat(r.taxi || [], r.reserve || []).forEach(pid => _rosteredSet.add(String(pid)));
+                });
+                const _needPos = typeof needs[0] === 'string' ? needs[0] : needs[0].pos;
+                const _waiverTarget = _needPos ? Object.entries(playersData || {})
+                    .filter(([pid, p]) => !_rosteredSet.has(pid) && _normPos(p.position) === _needPos && p.team && p.status !== 'Inactive' && p.active !== false)
+                    .map(([pid, p]) => ({ pid, name: p.full_name || ((p.first_name||'') + ' ' + (p.last_name||'')).trim(), dhq: scores[pid] || 0, team: p.team || '' }))
+                    .sort((a, b) => b.dhq - a.dhq)[0] : null;
+                const _tradeTarget = _needPos && !_waiverTarget ? (currentLeague?.rosters || [])
+                    .filter(r => r.roster_id !== window.S?.myRosterId)
+                    .flatMap(r => (r.players || []).map(pid => ({ pid, name: (playersData[pid]?.full_name || ''), dhq: scores[pid] || 0, pos: _normPos(playersData[pid]?.position || '') })))
+                    .filter(p => p.pos === _needPos && p.dhq > 0)
+                    .sort((a, b) => b.dhq - a.dhq)[0] : null;
+                return (
+                    <div style={{ background: 'rgba(46,204,113,0.06)', border: '1px solid rgba(46,204,113,0.2)', borderRadius: '10px', padding: '10px 14px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#2ECC71', background: 'rgba(46,204,113,0.15)', padding: '2px 8px', borderRadius: '4px', fontFamily: 'Oswald' }}>BUY</span>
+                        <div>
+                            {_waiverTarget ? (<>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)' }}>Target {_waiverTarget.name} on waivers</div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>DHQ {_waiverTarget.dhq.toLocaleString()} · {_waiverTarget.team} · fits your {_needPos} gap</div>
+                            </>) : _tradeTarget ? (<>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)' }}>Trade for {_tradeTarget.name}</div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>DHQ {_tradeTarget.dhq.toLocaleString()} · fills your {_needPos} gap</div>
+                            </>) : (<>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)' }}>Acquire {_needPos} starter</div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>{typeof needs[0] === 'string' ? needs[0] : needs[0].urgency} — biggest positional gap</div>
+                            </>)}
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* 3. Navigation CTAs */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
@@ -59,7 +86,7 @@ function FlashBriefPanel({
             </div>
 
             {/* 4. FAAB Remaining */}
-            {budget > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', marginBottom: '12px' }}>
+            {budget > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', marginBottom: '12px' }}>
                 <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: faabRemaining > budget * 0.5 ? '#2ECC71' : faabRemaining > budget * 0.25 ? 'var(--gold)' : '#E74C3C' }}>{'$' + faabRemaining}</span>
                 <span style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>FAAB remaining of ${budget}</span>
             </div>}
@@ -102,20 +129,20 @@ function FlashBriefPanel({
                 if (diff <= 0) return null;
                 const days = Math.floor(diff / 86400000);
                 const hours = Math.floor((diff % 86400000) / 3600000);
-                return <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', marginBottom: '12px' }}>
+                return <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', marginBottom: '12px' }}>
                     <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.1rem', color: 'var(--gold)' }}>{days}D {hours}H</span>
                     <span style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>until draft · {new Date(briefDraftInfo.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                 </div>;
             })()}
 
             {/* 9. Draft Class Preview */}
-            <div style={{ padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', marginBottom: '12px' }}>
+            <div style={{ padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', marginBottom: '12px' }}>
                 <div style={{ fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.5 }}>Draft class intel available via the AI advisor.</div>
                 <button onClick={() => { if (typeof setReconPanelOpen === 'function') setReconPanelOpen(true); if (typeof sendReconMessage === 'function') sendReconMessage('What are the strongest position groups in the upcoming rookie draft class?'); }} style={{ marginTop: '6px', padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Oswald', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '4px', color: 'var(--gold)', cursor: 'pointer' }}>Ask Alex about draft class</button>
             </div>
 
             {/* 10. Your Power Rank */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px' }}>
                 <span style={{ fontFamily: 'Bebas Neue', fontSize: '1.3rem', color: 'var(--gold)' }}>#{myRank}</span>
                 <div>
                     <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--white)' }}>Power Ranking</div>

@@ -472,10 +472,10 @@
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', padding: '0 12px' }}>
 
                     {/* ──── SLEEPER ──── */}
-                    <div className="product-card">
+                    <div className="product-card" style={{ borderColor: 'rgba(26,153,170,0.3)', background: 'linear-gradient(135deg, rgba(26,153,170,0.04), transparent)' }}>
                         <div className="product-card-header">
-                            <div className="product-card-icon gold">
-                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--black)" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                            <div className="product-card-icon" style={{ background: 'linear-gradient(135deg, #1a99aa, #147d8a)', boxShadow: '0 3px 12px rgba(26,153,170,0.25)' }}>
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--white)" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
                             </div>
                             <div>
                                 <div className="product-card-title">SLEEPER</div>
@@ -503,10 +503,10 @@
                     </div>
 
                     {/* ──── ESPN ──── */}
-                    <div className="product-card">
+                    <div className="product-card" style={{ borderColor: 'rgba(204,0,0,0.3)', background: 'linear-gradient(135deg, rgba(204,0,0,0.04), transparent)' }}>
                         <div className="product-card-header">
-                            <div className="product-card-icon gold">
-                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--black)" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+                            <div className="product-card-icon" style={{ background: 'linear-gradient(135deg, #cc0000, #990000)', boxShadow: '0 3px 12px rgba(204,0,0,0.25)' }}>
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--white)" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
                             </div>
                             <div>
                                 <div className="product-card-title">ESPN</div>
@@ -526,10 +526,10 @@
                     </div>
 
                     {/* ──── MFL ──── */}
-                    <div className="product-card">
+                    <div className="product-card" style={{ borderColor: 'rgba(46,125,50,0.3)', background: 'linear-gradient(135deg, rgba(46,125,50,0.04), transparent)' }}>
                         <div className="product-card-header">
-                            <div className="product-card-icon gold">
-                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--black)" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                            <div className="product-card-icon" style={{ background: 'linear-gradient(135deg, #2e7d32, #1b5e20)', boxShadow: '0 3px 12px rgba(46,125,50,0.25)' }}>
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--white)" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
                             </div>
                             <div>
                                 <div className="product-card-title">MFL</div>
@@ -551,10 +551,10 @@
                     </div>
 
                     {/* ──── YAHOO ──── */}
-                    <div className="product-card">
+                    <div className="product-card" style={{ borderColor: 'rgba(123,0,153,0.3)', background: 'linear-gradient(135deg, rgba(123,0,153,0.04), transparent)' }}>
                         <div className="product-card-header">
-                            <div className="product-card-icon gold">
-                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--black)" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                            <div className="product-card-icon" style={{ background: 'linear-gradient(135deg, #7B0099, #5a006e)', boxShadow: '0 3px 12px rgba(123,0,153,0.25)' }}>
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--white)" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                             </div>
                             <div>
                                 <div className="product-card-title">YAHOO</div>

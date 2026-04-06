@@ -217,7 +217,7 @@ function MockDraftPanel({ playersData, myRoster, currentLeague, draftRounds }) {
     // MULTI-SIM (Monte Carlo)
     // ══════════════════════════════════════════════════════════════
     const runMultiSim = () => {
-        const NUM_SIMS = 100;
+        const NUM_SIMS = 10;
         const pickOrder = buildPickOrder();
         const landingData = {}; // pid -> [pickOverall, ...]
         const myPickData = {}; // round -> { posFreq: {QB:n,...}, bestAvail: [...] }
@@ -333,7 +333,7 @@ function MockDraftPanel({ playersData, myRoster, currentLeague, draftRounds }) {
                     React.createElement('button', {
                         onClick: runMultiSim,
                         style: { padding: '12px 24px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '8px', fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer' }
-                    }, 'RUN 100 SIMULATIONS'),
+                    }, 'RUN 10 SIMULATIONS'),
                 ),
             ),
             // Saved drafts

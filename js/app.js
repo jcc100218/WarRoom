@@ -468,106 +468,49 @@
                     </div>
                 )}
 
-                {/* ── Two Equal Product Cards ── */}
-                <div className="hub-layout">
+                {/* ── 4 Platform Cards ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', padding: '0 12px' }}>
 
-                    {/* ──── Card 1: Sleeper Leagues ──── */}
+                    {/* ──── SLEEPER ──── */}
                     <div className="product-card">
                         <div className="product-card-header">
                             <div className="product-card-icon gold">
-                                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--black)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                                    <path d="M2 17l10 5 10-5"/>
-                                    <path d="M2 12l10 5 10-5"/>
-                                </svg>
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--black)" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
                             </div>
                             <div>
-                                <div className="product-card-title">WAR ROOM</div>
-                                <div className="product-card-subtitle">Command your dynasty</div>
+                                <div className="product-card-title">SLEEPER</div>
+                                <div className="product-card-subtitle">{sleeperUsername ? sleeperLeagues.length + ' league' + (sleeperLeagues.length !== 1 ? 's' : '') + ' synced' : 'Connect your account'}</div>
                             </div>
                         </div>
                         <div className="product-card-body">
-                            <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginBottom: '1rem', lineHeight: 1.6 }}>
-                                Draft room, roster control, standings, trade center, and league-wide intelligence — all powered by your Sleeper data.
-                            </div>
-
                             {!sleeperUsername ? (
                                 <div className="hub-connect-card">
-                                    <input id="wr-sleeper-input" placeholder="Enter your Sleeper username" onKeyDown={e => { if (e.key === 'Enter') { const v = e.target.value.trim(); if (v) { localStorage.setItem('od_auth_v1', JSON.stringify({sleeperUsername:v})); window.location.reload(); } } }} />
-                                    <button className="hub-cta gold" onClick={() => { const v = document.getElementById('wr-sleeper-input')?.value?.trim(); if (v) { localStorage.setItem('od_auth_v1', JSON.stringify({sleeperUsername:v})); window.location.reload(); } }}>CONNECT SLEEPER ACCOUNT</button>
-                                    <div style={{ marginTop: '8px' }}>
-                                        <button className="hub-cta ghost" onClick={() => { localStorage.setItem('od_auth_v1', JSON.stringify({sleeperUsername:'jcc100218'})); WrStorage.set(WR_KEYS.DEMO_MODE, '1'); window.location.reload(); }}>Explore Demo League</button>
-                                    </div>
+                                    <input id="wr-sleeper-input" placeholder="Sleeper username" onKeyDown={e => { if (e.key === 'Enter') { const v = e.target.value.trim(); if (v) { localStorage.setItem('od_auth_v1', JSON.stringify({sleeperUsername:v})); window.location.reload(); } } }} />
+                                    <button className="hub-cta gold" onClick={() => { const v = document.getElementById('wr-sleeper-input')?.value?.trim(); if (v) { localStorage.setItem('od_auth_v1', JSON.stringify({sleeperUsername:v})); window.location.reload(); } }}>CONNECT</button>
+                                    <button className="hub-cta ghost" style={{ marginTop: '6px' }} onClick={() => { localStorage.setItem('od_auth_v1', JSON.stringify({sleeperUsername:'jcc100218'})); WrStorage.set(WR_KEYS.DEMO_MODE, '1'); window.location.reload(); }}>Demo League</button>
                                 </div>
                             ) : (
                                 <>
                                     <LeagueSelector onSelect={handleSelectLeague} accent="gold" />
-                                    {resumeLeague && (
-                                        <button className="hub-cta gold" onClick={() => handleSelectLeague(resumeLeague)}>RESUME {lastLeagueName?.toUpperCase()}</button>
-                                    )}
-                                    {!resumeLeague && sleeperLeagues.length > 0 && (
+                                    {resumeLeague ? (
+                                        <button className="hub-cta gold" onClick={() => handleSelectLeague(resumeLeague)}>ENTER {lastLeagueName?.toUpperCase()}</button>
+                                    ) : sleeperLeagues.length > 0 ? (
                                         <button className="hub-cta gold" onClick={() => handleSelectLeague(sleeperLeagues[0])}>ENTER {sleeperLeagues[0].name?.toUpperCase()}</button>
-                                    )}
+                                    ) : null}
                                 </>
                             )}
                         </div>
                     </div>
 
-                    {/* ──── Card 2: ReconAI ──── */}
-                    <div className="product-card accent-scout">
+                    {/* ──── ESPN ──── */}
+                    <div className="product-card">
                         <div className="product-card-header">
                             <div className="product-card-icon gold">
-                                <svg viewBox="0 0 32 32" width="22" height="22" fill="none">
-                                    <circle cx="16" cy="16" r="8" stroke="var(--black)" strokeWidth="1.5" strokeDasharray="3 2" opacity="0.6"/>
-                                    <circle cx="16" cy="16" r="4" stroke="var(--black)" strokeWidth="1.5"/>
-                                    <circle cx="16" cy="16" r="1.5" fill="var(--black)"/>
-                                </svg>
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--black)" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
                             </div>
                             <div>
-                                <div className="product-card-title">WAR ROOM <span style={{ color: 'var(--gold)' }}>SCOUT</span></div>
-                                <div className="product-card-subtitle">Your AI front office</div>
-                            </div>
-                        </div>
-                        <div className="product-card-body">
-                            <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginBottom: '1rem', lineHeight: 1.6 }}>
-                                War room intelligence for trades, waivers, and roster strategy. AI-powered analysis tuned to your exact league and scoring.
-                            </div>
-
-                            {!sleeperUsername ? (
-                                <div style={{ padding: '1rem 0', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.82rem', color: 'var(--silver)', marginBottom: '12px' }}>Connect your Sleeper account to unlock War Room Scout</div>
-                                    <a href={RECONAI_BASE} target="_blank" rel="noopener noreferrer" className="hub-cta ghost-scout" style={{ textDecoration: 'none' }}>Open War Room Scout Directly</a>
-                                </div>
-                            ) : (
-                                <>
-                                    <LeagueSelector onSelect={(league) => {
-                                        setReconLeagueId(league.id);
-                                        WrStorage.set(WR_KEYS.LAST_LEAGUE_ID, league.id);
-                                        WrStorage.set(WR_KEYS.LAST_LEAGUE_NAME, league.name);
-                                    }} accent="gold" />
-                                    <a href={reconUrl(reconLeagueId || lastLeagueId)} target="_blank" rel="noopener noreferrer" className="hub-cta scout" style={{ textDecoration: 'none' }}>ENTER WAR ROOM SCOUT</a>
-                                    {resumeLeague && (
-                                        <div className="hub-cta-row">
-                                            <a href={reconUrl(lastLeagueId)} target="_blank" rel="noopener noreferrer" className="hub-cta ghost-scout" style={{ textDecoration: 'none' }}>Open {lastLeagueName}</a>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                </div>
-
-                {/* ──── ESPN Leagues Card ──── */}
-                <div style={{ padding: '0 12px', marginTop: '12px' }}>
-                    <div className="product-card" style={{ borderColor: 'rgba(204,0,0,0.25)' }}>
-                        <div className="product-card-header">
-                            <div className="product-card-icon" style={{ background: 'rgba(204,0,0,0.15)', width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#cc0000" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
-                            </div>
-                            <div>
-                                <div className="product-card-title">ESPN <span style={{ color: '#cc0000' }}>LEAGUES</span></div>
-                                <div className="product-card-subtitle">Connect your ESPN Fantasy league</div>
+                                <div className="product-card-title">ESPN</div>
+                                <div className="product-card-subtitle">{espnLeagues.length ? espnLeagues.length + ' league' + (espnLeagues.length !== 1 ? 's' : '') + ' synced' : 'Connect your league'}</div>
                             </div>
                         </div>
                         <div className="product-card-body">
@@ -581,14 +524,49 @@
                             />
                         </div>
                     </div>
-                </div>
 
-                {/* ── Notes from the Front — Field Log feed ── */}
-                <div style={{ padding: '0 12px' }}>
-                    <FieldLogPanel
-                        leagues={sleeperLeagues}
-                        onOpenLeague={handleSelectLeague}
-                    />
+                    {/* ──── MFL ──── */}
+                    <div className="product-card">
+                        <div className="product-card-header">
+                            <div className="product-card-icon gold">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--black)" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                            </div>
+                            <div>
+                                <div className="product-card-title">MFL</div>
+                                <div className="product-card-subtitle">MyFantasyLeague connector</div>
+                            </div>
+                        </div>
+                        <div className="product-card-body">
+                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '8px' }}>Enter your MFL League ID and year to connect.</div>
+                            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                                <input id="wr-mfl-id" placeholder="League ID" style={{ flex: 1, padding: '8px 10px', background: 'var(--charcoal)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '6px', color: 'var(--white)', fontSize: '0.82rem', fontFamily: 'Inter, sans-serif' }} />
+                                <input id="wr-mfl-year" placeholder="Year" defaultValue="2026" style={{ width: '70px', padding: '8px 10px', background: 'var(--charcoal)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '6px', color: 'var(--white)', fontSize: '0.82rem', fontFamily: 'Inter, sans-serif', textAlign: 'center' }} />
+                            </div>
+                            <button className="hub-cta gold" onClick={() => {
+                                const id = document.getElementById('wr-mfl-id')?.value?.trim();
+                                const yr = document.getElementById('wr-mfl-year')?.value?.trim() || '2026';
+                                if (id) { localStorage.setItem('mfl_league_id', id); localStorage.setItem('mfl_year', yr); window.location.reload(); }
+                            }}>CONNECT MFL</button>
+                        </div>
+                    </div>
+
+                    {/* ──── YAHOO ──── */}
+                    <div className="product-card">
+                        <div className="product-card-header">
+                            <div className="product-card-icon gold">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--black)" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                            </div>
+                            <div>
+                                <div className="product-card-title">YAHOO</div>
+                                <div className="product-card-subtitle">OAuth connected</div>
+                            </div>
+                        </div>
+                        <div className="product-card-body">
+                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '8px' }}>Yahoo leagues connect via OAuth in Scout.</div>
+                            <a href={RECONAI_BASE} className="hub-cta ghost" style={{ textDecoration: 'none' }}>Connect via Scout</a>
+                        </div>
+                    </div>
+
                 </div>
 
                 {showSettings && (

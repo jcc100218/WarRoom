@@ -100,10 +100,10 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
     // ── Field Log Writer ───────────────────────────────────────────────────
     // Mirrors Scout's addFieldLogEntry format so both apps write to the same
     // localStorage key and Supabase table. Only logs deliberate user decisions.
-    const FL_LS_KEY = 'scout_field_log_v1';
+    var _wrFlKey = 'scout_field_log_v1';
     function wrLogAction(icon, text, category, meta) {
         try {
-            const entry = {
+            var entry = {
                 id: 'wrfl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
                 icon: icon || '📋',
                 text: text || '',
@@ -117,12 +117,12 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
                 actionType: meta?.actionType || null,
             };
             // Append to localStorage
-            const raw = localStorage.getItem(FL_LS_KEY);
-            const log = raw ? JSON.parse(raw) : [];
+            var raw = localStorage.getItem(_wrFlKey);
+            var log = raw ? JSON.parse(raw) : [];
             log.unshift(entry);
             // Keep max 200 entries locally
             if (log.length > 200) log.length = 200;
-            localStorage.setItem(FL_LS_KEY, JSON.stringify(log));
+            localStorage.setItem(_wrFlKey, JSON.stringify(log));
             // Async sync to Supabase (fire-and-forget)
             if (window.OD?.saveFieldLogEntry) {
                 window.OD.saveFieldLogEntry(entry).catch(function(e) { wrLog('wrLogAction.sync', e); });

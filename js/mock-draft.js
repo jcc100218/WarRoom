@@ -276,9 +276,10 @@ function MockDraftPanel({ playersData, myRoster, currentLeague, draftRounds }) {
     // ══════════════════════════════════════════════════════════════
     const saveDraft = () => {
         if (!draftState) return;
+        const g = gradeMyPicks(draftState.picks);
         const saved = {
             ts: Date.now(), picks: draftState.picks, trades: draftState.trades,
-            league: currentLeague?.name || '', teams,
+            league: currentLeague?.name || '', teams, grade: g.grade, totalDHQ: g.totalDHQ,
         };
         const all = [saved, ...savedDrafts].slice(0, 5);
         localStorage.setItem('wr_mock_drafts_' + (currentLeague?.id || ''), JSON.stringify(all));
@@ -345,6 +346,7 @@ function MockDraftPanel({ playersData, myRoster, currentLeague, draftRounds }) {
                 },
                     React.createElement('span', { style: { fontSize: '0.78rem', color: 'var(--silver)' } }, new Date(d.ts).toLocaleDateString()),
                     React.createElement('span', { style: { fontSize: '0.78rem', color: 'var(--white)', flex: 1 } }, `${d.picks?.length || 0} picks · ${d.league}`),
+                    d.grade && React.createElement('span', { style: { fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', padding: '1px 6px', borderRadius: '4px', background: 'rgba(212,175,55,0.1)' } }, d.grade),
                     React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--gold)' } }, 'View →'),
                 ))
             ),
@@ -377,31 +379,62 @@ function MockDraftPanel({ playersData, myRoster, currentLeague, draftRounds }) {
                         `R${current.round}.${current.pick} — ${isMyPick ? 'YOUR PICK' : ((S.leagueUsers || []).find(u => u.user_id === current.rosterId)?.display_name || 'Team')}`
                     ),
                 ),
-                // Available players (user's pick)
+                // Available players — Big Board style
                 isMyPick && React.createElement('div', { style: cardStyle },
                     React.createElement('div', { style: goldLabel }, 'BEST AVAILABLE'),
-                    pool.slice(0, 12).map(p => React.createElement('div', {
-                        key: p.pid,
-                        onClick: () => makePick(p.pid),
-                        style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', marginBottom: '4px', cursor: 'pointer', transition: 'all 0.1s' },
-                        onMouseEnter: e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.3)'; e.currentTarget.style.background = 'rgba(212,175,55,0.04)'; },
-                        onMouseLeave: e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; },
-                    },
-                        React.createElement('span', { style: { fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', flex: 1 } }, p.name),
-                        React.createElement('span', { style: { fontSize: '0.72rem', fontWeight: 700, color: 'var(--gold)', padding: '1px 6px', borderRadius: '6px', background: 'rgba(212,175,55,0.1)' } }, p.pos),
-                        React.createElement('span', { style: { fontSize: '0.78rem', color: 'var(--silver)', fontFamily: 'JetBrains Mono, monospace' } }, p.val.toLocaleString()),
-                    ))
+                    // Header row
+                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', padding: '0 10px 6px', fontSize: '0.62rem', color: 'var(--gold)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(212,175,55,0.15)' } },
+                        React.createElement('span', { style: { width: '28px' } }, '#'),
+                        React.createElement('span', { style: { width: '30px' } }),
+                        React.createElement('span', { style: { flex: 1 } }, 'Player'),
+                        React.createElement('span', { style: { width: '42px', textAlign: 'center' } }, 'Pos'),
+                        React.createElement('span', { style: { width: '60px', textAlign: 'right' } }, 'DHQ'),
+                        React.createElement('span', { style: { width: '50px', textAlign: 'center' } }, 'Fit'),
+                    ),
+                    pool.slice(0, 12).map((p, pi) => {
+                        const posColors = {QB:'#60a5fa',RB:'#34d399',WR:'var(--gold)',TE:'#fbbf24',DL:'#fb923c',LB:'var(--gold)',DB:'#f472b6'};
+                        const dhqCol = p.val >= 7000 ? '#2ECC71' : p.val >= 4000 ? '#3498DB' : p.val >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)';
+                        const needFit = analytics?.needs?.includes(p.pos);
+                        return React.createElement('div', {
+                            key: p.pid, onClick: () => makePick(p.pid),
+                            style: { display: 'flex', alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', background: pi % 2 ? 'rgba(255,255,255,0.015)' : 'transparent', transition: 'background 0.1s' },
+                            onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.04)',
+                            onMouseLeave: e => e.currentTarget.style.background = pi % 2 ? 'rgba(255,255,255,0.015)' : 'transparent',
+                        },
+                            React.createElement('span', { style: { width: '28px', fontSize: '0.72rem', color: pi < 3 ? 'var(--gold)' : 'var(--silver)', fontWeight: 600 } }, pi + 1),
+                            React.createElement('img', { src: `https://sleepercdn.com/content/nfl/players/thumb/${p.pid}.jpg`, style: { width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', marginRight: '8px' }, onError: e => e.target.style.display = 'none' }),
+                            React.createElement('div', { style: { flex: 1, overflow: 'hidden' } },
+                                React.createElement('div', { style: { fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.name),
+                                React.createElement('div', { style: { fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.6 } }, `${p.team || 'TBD'}${p.college ? ' · ' + p.college : ''}`),
+                            ),
+                            React.createElement('span', { style: { width: '42px', textAlign: 'center', fontSize: '0.68rem', fontWeight: 700, color: posColors[p.pos] || 'var(--silver)', padding: '2px 6px', background: (posColors[p.pos] || '#666') + '22', borderRadius: '4px' } }, p.pos),
+                            React.createElement('span', { style: { width: '60px', textAlign: 'right', fontSize: '0.78rem', fontWeight: 700, color: dhqCol, fontFamily: 'JetBrains Mono, monospace' } }, p.val.toLocaleString()),
+                            React.createElement('span', { style: { width: '50px', textAlign: 'center', fontSize: '0.62rem', fontWeight: 700, color: needFit ? '#2ECC71' : 'var(--silver)', padding: '1px 4px', background: needFit ? 'rgba(46,204,113,0.15)' : 'transparent', borderRadius: '4px' } }, needFit ? 'NEED' : 'BPA'),
+                        );
+                    })
                 ),
-                // Trade options
+                // Trade options — selectable with DHQ breakdown
                 isMyPick && tradeOptions.length > 0 && React.createElement('div', { style: cardStyle },
                     React.createElement('div', { style: goldLabel }, 'TRADE SCENARIOS'),
                     tradeOptions.map((t, i) => React.createElement('div', {
-                        key: i, style: { padding: '8px 10px', background: 'rgba(46,204,113,0.04)', border: '1px solid rgba(46,204,113,0.15)', borderRadius: '8px', marginBottom: '4px' }
+                        key: i, style: { padding: '10px 12px', background: 'rgba(46,204,113,0.04)', border: '1px solid rgba(46,204,113,0.15)', borderRadius: '8px', marginBottom: '6px', cursor: 'pointer' },
+                        onClick: () => { /* Accept trade — swap picks in draft state */ },
                     },
-                        React.createElement('div', { style: { fontSize: '0.78rem', color: '#2ECC71', fontWeight: 600, marginBottom: '2px' } }, t.type === 'down' ? '↓ Trade Down' : '↑ Trade Up'),
-                        React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)' } }, `Give: ${t.give} → Get: ${t.get}`),
-                        React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)' } }, t.reason),
-                        React.createElement('div', { style: { fontSize: '0.82rem', color: '#2ECC71', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' } }, `+${t.netDHQ} DHQ`),
+                        React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' } },
+                            React.createElement('span', { style: { fontSize: '0.82rem', color: '#2ECC71', fontWeight: 700 } }, t.type === 'down' ? '↓ Trade Down' : '↑ Trade Up'),
+                            React.createElement('span', { style: { fontSize: '0.92rem', color: '#2ECC71', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace' } }, `+${t.netDHQ} DHQ`),
+                        ),
+                        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.72rem' } },
+                            React.createElement('div', { style: { padding: '6px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '6px', border: '1px solid rgba(248,113,113,0.1)' } },
+                                React.createElement('div', { style: { color: '#f87171', fontWeight: 600, marginBottom: '2px' } }, 'YOU GIVE'),
+                                React.createElement('div', { style: { color: 'var(--silver)' } }, t.give),
+                            ),
+                            React.createElement('div', { style: { padding: '6px 8px', background: 'rgba(46,204,113,0.06)', borderRadius: '6px', border: '1px solid rgba(46,204,113,0.1)' } },
+                                React.createElement('div', { style: { color: '#2ECC71', fontWeight: 600, marginBottom: '2px' } }, 'YOU GET'),
+                                React.createElement('div', { style: { color: 'var(--silver)' } }, t.get),
+                            ),
+                        ),
+                        React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--silver)', marginTop: '4px' } }, t.reason),
                     ))
                 ),
                 // Recent picks log
@@ -518,48 +551,100 @@ function MockDraftPanel({ playersData, myRoster, currentLeague, draftRounds }) {
     // ── RESULTS / POST-DRAFT ──
     if (mode === 'results' && draftState) {
         const grades = gradeMyPicks(draftState.picks);
+        const [saveMsg, setSaveMsg] = useState('');
+
+        // League-wide DHQ ranking
+        const teamDHQ = {};
+        draftState.picks.forEach(p => {
+            if (!teamDHQ[p.teamName]) teamDHQ[p.teamName] = { total: 0, picks: [], isUser: p.isUser };
+            teamDHQ[p.teamName].total += p.val || 0;
+            teamDHQ[p.teamName].picks.push(p);
+            if (p.isUser) teamDHQ[p.teamName].isUser = true;
+        });
+        const leagueRanking = Object.entries(teamDHQ).sort((a, b) => b[1].total - a[1].total);
+
+        // Alex analysis
+        const bestPick = grades.picks.reduce((best, p) => (!best || p.val > best.val) ? p : best, null);
+        const worstPick = grades.picks.reduce((worst, p) => (!worst || p.val < worst.val) ? p : worst, null);
+        const alexStyle = typeof getAlexStyle === 'function' ? getAlexStyle() : { name: 'Default' };
+        const posBreakdown = {};
+        grades.picks.forEach(p => { posBreakdown[p.pos] = (posBreakdown[p.pos] || 0) + 1; });
+
         return React.createElement('div', { style: wrapStyle },
             exitBtn,
             // Grade header
-            React.createElement('div', { style: { ...cardStyle, textAlign: 'center' } },
-                React.createElement('div', { style: { fontSize: '3rem', fontWeight: 800, color: 'var(--gold)', fontFamily: 'Rajdhani, sans-serif', lineHeight: 1 } }, grades.grade),
-                React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', marginBottom: '8px' } },
-                    `${grades.picks.length} picks · ${grades.totalDHQ.toLocaleString()} total DHQ · ${grades.avgEV.toLocaleString()} avg`
+            React.createElement('div', { style: { ...cardStyle, textAlign: 'center', padding: '24px 20px' } },
+                React.createElement('div', { style: { fontSize: '4rem', fontWeight: 800, color: 'var(--gold)', fontFamily: 'Rajdhani, sans-serif', lineHeight: 1 } }, grades.grade),
+                React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px', marginBottom: '8px' } }, 'DRAFT GRADE'),
+                React.createElement('div', { style: { fontSize: '0.85rem', color: 'var(--silver)', marginBottom: '12px' } },
+                    `${grades.picks.length} picks · ${grades.totalDHQ.toLocaleString()} total DHQ · ${grades.avgEV.toLocaleString()} avg per pick`
                 ),
                 React.createElement('div', { style: { display: 'flex', gap: '8px', justifyContent: 'center' } },
-                    React.createElement('button', { onClick: saveDraft, style: { padding: '8px 16px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', fontWeight: 700 } }, 'Save Draft'),
-                    React.createElement('button', { onClick: () => setMode('setup'), style: { padding: '8px 16px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem' } }, 'New Draft'),
+                    React.createElement('button', { onClick: () => { saveDraft(); setSaveMsg('Draft saved!'); setTimeout(() => setSaveMsg(''), 2000); }, style: { padding: '10px 20px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', fontWeight: 700, letterSpacing: '0.04em' } }, saveMsg || 'SAVE DRAFT'),
+                    React.createElement('button', { onClick: () => setMode('setup'), style: { padding: '10px 20px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '8px', cursor: 'pointer', fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', fontWeight: 700 } }, 'NEW DRAFT'),
                 ),
             ),
-            // Your picks graded
+            // Alex's analysis
+            React.createElement('div', { style: { ...cardStyle, borderColor: 'rgba(212,175,55,0.3)' } },
+                React.createElement('div', { style: goldLabel }, `ALEX'S ANALYSIS`),
+                React.createElement('div', { style: { fontSize: '0.85rem', color: 'var(--silver)', lineHeight: 1.7 } },
+                    `Overall grade: ${grades.grade}. You drafted ${grades.picks.length} players for a total of ${grades.totalDHQ.toLocaleString()} DHQ. ` +
+                    (bestPick ? `Your best pick was ${bestPick.playerName} (${bestPick.pos}, ${bestPick.val.toLocaleString()} DHQ) — that's a value play at R${bestPick.round}.${bestPick.pick}. ` : '') +
+                    (worstPick && worstPick.pid !== bestPick?.pid ? `${worstPick.playerName} at R${worstPick.round}.${worstPick.pick} was your biggest reach — ${worstPick.val.toLocaleString()} DHQ is thin for that slot. ` : '') +
+                    `Position breakdown: ${Object.entries(posBreakdown).map(([pos, ct]) => `${ct} ${pos}`).join(', ')}. ` +
+                    (grades.picks.filter(p => p.verdict === 'Value').length >= grades.picks.length * 0.5 ? 'You consistently picked value over need — smart dynasty drafting.' : 'Some reaches in there, but the overall portfolio is workable.')
+                ),
+                React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--gold)', marginTop: '8px', fontStyle: 'italic' } }, '— Alex'),
+            ),
+            // Your picks graded (with photos)
             React.createElement('div', { style: cardStyle },
                 React.createElement('div', { style: goldLabel }, 'YOUR PICKS'),
                 grades.picks.map((p, i) => React.createElement('div', {
-                    key: i, style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }
+                    key: i, style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }
                 },
                     React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--silver)', minWidth: '45px' } }, `R${p.round}.${p.pick}`),
+                    React.createElement('img', { src: `https://sleepercdn.com/content/nfl/players/thumb/${p.pid}.jpg`, style: { width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }, onError: e => e.target.style.display = 'none' }),
                     React.createElement('span', { style: { fontSize: '0.82rem', color: 'var(--white)', fontWeight: 600, flex: 1 } }, p.playerName),
-                    React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--gold)' } }, p.pos),
-                    React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--silver)', fontFamily: 'JetBrains Mono, monospace' } }, p.val.toLocaleString()),
+                    React.createElement('span', { style: { fontSize: '0.72rem', fontWeight: 700, color: 'var(--gold)', padding: '1px 6px', borderRadius: '4px', background: 'rgba(212,175,55,0.1)' } }, p.pos),
+                    React.createElement('span', { style: { fontSize: '0.78rem', color: 'var(--silver)', fontFamily: 'JetBrains Mono, monospace' } }, p.val.toLocaleString()),
                     React.createElement('span', { style: {
-                        fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: '4px',
+                        fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px',
                         background: p.verdict === 'Value' ? 'rgba(46,204,113,0.15)' : p.verdict === 'Fair' ? 'rgba(212,175,55,0.15)' : 'rgba(248,113,113,0.15)',
                         color: p.verdict === 'Value' ? '#2ECC71' : p.verdict === 'Fair' ? 'var(--gold)' : '#f87171',
                     } }, p.verdict),
                 ))
             ),
-            // Full draft log
+            // League DHQ ranking
             React.createElement('div', { style: cardStyle },
-                React.createElement('div', { style: goldLabel }, `FULL DRAFT (${draftState.picks.length} picks)`),
-                React.createElement('div', { style: { maxHeight: '400px', overflowY: 'auto' } },
-                    draftState.picks.map((p, i) => React.createElement('div', {
-                        key: i, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: '0.68rem' }
-                    },
-                        React.createElement('span', { style: { color: 'var(--silver)', minWidth: '35px' } }, `${p.overall}.`),
-                        React.createElement('span', { style: { color: p.isUser ? 'var(--gold)' : 'var(--silver)', minWidth: '120px', fontWeight: p.isUser ? 700 : 400 } }, p.teamName),
-                        React.createElement('span', { style: { color: 'var(--white)', flex: 1 } }, p.playerName),
-                        React.createElement('span', { style: { color: 'var(--gold)' } }, p.pos),
-                    ))
+                React.createElement('div', { style: goldLabel }, 'LEAGUE DRAFT RANKING (BY DHQ ACQUIRED)'),
+                leagueRanking.map(([name, data], i) => React.createElement('div', {
+                    key: i, style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }
+                },
+                    React.createElement('span', { style: { fontSize: '0.72rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', fontWeight: 700, minWidth: '24px' } }, `#${i + 1}`),
+                    React.createElement('span', { style: { fontSize: '0.78rem', color: data.isUser ? 'var(--gold)' : 'var(--white)', fontWeight: data.isUser ? 700 : 400, flex: 1 } }, `${name}${data.isUser ? ' (YOU)' : ''}`),
+                    React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--silver)' } }, `${data.picks.length} picks`),
+                    React.createElement('span', { style: { fontSize: '0.78rem', fontWeight: 700, color: i < 3 ? '#2ECC71' : 'var(--silver)', fontFamily: 'JetBrains Mono, monospace' } }, data.total.toLocaleString()),
+                ))
+            ),
+            // Full draft log by round
+            React.createElement('div', { style: cardStyle },
+                React.createElement('div', { style: goldLabel }, `COMPLETE DRAFT (${draftState.picks.length} picks)`),
+                React.createElement('div', { style: { maxHeight: '500px', overflowY: 'auto' } },
+                    [...new Set(draftState.picks.map(p => p.round))].map(rd =>
+                        React.createElement('div', { key: rd },
+                            React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--gold)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '8px 0 4px', borderBottom: '1px solid rgba(212,175,55,0.1)' } }, `ROUND ${rd}`),
+                            draftState.picks.filter(p => p.round === rd).map((p, i) => React.createElement('div', {
+                                key: i, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: '0.72rem' }
+                            },
+                                React.createElement('span', { style: { color: 'var(--silver)', minWidth: '28px' } }, `${p.pick}.`),
+                                React.createElement('img', { src: `https://sleepercdn.com/content/nfl/players/thumb/${p.pid}.jpg`, style: { width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }, onError: e => e.target.style.display = 'none' }),
+                                React.createElement('span', { style: { color: p.isUser ? 'var(--gold)' : 'var(--silver)', minWidth: '100px', fontWeight: p.isUser ? 700 : 400 } }, p.teamName),
+                                React.createElement('span', { style: { color: 'var(--white)', fontWeight: 600, flex: 1 } }, p.playerName),
+                                React.createElement('span', { style: { color: 'var(--gold)', fontSize: '0.62rem', fontWeight: 700 } }, p.pos),
+                                React.createElement('span', { style: { color: 'var(--silver)', fontFamily: 'JetBrains Mono, monospace' } }, p.val.toLocaleString()),
+                            ))
+                        )
+                    )
                 )
             ),
         );

@@ -324,6 +324,29 @@
         // Hook must be above the early return to maintain consistent hook order
         const [reconLeagueId, setReconLeagueId] = useState(null);
 
+        // popstate listener for back/forward navigation — MUST be before early return
+        React.useEffect(() => {
+            function onPopState(e) {
+                isNavigatingRef.current = true;
+                const state = e.state;
+                if (state && state.view === 'league' && state.leagueId) {
+                    const allLeagues = [...sleeperLeagues, ...espnLeagues, ...mflLeagues];
+                    const league = allLeagues.find(l => l.id === state.leagueId);
+                    if (league) {
+                        setSelectedLeague(league);
+                        setActiveTab(state.tab || 'brief');
+                    }
+                } else {
+                    setSelectedLeague(null);
+                    setActiveTab('brief');
+                }
+                setTimeout(() => { isNavigatingRef.current = false; }, 0);
+            }
+            window.addEventListener('popstate', onPopState);
+            if (!history.state) history.replaceState({ view: 'hub' }, '', window.location.pathname);
+            return () => window.removeEventListener('popstate', onPopState);
+        }, [sleeperLeagues, espnLeagues, mflLeagues]);
+
         // Show league detail if selected
         const LeagueDetail = window.LeagueDetail;
         if (selectedLeague) {
@@ -441,31 +464,6 @@
                 history.pushState({ view: 'league', leagueId: selectedLeague.id, tab }, '', buildHash(selectedLeague.id, tab));
             }
         }
-
-        // popstate listener for back/forward navigation
-        React.useEffect(() => {
-            function onPopState(e) {
-                isNavigatingRef.current = true;
-                const state = e.state;
-                if (state && state.view === 'league' && state.leagueId) {
-                    // Find league in loaded leagues
-                    const allLeagues = [...sleeperLeagues, ...espnLeagues, ...mflLeagues];
-                    const league = allLeagues.find(l => l.id === state.leagueId);
-                    if (league) {
-                        setSelectedLeague(league);
-                        setActiveTab(state.tab || 'brief');
-                    }
-                } else {
-                    setSelectedLeague(null);
-                    setActiveTab('brief');
-                }
-                setTimeout(() => { isNavigatingRef.current = false; }, 0);
-            }
-            window.addEventListener('popstate', onPopState);
-            // Set initial state if none exists
-            if (!history.state) history.replaceState({ view: 'hub' }, '', window.location.pathname);
-            return () => window.removeEventListener('popstate', onPopState);
-        }, [sleeperLeagues, espnLeagues, mflLeagues]);
 
         async function handleESPNConnect(leagueId, espnS2, swid) {
             if (!leagueId) { setEspnError('Enter your ESPN league ID'); return; }

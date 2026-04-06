@@ -132,7 +132,9 @@
                     <div style={{ display: 'flex', gap: '0', marginBottom: '1.25rem', borderBottom: '2px solid rgba(212,175,55,0.2)' }}>
                         {[
                             { id: 'account', label: 'Account' },
-                            { id: 'subscription', label: 'Subscription' },
+                            { id: 'alex', label: 'Alex' },
+                            { id: 'commissioner', label: 'Commish' },
+                            { id: 'subscription', label: 'Plan' },
                             { id: 'data', label: 'Data' },
                         ].map(tab => (
                             <button key={tab.id} onClick={() => setSettingsTab(tab.id)} style={{
@@ -223,6 +225,120 @@
                         </div>
                     )}
                     </>)}
+
+                    {/* ══ ALEX TAB — Coaching Style + Avatar ══ */}
+                    {settingsTab === 'alex' && (() => {
+                        const styles = window.ALEX_STYLES || {};
+                        const currentStyle = localStorage.getItem('wr_alex_style') || 'default';
+                        return (<>
+                        <div style={sectionStyle}>
+                            <div style={sectionTitle}>COMMUNICATION STYLE</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '0.75rem' }}>Choose how Alex communicates. This affects all AI responses — briefings, chat, trade analysis, draft scouting.</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {Object.entries(styles).map(([key, style]) => (
+                                    <button key={key} onClick={() => { localStorage.setItem('wr_alex_style', key); setSettingsTab('alex'); }}
+                                        style={{
+                                            padding: '12px 14px', textAlign: 'left',
+                                            background: currentStyle === key ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)',
+                                            border: currentStyle === key ? '2px solid var(--gold)' : '1px solid rgba(255,255,255,0.08)',
+                                            borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
+                                        }}>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: currentStyle === key ? 'var(--gold)' : 'var(--white)', marginBottom: '3px' }}>
+                                            {style.name} {currentStyle === key && '✓'}
+                                        </div>
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.4 }}>
+                                            {style.tone.substring(0, 120)}{style.tone.length > 120 ? '...' : ''}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.5, marginTop: '8px' }}>Changes take effect on next page load.</div>
+                        </div>
+                        </>);
+                    })()}
+
+                    {/* ══ COMMISSIONER TAB — League Docs ══ */}
+                    {settingsTab === 'commissioner' && (() => {
+                        const leagueId = (window.S || {}).currentLeagueId || '';
+                        const [docs, setDocs] = React.useState([]);
+                        const [uploading, setUploading] = React.useState(false);
+                        const [uploadMsg, setUploadMsg] = React.useState('');
+
+                        React.useEffect(() => {
+                            if (window.OD?.listLeagueDocs && leagueId) {
+                                window.OD.listLeagueDocs(leagueId).then(d => setDocs(d || []));
+                            }
+                        }, [leagueId]);
+
+                        const handleFileUpload = async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploading(true); setUploadMsg('');
+                            try {
+                                const text = await file.text();
+                                if (!text.trim()) { setUploadMsg('File is empty.'); setUploading(false); return; }
+                                // Detect category from filename
+                                const name = file.name.toLowerCase();
+                                const category = name.includes('bylaw') ? 'bylaws' : name.includes('award') ? 'awards' : name.includes('calendar') || name.includes('schedule') ? 'calendar' : name.includes('scor') ? 'scoring' : 'general';
+                                const ok = await window.OD.uploadLeagueDoc(leagueId, file.name, text, category);
+                                if (ok) {
+                                    setUploadMsg('Uploaded! Alex will now reference this document.');
+                                    const updated = await window.OD.listLeagueDocs(leagueId);
+                                    setDocs(updated || []);
+                                    // Refresh AI context
+                                    const ctx = await window.OD.getLeagueDocsContext(leagueId);
+                                    if (ctx) window._leagueDocsContext = ctx;
+                                } else { setUploadMsg('Upload failed. Check your connection.'); }
+                            } catch (err) { setUploadMsg('Error: ' + (err.message || 'Unknown')); }
+                            setUploading(false);
+                        };
+
+                        const handleDelete = async (docName) => {
+                            if (!confirm('Delete "' + docName + '"? Alex will no longer reference it.')) return;
+                            await window.OD?.deleteLeagueDoc(leagueId, docName);
+                            const updated = await window.OD?.listLeagueDocs(leagueId);
+                            setDocs(updated || []);
+                            const ctx = await window.OD?.getLeagueDocsContext(leagueId);
+                            window._leagueDocsContext = ctx || '';
+                        };
+
+                        return (<>
+                        <div style={sectionStyle}>
+                            <div style={sectionTitle}>LEAGUE DOCUMENTS</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+                                Upload your league bylaws, awards history, custom rules, or any league-specific documents. Alex will use these to answer league questions and reference your league's customs.
+                            </div>
+                            {!leagueId ? (
+                                <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.5 }}>Connect a league first to upload documents.</div>
+                            ) : (<>
+                                <div style={{ marginBottom: '12px' }}>
+                                    <label style={{
+                                        display: 'block', padding: '14px', textAlign: 'center',
+                                        background: 'rgba(212,175,55,0.06)', border: '2px dashed rgba(212,175,55,0.25)',
+                                        borderRadius: '10px', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--gold)', fontWeight: 600,
+                                    }}>
+                                        {uploading ? 'Uploading...' : '+ Upload Document (.txt, .md, .csv)'}
+                                        <input type="file" accept=".txt,.md,.csv,.text" onChange={handleFileUpload} style={{ display: 'none' }} />
+                                    </label>
+                                    {uploadMsg && <div style={{ fontSize: '0.72rem', color: uploadMsg.includes('fail') || uploadMsg.includes('Error') ? '#f87171' : '#34d399', marginTop: '6px' }}>{uploadMsg}</div>}
+                                </div>
+                                {docs.length > 0 && (
+                                    <div>
+                                        <div style={{ fontSize: '0.68rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>UPLOADED ({docs.length})</div>
+                                        {docs.map((d, i) => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                <span style={{ fontSize: '0.78rem', color: 'var(--white)', flex: 1 }}>{d.name}</span>
+                                                <span style={{ fontSize: '0.68rem', color: 'var(--gold)', padding: '1px 6px', borderRadius: '6px', background: 'rgba(212,175,55,0.1)' }}>{d.category}</span>
+                                                <span style={{ fontSize: '0.68rem', color: 'var(--silver)' }}>{new Date(d.uploadedAt).toLocaleDateString()}</span>
+                                                <button onClick={() => handleDelete(d.name)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '0.72rem', padding: '2px 6px' }}>Delete</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>)}
+                        </div>
+                        </>);
+                    })()}
 
                     {/* ══ SUBSCRIPTION TAB ══ */}
                     {settingsTab === 'subscription' && (<>

@@ -85,25 +85,24 @@ function FlashBriefPanel({
     const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
     const userName = window.S?.user?.display_name || window.S?.user?.username || 'Commander';
 
-    // Build Alex's briefing message
-    const briefSections = [];
+    // Build Alex's conversational briefing
+    const needPos = needs.length ? (typeof needs[0] === 'string' ? needs[0] : needs[0]?.pos) : '';
+    const tierMsg = tier === 'ELITE' ? "Your roster is elite — top of the food chain right now."
+        : tier === 'CONTENDER' ? `Your roster's sitting in solid shape — ${myRank}${myRank===1?'st':myRank===2?'nd':myRank===3?'rd':'th'} in the league with a health score of ${hs}. You're right in the mix.`
+        : tier === 'CROSSROADS' ? `You're at a crossroads — ranked ${myRank}${myRank===1?'st':myRank===2?'nd':myRank===3?'rd':'th'} with a health score of ${hs}. Some decisions coming up that'll define your direction.`
+        : `Rebuilding mode — ranked ${myRank}${myRank===1?'st':myRank===2?'nd':myRank===3?'rd':'th'}. Health score is ${hs}. But that's where the opportunity is.`;
 
-    // League situation
-    const situationParts = [];
-    situationParts.push(`You're ranked #${myRank} of ${rankedTeams.length}. Health score: ${hs}. Tier: ${tier}.`);
-    if (elites > 0) situationParts.push(`${elites} elite player${elites > 1 ? 's' : ''} on your roster.`);
-    if (needs.length) situationParts.push(`Biggest gap: ${typeof needs[0] === 'string' ? needs[0] : needs[0]?.pos}.`);
-    if (activeTrades > 0) situationParts.push(`${activeTrades} trade${activeTrades > 1 ? 's' : ''} completed in the league recently.`);
-    briefSections.push(situationParts.join(' '));
+    let briefText = tierMsg;
+    if (elites > 0) briefText += ` You've got ${elites} elite player${elites > 1 ? 's' : ''} anchoring the roster.`;
+    if (needPos) briefText += ` Your biggest gap is at ${needPos} — I've been keeping an eye on options for you.`;
+    if (activeTrades > 0) briefText += ` ${activeTrades} trade${activeTrades > 1 ? 's have' : ' has'} gone down in the league recently. Worth watching who's moving what.`;
+    if (budget > 0) briefText += ` You've got $${faabRemaining} of $${budget} FAAB left to work with.`;
 
-    // FAAB
-    if (budget > 0) briefSections.push(`FAAB: $${faabRemaining} of $${budget} remaining.`);
-
-    const cardStyle = { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '12px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' };
-    const btnStyle = { padding: '8px 14px', background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '8px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', fontWeight: 600, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.15s' };
+    const cardStyle = { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '14px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' };
+    const btnStyle = { padding: '12px 16px', background: 'rgba(212,175,55,0.05)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '10px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', fontWeight: 500, textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: '10px', transition: 'all 0.15s', lineHeight: 1.5 };
 
     return React.createElement('div', {
-        style: { padding: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', height: 'calc(100vh - 120px)', alignContent: 'start' },
+        style: { padding: '28px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', height: 'calc(100vh - 120px)', alignContent: 'start' },
         className: 'wr-fade-in'
     },
         // ═══ LEFT: ALEX'S BRIEFING ═══
@@ -115,9 +114,9 @@ function FlashBriefPanel({
             ),
             // Body
             React.createElement('div', { style: { padding: '16px 20px', flex: 1, overflowY: 'auto' } },
-                // Situation report
-                React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.7, marginBottom: '16px' } },
-                    briefSections.join(' ')
+                // Alex's message
+                React.createElement('div', { style: { fontSize: '0.85rem', color: 'var(--silver)', lineHeight: 1.75, marginBottom: '20px' } },
+                    briefText
                 ),
                 // Action buttons
                 React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
@@ -129,8 +128,8 @@ function FlashBriefPanel({
                     },
                         React.createElement('span', { style: { fontSize: '1rem' } }, '🎯'),
                         React.createElement('div', null,
-                            React.createElement('div', { style: { fontWeight: 700, color: 'var(--white)', fontSize: '0.82rem' } }, `Target: ${waiverTarget.name}`),
-                            React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)' } }, `${waiverTarget.pos} · DHQ ${waiverTarget.dhq.toLocaleString()} · Fills your ${waiverTarget.pos} gap`),
+                            React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: '0.85rem' } }, `I've been watching the wire — ${waiverTarget.name} is sitting out there unclaimed.`),
+                            React.createElement('div', { style: { fontSize: '0.75rem', color: 'var(--silver)', marginTop: '2px' } }, `${waiverTarget.pos} · DHQ ${waiverTarget.dhq.toLocaleString()} · Fills your ${waiverTarget.pos} gap perfectly. Worth a look.`),
                         ),
                     ),
                     // Key drops
@@ -141,8 +140,8 @@ function FlashBriefPanel({
                     },
                         React.createElement('span', { style: { fontSize: '1rem' } }, '⚠️'),
                         React.createElement('div', null,
-                            React.createElement('div', { style: { fontWeight: 700, color: 'var(--white)', fontSize: '0.82rem' } }, `${keyDrops.length} high-value drop${keyDrops.length > 1 ? 's' : ''}`),
-                            React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)' } }, keyDrops.map(d => `${d.name} (${d.pos}, ${d.dhq.toLocaleString()})`).join(', ')),
+                            React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: '0.85rem' } }, `Heads up — ${keyDrops.length > 1 ? 'some high-value players hit' : 'a high-value player hit'} the wire recently.`),
+                            React.createElement('div', { style: { fontSize: '0.75rem', color: 'var(--silver)', marginTop: '2px' } }, keyDrops.map(d => `${d.name} (${d.pos}, ${d.dhq.toLocaleString()})`).join(', ') + '. Might be worth scooping up before someone else does.'),
                         ),
                     ),
                     // Trade block
@@ -153,8 +152,8 @@ function FlashBriefPanel({
                     },
                         React.createElement('span', { style: { fontSize: '1rem' } }, '🔄'),
                         React.createElement('div', null,
-                            React.createElement('div', { style: { fontWeight: 700, color: 'var(--white)', fontSize: '0.82rem' } }, 'Explore trade opportunities'),
-                            React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)' } }, `${Object.keys(ownerProfiles).length} owner profiles loaded · Find your best trade partner`),
+                            React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: '0.85rem' } }, `I've mapped out ${Object.keys(ownerProfiles).length} owners in your league. A few look ripe for a deal.`),
+                            React.createElement('div', { style: { fontSize: '0.75rem', color: 'var(--silver)', marginTop: '2px' } }, 'Let me show you who needs what — and what you could get in return.'),
                         ),
                     ),
                     // Draft countdown
@@ -165,8 +164,8 @@ function FlashBriefPanel({
                     },
                         React.createElement('span', { style: { fontSize: '1rem' } }, '📋'),
                         React.createElement('div', null,
-                            React.createElement('div', { style: { fontWeight: 700, color: 'var(--white)', fontSize: '0.82rem' } }, `Draft in ${draftCountdown.days}D ${draftCountdown.hours}H`),
-                            React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)' } }, `${draftCountdown.date} · Prepare your board`),
+                            React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: '0.85rem' } }, `Draft is ${draftCountdown.days} day${draftCountdown.days !== 1 ? 's' : ''} out. Time to sharpen your board.`),
+                            React.createElement('div', { style: { fontSize: '0.75rem', color: 'var(--silver)', marginTop: '2px' } }, `${draftCountdown.date} · I've got your scouting report ready when you are.`),
                         ),
                     ),
                     // Power ranking
@@ -177,8 +176,8 @@ function FlashBriefPanel({
                     },
                         React.createElement('span', { style: { fontSize: '1rem' } }, '🏆'),
                         React.createElement('div', null,
-                            React.createElement('div', { style: { fontWeight: 700, color: 'var(--white)', fontSize: '0.82rem' } }, `Power Rank: #${myRank} of ${rankedTeams.length}`),
-                            React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)' } }, `${tier} · View league standings`),
+                            React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: '0.85rem' } }, `You're #${myRank} in the league pecking order right now.`),
+                            React.createElement('div', { style: { fontSize: '0.75rem', color: 'var(--silver)', marginTop: '2px' } }, `${tier} tier · See where everyone else stands.`),
                         ),
                     ),
                 ),
@@ -188,8 +187,8 @@ function FlashBriefPanel({
         // ═══ RIGHT: FIELD NOTES ═══
         React.createElement('div', { style: cardStyle },
             React.createElement('div', { style: { padding: '20px 20px 0', borderBottom: '1px solid rgba(212,175,55,0.1)', paddingBottom: '12px' } },
-                React.createElement('div', { style: { fontFamily: "'Courier Prime', 'Courier New', monospace", fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px' } }, 'FIELD NOTES'),
-                React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', fontFamily: "'Courier Prime', 'Courier New', monospace" } }, 'Intel logged from Scout sessions'),
+                React.createElement('div', { style: { fontFamily: "'Courier Prime', 'Courier New', monospace", fontSize: '1.2rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '2px', fontWeight: 700 } }, 'FIELD NOTES'),
+                React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', fontFamily: "'Courier Prime', 'Courier New', monospace" } }, 'Intel logged from Scout sessions'),
             ),
             React.createElement('div', { style: { padding: '16px 20px', flex: 1, overflowY: 'auto' } },
                 // Load field log entries
@@ -206,8 +205,8 @@ function FlashBriefPanel({
                     if (!entries.length) {
                         return React.createElement('div', { style: { textAlign: 'center', padding: '40px 0', color: 'var(--silver)', opacity: 0.5 } },
                             React.createElement('div', { style: { fontSize: '2rem', marginBottom: '8px' } }, '📋'),
-                            React.createElement('div', { style: { fontSize: '0.82rem', fontFamily: "'Courier Prime', 'Courier New', monospace" } }, 'No field notes yet.'),
-                            React.createElement('div', { style: { fontSize: '0.72rem', marginTop: '4px' } }, 'Actions in War Room Scout will appear here.'),
+                            React.createElement('div', { style: { fontSize: '0.9rem', fontFamily: "'Courier Prime', 'Courier New', monospace", fontWeight: 700 } }, 'No field notes yet.'),
+                            React.createElement('div', { style: { fontSize: '0.78rem', marginTop: '6px', lineHeight: 1.5, fontFamily: "'Courier Prime', 'Courier New', monospace" } }, 'Actions from War Room Scout will appear here.'),
                         );
                     }
 

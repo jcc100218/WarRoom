@@ -312,7 +312,9 @@
 
                     // D. Also override the dynastyValue() function's source for this render cycle
                     // dynastyValue reads from LI.playerScores which we just updated above.
-                    // But assessTeamFromGlobal may cache. Force re-eval by updating window.S.
+                    // Clear assessTeamFromGlobal cache so health scores recompute with fresh data.
+                    if (window.assessTeamFromGlobal?._cache) window.assessTeamFromGlobal._cache = {};
+                    if (window.assessAllTeamsFromGlobal?._cache) window.assessAllTeamsFromGlobal._cache = {};
                     if (window.S) {
                         window.S._timeContextTs = Date.now();
                     }
@@ -995,6 +997,10 @@
 
         async function loadLeagueDetails() {
             try {
+                // Clear assessment caches so health scores compute fresh
+                if (window.assessTeamFromGlobal?._cache) window.assessTeamFromGlobal._cache = {};
+                if (window.assessAllTeamsFromGlobal?._cache) window.assessAllTeamsFromGlobal._cache = {};
+
                 if (!currentLeague.rosters || !currentLeague.users) {
                     throw new Error('League missing roster or user data');
                 }
@@ -1012,6 +1018,7 @@
                         userId: roster.owner_id,
                         displayName: user?.display_name || user?.username || 'Unknown',
                         avatar: user?.avatar,
+                        teamName: roster.metadata?.team_name || user?.metadata?.team_name || '',
                         wins: roster.settings?.wins || 0,
                         losses: roster.settings?.losses || 0,
                         ties: roster.settings?.ties || 0,
@@ -1220,6 +1227,13 @@
                         window._playerTags = tags || {};
                         setTimeRecomputeTs(Date.now()); // force re-render to show tags
                     }).catch(err => window.wrLog('tags.load', err));
+                }
+
+                // Load league docs context for commissioner mode (fire-and-forget)
+                if (window.OD?.getLeagueDocsContext) {
+                    window.OD.getLeagueDocsContext(currentLeague.id || currentLeague.league_id).then(ctx => {
+                        if (ctx) window._leagueDocsContext = ctx;
+                    }).catch(() => {});
                 }
 
             } catch (err) {
@@ -1611,6 +1625,9 @@
           try {
             let context = '';
             if (typeof dhqContext === 'function') context = dhqContext(true);
+            if (window._leagueDocsContext) {
+                context += '\n\n--- LEAGUE DOCUMENTS ---\n' + window._leagueDocsContext;
+            }
             const messages = [...reconMessages.slice(-4), userMsg].map((m, i, arr) => {
               if (m.role === 'user' && i === arr.length - 1) {
                 return { role: 'user', content: context + '\n\n' + m.content };
@@ -2405,8 +2422,8 @@
                       </div>
 
                       {/* RIGHT: Power Rankings */}
-                      <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', maxHeight: '460px', overflow: 'auto' }}>
-                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: 'var(--gold)', marginBottom: '12px', letterSpacing: '0.06em' }}>POWER RANKINGS</div>
+                      <div id="wr-export-power-rankings" style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', maxHeight: '460px', overflow: 'auto' }}>
+                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: 'var(--gold)', marginBottom: '12px', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>POWER RANKINGS<button onClick={() => window.wrExport?.capture(document.getElementById('wr-export-power-rankings'), 'power-rankings')} style={{ background:'none', border:'1px solid rgba(212,175,55,0.25)', borderRadius:'4px', padding:'2px 8px', color:'var(--gold)', fontSize:'0.68rem', cursor:'pointer', fontFamily:'Inter, sans-serif', fontWeight:400 }}>Share</button></div>
                         {rankedTeams.length === 0 ? (
                           <div style={{ color: 'var(--silver)', fontSize: '0.78rem', opacity: 0.6, padding: '16px 0', textAlign: 'center' }}>Loading rankings...</div>
                         ) : rankedTeams.map((team, i) => (
@@ -2462,6 +2479,9 @@
                     <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px' }}>
                       <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: 'var(--gold)', marginBottom: '12px', letterSpacing: '0.06em' }}>LEAGUE STANDINGS</div>
                       {(() => {
+                        // Determine if league is in offseason
+                        const isOffseason = currentLeague.status === 'complete' || currentLeague.status === 'pre_draft';
+
                         // Group by division if divisions exist
                         const divisions = {};
                         standings.forEach(t => {
@@ -2472,21 +2492,39 @@
                         const divKeys = Object.keys(divisions).sort((a,b) => a - b);
                         const hasDivisions = divKeys.length > 1;
 
+                        // Build division name lookup from league metadata
+                        const divNameMap = {};
+                        if (hasDivisions && currentLeague.metadata) {
+                          divKeys.forEach(dk => {
+                            const metaName = currentLeague.metadata['division_' + dk] || currentLeague.metadata['division_' + dk + '_name'];
+                            divNameMap[dk] = metaName || ('Division ' + dk);
+                          });
+                        }
+
                         return (
                           <div>
                             {divKeys.map(divKey => (
                               <div key={divKey} style={{ marginBottom: hasDivisions ? '16px' : '0' }}>
                                 {hasDivisions && (
                                   <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '8px', paddingBottom: '4px', borderBottom: '1px solid rgba(212,175,55,0.2)' }}>
-                                    Division {divKey}
+                                    {divNameMap[divKey] || ('Division ' + divKey)}
                                   </div>
                                 )}
                                 {/* Header */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr 48px 48px 56px 56px', gap: '4px', padding: '4px 8px', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(212,175,55,0.15)' }}>
-                                  <span>#</span><span>Team</span><span style={{textAlign:'right'}}>W-L</span><span style={{textAlign:'right'}}>PF</span><span style={{textAlign:'right'}}>DHQ</span><span style={{textAlign:'right'}}>Rank</span>
+                                <div style={{ display: 'grid', gridTemplateColumns: '20px 28px 1fr 48px 48px 56px 56px', gap: '4px', padding: '4px 8px', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(212,175,55,0.15)' }}>
+                                  <span>#</span><span></span><span>Team</span><span style={{textAlign:'right'}}>{isOffseason ? 'HP' : 'W-L'}</span><span style={{textAlign:'right'}}>PF</span><span style={{textAlign:'right'}}>DHQ</span><span style={{textAlign:'right'}}>Rank</span>
                                 </div>
                                 {/* Rows */}
                                 {divisions[divKey].sort((a,b) => {
+                                  if (isOffseason) {
+                                    // Offseason: sort by health score descending
+                                    const roster_a = currentLeague.rosters?.find(r => r.owner_id === a.userId);
+                                    const roster_b = currentLeague.rosters?.find(r => r.owner_id === b.userId);
+                                    const hs_a = window.assessTeamFromGlobal?.(roster_a?.roster_id)?.healthScore || 0;
+                                    const hs_b = window.assessTeamFromGlobal?.(roster_b?.roster_id)?.healthScore || 0;
+                                    if (hs_b !== hs_a) return hs_b - hs_a;
+                                    return b.pointsFor - a.pointsFor;
+                                  }
                                   if (b.wins !== a.wins) return b.wins - a.wins;
                                   if (a.losses !== b.losses) return a.losses - b.losses;
                                   return b.pointsFor - a.pointsFor;
@@ -2497,20 +2535,37 @@
                                   const pf = team.pointsFor || 0;
                                   // Find overall rank
                                   const overallRank = standings.slice().sort((a,b) => b.wins !== a.wins ? b.wins - a.wins : b.pointsFor - a.pointsFor).findIndex(t => t.userId === team.userId) + 1;
+                                  // Avatar
+                                  const user = (currentLeague.users || []).find(u => u.user_id === team.userId);
+                                  const avatarId = user?.avatar;
+                                  const avatarUrl = avatarId ? `https://sleepercdn.com/avatars/thumbs/${avatarId}` : null;
+                                  // Team name
+                                  const teamName = team.teamName;
+                                  // Health score for offseason
+                                  const healthScore = isOffseason ? (window.assessTeamFromGlobal?.(roster?.roster_id)?.healthScore || 0) : 0;
                                   return (
                                     <div key={team.rosterId} style={{
-                                      display: 'grid', gridTemplateColumns: '20px 1fr 48px 48px 56px 56px', gap: '4px',
+                                      display: 'grid', gridTemplateColumns: '20px 28px 1fr 48px 48px 56px 56px', gap: '4px',
                                       padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.04)',
                                       background: isMe ? 'rgba(212,175,55,0.08)' : 'transparent',
                                       fontSize: '0.75rem', alignItems: 'center'
                                     }}>
                                       <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.9rem', color: idx === 0 ? '#D4AF37' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'var(--silver)' }}>{idx + 1}</span>
+                                      <div style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {avatarUrl ? (
+                                          <img src={avatarUrl} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', border: isMe ? '2px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)' }} />
+                                        ) : (
+                                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', color: 'var(--silver)', fontWeight: 600 }}>
+                                            {(team.displayName || '?').charAt(0).toUpperCase()}
+                                          </div>
+                                        )}
+                                      </div>
                                       <div style={{ overflow: 'hidden' }}>
                                         <div style={{ fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--gold)' : 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                          {team.displayName}{isMe && <span style={{ fontSize: '0.78rem', color: 'var(--gold)', marginLeft: '4px' }}>YOU</span>}
+                                          {teamName ? `${teamName} (${team.displayName})` : team.displayName}{isMe && <span style={{ fontSize: '0.78rem', color: 'var(--gold)', marginLeft: '4px' }}>YOU</span>}
                                         </div>
                                       </div>
-                                      <span style={{ textAlign: 'right', fontFamily: 'Inter, sans-serif', fontWeight: 600, color: 'var(--white)' }}>{team.wins}-{team.losses}</span>
+                                      <span style={{ textAlign: 'right', fontFamily: 'Inter, sans-serif', fontWeight: 600, color: 'var(--white)' }}>{isOffseason ? (healthScore > 0 ? healthScore.toFixed(0) : '—') : `${team.wins}-${team.losses}`}</span>
                                       <span style={{ textAlign: 'right', fontSize: '0.78rem', color: 'var(--silver)' }}>{pf > 0 ? pf.toFixed(0) : '—'}</span>
                                       <span style={{ textAlign: 'right', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', color: totalDHQ >= 80000 ? '#2ECC71' : totalDHQ >= 50000 ? 'var(--gold)' : 'var(--silver)' }}>{totalDHQ > 0 ? (totalDHQ / 1000).toFixed(0) + 'k' : '—'}</span>
                                       <span style={{ textAlign: 'right', fontSize: '0.78rem', color: overallRank <= 3 ? '#2ECC71' : overallRank <= 6 ? 'var(--gold)' : 'var(--silver)' }}>#{overallRank}</span>
@@ -2576,7 +2631,7 @@
                   <AlexAvatar size={30} />
                 </div>
                 <div>
-                  <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.88rem', color: 'var(--gold)', letterSpacing: '0.04em', lineHeight: 1 }}>Alex Ingram</div>
+                  <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.88rem', color: 'var(--gold)', letterSpacing: '0.04em', lineHeight: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>{(() => { const k = localStorage.getItem('wr_alex_avatar') || 'brain'; const m = { brain:'\u{1F9E0}', target:'\u{1F3AF}', chart:'\u{1F4CA}', football:'\u{1F3C8}', bolt:'\u26A1', fire:'\u{1F525}', medal:'\u{1F396}\uFE0F', trophy:'\u{1F3C6}' }; return m[k] || ''; })()}Alex Ingram</div>
                   <div style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.5 }}>AI General Manager</div>
                 </div>
                 <span style={{ fontSize: '0.68rem', color: '#7d8291' }}>Cmd+K</span>

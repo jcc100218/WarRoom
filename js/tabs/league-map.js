@@ -1090,9 +1090,12 @@ function LeagueMapTab({
     }).filter(Boolean).sort((a,b) => b.dhq - a.dhq);
 
     return (
-      <div style={{ padding: '16px' }}>
+      <div id="wr-export-team-roster" style={{ padding: '16px' }}>
         <button onClick={() => { setSelectedTeam(null); setLeagueViewMode('roster'); }} style={{ background: 'none', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '4px', padding: '4px 12px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', marginBottom: '12px' }}>Back to League</button>
-        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.4rem', color: 'var(--gold)', marginBottom: '4px' }}>{team.displayName}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.4rem', color: 'var(--gold)', marginBottom: '4px' }}>{team.displayName}</div>
+          <button onClick={() => window.wrExport?.capture(document.getElementById('wr-export-team-roster'), 'team-' + (team.displayName || 'roster').replace(/\s+/g, '-').toLowerCase())} style={{ background:'none', border:'1px solid rgba(212,175,55,0.25)', borderRadius:'4px', padding:'2px 8px', color:'var(--gold)', fontSize:'0.68rem', cursor:'pointer', fontFamily:'Inter, sans-serif' }}>Share</button>
+        </div>
         <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginBottom: '12px' }}>
           {roster?.settings?.wins ?? team.wins}-{roster?.settings?.losses ?? team.losses}{(roster?.settings?.ties > 0) ? '-' + roster.settings.ties : ''} Regular Season
           {roster?.settings?.fpts ? ' (' + roster.settings.fpts + ' PF)' : ''}

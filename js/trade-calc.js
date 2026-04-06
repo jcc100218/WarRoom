@@ -1205,8 +1205,8 @@
 
                     {/* Verdict */}
                     {hasTrade && (
-                        <div className="tc-ta-verdict">
-                            <div className="tc-section-hdr">TRADE ANALYSIS</div>
+                        <div className="tc-ta-verdict" id="wr-export-trade">
+                            <div className="tc-section-hdr" style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>TRADE ANALYSIS<button onClick={() => window.wrExport?.capture(document.getElementById('wr-export-trade'), 'trade-analysis')} style={{ background:'none', border:'1px solid rgba(212,175,55,0.25)', borderRadius:'4px', padding:'2px 8px', color:'var(--gold)', fontSize:'0.68rem', cursor:'pointer', fontFamily:'Inter, sans-serif' }}>Share</button></div>
                             <div style={{ display:'flex', alignItems:'baseline', gap:'0.6rem', flexWrap:'wrap' }}>
                                 <span className="tc-verdict-diff" style={{ color: verdictColor }}>{diffDisplay}</span>
                                 <span style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'1.1rem', color: verdictColor }}>{verdictText}</span>

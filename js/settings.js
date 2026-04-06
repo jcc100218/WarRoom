@@ -254,6 +254,35 @@
                             </div>
                             <div style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.5, marginTop: '8px' }}>Changes take effect on next page load.</div>
                         </div>
+                        <div style={sectionStyle}>
+                            <div style={sectionTitle}>AVATAR</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '0.75rem' }}>Choose Alex's look. Displayed in briefings and chat.</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                                {[
+                                    { key: 'brain', emoji: '\u{1F9E0}', label: 'The Analyst' },
+                                    { key: 'target', emoji: '\u{1F3AF}', label: 'The Scout' },
+                                    { key: 'chart', emoji: '\u{1F4CA}', label: 'The Strategist' },
+                                    { key: 'football', emoji: '\u{1F3C8}', label: 'The Coach' },
+                                    { key: 'bolt', emoji: '\u26A1', label: 'The Spark' },
+                                    { key: 'fire', emoji: '\u{1F525}', label: 'The Motivator' },
+                                    { key: 'medal', emoji: '\u{1F396}\uFE0F', label: 'The General' },
+                                    { key: 'trophy', emoji: '\u{1F3C6}', label: 'The Winner' },
+                                ].map(av => {
+                                    const currentAvatar = localStorage.getItem('wr_alex_avatar') || 'brain';
+                                    const isActive = currentAvatar === av.key;
+                                    return <button key={av.key} onClick={() => { localStorage.setItem('wr_alex_avatar', av.key); setSettingsTab('alex'); }}
+                                        style={{
+                                            padding: '12px 8px', textAlign: 'center',
+                                            background: isActive ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)',
+                                            border: isActive ? '2px solid var(--gold)' : '1px solid rgba(255,255,255,0.08)',
+                                            borderRadius: '10px', cursor: 'pointer',
+                                        }}>
+                                        <div style={{ fontSize: '1.6rem', marginBottom: '4px' }}>{av.emoji}</div>
+                                        <div style={{ fontSize: '0.68rem', color: isActive ? 'var(--gold)' : 'var(--silver)' }}>{av.label}</div>
+                                    </button>;
+                                })}
+                            </div>
+                        </div>
                         </>);
                     })()}
 

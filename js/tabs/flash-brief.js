@@ -235,6 +235,12 @@ function FlashBriefPanel({
     if (activeTrades > 0) briefText += ` ${activeTrades} trade${activeTrades > 1 ? 's have' : ' has'} gone down in the league recently. Worth watching who's moving what.`;
     if (budget > 0) briefText += ` You've got $${faabRemaining} of $${budget} FAAB left to work with.`;
 
+    const alexAvatar = (() => {
+        const key = localStorage.getItem('wr_alex_avatar') || 'brain';
+        const map = { brain:'\u{1F9E0}', target:'\u{1F3AF}', chart:'\u{1F4CA}', football:'\u{1F3C8}', bolt:'\u26A1', fire:'\u{1F525}', medal:'\u{1F396}\uFE0F', trophy:'\u{1F3C6}' };
+        return map[key] || '\u{1F9E0}';
+    })();
+
     const cardStyle = { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '14px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' };
     const btnStyle = { padding: '12px 16px', background: 'rgba(212,175,55,0.05)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '10px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', fontWeight: 500, textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: '10px', transition: 'all 0.15s', lineHeight: 1.5 };
 
@@ -246,7 +252,7 @@ function FlashBriefPanel({
         React.createElement('div', { style: cardStyle },
             // Header
             React.createElement('div', { style: { padding: '20px 20px 0', borderBottom: '1px solid rgba(212,175,55,0.1)', paddingBottom: '12px' } },
-                React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px' } }, 'INTELLIGENCE BRIEFING'),
+                React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' } }, React.createElement('span', { style: { fontSize: '0.9rem' } }, alexAvatar), 'INTELLIGENCE BRIEFING'),
                 React.createElement('div', { style: { fontSize: '1.2rem', fontWeight: 700, color: 'var(--white)' } }, greetingText),
             ),
             // Body

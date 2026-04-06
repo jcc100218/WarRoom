@@ -384,7 +384,9 @@ function AnalyticsPanel({
                             const sev = g.priority || g.severity || 'low';
                             const sevBg = sev === 'high' || sev === 'critical' ? 'rgba(231,76,60,0.08)' : sev === 'medium' ? 'rgba(240,165,0,0.08)' : 'rgba(46,204,113,0.06)';
                             const gapDhq = (typeof g.winners === 'number' && typeof g.yours === 'number' && g.unit !== '%') ? Math.max(0, g.winners - g.yours) : 0;
-                            const avgPlayerVal = g.pos ? ({QB:8000,RB:5500,WR:5500,TE:5000,K:2000,DL:3500,LB:3500,DB:3500}[g.pos] || 4000) : 4000;
+                            // Parse position from gap title/name/area/action if g.pos is missing
+                            const gapPos = g.pos || (g.title || g.name || g.area || g.action || '').match(/\b(QB|RB|WR|TE|K|DL|LB|DB)\b/)?.[1] || null;
+                            const avgPlayerVal = gapPos ? ({QB:8000,RB:5500,WR:5500,TE:5000,K:2000,DL:3500,LB:3500,DB:3500}[gapPos] || 4000) : 4000;
                             const neededPlayers = gapDhq > 0 ? Math.max(1, Math.round(gapDhq / avgPlayerVal)) : 0;
                             return (
                             <div key={i} style={{
@@ -405,8 +407,8 @@ function AnalyticsPanel({
                                     </span>
                                 </div>
                                 <div style={{ color: 'var(--silver)', fontSize: '0.78rem', marginTop: '4px' }}>
-                                    {g.detail || (neededPlayers > 0 && g.pos
-                                        ? 'Need ~' + neededPlayers + ' more ' + g.pos + (neededPlayers > 1 ? 's' : '') + ' to match elite tier'
+                                    {g.detail || (neededPlayers > 0 && gapPos
+                                        ? 'Need ~' + neededPlayers + ' more ' + gapPos + (neededPlayers > 1 ? 's' : '') + ' to match elite tier'
                                         : (g.yours != null && g.winners != null
                                             ? (g.unit === '%' ? pctFmt(g.yours) + ' (elite tier: ' + pctFmt(g.winners) + ')' : numFmt(g.yours) + ' ' + (g.unit || 'DHQ') + ' (elite tier: ' + numFmt(g.winners) + ')')
                                             : ''))}
@@ -991,8 +993,18 @@ function AnalyticsPanel({
                                                         const t1 = matchup.t1 || matchup.team1;
                                                         const t2 = matchup.t2 || matchup.team2;
                                                         const w = matchup.w || matchup.winner;
-                                                        const _mr = Math.max(...(b.data || []).map(m => m.r || m.round || 0), 1);
-                                                        const _rd = matchup.r || matchup.round || 0;
+                                                        // Robust round label: handle 0-indexed rounds and missing values
+                                                        let _mr = Math.max(...(b.data || []).map(m => m.r || m.round || 0), 0);
+                                                        let _rd = matchup.r || matchup.round || 0;
+                                                        // If all rounds are 0, try 1-indexing from matchup index
+                                                        if (_mr <= 0) {
+                                                            const uniqueRounds = [...new Set((b.data || []).map(m => m.r || m.round || 0))];
+                                                            _mr = uniqueRounds.length || 1;
+                                                            _rd = mi + 1; // fallback: use matchup index as round proxy
+                                                        }
+                                                        // If rounds appear 0-indexed (max round is 0-based), shift up by 1
+                                                        if (_mr >= 1 && _rd === 0) { _rd = 1; }
+                                                        if (typeof window.wrLog === 'function') window.wrLog('bracket.roundLabel', { season, bracket: b.key, mi, _mr, _rd, raw_r: matchup.r, raw_round: matchup.round });
                                                         const roundLabel = _rd === _mr ? 'Championship' : _rd === _mr - 1 ? 'Semi-finals' : _rd === _mr - 2 ? 'Quarter-finals' : 'Round ' + _rd;
                                                         const isMyGame = t1 === myRidP || t2 === myRidP;
                                                         return (

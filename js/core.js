@@ -228,6 +228,17 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
     // Set only if ReconAI CDN hasn't provided them
     window.App.peakWindows = window.App.peakWindows || window.App.PEAK_WINDOWS_DEFAULT;
 
+    // tradeValueTier — player value bracket label/color (owned by reconai/shared/constants.js)
+    // Fallback with CDN-matching thresholds in case constants.js hasn't loaded yet.
+    window.App.tradeValueTier = window.App.tradeValueTier || function(val) {
+        if (val >= 7000) return { tier: 'Elite',   col: 'var(--green)' };
+        if (val >= 4000) return { tier: 'Starter',  col: 'var(--accent)' };
+        if (val >= 2000) return { tier: 'Depth',    col: 'var(--text2)' };
+        if (val > 0)     return { tier: 'Stash',    col: 'var(--text3)' };
+        return { tier: '—', col: 'var(--text3)' };
+    };
+    window.tradeValueTier = window.App.tradeValueTier;
+
     // normPos — canonical position normalizer (was identical in draft-room, free-agency, trade-calc)
     window.App.normPos = window.App.normPos || function normPos(pos) {
         if (!pos) return null;

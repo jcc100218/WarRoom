@@ -52,6 +52,7 @@ function MyTeamTab({
   // Misc
   timeRecomputeTs,
   setTimeRecomputeTs,
+  getAcquisitionInfo,
 }) {
   const _seasonCtx = React.useContext(window.App.SeasonContext) || {};
   const _sPlayerStats = _seasonCtx.playerStats || window.S?.playerStats || {};

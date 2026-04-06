@@ -361,5 +361,97 @@ function FlashBriefPanel({
                     ))
             ),
         ),
+
+        // ═══ ROW 2 LEFT: TRANSACTION TICKER ═══
+        (() => {
+            const txns = (() => {
+                const raw = window.S?.transactions || {};
+                const flat = Array.isArray(raw) ? raw : Object.values(raw).flat();
+                return flat.sort((a, b) => (b.created || 0) - (a.created || 0)).slice(0, 15);
+            })();
+            const pn = pid => playersData?.[pid]?.full_name || pid;
+            return React.createElement('div', { style: cardStyle },
+                React.createElement('div', { style: { padding: '20px 20px 0', borderBottom: '1px solid rgba(212,175,55,0.1)', paddingBottom: '12px' } },
+                    React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' } }, 'TRANSACTION TICKER'),
+                ),
+                React.createElement('div', { style: { padding: '16px 20px', flex: 1, overflowY: 'auto', maxHeight: '300px' } },
+                    !txns.length
+                        ? React.createElement('div', { style: { textAlign: 'center', padding: '40px 0', color: 'var(--silver)', opacity: 0.5 } },
+                            React.createElement('div', { style: { fontSize: '2rem', marginBottom: '8px' } }, '\u{1F4E8}'),
+                            React.createElement('div', { style: { fontSize: '0.85rem', fontWeight: 600 } }, 'No recent transactions'),
+                        )
+                        : txns.map((txn, i) => {
+                            const adds = Object.keys(txn.adds || {});
+                            const drops = Object.keys(txn.drops || {});
+                            const typeBadge = txn.type === 'trade' ? 'TRADE' : txn.type === 'waiver' ? 'WAIVER' : 'FA';
+                            const badgeColor = txn.type === 'trade' ? 'rgba(100,149,237,0.2)' : txn.type === 'waiver' ? 'rgba(212,175,55,0.2)' : 'rgba(0,200,180,0.2)';
+                            const badgeText = txn.type === 'trade' ? '#6495ed' : txn.type === 'waiver' ? 'var(--gold)' : '#00c8b4';
+                            const timeStr = txn.created ? new Date(txn.created).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+                            return React.createElement('div', {
+                                key: (txn.transaction_id || '') + '-' + i,
+                                style: { padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.8rem' }
+                            },
+                                React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' } },
+                                    React.createElement('span', { style: { fontSize: '0.65rem', color: 'var(--silver)', opacity: 0.7, minWidth: '42px' } }, timeStr),
+                                    React.createElement('span', { style: { fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.06em', padding: '1px 5px', borderRadius: '3px', background: badgeColor, color: badgeText } }, typeBadge),
+                                ),
+                                adds.map(pid => React.createElement('div', { key: 'a-' + pid, style: { color: '#4ade80', fontSize: '0.78rem', paddingLeft: '4px' } },
+                                    '\u25B2 ' + pn(pid)
+                                )),
+                                drops.map(pid => React.createElement('div', { key: 'd-' + pid, style: { color: '#f87171', fontSize: '0.78rem', paddingLeft: '4px' } },
+                                    '\u25BC ' + pn(pid)
+                                )),
+                            );
+                        })
+                ),
+            );
+        })(),
+
+        // ═══ ROW 2 RIGHT: LEAGUE STANDINGS ═══
+        (() => {
+            const standingsData = (currentLeague?.rosters || []).map(r => {
+                const user = (currentLeague.users || []).find(u => u.user_id === r.owner_id);
+                return {
+                    name: user?.display_name || user?.username || 'Unknown',
+                    wins: r.settings?.wins || 0,
+                    losses: r.settings?.losses || 0,
+                    pf: r.settings?.fpts || 0,
+                    avatar: user?.avatar,
+                    rosterId: r.roster_id,
+                    isMe: r.owner_id === sleeperUserId
+                };
+            }).sort((a, b) => b.wins !== a.wins ? b.wins - a.wins : b.pf - a.pf);
+
+            return React.createElement('div', { style: cardStyle },
+                React.createElement('div', { style: { padding: '20px 20px 0', borderBottom: '1px solid rgba(212,175,55,0.1)', paddingBottom: '12px' } },
+                    React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' } }, 'LEAGUE STANDINGS'),
+                ),
+                React.createElement('div', { style: { padding: '16px 20px', flex: 1, overflowY: 'auto', maxHeight: '300px' } },
+                    !standingsData.length
+                        ? React.createElement('div', { style: { textAlign: 'center', padding: '40px 0', color: 'var(--silver)', opacity: 0.5 } },
+                            React.createElement('div', { style: { fontSize: '0.85rem', fontWeight: 600 } }, 'No standings data available'),
+                        )
+                        : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
+                            standingsData.map((team, i) =>
+                                React.createElement('div', {
+                                    key: team.rosterId || i,
+                                    style: {
+                                        display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '6px',
+                                        background: team.isMe ? 'rgba(212,175,55,0.08)' : 'transparent',
+                                        borderLeft: team.isMe ? '2px solid var(--gold)' : '2px solid transparent',
+                                    }
+                                },
+                                    React.createElement('span', { style: { fontSize: '0.72rem', color: team.isMe ? 'var(--gold)' : 'var(--silver)', fontWeight: 600, minWidth: '18px', textAlign: 'right' } }, (i + 1) + ''),
+                                    team.avatar
+                                        ? React.createElement('img', { src: 'https://sleepercdn.com/avatars/thumbs/' + team.avatar, style: { width: '20px', height: '20px', borderRadius: '50%' } })
+                                        : React.createElement('div', { style: { width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: 'var(--gold)' } }, team.name.charAt(0).toUpperCase()),
+                                    React.createElement('span', { style: { flex: 1, fontSize: '0.8rem', color: team.isMe ? 'var(--gold)' : 'var(--white)', fontWeight: team.isMe ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, team.name),
+                                    React.createElement('span', { style: { fontSize: '0.75rem', color: team.isMe ? 'var(--gold)' : 'var(--silver)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' } }, team.wins + '-' + team.losses),
+                                ),
+                            ),
+                        ),
+                ),
+            );
+        })(),
     );
 }

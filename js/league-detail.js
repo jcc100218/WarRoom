@@ -75,8 +75,6 @@
             }
         }, [playersData, statsData, currentLeague]);
         window._wrSelectPlayer = selectPlayer;
-        window._wrSetActiveTab = setActiveTab;
-        window._wrSetGmStrategyOpen = setGmStrategyOpen;
 
         // Derived selectors — modules use these, never compute their own
         const isCurrentYear = timeYear === currentSeason;
@@ -778,6 +776,9 @@
         const [briefDraftInfo, setBriefDraftInfo] = useState(null);
         const [sidebarOpen, setSidebarOpen] = useState(false);
         const [gmStrategyOpen, setGmStrategyOpen] = useState(false);
+        // Expose for cross-module access (draft-room "Edit GM Strategy" button)
+        window._wrSetActiveTab = setActiveTab;
+        window._wrSetGmStrategyOpen = setGmStrategyOpen;
         const GM_STRATEGY_DEFAULT = { mode: 'balanced', riskTolerance: 'moderate', positionalNeeds: {}, untouchable: [], targets: [], notes: '' };
         const [gmStrategy, setGmStrategy] = useState(() =>
             WrStorage.get(WR_KEYS.GM_STRATEGY(currentLeague?.league_id)) || GM_STRATEGY_DEFAULT

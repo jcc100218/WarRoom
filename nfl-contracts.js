@@ -20,7 +20,7 @@ window.NFL_CONTRACTS = {
   "6083":  { aav: 35.0, yrsLeft: 2, total: 70.0, guaranteed: 50.0 },    // Kyler Murray
   "7588":  { aav: 34.0, yrsLeft: 4, total: 137.0, guaranteed: 100.0 },  // Jayden Daniels
   "4984":  { aav: 32.0, yrsLeft: 2, total: 64.0, guaranteed: 48.0 },    // Daniel Jones
-  "7564":  { aav: 30.0, yrsLeft: 3, total: 89.0, guaranteed: 67.0 },    // Caleb Williams
+  "11596": { aav: 30.0, yrsLeft: 3, total: 89.0, guaranteed: 67.0 },    // Caleb Williams
   "8183":  { aav: 12.0, yrsLeft: 4, total: 47.0, guaranteed: 30.0 },    // Drake Maye
   "8154":  { aav: 9.0,  yrsLeft: 3, total: 27.0, guaranteed: 20.0 },    // Bo Nix
   "4018":  { aav: 25.0, yrsLeft: 1, total: 25.0, guaranteed: 0 },       // Deshaun Watson

@@ -2359,27 +2359,8 @@
                 {/* THE ATHLETIC-STYLE DASHBOARD */}
                 <div style={{ padding: '24px 32px', maxWidth: '1200px', margin: '0 auto' }} className="wr-fade-in">
 
-                    {/* 1. HERO STORY */}
-                    <div style={{
-                      background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(0,0,0,0.8))',
-                      border: '2px solid rgba(212,175,55,0.3)',
-                      borderRadius: '16px',
-                      padding: '28px 32px',
-                      marginBottom: '12px',
-                      position: 'relative',
-                      overflow: 'hidden'
-                    }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--gold)', fontFamily: 'Rajdhani, sans-serif', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>THIS WEEK IN {currentLeague.name?.toUpperCase()}</div>
-                      <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.9375rem', fontWeight: 500, color: 'var(--white)', lineHeight: 1.45 }}>
-                        {heroStory || computeDataDrivenHero()}
-                      </div>
-                      <button onClick={generateHeroStory} style={{ marginTop: '8px', padding: '4px 12px', background: 'var(--gold)', color: 'var(--black)', border: '1px solid var(--gold)', borderRadius: '6px', fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Rewrite with AI
-                      </button>
-                    </div>
-
-                    {/* 2. TWO-COLUMN: TRANSACTION TICKER + POWER RANKINGS */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }} className="wr-fade-in-delay">
+                    {/* TRANSACTION TICKER */}
+                    <div style={{ marginBottom: '24px' }} className="wr-fade-in-delay">
 
                       {/* LEFT: Transaction Ticker */}
                       <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '20px', maxHeight: '460px', overflow: 'auto' }}>
@@ -2422,58 +2403,6 @@
                         ))}
                       </div>
 
-                      {/* RIGHT: Power Rankings */}
-                      <div id="wr-export-power-rankings" style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', maxHeight: '460px', overflow: 'auto' }}>
-                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: 'var(--gold)', marginBottom: '12px', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>POWER RANKINGS<button onClick={() => window.wrExport?.capture(document.getElementById('wr-export-power-rankings'), 'power-rankings')} style={{ background:'none', border:'1px solid rgba(212,175,55,0.25)', borderRadius:'4px', padding:'2px 8px', color:'var(--gold)', fontSize:'0.68rem', cursor:'pointer', fontFamily:'Inter, sans-serif', fontWeight:400 }}>Share</button></div>
-                        {rankedTeams.length === 0 ? (
-                          <div style={{ color: 'var(--silver)', fontSize: '0.78rem', opacity: 0.6, padding: '16px 0', textAlign: 'center' }}>Loading rankings...</div>
-                        ) : rankedTeams.map((team, i) => (
-                          <div key={team.rosterId} style={{
-                            display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 6px',
-                            borderBottom: '1px solid rgba(255,255,255,0.06)',
-                            background: team.rosterId === myRoster?.roster_id ? 'rgba(212,175,55,0.08)' : 'transparent'
-                          }}>
-                            <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: i === 0 ? '#D4AF37' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : 'var(--silver)', minWidth: '24px', textAlign: 'center' }}>{i + 1}</span>
-                            {team.avatar ? (
-                              <img src={'https://sleepercdn.com/avatars/thumbs/' + team.avatar} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0 }} />
-                            ) : (
-                              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--charcoal)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.76rem', color: 'var(--silver)' }}>{team.displayName.charAt(0)}</div>
-                            )}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                {team.displayName}
-                                {(() => {
-                                  const champs = window.App?.LI?.championships || {};
-                                  const cnt = Object.values(champs).filter(c => {
-                                    const r = currentLeague.rosters?.find(ros => ros.owner_id === team.userId);
-                                    return c.champion === r?.roster_id;
-                                  }).length;
-                                  if (cnt > 0) return <span style={{ fontSize: '0.76rem', color: 'var(--gold)', fontWeight: 700, flexShrink: 0 }}>{cnt > 1 ? cnt + 'x' : ''}{'\uD83C\uDFC6'}</span>;
-                                  return null;
-                                })()}
-                              </div>
-                              <div style={{ fontSize: '0.74rem', color: 'var(--silver)' }}>{team.wins}-{team.losses} {'\u00B7'} {team.totalDHQ?.toLocaleString()} DHQ</div>
-                            </div>
-                            {team.rosterId !== myRoster?.roster_id && (
-                              <button onClick={() => {
-                                setReconPanelOpen(true);
-                                sendReconMessage('Scout ' + team.displayName + ' — give me a full scouting report. Their roster strengths/weaknesses, trading tendencies, how to negotiate with them, and 2-3 specific trade proposals I could send them.');
-                              }} title={'Scout ' + team.displayName} style={{
-                                padding: '3px 8px', fontSize: '0.66rem', fontFamily: 'Inter, sans-serif',
-                                background: 'rgba(212,175,55,0.08)', color: 'var(--gold)',
-                                border: '1px solid rgba(212,175,55,0.2)', borderRadius: '12px',
-                                cursor: 'pointer', flexShrink: 0, letterSpacing: '0.03em'
-                              }}>SCOUT</button>
-                            )}
-                            <div style={{ width: '60px' }}>
-                              <div style={{ height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-                                <div style={{ width: (team.healthScore || 0) + '%', height: '100%', background: team.tierColor || 'var(--gold)', borderRadius: '2px' }}></div>
-                              </div>
-                              <div style={{ fontSize: '0.7rem', color: team.tierColor || 'var(--silver)', textAlign: 'right', marginTop: '2px' }}>{team.healthScore || '\u2014'}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
                     </div>
 
                     {/* 4. LEAGUE STANDINGS TABLE */}
@@ -2512,8 +2441,8 @@
                                   </div>
                                 )}
                                 {/* Header */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '20px 28px 1fr 48px 48px 56px 56px', gap: '4px', padding: '4px 8px', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(212,175,55,0.15)' }}>
-                                  <span>#</span><span></span><span>Team</span><span style={{textAlign:'right'}}>{isOffseason ? 'HP' : 'W-L'}</span><span style={{textAlign:'right'}}>PF</span><span style={{textAlign:'right'}}>DHQ</span><span style={{textAlign:'right'}}>Rank</span>
+                                <div style={{ display: 'grid', gridTemplateColumns: '20px 28px 1fr 48px 48px 56px', gap: '4px', padding: '4px 8px', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid rgba(212,175,55,0.15)' }}>
+                                  <span>#</span><span></span><span>Team</span><span style={{textAlign:'right'}}>{isOffseason ? 'HP' : 'W-L'}</span><span style={{textAlign:'right'}}>PF</span><span style={{textAlign:'right'}}>DHQ</span>
                                 </div>
                                 {/* Rows */}
                                 {divisions[divKey].sort((a,b) => {
@@ -2535,7 +2464,7 @@
                                   const totalDHQ = roster?.players?.reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0) || 0;
                                   const pf = team.pointsFor || 0;
                                   // Find overall rank
-                                  const overallRank = standings.slice().sort((a,b) => b.wins !== a.wins ? b.wins - a.wins : b.pointsFor - a.pointsFor).findIndex(t => t.userId === team.userId) + 1;
+                                  const overallRank = idx + 1; // Use display position (already sorted by health in offseason or wins in season)
                                   // Avatar
                                   const user = (currentLeague.users || []).find(u => u.user_id === team.userId);
                                   const avatarId = user?.avatar;
@@ -2546,7 +2475,7 @@
                                   const healthScore = isOffseason ? (window.assessTeamFromGlobal?.(roster?.roster_id)?.healthScore || 0) : 0;
                                   return (
                                     <div key={team.rosterId} style={{
-                                      display: 'grid', gridTemplateColumns: '20px 28px 1fr 48px 48px 56px 56px', gap: '4px',
+                                      display: 'grid', gridTemplateColumns: '20px 28px 1fr 48px 48px 56px', gap: '4px',
                                       padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.04)',
                                       background: isMe ? 'rgba(212,175,55,0.08)' : 'transparent',
                                       fontSize: '0.75rem', alignItems: 'center'
@@ -2569,7 +2498,6 @@
                                       <span style={{ textAlign: 'right', fontFamily: 'Inter, sans-serif', fontWeight: 600, color: 'var(--white)' }}>{isOffseason ? (healthScore > 0 ? healthScore.toFixed(0) : '—') : `${team.wins}-${team.losses}`}</span>
                                       <span style={{ textAlign: 'right', fontSize: '0.78rem', color: 'var(--silver)' }}>{pf > 0 ? pf.toFixed(0) : '—'}</span>
                                       <span style={{ textAlign: 'right', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', color: totalDHQ >= 80000 ? '#2ECC71' : totalDHQ >= 50000 ? 'var(--gold)' : 'var(--silver)' }}>{totalDHQ > 0 ? (totalDHQ / 1000).toFixed(0) + 'k' : '—'}</span>
-                                      <span style={{ textAlign: 'right', fontSize: '0.78rem', color: overallRank <= 3 ? '#2ECC71' : overallRank <= 6 ? 'var(--gold)' : 'var(--silver)' }}>#{overallRank}</span>
                                     </div>
                                   );
                                 })}

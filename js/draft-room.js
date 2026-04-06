@@ -883,14 +883,12 @@
                 })()}
 
                 {/* ═══════════════════ VIEW 3: MOCK DRAFT ═══════════════════ */}
-                {activeView === 'mock' && (
-                    <MockDraftPanel
-                        playersData={playersData}
-                        myRoster={myRoster}
-                        currentLeague={currentLeague}
-                        draftRounds={draftRounds}
-                    />
-                )}
+                {activeView === 'mock' && window.MockDraftSimulator && React.createElement(window.MockDraftSimulator, {
+                    playersData: playersData,
+                    myRoster: myRoster,
+                    currentLeague: currentLeague,
+                    draftRounds: draftRounds,
+                })}
 
             </div>
         );

@@ -1,817 +1,590 @@
 // ══════════════════════════════════════════════════════════════════
-// js/mock-draft.js — War Room Mock Draft Engine
-// Interactive draft sim + Monte Carlo multi-sim + save/replay
-// React component rendered inside DraftTab
+// js/mock-draft.js — War Room Mock Draft Simulator
+// Pick-by-pick draft sim with AI opponents. No JSX.
+// Exposed as window.MockDraftSimulator
 // ══════════════════════════════════════════════════════════════════
 
-function MockDraftPanel({ playersData, myRoster, currentLeague, draftRounds }) {
-    const [mode, setMode] = useState('setup'); // 'setup' | 'live' | 'multisim' | 'results' | 'replay'
-    const [draftState, setDraftState] = useState(null);
-    const [simResults, setSimResults] = useState(null);
-    const [savedDrafts, setSavedDrafts] = useState(() => {
-        try { return JSON.parse(localStorage.getItem('wr_mock_drafts_' + (currentLeague?.id || '')) || '[]'); } catch { return []; }
-    });
+(function () {
+    var e = React.createElement;
+    var useState = React.useState;
+    var useEffect = React.useEffect;
+    var useMemo = React.useMemo;
 
-    const LI = window.App?.LI || {};
-    const S = window.S || {};
-    const rosters = S.rosters || [];
-    const teams = rosters.length || 12;
-    const myRid = S.myRosterId;
-    const assessFn = typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal : null;
-    const ownerProfiles = LI.ownerProfiles || {};
-    const hitRates = LI.hitRateByRound || {};
-    const pickValues = LI.dhqPickValues || {};
-    const scores = LI.playerScores || {};
-    const playerMeta = LI.playerMeta || {};
+    // ── Static fallback pool (top 200 dynasty players) ────────────
+    var STATIC_POOL = [
+        // QBs
+        {pid:'s001',name:'Patrick Mahomes',pos:'QB',team:'KC',age:29,dynastyValue:9400,rank:1},
+        {pid:'s002',name:'Josh Allen',pos:'QB',team:'BUF',age:28,dynastyValue:9000,rank:2},
+        {pid:'s003',name:'Lamar Jackson',pos:'QB',team:'BAL',age:27,dynastyValue:8800,rank:3},
+        {pid:'s004',name:'Joe Burrow',pos:'QB',team:'CIN',age:28,dynastyValue:8400,rank:4},
+        {pid:'s005',name:'C.J. Stroud',pos:'QB',team:'HOU',age:23,dynastyValue:8200,rank:5},
+        {pid:'s006',name:'Anthony Richardson',pos:'QB',team:'IND',age:22,dynastyValue:7800,rank:6},
+        {pid:'s007',name:'Caleb Williams',pos:'QB',team:'CHI',age:23,dynastyValue:7600,rank:7},
+        {pid:'s008',name:'Jayden Daniels',pos:'QB',team:'WSH',age:24,dynastyValue:7400,rank:8},
+        {pid:'s009',name:'Drake Maye',pos:'QB',team:'NE',age:22,dynastyValue:7200,rank:9},
+        {pid:'s010',name:'Jordan Love',pos:'QB',team:'GB',age:26,dynastyValue:7000,rank:10},
+        {pid:'s011',name:'Trevor Lawrence',pos:'QB',team:'JAX',age:25,dynastyValue:6800,rank:11},
+        {pid:'s012',name:'Tua Tagovailoa',pos:'QB',team:'MIA',age:27,dynastyValue:6400,rank:12},
+        {pid:'s013',name:'Bryce Young',pos:'QB',team:'CAR',age:23,dynastyValue:6200,rank:13},
+        {pid:'s014',name:'Michael Penix Jr.',pos:'QB',team:'ATL',age:25,dynastyValue:6000,rank:14},
+        {pid:'s015',name:'Bo Nix',pos:'QB',team:'DEN',age:25,dynastyValue:5800,rank:15},
+        {pid:'s016',name:'Arch Manning',pos:'QB',team:'NO',age:22,dynastyValue:7000,rank:16},
+        {pid:'s017',name:'Justin Fields',pos:'QB',team:'PIT',age:26,dynastyValue:5200,rank:17},
+        {pid:'s018',name:'Kyler Murray',pos:'QB',team:'ARI',age:27,dynastyValue:5800,rank:18},
+        {pid:'s019',name:'Dak Prescott',pos:'QB',team:'DAL',age:31,dynastyValue:5500,rank:19},
+        {pid:'s020',name:'Will Levis',pos:'QB',team:'TEN',age:25,dynastyValue:5000,rank:20},
+        // RBs
+        {pid:'s021',name:'Bijan Robinson',pos:'RB',team:'ATL',age:22,dynastyValue:9200,rank:21},
+        {pid:'s022',name:'Jahmyr Gibbs',pos:'RB',team:'DET',age:22,dynastyValue:8900,rank:22},
+        {pid:'s023',name:"De'Von Achane",pos:'RB',team:'MIA',age:23,dynastyValue:8700,rank:23},
+        {pid:'s024',name:'Christian McCaffrey',pos:'RB',team:'SF',age:28,dynastyValue:8500,rank:24},
+        {pid:'s025',name:'Breece Hall',pos:'RB',team:'NYJ',age:24,dynastyValue:8200,rank:25},
+        {pid:'s026',name:'Saquon Barkley',pos:'RB',team:'PHI',age:28,dynastyValue:7800,rank:26},
+        {pid:'s027',name:'Chase Brown',pos:'RB',team:'CIN',age:24,dynastyValue:7800,rank:27},
+        {pid:'s028',name:'Kyren Williams',pos:'RB',team:'LAR',age:25,dynastyValue:7600,rank:28},
+        {pid:'s029',name:'Derrick Henry',pos:'RB',team:'BAL',age:31,dynastyValue:7500,rank:29},
+        {pid:'s030',name:'Travis Etienne Jr.',pos:'RB',team:'JAX',age:26,dynastyValue:7400,rank:30},
+        {pid:'s031',name:'James Cook',pos:'RB',team:'BUF',age:24,dynastyValue:7400,rank:31},
+        {pid:'s032',name:"D'Andre Swift",pos:'RB',team:'CHI',age:26,dynastyValue:7200,rank:32},
+        {pid:'s033',name:'Jonathan Taylor',pos:'RB',team:'IND',age:26,dynastyValue:7200,rank:33},
+        {pid:'s034',name:'Tank Bigsby',pos:'RB',team:'JAX',age:23,dynastyValue:7200,rank:34},
+        {pid:'s035',name:'Isiah Pacheco',pos:'RB',team:'KC',age:25,dynastyValue:6800,rank:35},
+        {pid:'s036',name:'Jonathon Brooks',pos:'RB',team:'CAR',age:22,dynastyValue:6900,rank:36},
+        {pid:'s037',name:'Blake Corum',pos:'RB',team:'LAR',age:23,dynastyValue:6800,rank:37},
+        {pid:'s038',name:'Tyrone Tracy Jr.',pos:'RB',team:'NYG',age:23,dynastyValue:6500,rank:38},
+        {pid:'s039',name:'Javonte Williams',pos:'RB',team:'DEN',age:24,dynastyValue:6600,rank:39},
+        {pid:'s040',name:'Rhamondre Stevenson',pos:'RB',team:'NE',age:26,dynastyValue:6400,rank:40},
+        {pid:'s041',name:'Josh Jacobs',pos:'RB',team:'GB',age:27,dynastyValue:6000,rank:41},
+        {pid:'s042',name:'Rachaad White',pos:'RB',team:'TB',age:26,dynastyValue:6200,rank:42},
+        {pid:'s043',name:'Trey Benson',pos:'RB',team:'ARI',age:23,dynastyValue:6000,rank:43},
+        {pid:'s044',name:'Braelon Allen',pos:'RB',team:'NYJ',age:21,dynastyValue:7000,rank:44},
+        {pid:'s045',name:'Rico Dowdle',pos:'RB',team:'DAL',age:27,dynastyValue:6800,rank:45},
+        {pid:'s046',name:'J.K. Dobbins',pos:'RB',team:'LAC',age:26,dynastyValue:5800,rank:46},
+        {pid:'s047',name:'Zach Charbonnet',pos:'RB',team:'SEA',age:24,dynastyValue:6200,rank:47},
+        {pid:'s048',name:'Tony Pollard',pos:'RB',team:'TEN',age:28,dynastyValue:5500,rank:48},
+        {pid:'s049',name:'Alvin Kamara',pos:'RB',team:'NO',age:30,dynastyValue:5500,rank:49},
+        {pid:'s050',name:'Keaton Mitchell',pos:'RB',team:'BAL',age:23,dynastyValue:5800,rank:50},
+        {pid:'s051',name:'Zamir White',pos:'RB',team:'LV',age:25,dynastyValue:5500,rank:51},
+        {pid:'s052',name:'Khalil Herbert',pos:'RB',team:'CHI',age:26,dynastyValue:5000,rank:52},
+        {pid:'s053',name:'David Montgomery',pos:'RB',team:'DET',age:28,dynastyValue:6500,rank:53},
+        {pid:'s054',name:'Audric Estime',pos:'RB',team:'DEN',age:22,dynastyValue:5800,rank:54},
+        {pid:'s055',name:'MarShawn Lloyd',pos:'RB',team:'LAR',age:22,dynastyValue:6200,rank:55},
+        {pid:'s056',name:'Will Shipley',pos:'RB',team:'PHI',age:22,dynastyValue:5500,rank:56},
+        {pid:'s057',name:'Jerome Ford',pos:'RB',team:'CLE',age:25,dynastyValue:5200,rank:57},
+        {pid:'s058',name:'Eric Gray',pos:'RB',team:'NYG',age:24,dynastyValue:5200,rank:58},
+        // WRs
+        {pid:'s059',name:"Ja'Marr Chase",pos:'WR',team:'CIN',age:25,dynastyValue:9800,rank:59},
+        {pid:'s060',name:'CeeDee Lamb',pos:'WR',team:'DAL',age:26,dynastyValue:9600,rank:60},
+        {pid:'s061',name:'Justin Jefferson',pos:'WR',team:'MIN',age:26,dynastyValue:9200,rank:61},
+        {pid:'s062',name:'Amon-Ra St. Brown',pos:'WR',team:'DET',age:25,dynastyValue:8800,rank:62},
+        {pid:'s063',name:'A.J. Brown',pos:'WR',team:'PHI',age:27,dynastyValue:8400,rank:63},
+        {pid:'s064',name:'Malik Nabers',pos:'WR',team:'NYG',age:22,dynastyValue:8500,rank:64},
+        {pid:'s065',name:'Brian Thomas Jr.',pos:'WR',team:'JAX',age:23,dynastyValue:8200,rank:65},
+        {pid:'s066',name:'Jaylen Waddle',pos:'WR',team:'MIA',age:26,dynastyValue:8000,rank:66},
+        {pid:'s067',name:'Marvin Harrison Jr.',pos:'WR',team:'ARI',age:22,dynastyValue:8000,rank:67},
+        {pid:'s068',name:'Zay Flowers',pos:'WR',team:'BAL',age:24,dynastyValue:8000,rank:68},
+        {pid:'s069',name:'Tyreek Hill',pos:'WR',team:'MIA',age:31,dynastyValue:7800,rank:69},
+        {pid:'s070',name:'Puka Nacua',pos:'WR',team:'LAR',age:24,dynastyValue:7800,rank:70},
+        {pid:'s071',name:'George Pickens',pos:'WR',team:'PIT',age:23,dynastyValue:7600,rank:71},
+        {pid:'s072',name:'Rome Odunze',pos:'WR',team:'CHI',age:22,dynastyValue:7600,rank:72},
+        {pid:'s073',name:'Drake London',pos:'WR',team:'ATL',age:24,dynastyValue:7600,rank:73},
+        {pid:'s074',name:'Chris Olave',pos:'WR',team:'NO',age:25,dynastyValue:7800,rank:74},
+        {pid:'s075',name:'DK Metcalf',pos:'WR',team:'SEA',age:27,dynastyValue:7400,rank:75},
+        {pid:'s076',name:'Rashee Rice',pos:'WR',team:'KC',age:24,dynastyValue:7500,rank:76},
+        {pid:'s077',name:'Ladd McConkey',pos:'WR',team:'LAC',age:23,dynastyValue:7400,rank:77},
+        {pid:'s078',name:'Jordan Addison',pos:'WR',team:'MIN',age:23,dynastyValue:7400,rank:78},
+        {pid:'s079',name:'Jaxon Smith-Njigba',pos:'WR',team:'SEA',age:23,dynastyValue:7200,rank:79},
+        {pid:'s080',name:'Michael Pittman Jr.',pos:'WR',team:'IND',age:27,dynastyValue:7200,rank:80},
+        {pid:'s081',name:'Keon Coleman',pos:'WR',team:'BUF',age:22,dynastyValue:6800,rank:81},
+        {pid:'s082',name:'Tank Dell',pos:'WR',team:'HOU',age:25,dynastyValue:6800,rank:82},
+        {pid:'s083',name:'Xavier Worthy',pos:'WR',team:'KC',age:22,dynastyValue:7000,rank:83},
+        {pid:'s084',name:'Adonai Mitchell',pos:'WR',team:'IND',age:22,dynastyValue:6600,rank:84},
+        {pid:'s085',name:'Deebo Samuel',pos:'WR',team:'SF',age:29,dynastyValue:6800,rank:85},
+        {pid:'s086',name:'Tee Higgins',pos:'WR',team:'CIN',age:26,dynastyValue:7200,rank:86},
+        {pid:'s087',name:'Mike Evans',pos:'WR',team:'TB',age:31,dynastyValue:6800,rank:87},
+        {pid:'s088',name:'Terry McLaurin',pos:'WR',team:'WSH',age:30,dynastyValue:6200,rank:88},
+        {pid:'s089',name:'Ricky Pearsall',pos:'WR',team:'SF',age:23,dynastyValue:6200,rank:89},
+        {pid:'s090',name:"Wan'Dale Robinson",pos:'WR',team:'NYG',age:24,dynastyValue:6400,rank:90},
+        {pid:'s091',name:'Khalil Shakir',pos:'WR',team:'BUF',age:25,dynastyValue:6400,rank:91},
+        {pid:'s092',name:'Courtland Sutton',pos:'WR',team:'DEN',age:29,dynastyValue:5800,rank:92},
+        {pid:'s093',name:'Jerry Jeudy',pos:'WR',team:'CLE',age:26,dynastyValue:6200,rank:93},
+        {pid:'s094',name:'Dontayvion Wicks',pos:'WR',team:'GB',age:23,dynastyValue:5800,rank:94},
+        {pid:'s095',name:'Devaughn Vele',pos:'WR',team:'DEN',age:24,dynastyValue:5800,rank:95},
+        {pid:'s096',name:'Romeo Doubs',pos:'WR',team:'GB',age:24,dynastyValue:5500,rank:96},
+        {pid:'s097',name:'Jalen McMillan',pos:'WR',team:'TB',age:23,dynastyValue:5500,rank:97},
+        {pid:'s098',name:'Quentin Johnston',pos:'WR',team:'LAC',age:23,dynastyValue:6000,rank:98},
+        {pid:'s099',name:'Parker Washington',pos:'WR',team:'JAX',age:23,dynastyValue:6200,rank:99},
+        {pid:'s100',name:'Troy Franklin',pos:'WR',team:'DEN',age:22,dynastyValue:6000,rank:100},
+        {pid:'s101',name:'Cedric Tillman',pos:'WR',team:'CLE',age:24,dynastyValue:5500,rank:101},
+        {pid:'s102',name:'Kayshon Boutte',pos:'WR',team:'NE',age:23,dynastyValue:5200,rank:102},
+        {pid:'s103',name:'Elijah Moore',pos:'WR',team:'CLE',age:24,dynastyValue:5500,rank:103},
+        {pid:'s104',name:'Demario Douglas',pos:'WR',team:'NE',age:24,dynastyValue:5800,rank:104},
+        {pid:'s105',name:'Rashid Shaheed',pos:'WR',team:'NO',age:25,dynastyValue:5600,rank:105},
+        {pid:'s106',name:'Calvin Ridley',pos:'WR',team:'TEN',age:30,dynastyValue:5500,rank:106},
+        {pid:'s107',name:'Bryce Ford-Wheaton',pos:'WR',team:'NYG',age:23,dynastyValue:4800,rank:107},
+        {pid:'s108',name:'Joshua Palmer',pos:'WR',team:'LAC',age:25,dynastyValue:5800,rank:108},
+        {pid:'s109',name:'Tre Tucker',pos:'WR',team:'LV',age:24,dynastyValue:5200,rank:109},
+        {pid:'s110',name:'Davante Adams',pos:'WR',team:'LV',age:32,dynastyValue:6500,rank:110},
+        // TEs
+        {pid:'s111',name:'Brock Bowers',pos:'TE',team:'LV',age:22,dynastyValue:8800,rank:111},
+        {pid:'s112',name:'Travis Kelce',pos:'TE',team:'KC',age:35,dynastyValue:8500,rank:112},
+        {pid:'s113',name:'Mark Andrews',pos:'TE',team:'BAL',age:29,dynastyValue:8000,rank:113},
+        {pid:'s114',name:'Sam LaPorta',pos:'TE',team:'DET',age:24,dynastyValue:7800,rank:114},
+        {pid:'s115',name:'Kyle Pitts',pos:'TE',team:'ATL',age:25,dynastyValue:7500,rank:115},
+        {pid:'s116',name:'Trey McBride',pos:'TE',team:'ARI',age:25,dynastyValue:7200,rank:116},
+        {pid:'s117',name:'Cole Kmet',pos:'TE',team:'CHI',age:26,dynastyValue:6800,rank:117},
+        {pid:'s118',name:'Tucker Kraft',pos:'TE',team:'GB',age:24,dynastyValue:6400,rank:118},
+        {pid:'s119',name:'Isaiah Likely',pos:'TE',team:'BAL',age:25,dynastyValue:6200,rank:119},
+        {pid:'s120',name:'Jake Ferguson',pos:'TE',team:'DAL',age:25,dynastyValue:6000,rank:120},
+        {pid:'s121',name:'Dalton Kincaid',pos:'TE',team:'BUF',age:25,dynastyValue:6500,rank:121},
+        {pid:'s122',name:'Michael Mayer',pos:'TE',team:'LV',age:23,dynastyValue:6200,rank:122},
+        {pid:'s123',name:'Theo Johnson',pos:'TE',team:'NYG',age:23,dynastyValue:5800,rank:123},
+        {pid:'s124',name:'Cade Otton',pos:'TE',team:'TB',age:25,dynastyValue:6000,rank:124},
+        {pid:'s125',name:'Pat Freiermuth',pos:'TE',team:'PIT',age:26,dynastyValue:5500,rank:125},
+        {pid:'s126',name:"Ja'Tavion Sanders",pos:'TE',team:'CIN',age:22,dynastyValue:5500,rank:126},
+        {pid:'s127',name:'Chigoziem Okonkwo',pos:'TE',team:'TEN',age:25,dynastyValue:5800,rank:127},
+        {pid:'s128',name:'Greg Dulcich',pos:'TE',team:'DEN',age:25,dynastyValue:5800,rank:128},
+        {pid:'s129',name:'Dawson Knox',pos:'TE',team:'BUF',age:28,dynastyValue:5500,rank:129},
+        {pid:'s130',name:'Tyler Higbee',pos:'TE',team:'LAR',age:31,dynastyValue:5200,rank:130},
+        {pid:'s131',name:'Hunter Henry',pos:'TE',team:'NE',age:30,dynastyValue:4800,rank:131},
+        {pid:'s132',name:'Kylen Granson',pos:'TE',team:'IND',age:28,dynastyValue:4200,rank:132},
+        {pid:'s133',name:'Noah Fant',pos:'TE',team:'SEA',age:27,dynastyValue:5000,rank:133},
+        {pid:'s134',name:'Brenton Strange',pos:'TE',team:'JAX',age:24,dynastyValue:5200,rank:134},
+        // Additional RBs & WRs to fill out pool
+        {pid:'s135',name:'Nick Chubb',pos:'RB',team:'CLE',age:29,dynastyValue:4800,rank:135},
+        {pid:'s136',name:'Aaron Jones',pos:'RB',team:'MIN',age:30,dynastyValue:5000,rank:136},
+        {pid:'s137',name:'Tony Jones Jr.',pos:'RB',team:'NO',age:27,dynastyValue:3800,rank:137},
+        {pid:'s138',name:'Chuba Hubbard',pos:'RB',team:'CAR',age:25,dynastyValue:5200,rank:138},
+        {pid:'s139',name:'Elijah Mitchell',pos:'RB',team:'SF',age:27,dynastyValue:4500,rank:139},
+        {pid:'s140',name:'Jaleel McLaughlin',pos:'RB',team:'DEN',age:24,dynastyValue:5000,rank:140},
+        {pid:'s141',name:'Pierre Strong Jr.',pos:'RB',team:'CLE',age:25,dynastyValue:4200,rank:141},
+        {pid:'s142',name:'Gus Edwards',pos:'RB',team:'LAC',age:29,dynastyValue:4500,rank:142},
+        {pid:'s143',name:'Devin Singletary',pos:'RB',team:'HOU',age:27,dynastyValue:4800,rank:143},
+        {pid:'s144',name:'Kenneth Gainwell',pos:'RB',team:'PHI',age:25,dynastyValue:4800,rank:144},
+        {pid:'s145',name:'Samaje Perine',pos:'RB',team:'DEN',age:29,dynastyValue:3500,rank:145},
+        {pid:'s146',name:'Hassan Haskins',pos:'RB',team:'TEN',age:26,dynastyValue:3800,rank:146},
+        {pid:'s147',name:'Kendre Miller',pos:'RB',team:'NO',age:23,dynastyValue:5500,rank:147},
+        {pid:'s148',name:'Israel Abanikanda',pos:'RB',team:'NYJ',age:23,dynastyValue:4800,rank:148},
+        {pid:'s149',name:'Evan Hull',pos:'RB',team:'IND',age:24,dynastyValue:4500,rank:149},
+        {pid:'s150',name:'Roschon Johnson',pos:'RB',team:'CHI',age:23,dynastyValue:4800,rank:150},
+        {pid:'s151',name:'Ty Chandler',pos:'RB',team:'MIN',age:25,dynastyValue:4200,rank:151},
+        {pid:'s152',name:'Dontae Spencer',pos:'WR',team:'DEN',age:23,dynastyValue:4500,rank:152},
+        {pid:'s153',name:'Mecole Hardman',pos:'WR',team:'KC',age:27,dynastyValue:5000,rank:153},
+        {pid:'s154',name:'Darius Slayton',pos:'WR',team:'NYG',age:28,dynastyValue:4800,rank:154},
+        {pid:'s155',name:'Christian Kirk',pos:'WR',team:'JAX',age:28,dynastyValue:5500,rank:155},
+        {pid:'s156',name:'Tutu Atwell',pos:'WR',team:'LAR',age:25,dynastyValue:5200,rank:156},
+        {pid:'s157',name:'Donovan Peoples-Jones',pos:'WR',team:'DET',age:25,dynastyValue:5000,rank:157},
+        {pid:'s158',name:'Allen Lazard',pos:'WR',team:'NYJ',age:29,dynastyValue:3500,rank:158},
+        {pid:'s159',name:'DeAndre Hopkins',pos:'WR',team:'TEN',age:32,dynastyValue:5200,rank:159},
+        {pid:'s160',name:'Mike Williams',pos:'WR',team:'NYJ',age:30,dynastyValue:5000,rank:160},
+        {pid:'s161',name:'Charlie Jones',pos:'WR',team:'CIN',age:26,dynastyValue:5000,rank:161},
+        {pid:'s162',name:'Javon Baker',pos:'WR',team:'NE',age:23,dynastyValue:5200,rank:162},
+        {pid:'s163',name:'Curtis Samuel',pos:'WR',team:'BUF',age:29,dynastyValue:5000,rank:163},
+        {pid:'s164',name:'Marquez Valdes-Scantling',pos:'WR',team:'KC',age:30,dynastyValue:4000,rank:164},
+        {pid:'s165',name:'Josh Reynolds',pos:'WR',team:'DEN',age:29,dynastyValue:4200,rank:165},
+        {pid:'s166',name:'Michael Wilson',pos:'WR',team:'ARI',age:24,dynastyValue:5200,rank:166},
+        {pid:'s167',name:'Zay Jones',pos:'WR',team:'ARI',age:29,dynastyValue:4200,rank:167},
+        {pid:'s168',name:'Adam Thielen',pos:'WR',team:'CAR',age:35,dynastyValue:2500,rank:168},
+        {pid:'s169',name:'Stefon Diggs',pos:'WR',team:'BUF',age:31,dynastyValue:6200,rank:169},
+        {pid:'s170',name:'Cooper Kupp',pos:'WR',team:'LAR',age:32,dynastyValue:5500,rank:170},
+        {pid:'s171',name:'Nico Collins',pos:'WR',team:'HOU',age:25,dynastyValue:7400,rank:171},
+        {pid:'s172',name:'Josh Downs',pos:'WR',team:'IND',age:23,dynastyValue:6500,rank:172},
+        {pid:'s173',name:'Nathaniel Dell',pos:'WR',team:'HOU',age:24,dynastyValue:6200,rank:173},
+        {pid:'s174',name:'Rome Odunze II',pos:'WR',team:'CHI',age:22,dynastyValue:7400,rank:174},
+        {pid:'s175',name:'Keenan Allen',pos:'WR',team:'CHI',age:32,dynastyValue:4500,rank:175},
+        {pid:'s176',name:'Elijah Higgins',pos:'TE',team:'ARI',age:24,dynastyValue:5200,rank:176},
+        {pid:'s177',name:'Juwan Johnson',pos:'TE',team:'NO',age:28,dynastyValue:4500,rank:177},
+        {pid:'s178',name:'C.J. Uzomah',pos:'TE',team:'CHI',age:32,dynastyValue:3200,rank:178},
+        {pid:'s179',name:'Tyler Conklin',pos:'TE',team:'NYJ',age:31,dynastyValue:4000,rank:179},
+        {pid:'s180',name:'Durham Smythe',pos:'TE',team:'MIA',age:30,dynastyValue:3500,rank:180},
+        {pid:'s181',name:'Jack Stoll',pos:'TE',team:'PHI',age:26,dynastyValue:4500,rank:181},
+        {pid:'s182',name:'Zach Ertz',pos:'TE',team:'WSH',age:34,dynastyValue:3500,rank:182},
+        {pid:'s183',name:'Gerald Everett',pos:'TE',team:'LAC',age:31,dynastyValue:4200,rank:183},
+        {pid:'s184',name:'Will Dissly',pos:'TE',team:'SF',age:29,dynastyValue:4000,rank:184},
+        {pid:'s185',name:'Adam Trautman',pos:'TE',team:'DEN',age:27,dynastyValue:3800,rank:185},
+        {pid:'s186',name:'Tanner McLachlan',pos:'TE',team:'ARI',age:24,dynastyValue:4800,rank:186},
+        {pid:'s187',name:'Dalton Schultz',pos:'TE',team:'HOU',age:29,dynastyValue:5500,rank:187},
+        {pid:'s188',name:'Logan Thomas',pos:'TE',team:'WSH',age:35,dynastyValue:2500,rank:188},
+        {pid:'s189',name:'Marcedes Lewis',pos:'TE',team:'GB',age:39,dynastyValue:1500,rank:189},
+        {pid:'s190',name:'Cameron Latu',pos:'TE',team:'SF',age:24,dynastyValue:4500,rank:190},
+        {pid:'s191',name:'Luke Musgrave',pos:'TE',team:'GB',age:24,dynastyValue:6200,rank:191},
+        {pid:'s192',name:'Cade Stover',pos:'TE',team:'HOU',age:25,dynastyValue:5000,rank:192},
+        {pid:'s193',name:'Stone Smartt',pos:'TE',team:'LAC',age:25,dynastyValue:4200,rank:193},
+        {pid:'s194',name:'Devin Culp',pos:'TE',team:'SEA',age:26,dynastyValue:3800,rank:194},
+        {pid:'s195',name:'John Samuel Shenker',pos:'TE',team:'ATL',age:26,dynastyValue:3500,rank:195},
+        {pid:'s196',name:'Jody Fortson',pos:'TE',team:'KC',age:28,dynastyValue:3800,rank:196},
+        {pid:'s197',name:'Ko Kieft',pos:'TE',team:'TB',age:27,dynastyValue:3200,rank:197},
+        {pid:'s198',name:'Scotty Miller',pos:'WR',team:'TB',age:28,dynastyValue:3200,rank:198},
+        {pid:'s199',name:'Kadarius Toney',pos:'WR',team:'KC',age:26,dynastyValue:3500,rank:199},
+        {pid:'s200',name:'Velus Jones Jr.',pos:'WR',team:'CHI',age:26,dynastyValue:3200,rank:200},
+    ];
 
-    // ── Build Prospect Pool ──
-    const prospectPool = useMemo(() => {
-        // Primary: FC_ROOKIE tagged players from LeagueIntel
-        let pool = Object.entries(playerMeta)
-            .filter(([pid, m]) => m.source === 'FC_ROOKIE' && (scores[pid] || 0) > 0)
-            .map(([pid, m]) => {
-                const p = playersData?.[pid] || S.players?.[pid] || {};
-                return {
-                    pid, name: p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || pid,
-                    pos: m.pos || p.position || '?', team: p.team || '', college: p.college || '',
-                    val: scores[pid] || 0, age: p.age || 21,
-                };
-            });
-        // Fallback: if no FC_ROOKIE data, use all unrostered players sorted by value/youth
-        if (pool.length < 10) {
-            const allPlayers = playersData && Object.keys(playersData).length > 100 ? playersData : (S.players || {});
-            const rostered = new Set();
-            (S.rosters || []).forEach(r => (r.players || []).forEach(pid => rostered.add(String(pid))));
-            const existingPids = new Set(pool.map(p => p.pid));
-            const fallback = [];
-            Object.entries(allPlayers).forEach(([pid, p]) => {
-                if (!p || existingPids.has(pid) || rostered.has(String(pid))) return;
-                const pos = window.App?.normPos?.(p.position) || (p.position || '').toUpperCase();
-                if (!pos || pos === 'DEF' || pos === 'UNK') return;
-                // Include young players (age ≤ 25) or any player with DHQ score
-                const age = p.age || 25;
-                const dhq = scores[pid] || 0;
-                if (age > 25 && dhq <= 0) return;
-                const val = dhq > 0 ? dhq : Math.max(500, 5000 - (age - 20) * 300); // Estimate value from age if no DHQ
-                fallback.push({
-                    pid, name: p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || pid,
-                    pos, team: p.team || '', college: p.college || '',
-                    val, age,
-                });
-            });
-            fallback.sort((a, b) => b.val - a.val);
-            // Take top 100 to avoid massive pools
-            fallback.slice(0, 100).forEach(p => pool.push(p));
-        }
-        return pool.sort((a, b) => b.val - a.val);
-    }, [playerMeta, scores, playersData]);
-
-    // ── Build Draft Order (snake, respecting traded picks) ──
-    const buildPickOrder = () => {
-        const order = [...rosters].sort((a, b) => (a.settings?.wins || 0) - (b.settings?.wins || 0));
-        const tradedPicks = S.tradedPicks || [];
-        const curSeason = String(currentLeague?.season || new Date().getFullYear());
-        const picks = [];
-        for (let rd = 1; rd <= draftRounds; rd++) {
-            const rdOrder = rd % 2 === 1 ? [...order] : [...order].reverse();
-            rdOrder.forEach((r, i) => {
-                // Check if this pick was traded — owner_id is the current owner
-                const traded = tradedPicks.find(tp =>
-                    String(tp.season) === curSeason && tp.round === rd &&
-                    tp.roster_id === r.roster_id && tp.owner_id !== r.roster_id
-                );
-                const actualOwner = traded ? traded.owner_id : r.roster_id;
-                picks.push({ round: rd, pick: i + 1, overall: picks.length + 1, rosterId: actualOwner, originalRosterId: r.roster_id });
-            });
-        }
-        return picks;
-    };
-
-    // ── AI Pick Logic ──
-    const aiPick = (rosterId, available) => {
-        const assess = assessFn ? assessFn(rosterId) : null;
-        const profile = ownerProfiles[rosterId];
-        const needs = (assess?.needs || []).slice(0, 4).map(n => typeof n === 'string' ? n : n.pos);
-        const targetPos = profile?.targetPos || '';
-        const tier = (assess?.tier || '').toUpperCase();
-
-        // Weight: 50% need, 20% historical preference, 30% BPA
-        const scored = available.map(p => {
-            let score = p.val; // BPA baseline (30%)
-            const needIdx = needs.indexOf(p.pos);
-            if (needIdx === 0) score *= 2.0;       // Primary need: 2x
-            else if (needIdx === 1) score *= 1.6;   // Secondary: 1.6x
-            else if (needIdx >= 2) score *= 1.2;    // Tertiary: 1.2x
-            if (targetPos && p.pos === targetPos) score *= 1.3; // Historical preference
-            if (tier === 'REBUILDING' && p.age <= 22) score *= 1.15; // Rebuilders prefer young
-            if (tier === 'CONTENDER' && p.val >= 3000) score *= 1.1; // Contenders prefer proven
-            return { ...p, score };
-        });
-        scored.sort((a, b) => b.score - a.score);
-        return scored[0] || available[0];
-    };
-
-    // ── Get Pick Analytics ──
-    const getPickAnalytics = (pickOverall, round, available) => {
-        const hitRate = hitRates[round];
-        const slotEV = typeof pickValues === 'function' ? pickValues(round, pickOverall % teams || teams) : 0;
-        const assess = assessFn ? assessFn(myRid) : null;
-        const needs = (assess?.needs || []).slice(0, 3).map(n => typeof n === 'string' ? n : n.pos);
-
-        // Positional scarcity
-        const posCount = {};
-        available.slice(0, 20).forEach(p => { posCount[p.pos] = (posCount[p.pos] || 0) + 1; });
-        const scarce = needs.filter(n => (posCount[n] || 0) <= 2);
-
-        // Fit scores: how much each prospect improves your roster
-        const fitScored = available.slice(0, 15).map(p => {
-            const needBonus = needs.indexOf(p.pos) === 0 ? 500 : needs.indexOf(p.pos) >= 0 ? 300 : 0;
-            return { ...p, fit: p.val + needBonus };
-        }).sort((a, b) => b.fit - a.fit);
-
-        return { hitRate, slotEV, needs, scarce, fitScored, posCount };
-    };
-
-    // ── Trade Scenario Generator ──
-    const getTradeScenarios = (pickIdx, pickOrder, available) => {
-        const myPick = pickOrder[pickIdx];
-        if (!myPick || myPick.rosterId !== myRid) return [];
-        const scenarios = [];
-        const myPickVal = typeof pickValues === 'function' ? pickValues(myPick.round, myPick.pick) : myPick.overall <= 12 ? 3000 : myPick.overall <= 24 ? 1800 : 1000;
-
-        // Trade down: find teams behind us who want what's at our slot
-        for (let j = pickIdx + 2; j < Math.min(pickIdx + 8, pickOrder.length); j++) {
-            const other = pickOrder[j];
-            if (other.rosterId === myRid) continue;
-            const otherProfile = ownerProfiles[other.rosterId];
-            const otherNeeds = (assessFn ? assessFn(other.rosterId)?.needs || [] : []).slice(0, 2).map(n => typeof n === 'string' ? n : n.pos);
-            const topAvail = available[0];
-            if (topAvail && otherNeeds.includes(topAvail.pos)) {
-                const theirVal = typeof pickValues === 'function' ? pickValues(other.round, other.pick) : other.overall <= 12 ? 3000 : 1800;
-                const netGain = Math.round(theirVal * 1.2 - myPickVal + 800); // They overpay to move up
-                if (netGain > 200) {
-                    const ownerName = (S.leagueUsers || []).find(u => u.user_id === other.rosterId)?.display_name || 'Team';
-                    scenarios.push({
-                        type: 'down', targetRid: other.rosterId, targetName: ownerName,
-                        give: `Pick #${myPick.overall} (R${myPick.round}.${myPick.pick})`,
-                        get: `Pick #${other.overall} (R${other.round}.${other.pick}) + 2027 3rd`,
-                        netDHQ: netGain, reason: `${ownerName} needs ${topAvail.pos} — ${topAvail.name} is available`
-                    });
-                }
-            }
-        }
-        return scenarios.slice(0, 2);
-    };
-
-    // ══════════════════════════════════════════════════════════════
-    // START DRAFT
-    // ══════════════════════════════════════════════════════════════
-    const startDraft = () => {
-        if (prospectPool.length < 5) {
-            alert('Not enough prospect data to run a mock draft. League Intelligence may still be loading — wait a few seconds and try again.');
-            return;
-        }
-        const pickOrder = buildPickOrder();
-        setDraftState({
-            pool: [...prospectPool],
-            pickOrder,
-            picks: [],
-            currentIdx: 0,
-            trades: [],
-            paused: false,
-        });
-        setMode('live');
-    };
-
-    // ── Make a pick (user or AI) ──
-    const makePick = (pid) => {
-        if (!draftState) return;
-        const { pool, pickOrder, picks, currentIdx } = draftState;
-        const current = pickOrder[currentIdx];
-        const pIdx = pool.findIndex(p => p.pid === pid);
-        if (pIdx < 0) return;
-        const player = pool[pIdx];
-        const newPool = [...pool]; newPool.splice(pIdx, 1);
-        const ownerName = (S.leagueUsers || []).find(u => u.user_id === current.rosterId)?.display_name || 'Team ' + current.pick;
-
-        const newPicks = [...picks, {
-            ...current, pid: player.pid, playerName: player.name, pos: player.pos,
-            val: player.val, teamName: ownerName, isUser: current.rosterId === myRid,
-        }];
-
-        const newState = { ...draftState, pool: newPool, picks: newPicks, currentIdx: currentIdx + 1 };
-        setDraftState(newState);
-
-        // If draft complete
-        if (currentIdx + 1 >= pickOrder.length) {
-            setMode('results');
-            return;
-        }
-
-        // Auto-advance AI picks
-        const next = pickOrder[currentIdx + 1];
-        if (next && next.rosterId !== myRid) {
-            setTimeout(() => advanceAI(newState), 120);
-        }
-    };
-
-    const advanceAI = (state) => {
-        let s = { ...state };
-        while (s.currentIdx < s.pickOrder.length) {
-            const current = s.pickOrder[s.currentIdx];
-            if (current.rosterId === myRid) break; // Stop at user's pick
-
-            const pick = aiPick(current.rosterId, s.pool);
-            if (!pick) break;
-            const pIdx = s.pool.findIndex(p => p.pid === pick.pid);
-            const newPool = [...s.pool]; if (pIdx >= 0) newPool.splice(pIdx, 1);
-            const assess = assessFn ? assessFn(current.rosterId) : null;
-            const profile = ownerProfiles[current.rosterId];
-            const ownerName = (S.leagueUsers || []).find(u => u.user_id === current.rosterId)?.display_name || 'Team';
-            const tier = (assess?.tier || '').toUpperCase();
-            const needs = (assess?.needs || []).slice(0, 2).map(n => typeof n === 'string' ? n : n.pos);
-
-            s = {
-                ...s, pool: newPool, currentIdx: s.currentIdx + 1,
-                picks: [...s.picks, {
-                    ...current, pid: pick.pid, playerName: pick.name, pos: pick.pos,
-                    val: pick.val, teamName: ownerName, isUser: false,
-                    reason: `${ownerName} (${tier}${needs.length ? ', needs ' + needs.join('/') : ''}${profile?.dna ? ', ' + profile.dna : ''})`,
-                }],
-            };
-        }
-        setDraftState(s);
-        if (s.currentIdx >= s.pickOrder.length) setMode('results');
-    };
-
-    // ══════════════════════════════════════════════════════════════
-    // MULTI-SIM (Monte Carlo)
-    // ══════════════════════════════════════════════════════════════
-    const runMultiSim = () => {
-        const NUM_SIMS = 10;
-        const pickOrder = buildPickOrder();
-        const landingData = {}; // pid -> { picks: [pickOverall, ...], teams: [rosterId, ...] }
-        const myPickData = {}; // round -> { posFreq: {QB:n,...}, bestAvail: [...] }
-
-        for (let sim = 0; sim < NUM_SIMS; sim++) {
-            const pool = [...prospectPool];
-            pickOrder.forEach((slot, idx) => {
-                if (!pool.length) return;
-                let pick;
-                if (slot.rosterId === myRid) {
-                    // User picks BPA at top need
-                    const assess = assessFn ? assessFn(myRid) : null;
-                    const needs = (assess?.needs || []).slice(0, 3).map(n => typeof n === 'string' ? n : n.pos);
-                    pick = pool.find(p => needs.includes(p.pos)) || pool[0];
-                } else {
-                    // AI with randomness: 70% weighted, 30% random from top 5
-                    if (Math.random() < 0.3 && pool.length >= 5) {
-                        pick = pool[Math.floor(Math.random() * 5)];
-                    } else {
-                        pick = aiPick(slot.rosterId, pool);
-                    }
-                }
-                if (!pick) return;
-                pool.splice(pool.indexOf(pick), 1);
-                if (!landingData[pick.pid]) landingData[pick.pid] = { picks: [], teams: [] };
-                landingData[pick.pid].picks.push(slot.overall);
-                landingData[pick.pid].teams.push(slot.rosterId);
-
-                if (slot.rosterId === myRid) {
-                    if (!myPickData[slot.round]) myPickData[slot.round] = { posFreq: {}, avail: [] };
-                    myPickData[slot.round].posFreq[pick.pos] = (myPickData[slot.round].posFreq[pick.pos] || 0) + 1;
-                }
-            });
-        }
-
-        // Aggregate
-        const prospectRanges = Object.entries(landingData)
-            .map(([pid, data]) => {
-                const p = prospectPool.find(pr => pr.pid === pid) || { name: pid, pos: '?', val: 0 };
-                const landings = [...data.picks].sort((a, b) => a - b);
-                return {
-                    pid, name: p.name, pos: p.pos, val: p.val,
-                    min: landings[0], max: landings[landings.length - 1],
-                    median: landings[Math.floor(landings.length / 2)],
-                    count: landings.length,
-                };
-            })
-            .sort((a, b) => a.median - b.median)
-            .slice(0, 30);
-
-        setSimResults({ prospectRanges, myPickData, landingData, numSims: NUM_SIMS });
-        setMode('multisim');
-    };
-
-    // ══════════════════════════════════════════════════════════════
-    // SAVE / LOAD
-    // ══════════════════════════════════════════════════════════════
-    const saveDraft = () => {
-        if (!draftState) return;
-        const g = gradeMyPicks(draftState.picks);
-        const saved = {
-            ts: Date.now(), picks: draftState.picks, trades: draftState.trades,
-            league: currentLeague?.name || '', teams, grade: g.grade, totalDHQ: g.totalDHQ,
-        };
-        const all = [saved, ...savedDrafts].slice(0, 5);
-        localStorage.setItem('wr_mock_drafts_' + (currentLeague?.id || ''), JSON.stringify(all));
-        setSavedDrafts(all);
-    };
-
-    // ══════════════════════════════════════════════════════════════
-    // POST-DRAFT GRADES
-    // ══════════════════════════════════════════════════════════════
-    const gradeMyPicks = (picks) => {
-        const myPicks = picks.filter(p => p.isUser);
-        if (!myPicks.length) return { grade: '?', picks: [], totalDHQ: 0, avgEV: 0 };
-        const totalDHQ = myPicks.reduce((s, p) => s + (p.val || 0), 0);
-        const avgEV = Math.round(totalDHQ / myPicks.length);
-        const gradedPicks = myPicks.map(p => {
-            const bpa = prospectPool.find(pr => pr.val > p.val && pr.pid !== p.pid);
-            const diff = bpa ? p.val - bpa.val : 0;
-            return { ...p, verdict: diff >= 0 ? 'Value' : Math.abs(diff) < 500 ? 'Fair' : 'Reach' };
-        });
-        const valueCount = gradedPicks.filter(p => p.verdict === 'Value').length;
-        const grade = valueCount >= myPicks.length * 0.8 ? 'A+' : valueCount >= myPicks.length * 0.6 ? 'A' : valueCount >= myPicks.length * 0.4 ? 'B+' : valueCount >= myPicks.length * 0.2 ? 'B' : 'C';
-        return { grade, picks: gradedPicks, totalDHQ, avgEV };
-    };
-
-    // ══════════════════════════════════════════════════════════════
-    // RENDER
-    // ══════════════════════════════════════════════════════════════
-    const cardStyle = { background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', padding: '14px 16px', marginBottom: '12px' };
-    const goldLabel = { fontSize: '0.72rem', color: 'var(--gold)', fontFamily: 'Rajdhani, sans-serif', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '8px' };
-
-    // Full-screen wrapper for live/multisim/results modes
-    const fullScreen = mode === 'live' || mode === 'results' || mode === 'multisim';
-    const wrapStyle = fullScreen ? { position: 'fixed', inset: 0, zIndex: 900, background: 'var(--black)', overflowY: 'auto', padding: '20px' } : {};
-    const exitBtn = fullScreen ? React.createElement('button', {
-        onClick: () => setMode('setup'),
-        style: { position: 'fixed', top: '16px', right: '16px', zIndex: 910, background: 'var(--charcoal)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '8px', padding: '6px 14px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', fontWeight: 600 }
-    }, '✕ Exit Draft') : null;
-
-    // ── SETUP ──
-    if (mode === 'setup') {
-        return React.createElement('div', null,
-            React.createElement('div', { style: { ...cardStyle, textAlign: 'center' } },
-                React.createElement('div', { style: { fontSize: '1.4rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Rajdhani, sans-serif', marginBottom: '8px' } }, 'MOCK DRAFT ENGINE'),
-                React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', marginBottom: '16px', lineHeight: 1.5 } },
-                    `${teams} teams · ${draftRounds} rounds · ${prospectPool.length} prospects · Snake draft`
-                ),
-                React.createElement('div', { style: { display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' } },
-                    React.createElement('button', {
-                        onClick: startDraft,
-                        style: { padding: '12px 24px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '8px', fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }
-                    }, 'START INTERACTIVE DRAFT'),
-                    React.createElement('button', {
-                        onClick: runMultiSim,
-                        style: { padding: '12px 24px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '8px', fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer' }
-                    }, 'RUN 10 SIMULATIONS'),
-                ),
-            ),
-            // Saved drafts
-            savedDrafts.length > 0 && React.createElement('div', { style: cardStyle },
-                React.createElement('div', { style: goldLabel }, 'SAVED DRAFTS'),
-                savedDrafts.map((d, i) => React.createElement('div', {
-                    key: i, style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' },
-                    onClick: () => { setDraftState({ ...d, pool: [], pickOrder: [], currentIdx: d.picks.length }); setMode('results'); }
-                },
-                    React.createElement('span', { style: { fontSize: '0.78rem', color: 'var(--silver)' } }, new Date(d.ts).toLocaleDateString()),
-                    React.createElement('span', { style: { fontSize: '0.78rem', color: 'var(--white)', flex: 1 } }, `${d.picks?.length || 0} picks · ${d.league}`),
-                    d.grade && React.createElement('span', { style: { fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', padding: '1px 6px', borderRadius: '4px', background: 'rgba(212,175,55,0.1)' } }, d.grade),
-                    React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--gold)' } }, 'View →'),
-                ))
-            ),
-        );
+    // ── Helpers ───────────────────────────────────────────────────
+    function posColor(pos) {
+        var c = (window.App && window.App.POS_COLORS) || {};
+        return c[pos] || (pos === 'QB' ? '#E74C3C' : pos === 'RB' ? '#3498DB' : pos === 'WR' ? '#2ECC71' : pos === 'TE' ? '#D4AF37' : '#888');
     }
 
-    // ── LIVE DRAFT ──
-    if (mode === 'live' && draftState) {
-        const { pool, pickOrder, picks, currentIdx } = draftState;
-        const current = currentIdx < pickOrder.length ? pickOrder[currentIdx] : null;
-        const isMyPick = current?.rosterId === myRid;
-        const analytics = isMyPick ? getPickAnalytics(current.overall, current.round, pool) : null;
-        const tradeOptions = isMyPick ? getTradeScenarios(currentIdx, pickOrder, pool) : [];
+    function buildPool(playersData) {
+        var scores = (window.App && window.App.LI && window.App.LI.playerScores) || {};
+        var src = (window.S && window.S.players && Object.keys(window.S.players).length > 50)
+            ? window.S.players
+            : (playersData && Object.keys(playersData || {}).length > 50 ? playersData : null);
 
-        return React.createElement('div', { style: { ...wrapStyle } },
-            exitBtn,
-            // Progress bar
-            React.createElement('div', { style: { height: '3px', background: 'rgba(212,175,55,0.1)', borderRadius: '2px', marginBottom: '16px', overflow: 'hidden' } },
-                React.createElement('div', { style: { height: '100%', width: `${Math.round(currentIdx / pickOrder.length * 100)}%`, background: 'var(--gold)', borderRadius: '2px', transition: 'width 0.3s ease' } })
-            ),
-            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: isMyPick ? '1fr 340px' : '1fr', gap: '16px' } },
-            // Left: Draft board
-            React.createElement('div', null,
-                // Current pick header
-                current && React.createElement('div', { style: { ...cardStyle, borderColor: isMyPick ? 'var(--gold)' : 'rgba(255,255,255,0.1)', background: isMyPick ? 'rgba(212,175,55,0.06)' : 'var(--black)' } },
-                    React.createElement('div', { style: { fontSize: '0.68rem', color: isMyPick ? 'var(--gold)' : 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' } },
-                        isMyPick ? '⏱ ON THE CLOCK' : `Pick #${current.overall}`
+        if (src) {
+            var normPos = (window.App && window.App.normPos) || function(p) { return (p || '').toUpperCase(); };
+            var players = [];
+            Object.entries(src).forEach(function(entry) {
+                var pid = entry[0], p = entry[1];
+                if (!p || !p.position) return;
+                var pos = normPos(p.position).toUpperCase();
+                if (['QB','RB','WR','TE'].indexOf(pos) < 0) return;
+                var name = p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim();
+                if (!name || /Duplicate|Invalid|DUP/i.test(name)) return;
+                var dhq = scores[pid] || 0;
+                if (dhq <= 0 && !p.team) return;
+                players.push({ pid: pid, name: name, pos: pos, team: p.team || '', age: p.age || 25, dynastyValue: dhq });
+            });
+            players.sort(function(a, b) { return b.dynastyValue - a.dynastyValue; });
+            players = players.slice(0, 300).map(function(p, i) { return Object.assign({}, p, { rank: i + 1 }); });
+            if (players.length >= 50) return players;
+        }
+        return STATIC_POOL.slice();
+    }
+
+    function buildDraftOrder(leagueSize, rounds, format) {
+        var order = [];
+        for (var r = 1; r <= rounds; r++) {
+            for (var i = 0; i < leagueSize; i++) {
+                var teamIndex = (format === 'snake' && r % 2 === 0) ? (leagueSize - i) : (i + 1);
+                order.push({ round: r, pick: i + 1, overall: (r - 1) * leagueSize + i + 1, teamIndex: teamIndex });
+            }
+        }
+        return order;
+    }
+
+    function calcGrade(myPicksList) {
+        if (!myPicksList.length) return { grade: 'C', color: '#E74C3C' };
+        var avgRank = myPicksList.reduce(function(s, p) { return s + p.player.rank; }, 0) / myPicksList.length;
+        var avgOverall = myPicksList.reduce(function(s, p) { return s + p.overall; }, 0) / myPicksList.length;
+        var ratio = avgRank / avgOverall;
+        if (ratio <= 0.55) return { grade: 'A+', color: '#2ECC71' };
+        if (ratio <= 0.72) return { grade: 'A',  color: '#2ECC71' };
+        if (ratio <= 0.88) return { grade: 'B+', color: '#D4AF37' };
+        if (ratio <= 1.05) return { grade: 'B',  color: '#D4AF37' };
+        if (ratio <= 1.25) return { grade: 'C+', color: '#E67E22' };
+        return { grade: 'C', color: '#E74C3C' };
+    }
+
+    // ── Component ─────────────────────────────────────────────────
+    function MockDraftSimulator(props) {
+        var playersData = props.playersData;
+        var draftRounds = props.draftRounds;
+
+        var phaseState   = useState('setup');
+        var phase        = phaseState[0], setPhase = phaseState[1];
+
+        var roundsState  = useState(Math.min(parseInt(draftRounds) || 3, 5));
+        var rounds       = roundsState[0], setRounds = roundsState[1];
+
+        var posState     = useState(1);
+        var draftPos     = posState[0], setDraftPos = posState[1];
+
+        var fmtState     = useState('snake');
+        var format       = fmtState[0], setFormat = fmtState[1];
+
+        var szState      = useState(12);
+        var leagueSize   = szState[0], setLeagueSize = szState[1];
+
+        var dsState      = useState(null);
+        var draftState   = dsState[0], setDraftState = dsState[1];
+
+        // Derived from draftState
+        var currentIdx   = draftState ? draftState.currentIdx : 0;
+        var currentSlot  = draftState ? draftState.order[currentIdx] : null;
+        var userTeamIdx  = draftState ? draftState.userTeamIndex : parseInt(draftPos);
+        var isUserTurn   = currentSlot && currentSlot.teamIndex === userTeamIdx;
+        var isDone       = draftState && currentIdx >= draftState.order.length;
+
+        // AI auto-pick effect — fires when currentIdx changes
+        useEffect(function() {
+            if (phase !== 'drafting' || !draftState) return;
+            if (isDone) { setPhase('complete'); return; }
+            if (isUserTurn) return;
+
+            var timer = setTimeout(function() {
+                setDraftState(function(prev) {
+                    if (!prev || prev.currentIdx !== currentIdx) return prev;
+                    var slot = prev.order[prev.currentIdx];
+                    var roster = prev.teamRosters[slot.teamIndex] || [];
+                    var bestPlayer = null, bestScore = -1;
+                    prev.available.forEach(function(p) {
+                        var base = p.dynastyValue > 0 ? p.dynastyValue : Math.max(0, 5000 - p.rank * 50);
+                        var posCount = roster.filter(function(r) { return r.pos === p.pos; }).length;
+                        var nb = posCount === 0 ? 2000 : posCount === 1 ? 1000 : 0;
+                        var s = base + nb + Math.random() * 300;
+                        if (s > bestScore) { bestScore = s; bestPlayer = p; }
+                    });
+                    if (!bestPlayer) return prev;
+                    var newAvail = prev.available.filter(function(p) { return p.pid !== bestPlayer.pid; });
+                    var newRosters = Object.assign({}, prev.teamRosters);
+                    newRosters[slot.teamIndex] = (newRosters[slot.teamIndex] || []).concat([bestPlayer]);
+                    return Object.assign({}, prev, {
+                        available: newAvail,
+                        picks: prev.picks.concat([Object.assign({}, slot, { player: bestPlayer, isUser: false })]),
+                        currentIdx: prev.currentIdx + 1,
+                        teamRosters: newRosters,
+                    });
+                });
+            }, 500);
+            return function() { clearTimeout(timer); };
+        }, [phase, currentIdx, isDone]);
+
+        function startDraft() {
+            var pool = buildPool(playersData);
+            if (pool.length < 20) {
+                alert('Not enough player data loaded. Please wait a moment and try again.');
+                return;
+            }
+            var sz = parseInt(leagueSize);
+            var rd = parseInt(rounds);
+            var pos = parseInt(draftPos);
+            setDraftState({
+                order: buildDraftOrder(sz, rd, format),
+                available: pool,
+                picks: [],
+                currentIdx: 0,
+                teamRosters: {},
+                userTeamIndex: pos,
+                leagueSize: sz,
+                rounds: rd,
+            });
+            setPhase('drafting');
+        }
+
+        function userPick(player) {
+            if (!draftState || !isUserTurn) return;
+            setDraftState(function(prev) {
+                var slot = prev.order[prev.currentIdx];
+                var newAvail = prev.available.filter(function(p) { return p.pid !== player.pid; });
+                var newRosters = Object.assign({}, prev.teamRosters);
+                newRosters[slot.teamIndex] = (newRosters[slot.teamIndex] || []).concat([player]);
+                return Object.assign({}, prev, {
+                    available: newAvail,
+                    picks: prev.picks.concat([Object.assign({}, slot, { player: player, isUser: true })]),
+                    currentIdx: prev.currentIdx + 1,
+                    teamRosters: newRosters,
+                });
+            });
+        }
+
+        function resetDraft() {
+            setDraftState(null);
+            setPhase('setup');
+        }
+
+        // ── RENDER: Setup ────────────────────────────────────────
+        if (phase === 'setup') {
+            var ddStyle = {
+                background: 'var(--off-black)', color: 'var(--white)',
+                border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px',
+                padding: '6px 10px', fontSize: '0.85rem', cursor: 'pointer', minWidth: '90px',
+            };
+            var labelStyle = { fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', fontFamily: 'Rajdhani, sans-serif' };
+            var fieldStyle = { display: 'flex', flexDirection: 'column', gap: '4px' };
+
+            return e('div', { style: { padding: '20px', fontFamily: 'DM Sans, sans-serif' } },
+                e('div', { style: { fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'Rajdhani, sans-serif', marginBottom: '16px' } },
+                    'Mock Draft Simulator'),
+                e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', maxWidth: '360px', marginBottom: '24px' } },
+                    e('div', { style: fieldStyle },
+                        e('div', { style: labelStyle }, 'Rounds'),
+                        e('select', { style: ddStyle, value: rounds, onChange: function(ev) { setRounds(parseInt(ev.target.value)); } },
+                            [1,2,3,4,5].map(function(n) { return e('option', { key: n, value: n }, n + ' Round' + (n > 1 ? 's' : '')); })
+                        )
                     ),
-                    React.createElement('div', { style: { fontSize: '1.1rem', fontWeight: 700, color: 'var(--white)' } },
-                        `R${current.round}.${current.pick} — ${isMyPick ? 'YOUR PICK' : ((S.leagueUsers || []).find(u => u.user_id === current.rosterId)?.display_name || 'Team')}`
+                    e('div', { style: fieldStyle },
+                        e('div', { style: labelStyle }, 'Draft Position'),
+                        e('select', { style: ddStyle, value: draftPos, onChange: function(ev) { setDraftPos(parseInt(ev.target.value)); } },
+                            Array.from({ length: 12 }, function(_, i) { return e('option', { key: i+1, value: i+1 }, 'Pick #' + (i+1)); })
+                        )
                     ),
+                    e('div', { style: fieldStyle },
+                        e('div', { style: labelStyle }, 'Format'),
+                        e('select', { style: ddStyle, value: format, onChange: function(ev) { setFormat(ev.target.value); } },
+                            e('option', { value: 'snake' }, 'Snake'),
+                            e('option', { value: 'linear' }, 'Linear')
+                        )
+                    ),
+                    e('div', { style: fieldStyle },
+                        e('div', { style: labelStyle }, 'Teams'),
+                        e('select', { style: ddStyle, value: leagueSize, onChange: function(ev) { setLeagueSize(parseInt(ev.target.value)); } },
+                            [8,10,12,14,16].map(function(n) { return e('option', { key: n, value: n }, n + ' Teams'); })
+                        )
+                    )
                 ),
-                // Available players — Big Board style
-                isMyPick && React.createElement('div', { style: cardStyle },
-                    React.createElement('div', { style: goldLabel }, 'BEST AVAILABLE'),
-                    // Header row
-                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', padding: '0 10px 6px', fontSize: '0.62rem', color: 'var(--gold)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(212,175,55,0.15)' } },
-                        React.createElement('span', { style: { width: '28px' } }, '#'),
-                        React.createElement('span', { style: { width: '30px' } }),
-                        React.createElement('span', { style: { flex: 1 } }, 'Player'),
-                        React.createElement('span', { style: { width: '42px', textAlign: 'center' } }, 'Pos'),
-                        React.createElement('span', { style: { width: '60px', textAlign: 'right' } }, 'DHQ'),
-                        React.createElement('span', { style: { width: '50px', textAlign: 'center' } }, 'Fit'),
-                    ),
-                    pool.slice(0, 12).map((p, pi) => {
-                        const posColors = {QB:'#60a5fa',RB:'#34d399',WR:'var(--gold)',TE:'#fbbf24',DL:'#fb923c',LB:'var(--gold)',DB:'#f472b6'};
-                        const dhqCol = p.val >= 7000 ? '#2ECC71' : p.val >= 4000 ? '#3498DB' : p.val >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)';
-                        const needFit = analytics?.needs?.includes(p.pos);
-                        return React.createElement('div', {
-                            key: p.pid, onClick: () => makePick(p.pid),
-                            style: { display: 'flex', alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', background: pi % 2 ? 'rgba(255,255,255,0.015)' : 'transparent', transition: 'background 0.1s' },
-                            onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.04)',
-                            onMouseLeave: e => e.currentTarget.style.background = pi % 2 ? 'rgba(255,255,255,0.015)' : 'transparent',
+                e('button', {
+                    style: {
+                        background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px',
+                        padding: '10px 28px', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer',
+                        fontFamily: 'Rajdhani, sans-serif', letterSpacing: '0.05em', textTransform: 'uppercase',
+                    },
+                    onClick: startDraft,
+                }, 'Start Mock Draft')
+            );
+        }
+
+        // ── RENDER: Complete ─────────────────────────────────────
+        if (phase === 'complete') {
+            var allPicks = draftState ? draftState.picks : [];
+            var myPicksList = allPicks.filter(function(p) { return p.isUser; });
+            var gradeInfo = calcGrade(myPicksList);
+            var posTally = {};
+            myPicksList.forEach(function(p) { posTally[p.player.pos] = (posTally[p.player.pos] || 0) + 1; });
+
+            return e('div', { style: { padding: '20px', fontFamily: 'DM Sans, sans-serif' } },
+                e('div', { style: { display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' } },
+                    e('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.72rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.1em' } }, 'Draft Complete — Grade'),
+                    e('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '2.4rem', fontWeight: '700', color: gradeInfo.color, lineHeight: 1 } }, gradeInfo.grade)
+                ),
+                e('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' } },
+                    Object.entries(posTally).map(function(entry) {
+                        return e('div', {
+                            key: entry[0],
+                            style: { background: posColor(entry[0]), color: '#000', padding: '2px 10px', borderRadius: '12px', fontSize: '0.78rem', fontWeight: '700' }
+                        }, entry[0] + ' \u00d7' + entry[1]);
+                    })
+                ),
+                e('div', { style: { fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Rajdhani, sans-serif', marginBottom: '8px' } }, 'My Picks'),
+                e('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '20px' } },
+                    myPicksList.map(function(pk) {
+                        return e('div', {
+                            key: pk.overall,
+                            style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 10px', background: 'var(--charcoal)', borderRadius: '6px', fontSize: '0.83rem' }
                         },
-                            React.createElement('span', { style: { width: '28px', fontSize: '0.72rem', color: pi < 3 ? 'var(--gold)' : 'var(--silver)', fontWeight: 600 } }, pi + 1),
-                            React.createElement('img', { src: `https://sleepercdn.com/content/nfl/players/thumb/${p.pid}.jpg`, style: { width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', marginRight: '8px' }, onError: e => e.target.style.display = 'none' }),
-                            React.createElement('div', { style: { flex: 1, overflow: 'hidden' } },
-                                React.createElement('div', { style: { fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.name),
-                                React.createElement('div', { style: { fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.6 } }, `${p.team || 'TBD'}${p.college ? ' · ' + p.college : ''}`),
-                            ),
-                            React.createElement('span', { style: { width: '42px', textAlign: 'center', fontSize: '0.68rem', fontWeight: 700, color: posColors[p.pos] || 'var(--silver)', padding: '2px 6px', background: (posColors[p.pos] || '#666') + '22', borderRadius: '4px' } }, p.pos),
-                            React.createElement('span', { style: { width: '60px', textAlign: 'right', fontSize: '0.78rem', fontWeight: 700, color: dhqCol, fontFamily: 'JetBrains Mono, monospace' } }, p.val.toLocaleString()),
-                            React.createElement('span', { style: { width: '50px', textAlign: 'center', fontSize: '0.62rem', fontWeight: 700, color: needFit ? '#2ECC71' : 'var(--silver)', padding: '1px 4px', background: needFit ? 'rgba(46,204,113,0.15)' : 'transparent', borderRadius: '4px' } }, needFit ? 'NEED' : 'BPA'),
+                            e('span', { style: { color: 'var(--silver)', minWidth: '42px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem' } },
+                                'R' + pk.round + '.' + String(pk.pick).padStart(2, '0')),
+                            e('span', {
+                                style: { background: posColor(pk.player.pos), color: '#000', padding: '1px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '700', minWidth: '26px', textAlign: 'center' }
+                            }, pk.player.pos),
+                            e('span', { style: { color: 'var(--white)', fontWeight: '500', flex: 1 } }, pk.player.name),
+                            e('span', { style: { color: 'var(--silver)', fontSize: '0.75rem' } }, pk.player.team)
                         );
                     })
                 ),
-                // Trade options — selectable with DHQ breakdown
-                isMyPick && tradeOptions.length > 0 && React.createElement('div', { style: cardStyle },
-                    React.createElement('div', { style: goldLabel }, 'TRADE SCENARIOS'),
-                    tradeOptions.map((t, i) => React.createElement('div', {
-                        key: i, style: { padding: '10px 12px', background: 'rgba(46,204,113,0.04)', border: '1px solid rgba(46,204,113,0.15)', borderRadius: '8px', marginBottom: '6px', cursor: 'pointer' },
-                        onClick: () => { /* Accept trade — swap picks in draft state */ },
-                    },
-                        React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' } },
-                            React.createElement('span', { style: { fontSize: '0.82rem', color: '#2ECC71', fontWeight: 700 } }, t.type === 'down' ? '↓ Trade Down' : '↑ Trade Up'),
-                            React.createElement('span', { style: { fontSize: '0.92rem', color: '#2ECC71', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace' } }, `+${t.netDHQ} DHQ`),
-                        ),
-                        React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.72rem' } },
-                            React.createElement('div', { style: { padding: '6px 8px', background: 'rgba(248,113,113,0.06)', borderRadius: '6px', border: '1px solid rgba(248,113,113,0.1)' } },
-                                React.createElement('div', { style: { color: '#f87171', fontWeight: 600, marginBottom: '2px' } }, 'YOU GIVE'),
-                                React.createElement('div', { style: { color: 'var(--silver)' } }, t.give),
-                            ),
-                            React.createElement('div', { style: { padding: '6px 8px', background: 'rgba(46,204,113,0.06)', borderRadius: '6px', border: '1px solid rgba(46,204,113,0.1)' } },
-                                React.createElement('div', { style: { color: '#2ECC71', fontWeight: 600, marginBottom: '2px' } }, 'YOU GET'),
-                                React.createElement('div', { style: { color: 'var(--silver)' } }, t.get),
-                            ),
-                        ),
-                        React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--silver)', marginTop: '4px' } }, t.reason),
-                    ))
-                ),
-                // Recent picks log
-                picks.length > 0 && React.createElement('div', { style: cardStyle },
-                    React.createElement('div', { style: goldLabel }, `DRAFT LOG (${picks.length} picks)`),
-                    React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' } },
-                        [...picks].reverse().slice(0, 20).map((p, i) => React.createElement('div', {
-                            key: i, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '0.72rem' }
-                        },
-                            React.createElement('span', { style: { color: 'var(--silver)', minWidth: '45px' } }, `R${p.round}.${p.pick}`),
-                            React.createElement('span', { style: { color: p.isUser ? 'var(--gold)' : 'var(--silver)', fontWeight: p.isUser ? 700 : 400, flex: 1 } }, p.teamName),
-                            React.createElement('span', { style: { color: 'var(--white)', fontWeight: 600 } }, p.playerName),
-                            React.createElement('span', { style: { color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace' } }, p.pos),
-                        ))
-                    )
-                ),
-            ),
-            // Right: Analytics panel (your pick only)
-            isMyPick && analytics && React.createElement('div', null,
-                // Hit rate
-                React.createElement('div', { style: cardStyle },
-                    React.createElement('div', { style: goldLabel }, 'PICK INTELLIGENCE'),
-                    React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--white)', marginBottom: '6px' } },
-                        `Pick #${current.overall} · Round ${current.round}`
-                    ),
-                    analytics.hitRate && React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '4px' } },
-                        `Historical hit rate: ${analytics.hitRate.rate || '?'}%`
-                    ),
-                    analytics.hitRate?.bestPos && React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '8px' } },
-                        `Best positions: ${analytics.hitRate.bestPos.slice(0, 3).map(p => `${p.pos} (${p.rate}%)`).join(', ')}`
-                    ),
-                ),
-                // Scarcity alerts
-                analytics.scarce.length > 0 && React.createElement('div', { style: { ...cardStyle, borderColor: 'rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.04)' } },
-                    React.createElement('div', { style: { ...goldLabel, color: '#f87171' } }, 'SCARCITY ALERT'),
-                    analytics.scarce.map(pos => React.createElement('div', { key: pos, style: { fontSize: '0.78rem', color: '#f87171', marginBottom: '2px' } },
-                        `Only ${analytics.posCount[pos] || 0} ${pos}s left in top 20 — last chance at ${pos} value`
-                    )),
-                ),
-                // Fit scores
-                React.createElement('div', { style: cardStyle },
-                    React.createElement('div', { style: goldLabel }, 'TEAM FIT'),
-                    analytics.fitScored.slice(0, 5).map(p => React.createElement('div', {
-                        key: p.pid, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0', fontSize: '0.72rem' }
-                    },
-                        React.createElement('span', { style: { color: 'var(--white)', flex: 1 } }, p.name),
-                        React.createElement('span', { style: { color: 'var(--gold)' } }, p.pos),
-                        React.createElement('span', { style: { color: analytics.needs.includes(p.pos) ? '#2ECC71' : 'var(--silver)', fontWeight: analytics.needs.includes(p.pos) ? 700 : 400 } },
-                            analytics.needs.includes(p.pos) ? 'FILLS NEED' : 'BPA'
-                        ),
-                    ))
-                ),
-            ),
-            ), // close grid
-        ); // close wrapStyle
-    }
-
-    // ── MULTI-SIM RESULTS ──
-    if (mode === 'multisim' && simResults) {
-        const { prospectRanges, myPickData, landingData: simLanding, numSims } = simResults;
-        return React.createElement('div', { style: wrapStyle },
-            exitBtn,
-            React.createElement('div', { style: { ...cardStyle, textAlign: 'center' } },
-                React.createElement('div', { style: { fontSize: '1.2rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Rajdhani, sans-serif', marginBottom: '4px' } }, `${numSims} SIMULATIONS COMPLETE`),
-                React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', marginBottom: '12px' } }, `${prospectRanges.length} prospects analyzed across ${teams} teams`),
-                React.createElement('button', {
-                    onClick: () => setMode('setup'), style: { padding: '6px 16px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem' }
-                }, '← Back'),
-            ),
-            // Prospect landing ranges
-            React.createElement('div', { style: cardStyle },
-                React.createElement('div', { style: goldLabel }, 'PROSPECT LANDING RANGES'),
-                prospectRanges.map(p => React.createElement('div', {
-                    key: p.pid, style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }
-                },
-                    React.createElement('span', { style: { fontSize: '0.78rem', color: 'var(--white)', fontWeight: 600, minWidth: '140px' } }, p.name),
-                    React.createElement('span', { style: { fontSize: '0.68rem', color: 'var(--gold)', minWidth: '30px' } }, p.pos),
-                    // Range bar
-                    React.createElement('div', { style: { flex: 1, height: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', position: 'relative', overflow: 'hidden' } },
-                        React.createElement('div', { style: {
-                            position: 'absolute', left: `${(p.min - 1) / (teams * draftRounds) * 100}%`,
-                            width: `${Math.max(2, (p.max - p.min) / (teams * draftRounds) * 100)}%`,
-                            height: '100%', background: 'rgba(212,175,55,0.3)', borderRadius: '6px',
-                        }}),
-                        React.createElement('div', { style: {
-                            position: 'absolute', left: `${(p.median - 1) / (teams * draftRounds) * 100}%`,
-                            width: '3px', height: '100%', background: 'var(--gold)', borderRadius: '2px',
-                        }}),
-                    ),
-                    React.createElement('span', { style: { fontSize: '0.68rem', color: 'var(--silver)', minWidth: '80px', textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' } },
-                        `#${p.min}–#${p.max} (med #${p.median})`
-                    ),
-                ))
-            ),
-            // Your pick projections
-            Object.keys(myPickData).length > 0 && React.createElement('div', { style: cardStyle },
-                React.createElement('div', { style: goldLabel }, 'YOUR PICK PROJECTIONS'),
-                Object.entries(myPickData).map(([round, data]) => React.createElement('div', {
-                    key: round, style: { marginBottom: '8px' }
-                },
-                    React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--gold)', fontWeight: 600, marginBottom: '4px' } }, `Round ${round}`),
-                    React.createElement('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
-                        Object.entries(data.posFreq).sort((a, b) => b[1] - a[1]).map(([pos, count]) =>
-                            React.createElement('span', { key: pos, style: { fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(212,175,55,0.1)', color: 'var(--gold)' } },
-                                `${pos}: ${Math.round(count / numSims * 100)}%`
-                            )
-                        )
-                    ),
-                ))
-            ),
-            // Draft Tendencies — who gets picked where
-            simLanding && React.createElement('div', { style: cardStyle },
-                React.createElement('div', { style: goldLabel }, 'DRAFT TENDENCIES'),
-                React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--silver)', marginBottom: '10px' } }, 'Who gets picked where across all simulations'),
-                // Table header
-                React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 50px 70px 90px 1fr', gap: '4px', padding: '6px 8px', borderBottom: '1px solid rgba(212,175,55,0.15)', fontSize: '0.62rem', color: 'var(--gold)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' } },
-                    React.createElement('span', null, 'Player'),
-                    React.createElement('span', { style: { textAlign: 'center' } }, 'Pos'),
-                    React.createElement('span', { style: { textAlign: 'center' } }, 'Avg Pick'),
-                    React.createElement('span', { style: { textAlign: 'center' } }, 'Range'),
-                    React.createElement('span', { style: { textAlign: 'right' } }, 'Most Common Team'),
-                ),
-                // Top 10 prospects by average pick
-                (() => {
-                    const posColors = window.App?.POS_COLORS || { QB: '#60a5fa', RB: '#34d399', WR: '#d4af37', TE: '#fbbf24', DL: '#fb923c', LB: '#d4af37', DB: '#f472b6' };
-                    const tendencies = Object.entries(simLanding)
-                        .map(([pid, data]) => {
-                            const p = prospectPool.find(pr => pr.pid === pid) || { name: pid, pos: '?' };
-                            const avg = Math.round(data.picks.reduce((s, v) => s + v, 0) / data.picks.length);
-                            const mn = Math.min(...data.picks);
-                            const mx = Math.max(...data.picks);
-                            // Mode of teams array
-                            const teamFreq = {};
-                            data.teams.forEach(rid => { teamFreq[rid] = (teamFreq[rid] || 0) + 1; });
-                            const modeRid = Object.entries(teamFreq).sort((a, b) => b[1] - a[1])[0];
-                            const modeTeamName = modeRid ? ((S.leagueUsers || []).find(u => u.user_id === Number(modeRid[0]) || String(u.user_id) === String(modeRid[0]))?.display_name || 'Team ' + modeRid[0]) : '—';
-                            const modePct = modeRid ? Math.round(modeRid[1] / data.teams.length * 100) : 0;
-                            return { pid, name: p.name, pos: p.pos, avg, min: mn, max: mx, modeTeamName, modePct };
-                        })
-                        .sort((a, b) => a.avg - b.avg)
-                        .slice(0, 10);
-                    return tendencies.map((t, i) => React.createElement('div', {
-                        key: t.pid, style: { display: 'grid', gridTemplateColumns: '1fr 50px 70px 90px 1fr', gap: '4px', alignItems: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.03)', background: i % 2 ? 'rgba(255,255,255,0.015)' : 'transparent' }
-                    },
-                        React.createElement('span', { style: { fontSize: '0.78rem', color: 'var(--white)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, t.name),
-                        React.createElement('span', { style: { fontSize: '0.68rem', fontWeight: 700, color: posColors[t.pos] || 'var(--silver)', textAlign: 'center', padding: '1px 4px', background: (posColors[t.pos] || '#666') + '22', borderRadius: '4px' } }, t.pos),
-                        React.createElement('span', { style: { fontSize: '0.82rem', fontWeight: 700, color: 'var(--gold)', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' } }, '#' + t.avg),
-                        React.createElement('span', { style: { fontSize: '0.68rem', color: 'var(--silver)', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' } }, '#' + t.min + ' — #' + t.max),
-                        React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--silver)', textAlign: 'right' } },
-                            t.modeTeamName,
-                            React.createElement('span', { style: { fontSize: '0.62rem', color: 'var(--gold)', marginLeft: '4px' } }, '(' + t.modePct + '%)')
-                        ),
-                    ));
-                })(),
-            ),
-        );
-    }
-
-    // ── RESULTS / POST-DRAFT ──
-    if (mode === 'results' && draftState) {
-        const grades = gradeMyPicks(draftState.picks);
-        const [saveMsg, setSaveMsg] = useState('');
-        const [resultView, setResultView] = useState('table');
-
-        // League-wide DHQ ranking
-        const teamDHQ = {};
-        draftState.picks.forEach(p => {
-            if (!teamDHQ[p.teamName]) teamDHQ[p.teamName] = { total: 0, picks: [], isUser: p.isUser };
-            teamDHQ[p.teamName].total += p.val || 0;
-            teamDHQ[p.teamName].picks.push(p);
-            if (p.isUser) teamDHQ[p.teamName].isUser = true;
-        });
-        const leagueRanking = Object.entries(teamDHQ).sort((a, b) => b[1].total - a[1].total);
-
-        // Alex analysis
-        const bestPick = grades.picks.reduce((best, p) => (!best || p.val > best.val) ? p : best, null);
-        const worstPick = grades.picks.reduce((worst, p) => (!worst || p.val < worst.val) ? p : worst, null);
-        const alexStyle = typeof getAlexStyle === 'function' ? getAlexStyle() : { name: 'Default' };
-        const posBreakdown = {};
-        grades.picks.forEach(p => { posBreakdown[p.pos] = (posBreakdown[p.pos] || 0) + 1; });
-
-        return React.createElement('div', { style: wrapStyle },
-            exitBtn,
-            // Grade header
-            React.createElement('div', { style: { ...cardStyle, textAlign: 'center', padding: '24px 20px' } },
-                React.createElement('div', { style: { fontSize: '4rem', fontWeight: 800, color: 'var(--gold)', fontFamily: 'Rajdhani, sans-serif', lineHeight: 1 } }, grades.grade),
-                React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px', marginBottom: '8px' } }, 'DRAFT GRADE'),
-                React.createElement('div', { style: { fontSize: '0.85rem', color: 'var(--silver)', marginBottom: '12px' } },
-                    `${grades.picks.length} picks · ${grades.totalDHQ.toLocaleString()} total DHQ · ${grades.avgEV.toLocaleString()} avg per pick`
-                ),
-                React.createElement('div', { style: { display: 'flex', gap: '8px', justifyContent: 'center' } },
-                    React.createElement('button', { onClick: () => { saveDraft(); setSaveMsg('Draft saved!'); setTimeout(() => setSaveMsg(''), 2000); }, style: { padding: '10px 20px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', fontWeight: 700, letterSpacing: '0.04em' } }, saveMsg || 'SAVE DRAFT'),
-                    React.createElement('button', { onClick: () => setMode('setup'), style: { padding: '10px 20px', background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '8px', cursor: 'pointer', fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', fontWeight: 700 } }, 'NEW DRAFT'),
-                ),
-            ),
-            // Sub-tab selector
-            React.createElement('div', { style: { display: 'flex', gap: '0', marginBottom: '12px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(212,175,55,0.2)' } },
-                ['summary', 'table', 'log'].map(tab => React.createElement('button', {
-                    key: tab, onClick: () => setResultView(tab),
+                e('button', {
                     style: {
-                        flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
-                        fontFamily: 'Rajdhani, sans-serif', fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                        background: resultView === tab ? 'var(--gold)' : 'var(--black)',
-                        color: resultView === tab ? 'var(--black)' : 'var(--gold)',
-                        borderRight: tab !== 'log' ? '1px solid rgba(212,175,55,0.2)' : 'none',
-                    }
-                }, tab === 'summary' ? 'Summary' : tab === 'table' ? 'Round Table' : 'Draft Log'))
+                        background: 'transparent', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.4)',
+                        borderRadius: '6px', padding: '8px 20px', fontSize: '0.82rem', cursor: 'pointer',
+                    },
+                    onClick: resetDraft,
+                }, 'New Mock Draft')
+            );
+        }
+
+        // ── RENDER: Drafting ─────────────────────────────────────
+        var order = draftState ? draftState.order : [];
+        var available = draftState ? draftState.available : [];
+        var allPicksMade = draftState ? draftState.picks : [];
+        var sz = draftState ? draftState.leagueSize : 12;
+        var rd = draftState ? draftState.rounds : 3;
+
+        // Build pickMap: "teamIndex-round" -> pick
+        var pickMap = {};
+        allPicksMade.forEach(function(pk) { pickMap[pk.teamIndex + '-' + pk.round] = pk; });
+
+        var topAvailable = available.slice(0, 30);
+
+        return e('div', { style: { padding: '12px 16px', fontFamily: 'DM Sans, sans-serif' } },
+
+            // Header
+            currentSlot && e('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' } },
+                e('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.72rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.08em' } },
+                    'Round ' + currentSlot.round + ' of ' + rd + ' \u2014 Pick ' + currentSlot.overall),
+                isUserTurn && e('div', { style: { background: 'rgba(212,175,55,0.15)', border: '1px solid var(--gold)', color: 'var(--gold)', borderRadius: '4px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: '700', fontFamily: 'Rajdhani, sans-serif', letterSpacing: '0.06em' } },
+                    '\u26a1 ON THE CLOCK'),
+                !isUserTurn && e('div', { style: { color: 'var(--silver)', fontSize: '0.72rem', opacity: 0.6 } }, 'AI picking\u2026')
             ),
-            // ── Summary view ──
-            resultView === 'summary' && React.createElement(React.Fragment, null,
-            // Alex's analysis
-            React.createElement('div', { style: { ...cardStyle, borderColor: 'rgba(212,175,55,0.3)' } },
-                React.createElement('div', { style: goldLabel }, `ALEX'S ANALYSIS`),
-                React.createElement('div', { style: { fontSize: '0.85rem', color: 'var(--silver)', lineHeight: 1.7 } },
-                    `Overall grade: ${grades.grade}. You drafted ${grades.picks.length} players for a total of ${grades.totalDHQ.toLocaleString()} DHQ. ` +
-                    (bestPick ? `Your best pick was ${bestPick.playerName} (${bestPick.pos}, ${bestPick.val.toLocaleString()} DHQ) — that's a value play at R${bestPick.round}.${bestPick.pick}. ` : '') +
-                    (worstPick && worstPick.pid !== bestPick?.pid ? `${worstPick.playerName} at R${worstPick.round}.${worstPick.pick} was your biggest reach — ${worstPick.val.toLocaleString()} DHQ is thin for that slot. ` : '') +
-                    `Position breakdown: ${Object.entries(posBreakdown).map(([pos, ct]) => `${ct} ${pos}`).join(', ')}. ` +
-                    (grades.picks.filter(p => p.verdict === 'Value').length >= grades.picks.length * 0.5 ? 'You consistently picked value over need — smart dynasty drafting.' : 'Some reaches in there, but the overall portfolio is workable.')
-                ),
-                React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--gold)', marginTop: '8px', fontStyle: 'italic' } }, '— Alex'),
-            ),
-            // Your picks graded (with photos)
-            React.createElement('div', { style: cardStyle },
-                React.createElement('div', { style: goldLabel }, 'YOUR PICKS'),
-                grades.picks.map((p, i) => React.createElement('div', {
-                    key: i, style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }
-                },
-                    React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--silver)', minWidth: '45px' } }, `R${p.round}.${p.pick}`),
-                    React.createElement('img', { src: `https://sleepercdn.com/content/nfl/players/thumb/${p.pid}.jpg`, style: { width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }, onError: e => e.target.style.display = 'none' }),
-                    React.createElement('span', { style: { fontSize: '0.82rem', color: 'var(--white)', fontWeight: 600, flex: 1 } }, p.playerName),
-                    React.createElement('span', { style: { fontSize: '0.72rem', fontWeight: 700, color: 'var(--gold)', padding: '1px 6px', borderRadius: '4px', background: 'rgba(212,175,55,0.1)' } }, p.pos),
-                    React.createElement('span', { style: { fontSize: '0.78rem', color: 'var(--silver)', fontFamily: 'JetBrains Mono, monospace' } }, p.val.toLocaleString()),
-                    React.createElement('span', { style: {
-                        fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px',
-                        background: p.verdict === 'Value' ? 'rgba(46,204,113,0.15)' : p.verdict === 'Fair' ? 'rgba(212,175,55,0.15)' : 'rgba(248,113,113,0.15)',
-                        color: p.verdict === 'Value' ? '#2ECC71' : p.verdict === 'Fair' ? 'var(--gold)' : '#f87171',
-                    } }, p.verdict),
-                ))
-            ),
-            // League DHQ ranking
-            React.createElement('div', { style: cardStyle },
-                React.createElement('div', { style: goldLabel }, 'LEAGUE DRAFT RANKING (BY DHQ ACQUIRED)'),
-                leagueRanking.map(([name, data], i) => React.createElement('div', {
-                    key: i, style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }
-                },
-                    React.createElement('span', { style: { fontSize: '0.72rem', color: i < 3 ? 'var(--gold)' : 'var(--silver)', fontWeight: 700, minWidth: '24px' } }, `#${i + 1}`),
-                    React.createElement('span', { style: { fontSize: '0.78rem', color: data.isUser ? 'var(--gold)' : 'var(--white)', fontWeight: data.isUser ? 700 : 400, flex: 1 } }, `${name}${data.isUser ? ' (YOU)' : ''}`),
-                    React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--silver)' } }, `${data.picks.length} picks`),
-                    React.createElement('span', { style: { fontSize: '0.78rem', fontWeight: 700, color: i < 3 ? '#2ECC71' : 'var(--silver)', fontFamily: 'JetBrains Mono, monospace' } }, data.total.toLocaleString()),
-                ))
-            ),
-            ), // close summary fragment
-            // ── Round Table view ──
-            resultView === 'table' && (() => {
-                const posColors = window.App?.POS_COLORS || { QB: '#60a5fa', RB: '#34d399', WR: '#d4af37', TE: '#fbbf24', DL: '#fb923c', LB: '#d4af37', DB: '#f472b6' };
-                const gridData = {};
-                const teamOrder = [];
-                const seenTeams = new Set();
-                // Build team order from first round picks to get consistent column order
-                draftState.picks.forEach(p => {
-                    if (!seenTeams.has(p.rosterId)) { seenTeams.add(p.rosterId); teamOrder.push(p.rosterId); }
-                });
-                const maxRound = Math.max(...draftState.picks.map(p => p.round));
-                draftState.picks.forEach(pick => {
-                    const key = pick.round + '_' + pick.rosterId;
-                    gridData[key] = pick;
-                });
-                // Get team name for a rosterId
-                const getTeamName = (rid) => {
-                    const user = (S.leagueUsers || []).find(u => u.user_id === rid || String(u.user_id) === String(rid));
-                    return user?.display_name || 'Team ' + rid;
-                };
-                return React.createElement('div', { style: { ...cardStyle, padding: '12px', overflowX: 'auto' } },
-                    React.createElement('div', { style: goldLabel }, 'ROUND TABLE'),
-                    React.createElement('div', { style: { overflowX: 'auto', WebkitOverflowScrolling: 'touch' } },
-                        React.createElement('table', { style: { borderCollapse: 'collapse', minWidth: teamOrder.length * 90 + 60 + 'px', width: '100%' } },
-                            // Header row: team names
-                            React.createElement('thead', null,
-                                React.createElement('tr', null,
-                                    React.createElement('th', { style: { padding: '6px 8px', fontSize: '0.62rem', color: 'var(--gold)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'left', borderBottom: '2px solid rgba(212,175,55,0.3)', position: 'sticky', left: 0, background: 'var(--black)', zIndex: 2 } }, 'RD'),
-                                    teamOrder.map(rid => React.createElement('th', {
-                                        key: rid, style: {
-                                            padding: '6px 4px', fontSize: '0.6rem', color: rid === myRid ? 'var(--black)' : 'var(--gold)', fontWeight: 700,
-                                            textTransform: 'uppercase', letterSpacing: '0.02em', textAlign: 'center',
-                                            borderBottom: '2px solid rgba(212,175,55,0.3)',
-                                            background: rid === myRid ? 'rgba(212,175,55,0.85)' : 'var(--black)',
-                                            maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                        }
-                                    }, getTeamName(rid).slice(0, 8)))
-                                )
-                            ),
-                            // Body: one row per round
-                            React.createElement('tbody', null,
-                                Array.from({ length: maxRound }, (_, ri) => {
-                                    const rd = ri + 1;
-                                    return React.createElement('tr', { key: rd },
-                                        React.createElement('td', { style: { padding: '4px 8px', fontSize: '0.68rem', color: 'var(--gold)', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.05)', position: 'sticky', left: 0, background: 'var(--black)', zIndex: 1 } }, rd),
-                                        teamOrder.map(rid => {
-                                            const pick = gridData[rd + '_' + rid];
-                                            const isMe = rid === myRid;
-                                            if (!pick) return React.createElement('td', { key: rid, style: { padding: '4px', borderBottom: '1px solid rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.04)', background: isMe ? 'rgba(212,175,55,0.08)' : 'transparent' } }, '—');
-                                            const lastName = (pick.playerName || '').split(' ').pop().slice(0, 10);
-                                            const pc = posColors[pick.pos] || 'var(--silver)';
-                                            return React.createElement('td', {
-                                                key: rid, style: {
-                                                    padding: '3px 4px', textAlign: 'center',
-                                                    borderBottom: '1px solid rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.04)',
-                                                    background: isMe ? 'rgba(212,175,55,0.08)' : 'transparent',
-                                                }
-                                            },
-                                                React.createElement('div', { style: { fontSize: '0.68rem', color: isMe ? 'var(--white)' : 'rgba(255,255,255,0.8)', fontWeight: isMe ? 700 : 500, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, lastName),
-                                                React.createElement('div', { style: { fontSize: '0.55rem', fontWeight: 700, color: pc, lineHeight: 1 } }, pick.pos),
-                                            );
-                                        })
-                                    );
-                                })
-                            ),
-                        )
-                    ),
-                );
-            })(),
-            // ── Draft Log view ──
-            resultView === 'log' && React.createElement('div', { style: cardStyle },
-                React.createElement('div', { style: goldLabel }, `COMPLETE DRAFT (${draftState.picks.length} picks)`),
-                React.createElement('div', { style: { maxHeight: '500px', overflowY: 'auto' } },
-                    [...new Set(draftState.picks.map(p => p.round))].map(rd =>
-                        React.createElement('div', { key: rd },
-                            React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--gold)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '8px 0 4px', borderBottom: '1px solid rgba(212,175,55,0.1)' } }, `ROUND ${rd}`),
-                            draftState.picks.filter(p => p.round === rd).map((p, i) => React.createElement('div', {
-                                key: i, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: '0.72rem' }
-                            },
-                                React.createElement('span', { style: { color: 'var(--silver)', minWidth: '28px' } }, `${p.pick}.`),
-                                React.createElement('img', { src: `https://sleepercdn.com/content/nfl/players/thumb/${p.pid}.jpg`, style: { width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }, onError: e => e.target.style.display = 'none' }),
-                                React.createElement('span', { style: { color: p.isUser ? 'var(--gold)' : 'var(--silver)', minWidth: '100px', fontWeight: p.isUser ? 700 : 400 } }, p.teamName),
-                                React.createElement('span', { style: { color: 'var(--white)', fontWeight: 600, flex: 1 } }, p.playerName),
-                                React.createElement('span', { style: { color: 'var(--gold)', fontSize: '0.62rem', fontWeight: 700 } }, p.pos),
-                                React.createElement('span', { style: { color: 'var(--silver)', fontFamily: 'JetBrains Mono, monospace' } }, p.val.toLocaleString()),
-                            ))
-                        )
-                    )
+
+            // On the clock player picker
+            isUserTurn && e('div', { style: { marginBottom: '16px' } },
+                e('div', { style: { fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Rajdhani, sans-serif', marginBottom: '6px' } },
+                    'Select a Player'),
+                e('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '240px', overflowY: 'auto' } },
+                    topAvailable.map(function(p) {
+                        return e('div', {
+                            key: p.pid,
+                            style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--charcoal)', borderRadius: '5px', cursor: 'pointer', transition: 'background 0.12s' },
+                            onMouseEnter: function(ev) { ev.currentTarget.style.background = 'rgba(212,175,55,0.12)'; },
+                            onMouseLeave: function(ev) { ev.currentTarget.style.background = 'var(--charcoal)'; },
+                            onClick: function() { userPick(p); },
+                        },
+                            e('span', { style: { color: 'var(--silver)', minWidth: '28px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem' } }, '#' + p.rank),
+                            e('span', { style: { background: posColor(p.pos), color: '#000', padding: '1px 5px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: '700', minWidth: '24px', textAlign: 'center' } }, p.pos),
+                            e('span', { style: { flex: 1, color: 'var(--white)', fontSize: '0.85rem', fontWeight: '500' } }, p.name),
+                            e('span', { style: { color: 'var(--silver)', fontSize: '0.75rem', minWidth: '30px' } }, p.team),
+                            e('span', { style: { color: 'var(--gold)', fontSize: '0.72rem', fontFamily: 'JetBrains Mono, monospace', minWidth: '42px', textAlign: 'right' } },
+                                p.dynastyValue > 0 ? p.dynastyValue.toLocaleString() : '')
+                        );
+                    })
                 )
             ),
+
+            // Draft board grid
+            e('div', { style: { fontSize: '0.7rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'Rajdhani, sans-serif', marginBottom: '6px' } }, 'Draft Board'),
+            e('div', { style: { overflowX: 'auto' } },
+                e('table', { style: { borderCollapse: 'collapse', minWidth: '100%', fontSize: '0.72rem' } },
+                    e('thead', null,
+                        e('tr', null,
+                            e('th', { style: { padding: '4px 8px', color: 'var(--silver)', fontWeight: '600', textAlign: 'left', whiteSpace: 'nowrap', background: 'var(--off-black)', position: 'sticky', left: 0, zIndex: 1 } }, 'RD'),
+                            Array.from({ length: sz }, function(_, i) {
+                                var ti = i + 1;
+                                var isMe = ti === userTeamIdx;
+                                return e('th', {
+                                    key: ti,
+                                    style: {
+                                        padding: '4px 6px', minWidth: '72px', textAlign: 'center', whiteSpace: 'nowrap',
+                                        color: isMe ? 'var(--gold)' : 'var(--silver)',
+                                        fontWeight: isMe ? '700' : '400',
+                                        background: isMe ? 'rgba(212,175,55,0.06)' : 'transparent',
+                                    }
+                                }, isMe ? 'YOU' : 'T' + ti);
+                            })
+                        )
+                    ),
+                    e('tbody', null,
+                        Array.from({ length: rd }, function(_, ri) {
+                            var r = ri + 1;
+                            return e('tr', { key: r, style: { borderTop: '1px solid rgba(255,255,255,0.04)' } },
+                                e('td', { style: { padding: '4px 8px', color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontWeight: '700', background: 'var(--off-black)', position: 'sticky', left: 0 } }, r),
+                                Array.from({ length: sz }, function(_, ci) {
+                                    var ti = ci + 1;
+                                    var pk = pickMap[ti + '-' + r];
+                                    var isMe = ti === userTeamIdx;
+                                    var isCurrent = currentSlot && currentSlot.round === r && currentSlot.teamIndex === ti;
+                                    return e('td', {
+                                        key: ti,
+                                        style: {
+                                            padding: '3px 5px', textAlign: 'center', verticalAlign: 'middle',
+                                            background: isMe ? 'rgba(212,175,55,0.06)' : isCurrent ? 'rgba(255,255,255,0.03)' : 'transparent',
+                                            border: isCurrent ? '1px solid rgba(212,175,55,0.4)' : '1px solid transparent',
+                                        }
+                                    },
+                                        pk ? e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' } },
+                                            e('span', { style: { background: posColor(pk.player.pos), color: '#000', padding: '0 4px', borderRadius: '3px', fontSize: '0.62rem', fontWeight: '700', lineHeight: '14px' } }, pk.player.pos),
+                                            e('span', { style: { color: pk.isUser ? 'var(--gold)' : 'var(--silver)', fontSize: '0.65rem', whiteSpace: 'nowrap', maxWidth: '68px', overflow: 'hidden', textOverflow: 'ellipsis' } },
+                                                pk.player.name.split(' ').slice(-1)[0])
+                                        ) : isCurrent ? e('span', { style: { color: 'var(--gold)', fontSize: '0.8rem' } }, '\u25b6') : null
+                                    );
+                                })
+                            );
+                        })
+                    )
+                )
+            )
         );
     }
 
-    return React.createElement('div', { style: { color: 'var(--silver)', textAlign: 'center', padding: '40px' } }, 'Loading...');
-}
+    window.MockDraftSimulator = MockDraftSimulator;
+
+})();

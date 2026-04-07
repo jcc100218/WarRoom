@@ -231,6 +231,23 @@
   <section class="auth" id="auth">
     <img src="icon-192.png" alt="War Room" style="display:block;width:56px;height:56px;border-radius:14px;margin:0 auto 16px;box-shadow:0 4px 20px rgba(212,175,55,.2)">
     <h2 class="auth-title">Get your War Room</h2>
+
+    <!-- OAuth sign-in buttons (Google & Apple) -->
+    <button id="btnGoogle" onclick="handleOAuthGoogle()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 16px;border-radius:10px;border:1px solid #dadce0;background:#fff;color:#3c4043;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;box-sizing:border-box;font-family:inherit;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.18)'" onmouseout="this.style.boxShadow='none'">
+      <svg viewBox="0 0 24 24" width="18" height="18" style="flex-shrink:0"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Continue with Google
+    </button>
+    <button id="btnApple" onclick="handleOAuthApple()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 16px;border-radius:10px;border:none;background:#000;color:#fff;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:16px;box-sizing:border-box;font-family:inherit;transition:opacity .15s" onmouseover="this.style.opacity='.82'" onmouseout="this.style.opacity='1'">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="#fff" style="flex-shrink:0"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+      Continue with Apple
+    </button>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <div style="flex:1;height:1px;background:rgba(255,255,255,.12)"></div>
+      <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,.4);white-space:nowrap;text-transform:uppercase;letter-spacing:.05em">or use email</span>
+      <div style="flex:1;height:1px;background:rgba(255,255,255,.12)"></div>
+    </div>
+
     <div class="auth-tabs">
       <button class="auth-tab active" id="tabSignup" onclick="switchTab('signup')">Create Account</button>
       <button class="auth-tab" id="tabSignin" onclick="switchTab('signin')">Sign In</button>
@@ -252,11 +269,72 @@
 
   <footer class="footer">&copy; 2026 Fantasy Wars &middot; All rights reserved</footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.101.1/dist/umd/supabase.min.js"></script>
   <script>
     const FW_API_BASE = 'https://sxshiqyxhhifvtfqawbq.supabase.co/functions/v1';
     const FW_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4c2hpcXl4aGhpZnZ0ZnFhd2JxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MTExMzAsImV4cCI6MjA4ODI4NzEzMH0.zJi9W986ZLaANiZN6pt6ReFwaQU6yPeidsERIWo2ibI';
+    const SUPABASE_URL = 'https://sxshiqyxhhifvtfqawbq.supabase.co';
     const SESSION_KEY = 'fw_session_v1';
     const SCOUT_URL = 'https://jcc100218.github.io/ReconAI/';
+
+    // ── OAuth sign-in helpers ────────────────────────────────────
+    // Providers must be enabled in Supabase Dashboard:
+    //   Settings → Authentication → Providers
+    //   Google: Client ID + Secret from Google Cloud Console
+    //   Apple:  Service ID + Secret Key from Apple Developer Portal
+    let _sbClient = null;
+    function getSbClient() {
+      if (!_sbClient && window.supabase) {
+        _sbClient = window.supabase.createClient(SUPABASE_URL, FW_ANON_KEY);
+      }
+      return _sbClient;
+    }
+
+    function handleOAuthGoogle() {
+      const db = getSbClient();
+      if (!db) return;
+      const btn = document.getElementById('btnGoogle');
+      if (btn) { btn.disabled = true; btn.textContent = 'Redirecting\u2026'; }
+      db.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + window.location.pathname },
+      });
+    }
+
+    function handleOAuthApple() {
+      const db = getSbClient();
+      if (!db) return;
+      const btn = document.getElementById('btnApple');
+      if (btn) { btn.disabled = true; btn.textContent = 'Redirecting\u2026'; }
+      db.auth.signInWithOAuth({
+        provider: 'apple',
+        options: { redirectTo: window.location.origin + window.location.pathname },
+      });
+    }
+
+    // Handle OAuth redirect: if Supabase returns a session via hash, store it and redirect
+    (async function handleOAuthCallback() {
+      try {
+        const db = getSbClient();
+        if (!db) return;
+        const { data } = await db.auth.getSession();
+        if (data?.session) {
+          // Store in fw_session_v1 format so existing redirect logic works
+          const user = data.session.user;
+          const existing = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+          if (!existing?.token) {
+            localStorage.setItem(SESSION_KEY, JSON.stringify({
+              token: data.session.access_token,
+              user: { email: user.email, displayName: user.user_metadata?.full_name || user.user_metadata?.name || user.email },
+            }));
+          }
+          const profile = JSON.parse(localStorage.getItem('od_profile_v1') || 'null');
+          const dest = (!profile || !profile.onboardingComplete) ? 'onboarding.html'
+            : (localStorage.getItem('fw_preferred_view') === 'scout' ? SCOUT_URL : WARROOM_URL);
+          window.location.href = dest;
+        }
+      } catch (e) { console.warn('[WR] OAuth callback error:', e); }
+    })();
     const WARROOM_URL = 'index.html';
 
     // Redirect if already signed in

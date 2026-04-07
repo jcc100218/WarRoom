@@ -66,7 +66,10 @@ function mdsBuildPool(playersData) {
         }
         return window.App?.LI?.playerScores?.[pid] || 0;
     };
+    const rp = window.S?.leagues?.find(l => l.league_id === window.S?.currentLeagueId)?.roster_positions || [];
     const VALID = new Set(['QB', 'RB', 'WR', 'TE']);
+    if (rp.some(s => s === 'K')) VALID.add('K');
+    if (rp.some(s => ['DL','DE','DT','LB','DB','CB','S','IDP_FLEX'].includes(s))) { VALID.add('DL'); VALID.add('LB'); VALID.add('DB'); }
     const src = playersData || window.S?.players || {};
     const live = Object.entries(src)
         .filter(([, p]) => VALID.has(normPos(p.position)) && p.status !== 'Inactive' && (p.first_name || p.full_name))

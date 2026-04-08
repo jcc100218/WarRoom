@@ -204,14 +204,18 @@ function DashboardPanel({
     // ══════════════════════════════════════════════════════════════
     // SMALL KPI CARD RENDERER
     // ══════════════════════════════════════════════════════════════
+    // Map KPI category to tab for click-through navigation
+    const categoryToTab = { Trades: 'trades', Draft: 'draft', Roster: 'myteam', League: 'league', Waivers: 'fa', Projection: 'analytics', History: 'trophies' };
+
     function renderSmallKpi(widget, idx) {
         const kpiKey = widget.key;
         const isEditing = editingKpi === idx;
         const opt = KPI_OPTIONS[kpiKey] || { label: kpiKey, icon: '?', category: '' };
         const val = computeKpiValue(kpiKey);
+        const clickTab = categoryToTab[opt.category];
         return (
-            <div key={kpiKey + '-' + idx} style={{
-                ...kpiCardStyle, position: 'relative', cursor: 'default',
+            <div key={kpiKey + '-' + idx} onClick={() => { if (clickTab && !isEditing && setActiveTab) setActiveTab(clickTab); }} style={{
+                ...kpiCardStyle, position: 'relative', cursor: clickTab ? 'pointer' : 'default',
                 border: isEditing ? '1px solid var(--gold)' : kpiCardStyle.border,
                 gridColumn: 'span 1'
             }}>

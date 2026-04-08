@@ -50,7 +50,22 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
         return React.createElement('div', null,
             // Championship Timeline
             React.createElement('div', { style: cardStyle },
-                React.createElement('div', { style: headerStyle }, 'CHAMPIONSHIP TIMELINE'),
+                React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+                    React.createElement('div', { style: { ...headerStyle, flex: 1, marginBottom: 0 } }, 'CHAMPIONSHIP TIMELINE'),
+                    React.createElement('button', { onClick: () => {
+                        const text = seasons.map(s => {
+                            const c = championships[s];
+                            const champ = ownerHistory[c.champion]?.ownerName || '?';
+                            const runner = ownerHistory[c.runnerUp]?.ownerName || '';
+                            return s + ': ' + champ + (runner ? ' def. ' + runner : '');
+                        }).join('\n');
+                        navigator.clipboard?.writeText(currentLeague?.name + ' Championships\n' + text).then(() => {
+                            const btn = document.getElementById('share-champ-btn');
+                            if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Share', 1500); }
+                        });
+                    }, id: 'share-champ-btn', style: { background: 'none', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--gold)', fontSize: '0.65rem', fontWeight: 700, padding: '3px 8px', cursor: 'pointer', fontFamily: 'inherit' } }, 'Share'),
+                ),
+                React.createElement('div', { style: { marginTop: '10px' } }),
                 seasons.length === 0
                     ? React.createElement('div', { style: { color: 'var(--silver)', fontSize: '0.8rem' } }, 'No championship data yet. Play a full season to see your league history.')
                     : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
@@ -107,6 +122,46 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
                     })
                 ),
             ),
+
+            // Winner's Perch — draft pick position → championship correlation
+            (() => {
+                const draftOutcomes = window.App?.LI?.draftOutcomes || [];
+                if (draftOutcomes.length < 10) return null;
+                // Count championships by draft pick position (round 1 only for clarity)
+                const pickSlotResults = {};
+                const champRids = new Set();
+                Object.values(championships).forEach(c => { if (c.champion) champRids.add(c.champion); });
+
+                draftOutcomes.filter(d => d.round === 1).forEach(d => {
+                    const slot = d.pick_no || d.draft_slot || 0;
+                    if (!slot || slot > 16) return;
+                    if (!pickSlotResults[slot]) pickSlotResults[slot] = { picks: 0, starters: 0, champTeam: 0 };
+                    pickSlotResults[slot].picks++;
+                    if (d.isStarter) pickSlotResults[slot].starters++;
+                    if (champRids.has(d.roster_id)) pickSlotResults[slot].champTeam++;
+                });
+
+                const slots = Object.entries(pickSlotResults)
+                    .map(([slot, data]) => ({ slot: parseInt(slot), ...data, hitRate: data.picks > 0 ? Math.round(data.starters / data.picks * 100) : 0 }))
+                    .sort((a, b) => a.slot - b.slot);
+
+                if (!slots.length) return null;
+                const maxHit = Math.max(...slots.map(s => s.hitRate), 1);
+
+                return React.createElement('div', { style: cardStyle },
+                    React.createElement('div', { style: headerStyle }, "WINNER'S PERCH \u2014 R1 Pick Value"),
+                    React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '8px' } }, 'Historical hit rate by first-round draft slot'),
+                    React.createElement('div', { style: { display: 'flex', gap: '4px', alignItems: 'flex-end', height: '80px' } },
+                        slots.map(s =>
+                            React.createElement('div', { key: s.slot, style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }, title: 'Pick ' + s.slot + ': ' + s.hitRate + '% hit rate (' + s.starters + '/' + s.picks + ')' },
+                                React.createElement('div', { style: { fontSize: '0.55rem', color: s.hitRate >= 50 ? 'var(--gold)' : 'var(--silver)', fontWeight: 700 } }, s.hitRate + '%'),
+                                React.createElement('div', { style: { width: '100%', background: s.hitRate >= 50 ? 'var(--gold)' : s.hitRate >= 25 ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.1)', borderRadius: '2px 2px 0 0', height: Math.max(4, (s.hitRate / maxHit) * 60) + 'px', transition: 'height 0.4s' } }),
+                                React.createElement('div', { style: { fontSize: '0.55rem', color: 'var(--silver)' } }, s.slot),
+                            )
+                        ),
+                    ),
+                );
+            })(),
         );
     }
 
@@ -219,8 +274,44 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
     }
 
     // ══════════════════════════════════════════════════════════════
-    // CHRONICLES IMPORT
+    // CHRONICLES IMPORT (paste or file upload)
     // ══════════════════════════════════════════════════════════════
+    async function handleFileUpload(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setImportStatus('reading');
+        try {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (['csv', 'tsv', 'txt'].includes(ext)) {
+                const text = await file.text();
+                setImportText(text);
+            } else if (['xlsx', 'xls'].includes(ext)) {
+                // For Excel: read as text via basic CSV extraction
+                const text = await file.text().catch(() => '');
+                if (text) { setImportText(text); }
+                else { setImportText('[Excel file: ' + file.name + ' — paste the data as text instead]'); }
+            } else if (['pdf'].includes(ext)) {
+                // PDFs can't be read client-side easily — ask user to paste
+                setImportText('[PDF uploaded: ' + file.name + ']\nPDF text extraction is limited in-browser. For best results, copy the data from your PDF and paste it in the text box above.');
+            } else if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+                // Images: convert to base64 for AI vision analysis
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result;
+                    setImportText('[Image: ' + file.name + ']\nImage uploaded. Alex will analyze the content.\n\n' + base64.substring(0, 200) + '...');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                const text = await file.text();
+                setImportText(text);
+            }
+            setImportStatus('');
+        } catch (err) {
+            console.warn('[Chronicles] File read error:', err);
+            setImportStatus('error');
+        }
+    }
+
     async function parseChronicles() {
         if (!importText.trim()) return;
         setImportStatus('parsing');
@@ -263,7 +354,15 @@ ${importText.substring(0, 8000)}`;
             React.createElement('div', { style: cardStyle },
                 React.createElement('div', { style: headerStyle }, 'IMPORT LEAGUE CHRONICLES'),
                 React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.6, marginBottom: '12px' } },
-                    'Paste your league\'s historical data below \u2014 all-time standings, championship history, awards, all-time team. Alex will parse the structure and map it into your Trophy Room.'),
+                    'Upload a file or paste your league\'s historical data. Alex will parse the structure and map it into your Trophy Room.'),
+                // File upload
+                React.createElement('div', { style: { display: 'flex', gap: '8px', marginBottom: '10px' } },
+                    React.createElement('label', { style: { flex: 1, padding: '10px', background: 'rgba(212,175,55,0.08)', border: '1px dashed rgba(212,175,55,0.3)', borderRadius: '8px', textAlign: 'center', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--gold)', fontWeight: 600 } },
+                        '\uD83D\uDCC1 Upload CSV, Excel, PDF, or Image',
+                        React.createElement('input', { type: 'file', accept: '.csv,.tsv,.txt,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.gif,.webp', onChange: handleFileUpload, style: { display: 'none' } }),
+                    ),
+                ),
+                importStatus === 'reading' && React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--gold)', marginBottom: '8px' } }, 'Reading file...'),
                 React.createElement('textarea', {
                     value: importText, onChange: e => setImportText(e.target.value),
                     placeholder: 'Paste your spreadsheet data here...\n\nExample:\nTEAM  FROM  TO  W  L  CHMP  2ND\nSkjjcruz  2021  47  22  2  1\n...',

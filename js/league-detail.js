@@ -1265,6 +1265,11 @@
                     }).catch(err => window.wrLog('tags.load', err));
                 }
 
+                // Show tutorial for first-time users
+                if (typeof window.startWRTutorial === 'function') {
+                    setTimeout(window.startWRTutorial, 1000);
+                }
+
                 // Load league docs context for commissioner mode (fire-and-forget)
                 if (window.OD?.getLeagueDocsContext) {
                     window.OD.getLeagueDocsContext(currentLeague.id || currentLeague.league_id).then(ctx => {

@@ -1,466 +1,462 @@
 // ══════════════════════════════════════════════════════════════════
-// js/tabs/global-view.js — Pro Tier: Empire Dashboard
-// "Europa Universalis for Dynasty" — you are the kingdom, leagues are provinces.
-// Aggregates roster, trades, waivers, health, projections across ALL leagues.
-// Tabs: Overview | All Players | All Picks | Exposure
-// Requires Pro tier ($12.99/mo) or higher.
+// js/tabs/global-view.js — DYNASTY CONTROL TOWER
+// Filter-driven cross-league intelligence. Everything recalculates.
+// Every insight is clickable. Zoom: global → league → player.
+// Bloomberg density · TradingView interactivity · Sleeper accessibility
 // ══════════════════════════════════════════════════════════════════
 
 function EmpireDashboard({ allLeagues, playersData, sleeperUserId, onEnterLeague, onBack }) {
-    const { useState, useMemo } = React;
+    const { useState, useMemo, useCallback } = React;
     const normPos = window.App?.normPos || (p => p);
     const scores = window.App?.LI?.playerScores || {};
-    const meta = window.App?.LI?.playerMeta || {};
     const posColors = window.App?.POS_COLORS || {};
+    const peaks = window.App?.peakWindows || {};
 
-    const [empireTab, setEmpireTab] = useState('overview');
-    const [playerSort, setPlayerSort] = useState({ key: 'dhq', dir: -1 });
-    const [playerPosFilter, setPlayerPosFilter] = useState('');
-    const [expandedProvince, setExpandedProvince] = useState(null);
+    // ══════════════════════════════════════════════════════════════
+    // GLOBAL FILTER STATE — drives everything
+    // ══════════════════════════════════════════════════════════════
+    const [filters, setFilters] = useState({
+        league: '',         // '' = all, or league id
+        status: '',         // '' | 'contender' | 'rebuild' | 'fringe'
+        position: '',       // '' | 'QB' | 'RB' | 'WR' | 'TE' | 'DL' | 'LB' | 'DB'
+        ageBucket: '',      // '' | 'rookie' | 'prime' | 'aging'
+        assetType: '',      // '' | 'players' | 'picks'
+    });
+    const [drillPlayer, setDrillPlayer] = useState(null); // pid for player drill-down
+    const [drillLeague, setDrillLeague] = useState(null); // league id for league drill-down
+    const setFilter = useCallback((key, val) => {
+        setFilters(prev => ({ ...prev, [key]: prev[key] === val ? '' : val }));
+        setDrillPlayer(null);
+        setDrillLeague(null);
+    }, []);
 
+    const userName = window.S?.user?.display_name || window.S?.user?.username || 'Commander';
     const alexAvatar = (() => {
         const key = localStorage.getItem('wr_alex_avatar') || 'brain';
-        const map = { brain:'\u{1F9E0}', target:'\u{1F3AF}', chart:'\u{1F4CA}', football:'\u{1F3C8}', bolt:'\u26A1', fire:'\u{1F525}', medal:'\u{1F396}\uFE0F', trophy:'\u{1F3C6}' };
+        const map = { brain:'\u{1F9E0}', target:'\u{1F3AF}', chart:'\u{1F4CA}', football:'\u{1F3C8}', bolt:'\u26A1', fire:'\u{1F525}' };
         return map[key] || '\u{1F9E0}';
     })();
-    const userName = window.S?.user?.display_name || window.S?.user?.username || 'Commander';
 
     // ══════════════════════════════════════════════════════════════
-    // PROVINCE DATA — one enriched object per league
+    // DATA ENGINE — compute everything, then filter
     // ══════════════════════════════════════════════════════════════
-    const provinces = useMemo(() => {
-        if (!allLeagues?.length) return [];
-        return allLeagues.map(league => {
+    const engine = useMemo(() => {
+        const provinces = [];
+        const allAssets = [];    // every player across every league
+        const allPicks = [];     // every draft pick
+        const positionTotals = {};
+        const ageBuckets = { rookie: 0, prime: 0, aging: 0 };
+
+        (allLeagues || []).forEach(league => {
             const rosters = league.rosters || [];
             const myRoster = rosters.find(r => r.owner_id === sleeperUserId || r.owner_id === league.myUserId);
-            if (!myRoster) return null;
+            if (!myRoster) return;
 
             const players = myRoster.players || [];
             const totalDHQ = players.reduce((s, pid) => s + (scores[pid] || 0), 0);
-            const wins = myRoster.settings?.wins || 0;
-            const losses = myRoster.settings?.losses || 0;
+            const w = myRoster.settings?.wins || 0, l = myRoster.settings?.losses || 0;
             const budget = league.settings?.waiver_budget || 0;
             const spent = myRoster.settings?.waiver_budget_used || 0;
-            const faab = Math.max(0, budget - spent);
 
-            // Health + tier
+            // Assessment
             let healthScore = 0, tier = 'UNKNOWN', needs = [], strengths = [];
             if (typeof window.assessTeamFromGlobal === 'function') {
-                const assess = window.assessTeamFromGlobal(myRoster.roster_id);
-                if (assess) {
-                    healthScore = assess.healthScore || 0;
-                    tier = assess.tier || 'UNKNOWN';
-                    needs = (assess.needs || []).slice(0, 3).map(n => typeof n === 'string' ? n : n.pos);
-                    strengths = (assess.strengths || []).slice(0, 3);
-                }
+                const a = window.assessTeamFromGlobal(myRoster.roster_id);
+                if (a) { healthScore = a.healthScore || 0; tier = a.tier || 'UNKNOWN'; needs = (a.needs || []).slice(0, 3).map(n => typeof n === 'string' ? n : n.pos); strengths = (a.strengths || []).slice(0, 3); }
             }
+            const ownerProfile = window.App?.LI?.ownerProfiles?.[myRoster.roster_id] || {};
+            const tierColor = tier === 'ELITE' ? '#2ECC71' : tier === 'CONTENDER' ? '#3498DB' : tier === 'CROSSROADS' ? '#F0A500' : '#E74C3C';
+            const status = (tier === 'ELITE' || tier === 'CONTENDER') ? 'contender' : tier === 'CROSSROADS' ? 'fringe' : 'rebuild';
 
             // Power rank
-            const ranked = [...rosters].sort((a, b) => {
-                const da = (a.players || []).reduce((s, pid) => s + (scores[pid] || 0), 0);
-                const db = (b.players || []).reduce((s, pid) => s + (scores[pid] || 0), 0);
-                return db - da;
-            });
+            const ranked = [...rosters].sort((a, b) => (b.players || []).reduce((s, pid) => s + (scores[pid] || 0), 0) - (a.players || []).reduce((s, pid) => s + (scores[pid] || 0), 0));
             const powerRank = ranked.findIndex(r => r.roster_id === myRoster.roster_id) + 1;
+            const standingsRank = [...rosters].sort((a, b) => (b.settings?.wins || 0) - (a.settings?.wins || 0) || (b.settings?.fpts || 0) - (a.settings?.fpts || 0)).findIndex(r => r.roster_id === myRoster.roster_id) + 1;
 
-            // Trade history
-            const ownerProfile = window.App?.LI?.ownerProfiles?.[myRoster.roster_id] || {};
-
-            // Top 5 players by DHQ
-            const topPlayers = players
-                .map(pid => ({ pid, name: playersData?.[pid]?.full_name || '?', pos: normPos(playersData?.[pid]?.position) || '?', dhq: scores[pid] || 0, team: playersData?.[pid]?.team || 'FA' }))
-                .sort((a, b) => b.dhq - a.dhq)
-                .slice(0, 5);
-
-            // Standings position
-            const standingsRank = [...rosters].sort((a, b) => {
-                const wa = a.settings?.wins || 0, wb = b.settings?.wins || 0;
-                if (wb !== wa) return wb - wa;
-                return (b.settings?.fpts || 0) - (a.settings?.fpts || 0);
-            }).findIndex(r => r.roster_id === myRoster.roster_id) + 1;
-
-            const tierColor = tier === 'ELITE' ? '#2ECC71' : tier === 'CONTENDER' ? '#3498DB' : tier === 'CROSSROADS' ? '#F0A500' : '#E74C3C';
-            const window_ = tier === 'ELITE' || tier === 'CONTENDER' ? 'Competing' : tier === 'CROSSROADS' ? 'Crossroads' : 'Rebuilding';
-
-            return {
+            const prov = {
                 id: league.id || league.league_id, name: league.name || 'League', teams: rosters.length,
                 platform: league.platform || 'sleeper', isDynasty: league.settings?.type === 2,
-                roster: myRoster, players, totalDHQ, wins, losses,
-                healthScore, tier, tierColor, needs, strengths,
+                roster: myRoster, players, totalDHQ, wins: w, losses: l,
+                healthScore, tier, tierColor, status, needs, strengths,
                 powerRank, standingsRank,
-                faab, faabTotal: budget,
+                faab: Math.max(0, budget - spent), faabTotal: budget,
                 tradeWon: ownerProfile.tradesWon || 0, tradeLost: ownerProfile.tradesLost || 0, tradeFair: ownerProfile.tradesFair || 0,
-                window: window_, topPlayers, league,
+                league,
             };
-        }).filter(Boolean);
-    }, [allLeagues, sleeperUserId]);
+            provinces.push(prov);
 
-    // ══════════════════════════════════════════════════════════════
-    // EMPIRE AGGREGATES — cross-league data
-    // ══════════════════════════════════════════════════════════════
-    const empire = useMemo(() => {
-        const totalDHQ = provinces.reduce((s, p) => s + p.totalDHQ, 0);
-        const avgHealth = provinces.length > 0 ? Math.round(provinces.reduce((s, p) => s + p.healthScore, 0) / provinces.length) : 0;
+            // Build player assets
+            players.forEach(pid => {
+                const p = playersData?.[pid];
+                if (!p || !p.full_name) return;
+                const pos = normPos(p.position) || '?';
+                const age = p.age || null;
+                const dhq = scores[pid] || 0;
+                const peakRange = peaks[pos] || [24, 29];
+                const bucket = !age ? 'prime' : age < peakRange[0] ? 'rookie' : age <= peakRange[1] ? 'prime' : 'aging';
+                ageBuckets[bucket]++;
+                if (!positionTotals[pos]) positionTotals[pos] = { count: 0, dhq: 0 };
+                positionTotals[pos].count++;
+                positionTotals[pos].dhq += dhq;
 
-        // All players across all leagues (for the All Players tab)
-        const allPlayersMap = {};
-        provinces.forEach(prov => {
-            prov.players.forEach(pid => {
-                if (!allPlayersMap[pid]) allPlayersMap[pid] = { pid, leagues: [], dhq: scores[pid] || 0 };
-                allPlayersMap[pid].leagues.push({ name: prov.name, id: prov.id });
+                allAssets.push({
+                    pid, name: p.full_name, pos, team: p.team || 'FA', age, dhq, bucket,
+                    leagueId: prov.id, leagueName: prov.name, leagueStatus: status,
+                });
             });
-        });
-        const allPlayersList = Object.values(allPlayersMap)
-            .map(p => ({
-                ...p,
-                name: playersData?.[p.pid]?.full_name || '?',
-                pos: normPos(playersData?.[p.pid]?.position) || '?',
-                team: playersData?.[p.pid]?.team || 'FA',
-                age: playersData?.[p.pid]?.age || null,
-                count: p.leagues.length,
-            }))
-            .filter(p => p.name !== '?');
 
-        // Exposure (multi-league only)
-        const exposure = allPlayersList
-            .filter(p => p.count > 1)
-            .sort((a, b) => b.count - a.count || b.dhq - a.dhq);
-
-        // All draft picks across all leagues (using per-league tradedPicks)
-        const allPicks = [];
-        provinces.forEach(prov => {
-            const league = prov.league;
-            const draftRounds = league.settings?.draft_rounds || 4;
-            const season = String(league.season || new Date().getFullYear());
+            // Build picks
             const tradedPicks = league.tradedPicks || window.S?.tradedPicks || [];
-            for (let yr = parseInt(season); yr <= parseInt(season) + 2; yr++) {
+            const draftRounds = league.settings?.draft_rounds || 4;
+            const season = parseInt(league.season || new Date().getFullYear());
+            for (let yr = season; yr <= season + 2; yr++) {
                 for (let rd = 1; rd <= draftRounds; rd++) {
-                    const tradedAway = tradedPicks.find(tp => parseInt(tp.season) === yr && tp.round === rd && tp.roster_id === prov.roster.roster_id && tp.owner_id !== prov.roster.roster_id);
-                    if (!tradedAway) {
-                        allPicks.push({ league: prov.name, leagueId: prov.id, year: yr, round: rd, own: true });
-                    }
-                    const acquired = tradedPicks.filter(tp => parseInt(tp.season) === yr && tp.round === rd && tp.owner_id === prov.roster.roster_id && tp.roster_id !== prov.roster.roster_id);
-                    acquired.forEach(() => {
-                        allPicks.push({ league: prov.name, leagueId: prov.id, year: yr, round: rd, own: false });
-                    });
+                    const away = tradedPicks.find(tp => parseInt(tp.season) === yr && tp.round === rd && tp.roster_id === myRoster.roster_id && tp.owner_id !== myRoster.roster_id);
+                    if (!away) allPicks.push({ leagueId: prov.id, leagueName: prov.name, year: yr, round: rd, own: true });
+                    tradedPicks.filter(tp => parseInt(tp.season) === yr && tp.round === rd && tp.owner_id === myRoster.roster_id && tp.roster_id !== myRoster.roster_id)
+                        .forEach(() => allPicks.push({ leagueId: prov.id, leagueName: prov.name, year: yr, round: rd, own: false }));
                 }
             }
         });
 
-        // Alerts
-        const alerts = [];
-        provinces.forEach(prov => {
-            if (prov.needs.length >= 2) alerts.push({ league: prov.name, leagueId: prov.id, text: 'Positional gaps: ' + prov.needs.join(', '), urgency: 'red', icon: '\u{1F534}' });
-            else if (prov.needs.length > 0) alerts.push({ league: prov.name, leagueId: prov.id, text: 'Thin at ' + prov.needs[0], urgency: 'yellow', icon: '\u{1F7E1}' });
-            if (prov.faabTotal > 0 && prov.faab < prov.faabTotal * 0.25) alerts.push({ league: prov.name, leagueId: prov.id, text: 'FAAB low ($' + prov.faab + '/$' + prov.faabTotal + ')', urgency: 'yellow', icon: '\u{1F7E1}' });
-            if (prov.healthScore < 50) alerts.push({ league: prov.name, leagueId: prov.id, text: 'Health critical (' + prov.healthScore + ')', urgency: 'red', icon: '\u{1F534}' });
+        // Exposure map
+        const ownershipMap = {};
+        allAssets.forEach(a => {
+            if (!ownershipMap[a.pid]) ownershipMap[a.pid] = { ...a, leagues: [], count: 0, totalDHQ: 0 };
+            ownershipMap[a.pid].leagues.push({ id: a.leagueId, name: a.leagueName });
+            ownershipMap[a.pid].count++;
+            ownershipMap[a.pid].totalDHQ += a.dhq;
         });
-        alerts.sort((a, b) => { const o = { red: 0, yellow: 1, green: 2 }; return (o[a.urgency] || 9) - (o[b.urgency] || 9); });
+        const exposure = Object.values(ownershipMap).filter(p => p.count > 1).sort((a, b) => b.count - a.count || b.totalDHQ - a.totalDHQ);
 
-        return { totalDHQ, avgHealth, allPlayersList, exposure, allPicks, alerts };
-    }, [provinces]);
+        // Insights (AI-like observations)
+        const insights = [];
+        // Exposure risk
+        exposure.filter(p => p.count >= 3).forEach(p => insights.push({ type: 'risk', text: `${p.name} owned in ${p.count} leagues — high concentration`, pid: p.pid, pos: p.pos }));
+        // Position imbalance
+        const totalAssetDHQ = allAssets.reduce((s, a) => s + a.dhq, 0);
+        Object.entries(positionTotals).forEach(([pos, data]) => {
+            const pct = totalAssetDHQ > 0 ? Math.round(data.dhq / totalAssetDHQ * 100) : 0;
+            if (pct > 35 && ['RB', 'WR', 'QB'].includes(pos)) insights.push({ type: 'warning', text: `${pct}% of portfolio in ${pos} — overweight`, filter: { position: pos } });
+        });
+        // Age risk
+        const totalAgePlayers = ageBuckets.rookie + ageBuckets.prime + ageBuckets.aging;
+        if (totalAgePlayers > 0 && ageBuckets.aging / totalAgePlayers > 0.35) insights.push({ type: 'risk', text: `${Math.round(ageBuckets.aging / totalAgePlayers * 100)}% of assets are post-peak — aging portfolio`, filter: { ageBucket: 'aging' } });
+        if (totalAgePlayers > 0 && ageBuckets.rookie / totalAgePlayers > 0.4) insights.push({ type: 'info', text: `${Math.round(ageBuckets.rookie / totalAgePlayers * 100)}% pre-peak — high rookie volatility`, filter: { ageBucket: 'rookie' } });
+        // Strategy conflicts
+        const contenders = provinces.filter(p => p.status === 'contender');
+        const rebuilds = provinces.filter(p => p.status === 'rebuild');
+        if (contenders.length > 0 && rebuilds.length > 0) insights.push({ type: 'warning', text: `Mixed strategies: ${contenders.length} contending, ${rebuilds.length} rebuilding — verify alignment` });
+
+        return { provinces, allAssets, allPicks, exposure, positionTotals, ageBuckets, insights, totalDHQ: provinces.reduce((s, p) => s + p.totalDHQ, 0) };
+    }, [allLeagues, sleeperUserId, playersData]);
 
     // ══════════════════════════════════════════════════════════════
-    // STYLE TOKENS
+    // FILTERED DATA — everything recalculates from filters
     // ══════════════════════════════════════════════════════════════
-    const G = '#D4AF37', W = '#f0f0f3', S = 'rgba(255,255,255,0.5)', BK = '#0a0a0a';
-    const font = "'DM Sans', Inter, sans-serif";
-    const raj = 'Rajdhani, sans-serif';
-    const mono = 'JetBrains Mono, monospace';
+    const filtered = useMemo(() => {
+        let provinces = engine.provinces.slice();
+        let assets = engine.allAssets.slice();
+        let picks = engine.allPicks.slice();
 
-    const statBox = (label, value, sub, color) => (
-        <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '10px', padding: '14px 16px', textAlign: 'center', flex: 1, minWidth: '100px' }}>
-            <div style={{ fontFamily: mono, fontSize: '1.6rem', fontWeight: 700, color: color || W, lineHeight: 1 }}>{value}</div>
-            <div style={{ fontSize: '0.62rem', color: G, marginTop: '6px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>{label}</div>
-            {sub && <div style={{ fontSize: '0.58rem', color: S, marginTop: '2px' }}>{sub}</div>}
+        // League filter
+        if (filters.league) {
+            provinces = provinces.filter(p => p.id === filters.league);
+            assets = assets.filter(a => a.leagueId === filters.league);
+            picks = picks.filter(p => p.leagueId === filters.league);
+        }
+        // Status filter
+        if (filters.status) {
+            provinces = provinces.filter(p => p.status === filters.status);
+            const ids = new Set(provinces.map(p => p.id));
+            assets = assets.filter(a => ids.has(a.leagueId));
+            picks = picks.filter(p => ids.has(p.leagueId));
+        }
+        // Position filter
+        if (filters.position) assets = assets.filter(a => a.pos === filters.position);
+        // Age bucket filter
+        if (filters.ageBucket) assets = assets.filter(a => a.bucket === filters.ageBucket);
+        // Asset type filter
+        if (filters.assetType === 'picks') assets = [];
+        if (filters.assetType === 'players') picks = [];
+
+        // Sort assets by DHQ desc
+        assets.sort((a, b) => b.dhq - a.dhq);
+
+        // Recalculate totals
+        const totalDHQ = assets.reduce((s, a) => s + a.dhq, 0);
+        const totalRecord = provinces.reduce((s, p) => ({ w: s.w + p.wins, l: s.l + p.losses }), { w: 0, l: 0 });
+        const avgHealth = provinces.length > 0 ? Math.round(provinces.reduce((s, p) => s + p.healthScore, 0) / provinces.length) : 0;
+
+        return { provinces, assets, picks, totalDHQ, totalRecord, avgHealth };
+    }, [engine, filters]);
+
+    // ══════════════════════════════════════════════════════════════
+    // STYLE SYSTEM — Bloomberg × Sleeper
+    // ══════════════════════════════════════════════════════════════
+    const G = '#D4AF37', W = '#f0f0f3', S2 = 'rgba(255,255,255,0.45)', BK = '#0a0a0a', BK2 = '#0e0e0e';
+    const mono = "'JetBrains Mono', 'SF Mono', Consolas, monospace";
+    const sans = "'DM Sans', 'Inter', -apple-system, sans-serif";
+    const raj = "'Rajdhani', sans-serif";
+
+    const filterPill = (key, val, label, color) => {
+        const active = filters[key] === val;
+        return (
+            <button key={val || 'all'} onClick={() => setFilter(key, val)} style={{
+                padding: '4px 12px', fontSize: '0.68rem', fontWeight: active ? 700 : 500,
+                borderRadius: '4px', cursor: 'pointer', fontFamily: sans, transition: 'all 0.1s',
+                border: active ? '1px solid ' + (color || G) : '1px solid rgba(255,255,255,0.08)',
+                background: active ? (color || G) + '18' : 'transparent',
+                color: active ? (color || G) : S2, letterSpacing: '0.02em',
+            }}>{label}</button>
+        );
+    };
+
+    const kpiCell = (label, value, sub, color) => (
+        <div style={{ padding: '10px 14px', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+            <div style={{ fontFamily: mono, fontSize: '1.2rem', fontWeight: 700, color: color || W, lineHeight: 1, letterSpacing: '-0.03em' }}>{value}</div>
+            <div style={{ fontSize: '0.55rem', color: G, marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>{label}</div>
+            {sub && <div style={{ fontSize: '0.52rem', color: S2, marginTop: '1px' }}>{sub}</div>}
         </div>
     );
-    const tabBtn = (key, label) => (
-        <button key={key} onClick={() => setEmpireTab(key)} style={{
-            padding: '8px 18px', fontSize: '0.78rem', fontWeight: 700, borderRadius: '8px', cursor: 'pointer', fontFamily: font, letterSpacing: '0.03em', transition: 'all 0.15s',
-            border: empireTab === key ? '1.5px solid ' + G : '1px solid rgba(255,255,255,0.1)',
-            background: empireTab === key ? 'rgba(212,175,55,0.15)' : 'transparent',
-            color: empireTab === key ? G : S,
-        }}>{label}</button>
-    );
 
-    if (!provinces.length) {
+    // ══════════════════════════════════════════════════════════════
+    // PLAYER DRILL-DOWN VIEW
+    // ══════════════════════════════════════════════════════════════
+    if (drillPlayer) {
+        const p = playersData?.[drillPlayer];
+        const pid = drillPlayer;
+        const pos = normPos(p?.position) || '?';
+        const dhq = scores[pid] || 0;
+        const ownedIn = engine.allAssets.filter(a => a.pid === pid);
         return (
-            <div style={{ padding: '60px 20px', textAlign: 'center', color: S, fontFamily: font }}>
-                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>{'\u{1F30D}'}</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: W, marginBottom: '8px' }}>No Provinces Yet</div>
-                <div style={{ fontSize: '0.85rem', maxWidth: '360px', margin: '0 auto', lineHeight: 1.6 }}>Connect your leagues to build your dynasty empire.</div>
-                <button onClick={onBack} style={{ marginTop: '24px', padding: '12px 32px', background: G, color: BK, border: 'none', borderRadius: '10px', fontFamily: raj, fontSize: '1rem', fontWeight: 700, cursor: 'pointer' }}>Connect Leagues</button>
+            <div style={{ minHeight: '100vh', background: BK, fontFamily: sans }}>
+                <div style={{ padding: '12px 32px', borderBottom: '1px solid rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <button onClick={() => setDrillPlayer(null)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer', color: S2, fontSize: '0.75rem', fontFamily: sans, padding: '4px 12px' }}>{'\u2190'} Back</button>
+                    <span style={{ fontFamily: raj, fontSize: '1.1rem', color: G }}>PLAYER DRILL-DOWN</span>
+                </div>
+                <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 32px' }}>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '24px' }}>
+                        <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} style={{ width: 64, height: 64, borderRadius: '10px', objectFit: 'cover', border: '2px solid rgba(212,175,55,0.3)' }} onError={e => e.target.style.display='none'} />
+                        <div>
+                            <div style={{ fontFamily: raj, fontSize: '1.5rem', color: W }}>{p?.full_name || '?'}</div>
+                            <div style={{ fontSize: '0.82rem', color: S2 }}>{pos} · {p?.team || 'FA'} · Age {p?.age || '?'}</div>
+                        </div>
+                        <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                            <div style={{ fontFamily: mono, fontSize: '1.8rem', fontWeight: 700, color: dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : W }}>{dhq > 0 ? dhq.toLocaleString() : '\u2014'}</div>
+                            <div style={{ fontSize: '0.6rem', color: G, textTransform: 'uppercase', letterSpacing: '0.08em' }}>DHQ</div>
+                        </div>
+                    </div>
+                    <div style={{ fontFamily: raj, fontSize: '0.72rem', color: G, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>OWNED IN {ownedIn.length} LEAGUE{ownedIn.length !== 1 ? 'S' : ''}</div>
+                    {ownedIn.map((a, i) => {
+                        const prov = engine.provinces.find(p2 => p2.id === a.leagueId);
+                        return (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: BK2, border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px', marginBottom: '8px', cursor: 'pointer' }}
+                                onClick={() => prov && onEnterLeague(prov.league)}
+                                onMouseEnter={e => e.currentTarget.style.borderColor = G}
+                                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(212,175,55,0.15)'}>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: W }}>{a.leagueName}</div>
+                                    <div style={{ fontSize: '0.7rem', color: S2 }}>{prov?.tier || '?'} · {prov?.wins || 0}-{prov?.losses || 0} · HP:{prov?.healthScore || 0}</div>
+                                </div>
+                                <div style={{ fontFamily: mono, fontSize: '0.82rem', color: dhq >= 7000 ? '#2ECC71' : S2 }}>{(dhq / 1000).toFixed(1)}k</div>
+                                <span style={{ fontSize: '0.7rem', color: G }}>{'\u2192'}</span>
+                            </div>
+                        );
+                    })}
+                    <button onClick={() => { if (typeof window.openPlayerModal === 'function') window.openPlayerModal(pid); }} style={{ marginTop: '16px', padding: '10px 20px', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: G, fontFamily: raj, fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>Full Player Card</button>
+                </div>
             </div>
         );
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // MAIN RENDER
+    // ══════════════════════════════════════════════════════════════
+    const activeFilters = Object.values(filters).filter(Boolean).length;
+
     return (
-        <div style={{ minHeight: '100vh', background: BK, fontFamily: font }}>
-            {/* ═══ HEADER ═══ */}
-            <div style={{ padding: '14px 32px', borderBottom: '2px solid rgba(212,175,55,0.25)', display: 'flex', alignItems: 'center', gap: '16px', background: 'linear-gradient(135deg, rgba(212,175,55,0.08), transparent)', position: 'sticky', top: 0, zIndex: 50 }}>
-                <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer', color: S, fontSize: '0.78rem', fontFamily: font, padding: '5px 12px' }}>{'\u2190'} Hub</button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-                    {typeof window.ProTierIcon === 'function' ? <div style={{ width: 28, height: 28 }}>{React.createElement(window.ProTierIcon, { size: 28 })}</div> : null}
-                    <div>
-                        <div style={{ fontFamily: raj, fontSize: '1.1rem', color: G, letterSpacing: '0.08em', lineHeight: 1 }}>WAR ROOM PRO</div>
-                        <div style={{ fontSize: '0.58rem', color: S, letterSpacing: '0.06em' }}>EMPIRE DASHBOARD</div>
-                    </div>
+        <div style={{ minHeight: '100vh', background: BK, fontFamily: sans }}>
+
+            {/* ═══ STICKY HEADER + FILTER BAR ═══ */}
+            <div style={{ position: 'sticky', top: 0, zIndex: 50, background: BK, borderBottom: '1px solid rgba(212,175,55,0.2)' }}>
+                {/* Top bar */}
+                <div style={{ padding: '10px 28px', display: 'flex', alignItems: 'center', gap: '14px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', cursor: 'pointer', color: S2, fontSize: '0.72rem', fontFamily: sans, padding: '4px 10px' }}>{'\u2190'}</button>
+                    {typeof window.ProTierIcon === 'function' ? <div style={{ width: 22, height: 22 }}>{React.createElement(window.ProTierIcon, { size: 22 })}</div> : null}
+                    <span style={{ fontFamily: raj, fontSize: '0.9rem', color: G, letterSpacing: '0.1em' }}>DYNASTY CONTROL TOWER</span>
+                    <div style={{ flex: 1 }} />
+                    <span style={{ fontSize: '0.72rem', color: S2 }}>{alexAvatar} {userName}</span>
                 </div>
-                {/* Tab navigation */}
-                <div style={{ display: 'flex', gap: '6px' }}>
-                    {tabBtn('overview', 'Overview')}
-                    {tabBtn('players', 'All Players')}
-                    {tabBtn('picks', 'All Picks')}
-                    {tabBtn('exposure', 'Exposure')}
+
+                {/* KPI strip */}
+                <div style={{ display: 'flex', padding: '0 28px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(212,175,55,0.02)' }}>
+                    {kpiCell('Leagues', filtered.provinces.length, activeFilters > 0 ? 'of ' + engine.provinces.length : '')}
+                    {kpiCell('Record', filtered.totalRecord.w + '-' + filtered.totalRecord.l)}
+                    {kpiCell('Portfolio', Math.round(filtered.totalDHQ / 1000) + 'k', 'DHQ', filtered.totalDHQ > 100000 ? '#2ECC71' : W)}
+                    {kpiCell('Health', filtered.avgHealth, 'avg', filtered.avgHealth >= 70 ? '#2ECC71' : filtered.avgHealth >= 50 ? G : '#E74C3C')}
+                    {kpiCell('Contend', filtered.provinces.filter(p => p.status === 'contender').length)}
+                    {kpiCell('Rebuild', filtered.provinces.filter(p => p.status === 'rebuild').length)}
+                    {kpiCell('Exposure', engine.exposure.length, 'multi-lg')}
+                    {kpiCell('Players', filtered.assets.length)}
+                    {kpiCell('Picks', filtered.picks.length, 'capital')}
                 </div>
-                <div style={{ fontSize: '0.78rem', color: S }}>{alexAvatar} {userName}</div>
+
+                {/* GLOBAL FILTER BAR */}
+                <div style={{ padding: '8px 28px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', background: 'rgba(0,0,0,0.3)' }}>
+                    <span style={{ fontSize: '0.58rem', color: G, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginRight: '4px' }}>FILTER</span>
+
+                    {/* League */}
+                    {filterPill('league', '', 'All Leagues')}
+                    {engine.provinces.map(p => filterPill('league', p.id, p.name.substring(0, 16)))}
+
+                    <span style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.08)', margin: '0 4px' }} />
+
+                    {/* Status */}
+                    {filterPill('status', 'contender', 'Contender', '#2ECC71')}
+                    {filterPill('status', 'fringe', 'Fringe', '#F0A500')}
+                    {filterPill('status', 'rebuild', 'Rebuild', '#E74C3C')}
+
+                    <span style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.08)', margin: '0 4px' }} />
+
+                    {/* Position */}
+                    {['QB', 'RB', 'WR', 'TE', 'DL', 'LB', 'DB'].map(p => filterPill('position', p, p, posColors[p]))}
+
+                    <span style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.08)', margin: '0 4px' }} />
+
+                    {/* Age */}
+                    {filterPill('ageBucket', 'rookie', 'Pre-Peak', '#3498DB')}
+                    {filterPill('ageBucket', 'prime', 'Prime', '#2ECC71')}
+                    {filterPill('ageBucket', 'aging', 'Post-Peak', '#E74C3C')}
+
+                    <span style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.08)', margin: '0 4px' }} />
+
+                    {/* Asset type */}
+                    {filterPill('assetType', 'players', 'Players')}
+                    {filterPill('assetType', 'picks', 'Picks')}
+
+                    {activeFilters > 0 && (
+                        <button onClick={() => { setFilters({ league: '', status: '', position: '', ageBucket: '', assetType: '' }); setDrillPlayer(null); setDrillLeague(null); }}
+                            style={{ marginLeft: 'auto', padding: '3px 10px', fontSize: '0.62rem', borderRadius: '4px', border: '1px solid rgba(231,76,60,0.3)', background: 'rgba(231,76,60,0.08)', color: '#E74C3C', cursor: 'pointer', fontFamily: sans, fontWeight: 600 }}>
+                            Clear {activeFilters} filter{activeFilters > 1 ? 's' : ''}
+                        </button>
+                    )}
+                </div>
             </div>
 
-            <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 32px' }}>
+            {/* ═══ BODY — recalculates from filters ═══ */}
+            <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px 28px' }}>
 
-            {/* ══════════════════ TAB: OVERVIEW ══════════════════ */}
-            {empireTab === 'overview' && (<>
-                {/* KPI row */}
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                    {statBox('Provinces', provinces.length, 'leagues')}
-                    {statBox('Portfolio', Math.round(empire.totalDHQ / 1000) + 'k', 'total DHQ', empire.totalDHQ > 100000 ? '#2ECC71' : W)}
-                    {statBox('Health', empire.avgHealth, 'avg score', empire.avgHealth >= 70 ? '#2ECC71' : empire.avgHealth >= 50 ? G : '#E74C3C')}
-                    {statBox('Players', empire.allPlayersList.length, 'across leagues')}
-                    {statBox('Picks', empire.allPicks.length, 'total capital')}
-                    {statBox('Exposure', empire.exposure.length, 'multi-league')}
-                </div>
-
-                {/* Province cards */}
-                <div style={{ fontFamily: raj, fontSize: '0.7rem', color: G, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>YOUR PROVINCES</div>
-                <div style={{ display: 'grid', gridTemplateColumns: provinces.length === 1 ? '1fr' : 'repeat(auto-fill, minmax(440px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                    {provinces.map(prov => {
-                        const isExp = expandedProvince === prov.id;
-                        return (
-                        <div key={prov.id} style={{ background: BK, border: '2px solid rgba(212,175,55,0.3)', borderRadius: '14px', borderLeft: '4px solid ' + prov.tierColor, overflow: 'hidden', transition: 'box-shadow 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(212,175,55,0.1)'}
-                            onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
-                            {/* Header */}
-                            <div style={{ padding: '14px 18px 10px', borderBottom: '1px solid rgba(212,175,55,0.1)', cursor: 'pointer' }}
-                                onClick={() => setExpandedProvince(isExp ? null : prov.id)}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                    <div style={{ fontFamily: raj, fontSize: '1.05rem', fontWeight: 700, color: W, flex: 1 }}>{prov.name}</div>
-                                    <span style={{ fontSize: '0.58rem', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', color: S }}>{prov.platform.toUpperCase()}</span>
-                                    {prov.isDynasty && <span style={{ fontSize: '0.58rem', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', background: 'rgba(212,175,55,0.1)', color: G }}>DYNASTY</span>}
-                                    <span style={{ fontSize: '0.58rem', color: S }}>{prov.teams}T</span>
-                                    <span style={{ fontSize: '0.6rem', color: S, opacity: 0.5 }}>{isExp ? '\u25B2' : '\u25BC'}</span>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: prov.tierColor, padding: '1px 7px', borderRadius: '4px', border: '1px solid ' + prov.tierColor + '40', background: prov.tierColor + '15' }}>{prov.tier}</span>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: W, fontFamily: mono }}>{prov.wins}-{prov.losses}</span>
-                                    <span style={{ fontSize: '0.68rem', color: prov.healthScore >= 70 ? '#2ECC71' : prov.healthScore >= 50 ? G : '#E74C3C', fontWeight: 700 }}>HP:{prov.healthScore}</span>
-                                    <span style={{ fontSize: '0.68rem', color: S }}>#{prov.standingsRank}/{prov.teams}</span>
-                                    <span style={{ fontSize: '0.68rem', fontFamily: mono, color: G, marginLeft: 'auto' }}>{Math.round(prov.totalDHQ / 1000)}k DHQ</span>
-                                </div>
-                            </div>
-
-                            {/* Top 5 Players — always visible */}
-                            <div style={{ padding: '8px 18px' }}>
-                                <div style={{ fontSize: '0.58rem', color: G, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px', fontWeight: 700 }}>CORE ASSETS</div>
-                                {prov.topPlayers.map((p, i) => (
-                                    <div key={p.pid} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', fontSize: '0.72rem', cursor: 'pointer' }}
-                                        onClick={e => { e.stopPropagation(); if (typeof window.openPlayerModal === 'function') window.openPlayerModal(p.pid); }}>
-                                        <span style={{ width: '14px', color: i < 3 ? G : S, fontSize: '0.6rem', fontWeight: 700 }}>{i + 1}</span>
-                                        <span style={{ color: W, fontWeight: 500, flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{p.name}</span>
-                                        <span style={{ fontSize: '0.58rem', fontWeight: 700, color: posColors[p.pos] || S }}>{p.pos}</span>
-                                        <span style={{ fontFamily: mono, fontSize: '0.68rem', color: p.dhq >= 7000 ? '#2ECC71' : p.dhq >= 4000 ? '#3498DB' : S, fontWeight: 600, minWidth: '36px', textAlign: 'right' }}>{p.dhq > 0 ? (p.dhq/1000).toFixed(1) + 'k' : '\u2014'}</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Expanded section — data grid + Alex + enter */}
-                            {isExp && (<>
-                                <div style={{ padding: '8px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: '0.72rem', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                                    <div>
-                                        <div style={{ fontSize: '0.58rem', color: G, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px', fontWeight: 700 }}>Strengths</div>
-                                        <div style={{ color: '#2ECC71', fontSize: '0.7rem' }}>{prov.strengths.length ? prov.strengths.join(', ') : 'None identified'}</div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.58rem', color: G, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px', fontWeight: 700 }}>Weaknesses</div>
-                                        <div style={{ color: '#E74C3C', fontSize: '0.7rem' }}>{prov.needs.length ? prov.needs.join(', ') : 'None'}</div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.58rem', color: G, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px', fontWeight: 700 }}>Window</div>
-                                        <div style={{ color: prov.window === 'Competing' ? '#2ECC71' : prov.window === 'Crossroads' ? G : '#E74C3C', fontWeight: 600 }}>{prov.window}</div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.58rem', color: G, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px', fontWeight: 700 }}>Trades</div>
-                                        <div><span style={{ color: '#2ECC71' }}>{prov.tradeWon}W</span> <span style={{ color: '#E74C3C' }}>{prov.tradeLost}L</span> <span style={{ color: S }}>{prov.tradeFair}F</span></div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.58rem', color: G, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px', fontWeight: 700 }}>FAAB</div>
-                                        <div style={{ color: prov.faab < prov.faabTotal * 0.25 ? '#E74C3C' : S }}>{prov.faabTotal > 0 ? '$' + prov.faab + '/$' + prov.faabTotal : 'N/A'}</div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.58rem', color: G, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px', fontWeight: 700 }}>Projected</div>
-                                        <div style={{ color: prov.standingsRank <= 3 ? '#2ECC71' : S }}>#{prov.standingsRank} of {prov.teams}</div>
-                                    </div>
-                                </div>
-                                {/* Alex insight */}
-                                <div style={{ padding: '6px 18px 10px' }}>
-                                    <div style={{ background: 'rgba(212,175,55,0.04)', borderLeft: '3px solid rgba(212,175,55,0.4)', borderRadius: '0 6px 6px 0', padding: '7px 12px', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                                        <span style={{ fontSize: '0.65rem' }}>{alexAvatar}</span>
-                                        <div style={{ fontSize: '0.7rem', color: S, lineHeight: 1.5 }}>
-                                            {prov.tier === 'ELITE' ? 'Dominant position. Protect assets and target championships.'
-                                                : prov.tier === 'CONTENDER' ? 'In the mix. One upgrade at ' + (prov.needs[0] || 'depth') + ' could push you over.'
-                                                : prov.tier === 'CROSSROADS' ? 'Decision time. Commit to competing or pivot to accumulation.'
-                                                : 'Rebuild mode. Acquire young talent and draft capital.'}
-                                        </div>
-                                    </div>
-                                </div>
-                            </>)}
-                            {/* Enter button */}
-                            <div style={{ padding: '0 18px 14px' }}>
-                                <button onClick={() => onEnterLeague(prov.league)}
-                                    style={{ width: '100%', padding: '9px', background: 'linear-gradient(135deg, rgba(212,175,55,0.1), rgba(212,175,55,0.03))', border: '1.5px solid rgba(212,175,55,0.25)', borderRadius: '8px', color: G, fontFamily: raj, fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.06em', transition: 'all 0.15s' }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(212,175,55,0.18)'; e.currentTarget.style.borderColor = G; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(212,175,55,0.1), rgba(212,175,55,0.03))'; e.currentTarget.style.borderColor = 'rgba(212,175,55,0.25)'; }}>
-                                    Enter War Room {'\u2192'}
-                                </button>
-                            </div>
-                        </div>
-                    );})}
-                </div>
-
-                {/* Alerts */}
-                {empire.alerts.length > 0 && (
-                    <div style={{ background: BK, border: '1px solid rgba(212,175,55,0.2)', borderRadius: '12px', padding: '14px 18px', marginBottom: '16px' }}>
-                        <div style={{ fontFamily: raj, fontSize: '0.7rem', color: G, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>EMPIRE ALERTS</div>
-                        {empire.alerts.slice(0, 10).map((a, i) => (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '0.75rem' }}>
-                                <span style={{ flexShrink: 0 }}>{a.icon}</span>
-                                <span style={{ fontWeight: 700, color: G }}>{a.league}</span>
-                                <span style={{ color: S }}>{a.text}</span>
+                {/* INSIGHTS — clickable, filter-driven */}
+                {engine.insights.length > 0 && !activeFilters && (
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                        {engine.insights.slice(0, 5).map((ins, i) => (
+                            <div key={i} onClick={() => {
+                                if (ins.pid) setDrillPlayer(ins.pid);
+                                else if (ins.filter) setFilters(prev => ({ ...prev, ...ins.filter }));
+                            }} style={{
+                                padding: '8px 14px', borderRadius: '6px', fontSize: '0.72rem', cursor: ins.pid || ins.filter ? 'pointer' : 'default',
+                                background: ins.type === 'risk' ? 'rgba(231,76,60,0.06)' : ins.type === 'warning' ? 'rgba(240,165,0,0.06)' : 'rgba(52,152,219,0.06)',
+                                border: '1px solid ' + (ins.type === 'risk' ? 'rgba(231,76,60,0.2)' : ins.type === 'warning' ? 'rgba(240,165,0,0.2)' : 'rgba(52,152,219,0.2)'),
+                                color: ins.type === 'risk' ? '#E74C3C' : ins.type === 'warning' ? '#F0A500' : '#3498DB',
+                                transition: 'all 0.12s',
+                            }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
+                                {ins.type === 'risk' ? '\u26A0 ' : ins.type === 'warning' ? '\u{1F7E1} ' : '\u{1F535} '}{ins.text}
                             </div>
                         ))}
                     </div>
                 )}
-            </>)}
 
-            {/* ══════════════════ TAB: ALL PLAYERS ══════════════════ */}
-            {empireTab === 'players' && (() => {
-                let filtered = empire.allPlayersList.slice();
-                if (playerPosFilter) filtered = filtered.filter(p => p.pos === playerPosFilter);
-                const k = playerSort.key, d = playerSort.dir;
-                filtered.sort((a, b) => {
-                    if (k === 'name') return d * (a.name || '').localeCompare(b.name || '');
-                    if (k === 'pos') return d * (a.pos || '').localeCompare(b.pos || '');
-                    if (k === 'dhq') return d * ((a.dhq || 0) - (b.dhq || 0));
-                    if (k === 'age') return d * ((a.age || 99) - (b.age || 99));
-                    if (k === 'count') return d * (a.count - b.count);
-                    return 0;
-                });
-                const toggleSort = (key) => setPlayerSort(prev => prev.key === key ? { ...prev, dir: prev.dir * -1 } : { key, dir: key === 'name' ? 1 : -1 });
-                const arrow = (key) => playerSort.key === key ? (playerSort.dir === -1 ? ' \u25BC' : ' \u25B2') : '';
-                const hdr = { cursor: 'pointer', userSelect: 'none', fontSize: '0.65rem', fontWeight: 700, color: G, textTransform: 'uppercase', letterSpacing: '0.04em' };
-
-                return (<>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
-                        <div style={{ fontFamily: raj, fontSize: '1rem', fontWeight: 700, color: W }}>All Players · {filtered.length}</div>
-                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                            <button onClick={() => setPlayerPosFilter('')} style={{ padding: '3px 10px', fontSize: '0.68rem', borderRadius: '12px', border: !playerPosFilter ? '1px solid ' + G : '1px solid rgba(255,255,255,0.1)', background: !playerPosFilter ? 'rgba(212,175,55,0.12)' : 'transparent', color: !playerPosFilter ? G : S, cursor: 'pointer', fontFamily: font }}>All</button>
-                            {['QB','RB','WR','TE','DL','LB','DB'].map(p => (
-                                <button key={p} onClick={() => setPlayerPosFilter(playerPosFilter === p ? '' : p)} style={{ padding: '3px 10px', fontSize: '0.68rem', borderRadius: '12px', border: playerPosFilter === p ? '1px solid ' + (posColors[p] || '#666') : '1px solid rgba(255,255,255,0.1)', background: playerPosFilter === p ? (posColors[p] || '#666') + '18' : 'transparent', color: playerPosFilter === p ? posColors[p] : S, cursor: 'pointer', fontFamily: font }}>{p}</button>
+                {/* PROVINCES — compact when filtered */}
+                {(!filters.assetType || filters.assetType !== 'picks') && filtered.provinces.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                        <div style={{ fontSize: '0.58rem', color: G, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>
+                            {filters.league ? 'PROVINCE' : 'PROVINCES'} · {filtered.provinces.length}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: filtered.provinces.length === 1 ? '1fr' : 'repeat(auto-fill, minmax(340px, 1fr))', gap: '8px' }}>
+                            {filtered.provinces.map(prov => (
+                                <div key={prov.id} style={{ background: BK2, border: '1px solid rgba(255,255,255,0.06)', borderLeft: '3px solid ' + prov.tierColor, borderRadius: '6px', padding: '12px 14px', cursor: 'pointer', transition: 'all 0.12s' }}
+                                    onClick={() => onEnterLeague(prov.league)}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = G; e.currentTarget.style.background = 'rgba(212,175,55,0.03)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.background = BK2; }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                        <span style={{ fontFamily: raj, fontSize: '0.9rem', fontWeight: 700, color: W, flex: 1 }}>{prov.name}</span>
+                                        <span style={{ fontSize: '0.55rem', fontWeight: 700, color: prov.tierColor, padding: '1px 6px', borderRadius: '3px', border: '1px solid ' + prov.tierColor + '40', background: prov.tierColor + '12' }}>{prov.tier}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '12px', fontSize: '0.7rem', color: S2 }}>
+                                        <span style={{ fontFamily: mono, fontWeight: 600 }}>{prov.wins}-{prov.losses}</span>
+                                        <span>HP:<span style={{ color: prov.healthScore >= 70 ? '#2ECC71' : prov.healthScore >= 50 ? G : '#E74C3C', fontWeight: 600 }}>{prov.healthScore}</span></span>
+                                        <span style={{ fontFamily: mono }}>{Math.round(prov.totalDHQ / 1000)}k</span>
+                                        <span>#{prov.powerRank}/{prov.teams}</span>
+                                        {prov.needs.length > 0 && <span style={{ color: '#E74C3C' }}>Need: {prov.needs.join(', ')}</span>}
+                                        <span style={{ marginLeft: 'auto', color: G }}>{'\u2192'}</span>
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     </div>
-                    <div style={{ background: BK, border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 50px 50px 60px 50px 1fr', gap: '4px', padding: '8px 14px', borderBottom: '2px solid rgba(212,175,55,0.15)', background: 'rgba(212,175,55,0.06)' }}>
-                            <div style={hdr} onClick={() => toggleSort('name')}>Player{arrow('name')}</div>
-                            <div style={{...hdr, textAlign: 'center'}} onClick={() => toggleSort('pos')}>Pos{arrow('pos')}</div>
-                            <div style={{...hdr, textAlign: 'center'}} onClick={() => toggleSort('age')}>Age{arrow('age')}</div>
-                            <div style={{...hdr, textAlign: 'right'}} onClick={() => toggleSort('dhq')}>DHQ{arrow('dhq')}</div>
-                            <div style={{...hdr, textAlign: 'center'}} onClick={() => toggleSort('count')}>Lg{arrow('count')}</div>
-                            <div style={{...hdr}}>Leagues</div>
-                        </div>
-                        <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
-                        {filtered.slice(0, 200).map((p, i) => (
-                            <div key={p.pid} style={{ display: 'grid', gridTemplateColumns: '1fr 50px 50px 60px 50px 1fr', gap: '4px', padding: '6px 14px', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '0.75rem', cursor: 'pointer', background: i % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent' }}
-                                onClick={() => { if (typeof window.openPlayerModal === 'function') window.openPlayerModal(p.pid); }}
-                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.04)'}
-                                onMouseLeave={e => e.currentTarget.style.background = i % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent'}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + p.pid + '.jpg'} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} onError={e => e.target.style.display='none'} />
-                                    <span style={{ color: W, fontWeight: 500 }}>{p.name}</span>
-                                </div>
-                                <div style={{ textAlign: 'center' }}><span style={{ fontSize: '0.6rem', fontWeight: 700, color: posColors[p.pos] || S, padding: '1px 4px', background: (posColors[p.pos] || '#666') + '22', borderRadius: '3px' }}>{p.pos}</span></div>
-                                <div style={{ textAlign: 'center', color: S }}>{p.age || '\u2014'}</div>
-                                <div style={{ textAlign: 'right', fontFamily: mono, fontWeight: 600, color: p.dhq >= 7000 ? '#2ECC71' : p.dhq >= 4000 ? '#3498DB' : S }}>{p.dhq > 0 ? (p.dhq/1000).toFixed(1) + 'k' : '\u2014'}</div>
-                                <div style={{ textAlign: 'center', fontWeight: 700, color: p.count > 1 ? G : S }}>{p.count}x</div>
-                                <div style={{ fontSize: '0.65rem', color: S, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{p.leagues.map(l => l.name).join(' \u00B7 ')}</div>
-                            </div>
-                        ))}
-                        </div>
-                    </div>
-                </>);
-            })()}
+                )}
 
-            {/* ══════════════════ TAB: ALL PICKS ══════════════════ */}
-            {empireTab === 'picks' && (() => {
-                const years = [...new Set(empire.allPicks.map(p => p.year))].sort();
-                return (<>
-                    <div style={{ fontFamily: raj, fontSize: '1rem', fontWeight: 700, color: W, marginBottom: '14px' }}>Draft Capital · {empire.allPicks.length} picks across {provinces.length} leagues</div>
-                    {years.map(yr => {
-                        const yearPicks = empire.allPicks.filter(p => p.year === yr);
-                        const byLeague = {};
-                        yearPicks.forEach(p => { if (!byLeague[p.league]) byLeague[p.league] = []; byLeague[p.league].push(p); });
-                        return (
-                            <div key={yr} style={{ background: BK, border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', padding: '14px 18px', marginBottom: '12px' }}>
-                                <div style={{ fontFamily: raj, fontSize: '0.85rem', fontWeight: 700, color: G, letterSpacing: '0.06em', marginBottom: '10px' }}>{yr} · {yearPicks.length} picks</div>
-                                {Object.entries(byLeague).map(([league, picks]) => (
-                                    <div key={league} style={{ marginBottom: '10px' }}>
-                                        <div style={{ fontSize: '0.7rem', color: W, fontWeight: 600, marginBottom: '4px' }}>{league}</div>
-                                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                            {picks.sort((a, b) => a.round - b.round).map((pk, i) => (
-                                                <span key={i} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '0.72rem', fontWeight: 700, background: pk.own ? 'rgba(212,175,55,0.08)' : 'rgba(124,107,248,0.1)', border: '1px solid ' + (pk.own ? 'rgba(212,175,55,0.25)' : 'rgba(124,107,248,0.25)'), color: pk.own ? G : '#9b8afb' }}>
-                                                    R{pk.round}{!pk.own && <span style={{ fontSize: '0.6rem', marginLeft: '3px', opacity: 0.7 }}>(acq)</span>}
-                                                </span>
-                                            ))}
+                {/* ASSETS TABLE — the main data sheet */}
+                {(!filters.assetType || filters.assetType !== 'picks') && filtered.assets.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                        <div style={{ fontSize: '0.58rem', color: G, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>
+                            ASSETS · {filtered.assets.length}
+                        </div>
+                        <div style={{ background: BK2, border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', overflow: 'hidden' }}>
+                            {/* Header */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 44px 36px 56px 36px 1fr', gap: '4px', padding: '6px 14px', borderBottom: '1px solid rgba(212,175,55,0.1)', background: 'rgba(212,175,55,0.03)', fontSize: '0.55rem', fontWeight: 700, color: G, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                <div>Player</div><div style={{ textAlign: 'center' }}>Pos</div><div style={{ textAlign: 'center' }}>Age</div><div style={{ textAlign: 'right' }}>DHQ</div><div style={{ textAlign: 'center' }}>Lg</div><div>League</div>
+                            </div>
+                            {/* Rows */}
+                            <div style={{ maxHeight: '50vh', overflowY: 'auto' }}>
+                                {filtered.assets.slice(0, 150).map((a, i) => (
+                                    <div key={a.pid + '-' + a.leagueId + '-' + i} style={{ display: 'grid', gridTemplateColumns: '1fr 44px 36px 56px 36px 1fr', gap: '4px', padding: '5px 14px', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: '0.72rem', cursor: 'pointer', background: i % 2 ? 'rgba(255,255,255,0.01)' : 'transparent' }}
+                                        onClick={() => setDrillPlayer(a.pid)}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.04)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = i % 2 ? 'rgba(255,255,255,0.01)' : 'transparent'}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                                            <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + a.pid + '.jpg'} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => e.target.style.display='none'} />
+                                            <span style={{ color: W, fontWeight: 500, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{a.name}</span>
                                         </div>
+                                        <div style={{ textAlign: 'center' }}><span style={{ fontSize: '0.58rem', fontWeight: 700, color: posColors[a.pos] || S2, padding: '1px 4px', background: (posColors[a.pos] || '#666') + '18', borderRadius: '2px' }}>{a.pos}</span></div>
+                                        <div style={{ textAlign: 'center', color: S2, fontSize: '0.68rem' }}>{a.age || '\u2014'}</div>
+                                        <div style={{ textAlign: 'right', fontFamily: mono, fontWeight: 600, fontSize: '0.68rem', color: a.dhq >= 7000 ? '#2ECC71' : a.dhq >= 4000 ? '#3498DB' : a.dhq >= 2000 ? W : S2 }}>{a.dhq > 0 ? (a.dhq / 1000).toFixed(1) + 'k' : '\u2014'}</div>
+                                        <div style={{ textAlign: 'center', fontSize: '0.62rem', color: S2 }}>{engine.allAssets.filter(x => x.pid === a.pid).length > 1 ? engine.allAssets.filter(x => x.pid === a.pid).length + 'x' : ''}</div>
+                                        <div style={{ fontSize: '0.62rem', color: S2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{a.leagueName}</div>
                                     </div>
                                 ))}
                             </div>
-                        );
-                    })}
-                </>);
-            })()}
-
-            {/* ══════════════════ TAB: EXPOSURE ══════════════════ */}
-            {empireTab === 'exposure' && (<>
-                <div style={{ fontFamily: raj, fontSize: '1rem', fontWeight: 700, color: W, marginBottom: '14px' }}>Player Exposure · {empire.exposure.length} multi-league holdings</div>
-                {empire.exposure.length > 0 && (
-                    <div style={{ background: 'rgba(231,76,60,0.06)', border: '1px solid rgba(231,76,60,0.15)', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontSize: '0.78rem', color: '#E74C3C', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>{'\u26A0'}</span>
-                        <span>Concentration risk: {empire.exposure.reduce((s, p) => s + p.dhq, 0) > empire.totalDHQ * 0.3 ? 'HIGH' : 'MODERATE'} — {Math.round(empire.exposure.reduce((s, p) => s + p.dhq, 0) / Math.max(1, empire.totalDHQ) * 100)}% of portfolio in multi-league players</span>
+                        </div>
                     </div>
                 )}
-                <div style={{ background: BK, border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
-                    {empire.exposure.length === 0
-                        ? <div style={{ padding: '40px', textAlign: 'center', color: S, fontSize: '0.85rem' }}>No players owned across multiple leagues.</div>
-                        : empire.exposure.map((p, i) => (
-                            <div key={p.pid} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', background: i % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent' }}
-                                onClick={() => { if (typeof window.openPlayerModal === 'function') window.openPlayerModal(p.pid); }}
-                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.04)'}
-                                onMouseLeave={e => e.currentTarget.style.background = i % 2 === 1 ? 'rgba(255,255,255,0.015)' : 'transparent'}>
-                                <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + p.pid + '.jpg'} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} onError={e => e.target.style.display='none'} />
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: W }}>{p.name}</div>
-                                    <div style={{ fontSize: '0.68rem', color: S }}>{p.leagues.map(l => l.name).join(' \u00B7 ')}</div>
-                                </div>
-                                <span style={{ fontSize: '0.6rem', fontWeight: 700, color: posColors[p.pos] || S, padding: '2px 6px', background: (posColors[p.pos] || '#666') + '22', borderRadius: '3px' }}>{p.pos}</span>
-                                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: p.count >= 3 ? '#E74C3C' : G, padding: '2px 10px', background: p.count >= 3 ? 'rgba(231,76,60,0.12)' : 'rgba(212,175,55,0.12)', borderRadius: '12px' }}>{p.count}x</span>
-                                <span style={{ fontFamily: mono, fontSize: '0.78rem', fontWeight: 600, color: p.dhq >= 7000 ? '#2ECC71' : S, minWidth: '48px', textAlign: 'right' }}>{Math.round(p.dhq / 1000)}k</span>
-                            </div>
-                        ))
-                    }
-                </div>
-            </>)}
 
+                {/* PICKS — when showing picks or all */}
+                {(!filters.assetType || filters.assetType !== 'players') && filtered.picks.length > 0 && (
+                    <div>
+                        <div style={{ fontSize: '0.58rem', color: G, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>
+                            DRAFT CAPITAL · {filtered.picks.length} picks
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {[...new Set(filtered.picks.map(p => p.year))].sort().map(yr => {
+                                const yearPicks = filtered.picks.filter(p => p.year === yr);
+                                return (
+                                    <div key={yr} style={{ background: BK2, border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '10px 14px', flex: 1, minWidth: '200px' }}>
+                                        <div style={{ fontSize: '0.65rem', fontWeight: 700, color: G, marginBottom: '6px' }}>{yr} · {yearPicks.length} picks</div>
+                                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                            {yearPicks.sort((a, b) => a.round - b.round).map((pk, i) => (
+                                                <span key={i} style={{ padding: '3px 8px', borderRadius: '3px', fontSize: '0.65rem', fontWeight: 600, fontFamily: mono, background: pk.own ? 'rgba(212,175,55,0.08)' : 'rgba(124,107,248,0.08)', border: '1px solid ' + (pk.own ? 'rgba(212,175,55,0.2)' : 'rgba(124,107,248,0.2)'), color: pk.own ? G : '#9b8afb' }}>
+                                                    R{pk.round}
+                                                </span>
+                                            ))}
+                                        </div>
+                                        {!filters.league && <div style={{ fontSize: '0.55rem', color: S2, marginTop: '4px' }}>{[...new Set(yearPicks.map(p => p.leagueName))].join(' · ')}</div>}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

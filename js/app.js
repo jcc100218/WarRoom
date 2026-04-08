@@ -403,6 +403,22 @@
             return { gp, wp, fillPct, teamCount: league.rosters?.length || 0 };
         }
 
+        // Pro tier icon (SVG shield with star)
+        function ProTierIcon({ size }) {
+            const s = size || 24;
+            return React.createElement('svg', { viewBox: '0 0 24 24', width: s, height: s, fill: 'none', xmlns: 'http://www.w3.org/2000/svg' },
+                React.createElement('path', { d: 'M12 2L3 7v6c0 5.25 3.83 10.18 9 11.38C17.17 23.18 21 18.25 21 13V7L12 2z', fill: 'url(#proGrad)', stroke: '#D4AF37', strokeWidth: '1' }),
+                React.createElement('path', { d: 'M12 7l1.545 3.13 3.455.503-2.5 2.437.59 3.43L12 14.885 8.91 16.5l.59-3.43-2.5-2.437 3.455-.503L12 7z', fill: '#0A0A0A', stroke: '#B8941E', strokeWidth: '0.5' }),
+                React.createElement('defs', null,
+                    React.createElement('linearGradient', { id: 'proGrad', x1: '3', y1: '2', x2: '21', y2: '24' },
+                        React.createElement('stop', { offset: '0%', stopColor: '#D4AF37' }),
+                        React.createElement('stop', { offset: '100%', stopColor: '#8B6914' })
+                    )
+                )
+            );
+        }
+        window.ProTierIcon = ProTierIcon;
+
         function LeagueSelector({ onSelect, accent }) {
             const accentColor = 'var(--gold)';
             const accentBg = 'rgba(212,175,55,0.08)';
@@ -411,9 +427,32 @@
             if (loading) return <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--silver)', fontSize: '0.82rem' }}>Loading leagues...</div>;
             if (error) return <div style={{ padding: '0.75rem', textAlign: 'center', color: '#E74C3C', fontSize: '0.82rem' }}>{error}</div>;
             if (sleeperLeagues.length === 0) return <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--silver)', fontSize: '0.82rem' }}>No leagues found for {selectedYear}</div>;
+
+            const tier = typeof getUserTier === 'function' ? getUserTier() : 'free';
+            const showProCard = tier !== 'war_room' && tier !== 'warroom' && tier !== 'commissioner';
+
             return (
                 <div className="hub-league-selector">
                     <label>Select League</label>
+
+                    {/* Pro tier upgrade card */}
+                    {showProCard && (
+                        <div onClick={() => { window.location.href = 'landing.html'; }}
+                            style={{ cursor: 'pointer', marginBottom: '12px', borderRadius: '12px', padding: '14px 16px', background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.04))', border: '1.5px solid rgba(212,175,55,0.35)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.18s' }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.6)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(212,175,55,0.15)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.35)'; e.currentTarget.style.boxShadow = 'none'; }}>
+                            <div style={{ width: '36px', height: '36px', flexShrink: 0 }}><ProTierIcon size={36} /></div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--white)' }}>Upgrade to Pro</span>
+                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--gold)', background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '10px', padding: '1px 7px', letterSpacing: '0.04em' }}>$4.99/mo</span>
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6 }}>Full AI analysis · All leagues · Owner DNA · Draft Intel</div>
+                            </div>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="rgba(212,175,55,0.5)" strokeWidth="2.5" style={{ flexShrink: 0 }}><polyline points="9 18 15 12 9 6"/></svg>
+                        </div>
+                    )}
+
                     <div className="hub-league-list">
                         {sleeperLeagues.map(l => {
                             const h = leagueHealth(l);

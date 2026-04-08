@@ -2125,6 +2125,61 @@
 
                     {/* Alerts removed — rolled into Brief */}
 
+                    {/* Sidebar Search */}
+                    {React.createElement(function SidebarSearch() {
+                        const [q, setQ] = React.useState('');
+                        const [results, setResults] = React.useState([]);
+                        const inputRef = React.useRef(null);
+                        React.useEffect(() => {
+                            if (!q || q.length < 2) { setResults([]); return; }
+                            const lower = q.toLowerCase();
+                            const matches = [];
+                            // Search players
+                            Object.entries(playersData || {}).forEach(([pid, p]) => {
+                                if (matches.length >= 6) return;
+                                const name = p.full_name || '';
+                                if (name.toLowerCase().includes(lower)) matches.push({ type: 'player', pid, name, pos: p.position || '?', team: p.team || 'FA' });
+                            });
+                            // Search tabs
+                            [{ label: 'Intelligence Briefing', tab: 'brief' }, { label: 'Dashboard', tab: 'dashboard' }, { label: 'My Roster', tab: 'myteam' }, { label: 'Trade Center', tab: 'trades' }, { label: 'Free Agency', tab: 'fa' }, { label: 'Draft Command', tab: 'draft' }, { label: 'League Map', tab: 'league' }, { label: 'Trophy Room', tab: 'trophies' }, { label: 'Analytics', tab: 'analytics' }].forEach(t => {
+                                if (t.label.toLowerCase().includes(lower)) matches.push({ type: 'tab', label: t.label, tab: t.tab });
+                            });
+                            setResults(matches.slice(0, 8));
+                        }, [q]);
+                        return React.createElement('div', { style: { padding: '4px 12px 8px', position: 'relative' } },
+                            React.createElement('input', {
+                                ref: inputRef, type: 'text', placeholder: 'Search...', value: q,
+                                onChange: e => setQ(e.target.value),
+                                onKeyDown: e => { if (e.key === 'Escape') { setQ(''); setResults([]); } },
+                                style: { width: '100%', padding: '7px 10px 7px 28px', fontSize: '0.72rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '6px', color: 'var(--silver)', fontFamily: 'Inter, sans-serif', outline: 'none', boxSizing: 'border-box' }
+                            }),
+                            React.createElement('svg', { viewBox: '0 0 24 24', width: 12, height: 12, fill: 'none', stroke: 'rgba(212,175,55,0.4)', strokeWidth: 2, style: { position: 'absolute', left: '20px', top: '11px', pointerEvents: 'none' } },
+                                React.createElement('circle', { cx: 11, cy: 11, r: 8 }),
+                                React.createElement('line', { x1: 21, y1: 21, x2: 16.65, y2: 16.65 })
+                            ),
+                            results.length > 0 && React.createElement('div', { style: { position: 'absolute', left: '12px', right: '12px', top: '100%', background: '#0d0d0d', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '0 0 8px 8px', zIndex: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', maxHeight: '240px', overflowY: 'auto' } },
+                                results.map((r, i) => React.createElement('div', {
+                                    key: i,
+                                    onClick: () => {
+                                        if (r.type === 'player') { setSidebarOpen(false); selectPlayer(r.pid); }
+                                        else if (r.type === 'tab') { setSidebarOpen(false); setActiveTab(r.tab); }
+                                        setQ(''); setResults([]);
+                                    },
+                                    style: { padding: '6px 10px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid rgba(255,255,255,0.04)' },
+                                    onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.08)',
+                                    onMouseLeave: e => e.currentTarget.style.background = 'transparent',
+                                },
+                                    r.type === 'player'
+                                        ? [
+                                            React.createElement('span', { key: 'n', style: { color: 'var(--white)', fontWeight: 500, flex: 1 } }, r.name),
+                                            React.createElement('span', { key: 'p', style: { fontSize: '0.6rem', color: window.App?.POS_COLORS?.[window.App.normPos(r.pos)] || 'var(--silver)', fontWeight: 700 } }, window.App.normPos(r.pos)),
+                                        ]
+                                        : React.createElement('span', { style: { color: 'var(--gold)', fontWeight: 600 } }, '\u2192 ' + r.label)
+                                ))
+                            )
+                        );
+                    })}
+
                     {/* Nav items — grouped */}
                     {[
                         { label: 'Brief', tab: 'brief' },

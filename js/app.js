@@ -351,12 +351,58 @@
         // Show Empire Dashboard (Pro mode)
         // eslint-disable-next-line no-undef
         const _EmpireDash = typeof EmpireDashboard === 'function' ? EmpireDashboard : null;
+        const [empirePlayersLoaded, setEmpirePlayersLoaded] = useState(false);
+        const [empirePlayers, setEmpirePlayers] = useState({});
+
+        // Load player database + DHQ engine when Pro mode activates
+        useEffect(() => {
+            if (!proMode || empirePlayersLoaded) return;
+            (async () => {
+                try {
+                    // Load 10k player database (league-independent, cached 1hr)
+                    const players = await window.App.fetchAllPlayers();
+                    setEmpirePlayers(players || {});
+                    // Ensure window.S exists for assessment functions
+                    if (!window.S) window.S = {};
+                    window.S.players = players;
+                    // Populate rosters from all leagues into window.S for assessments
+                    const allRosters = [];
+                    const allUsers = [];
+                    const allLeaguesList = [...sleeperLeagues, ...espnLeagues, ...mflLeagues];
+                    allLeaguesList.forEach(l => {
+                        (l.rosters || []).forEach(r => { if (!allRosters.find(x => x.roster_id === r.roster_id)) allRosters.push(r); });
+                        (l.users || []).forEach(u => { if (!allUsers.find(x => x.user_id === u.user_id)) allUsers.push(u); });
+                    });
+                    window.S.rosters = allRosters;
+                    window.S.leagueUsers = allUsers;
+                    window.S.myUserId = sleeperUser?.user_id;
+                    window.S.user = sleeperUser;
+                    // Fetch traded picks for all leagues in parallel
+                    const allTradedPicks = [];
+                    await Promise.allSettled(allLeaguesList.map(async l => {
+                        const lid = l.id || l.league_id;
+                        if (!lid) return;
+                        try {
+                            const tp = await fetch('https://api.sleeper.app/v1/league/' + lid + '/traded_picks').then(r => r.ok ? r.json() : []);
+                            if (tp?.length) { l.tradedPicks = tp; allTradedPicks.push(...tp); }
+                        } catch {}
+                    }));
+                    window.S.tradedPicks = allTradedPicks;
+                    // Load DHQ engine if not already loaded
+                    if (typeof window.App?.loadLeagueIntel === 'function' && !window.App.LI_LOADED) {
+                        await window.App.loadLeagueIntel().catch(() => {});
+                    }
+                    setEmpirePlayersLoaded(true);
+                } catch (e) { console.warn('[Empire] Data load error:', e); setEmpirePlayersLoaded(true); }
+            })();
+        }, [proMode, empirePlayersLoaded]);
+
         if (proMode && !selectedLeague && _EmpireDash) {
             return (
                 <ErrorBoundary>
                     <_EmpireDash
                         allLeagues={[...sleeperLeagues, ...espnLeagues, ...mflLeagues]}
-                        playersData={window.S?.players || {}}
+                        playersData={empirePlayers}
                         sleeperUserId={sleeperUser?.user_id}
                         onEnterLeague={(league) => {
                             handleSelectLeague(league);

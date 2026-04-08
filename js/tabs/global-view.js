@@ -126,13 +126,13 @@ function EmpireDashboard({ allLeagues, playersData, sleeperUserId, onEnterLeague
             .filter(p => p.count > 1)
             .sort((a, b) => b.count - a.count || b.dhq - a.dhq);
 
-        // All draft picks across all leagues
+        // All draft picks across all leagues (using per-league tradedPicks)
         const allPicks = [];
-        const tradedPicks = window.S?.tradedPicks || [];
         provinces.forEach(prov => {
             const league = prov.league;
             const draftRounds = league.settings?.draft_rounds || 4;
             const season = String(league.season || new Date().getFullYear());
+            const tradedPicks = league.tradedPicks || window.S?.tradedPicks || [];
             for (let yr = parseInt(season); yr <= parseInt(season) + 2; yr++) {
                 for (let rd = 1; rd <= draftRounds; rd++) {
                     const tradedAway = tradedPicks.find(tp => parseInt(tp.season) === yr && tp.round === rd && tp.roster_id === prov.roster.roster_id && tp.owner_id !== prov.roster.roster_id);

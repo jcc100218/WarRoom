@@ -391,6 +391,7 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
     window.App.WR_KEYS  = WR_KEYS;
     window.App.WrStorage = WrStorage;
+    window.App.fetchAllPlayers = fetchAllPlayers;
     // ──────────────────────────────────────────────────────────────────────────
     // ──────────────────────────────────────────────────────────────────────────
 

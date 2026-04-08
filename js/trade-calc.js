@@ -1327,9 +1327,12 @@
                                         <span style={{ fontSize:'0.68rem', color:'var(--silver)', opacity:0.65 }}>{t.pctDiff}%</span>
                                         {winner && <span style={{ fontSize:'0.66rem', color:'var(--win-green)', fontWeight:700 }}>{winner}</span>}
                                     </div>
-                                    <span style={{ fontSize:'0.68rem', color:'var(--silver)', opacity:0.5 }}>
-                                        {t.trade.season ? 'S'+t.trade.season+(t.trade.week?' W'+t.trade.week:'') : ''}
-                                    </span>
+                                    <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                                        <span style={{ fontSize:'0.68rem', color:'var(--silver)', opacity:0.5 }}>
+                                            {t.trade.season ? 'S'+t.trade.season+(t.trade.week?' W'+t.trade.week:'') : ''}
+                                        </span>
+                                        {typeof StarBtn !== 'undefined' && <StarBtn id={'tradecalc_' + t.idx} title={`${name1} ↔ ${name2} (${t.grade})`} content={`${name1} ${t.val1.toLocaleString()} ↔ ${name2} ${t.val2.toLocaleString()} · ${t.pctDiff}% diff`} sourceModule="Trade Calc" />}
+                                    </div>
                                 </div>
                                 <div style={{ display:'grid', gridTemplateColumns:'1fr auto 1fr', gap:'4px', alignItems:'start' }}>
                                     <div>

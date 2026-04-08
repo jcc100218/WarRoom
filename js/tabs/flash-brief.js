@@ -252,7 +252,10 @@ function FlashBriefPanel({
         React.createElement('div', { style: cardStyle },
             // Header
             React.createElement('div', { style: { padding: '20px 20px 0', borderBottom: '1px solid rgba(212,175,55,0.1)', paddingBottom: '12px' } },
-                React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' } }, React.createElement('span', { style: { fontSize: '0.9rem' } }, alexAvatar), 'INTELLIGENCE BRIEFING'),
+                React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' } },
+                    React.createElement('span', { style: { fontSize: '0.9rem' } }, alexAvatar), 'INTELLIGENCE BRIEFING',
+                    typeof StarBtn !== 'undefined' ? React.createElement(StarBtn, { id: 'brief_intel_main', title: 'Intelligence Briefing', content: briefText.slice(0, 120) + (briefText.length > 120 ? '…' : ''), sourceModule: 'Flash Brief', style: { marginLeft: 'auto' } }) : null
+                ),
                 React.createElement('div', { style: { fontSize: '1.2rem', fontWeight: 700, color: 'var(--white)' } }, greetingText),
             ),
             // Body

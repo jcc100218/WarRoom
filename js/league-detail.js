@@ -390,57 +390,73 @@
         const [lpSort, setLpSort] = useState({ key: 'dhq', dir: 1 });
         const [lpFilter, setLpFilter] = useState('');
 
-        // Default 5 KPIs — customizable per owner, saved in localStorage
+        // Core KPI metadata — used by computeKpiValue and module widgets
         const KPI_OPTIONS = {
-            'contender-rank': { label: 'Contender Rank', icon: '', category: 'League', tip: 'Win-now rank based on optimal starting lineup PPG vs league. How competitive are you THIS season?' },
-            'dynasty-rank':   { label: 'Dynasty Rank', icon: '', category: 'League', tip: 'Long-term rank based on total roster DHQ value. How strong is your dynasty foundation?' },
-            'starter-gap':    { label: 'Starter Gap', icon: '', category: 'Roster', tip: 'Difference between your optimal weekly PPG and league target (median x1.05)' },
-            'portfolio':      { label: 'Portfolio DHQ', icon: '', category: 'Roster', tip: 'Sum of all DHQ values on your roster' },
-            'health-score':   { label: 'Health Score', icon: '', category: 'Roster', tip: 'Blended score: 60% scoring power (contender) + 40% position coverage (dynasty depth). 90+=Elite, 80+=Contender, 70+=Crossroads' },
-            'avg-age':        { label: 'Avg Age', icon: '', category: 'Roster', tip: 'DHQ-weighted average age. Lower = longer dynasty window' },
-            'top5-conc':      { label: 'Top 5 Concentration', icon: '', category: 'Roster', tip: '% of DHQ held by top 5 players. High = fragile roster' },
-            'hit-rate':       { label: 'Trade Win Rate', icon: '', category: 'Trades', tip: 'Percentage of trades where you gained value (won or fair)' },
-            'faab-efficiency':{ label: 'FAAB Remaining', icon: '', category: 'Waivers', tip: 'Remaining FAAB budget available for waiver claims' },
-            'net-trade':      { label: 'Net DHQ/Trade', icon: '', category: 'Trades', tip: 'Average DHQ gained or lost per trade' },
-            'trade-velocity': { label: 'Trade Velocity', icon: '', category: 'Trades', tip: 'Number of trades completed' },
-            'window':         { label: 'Compete Window', icon: '', category: 'Projection', tip: 'Estimated years your roster can compete based on age decay' },
-            'aging-cliff':    { label: 'Aging Cliff %', icon: '', category: 'Projection', tip: '% of DHQ held by players past peak within 2 years' },
-            'partner-wr':     { label: 'Partner Win Rate', icon: '', category: 'Trades', tip: '% of trades where you gained >15% more DHQ' },
-            'elite-count':    { label: 'Elite Players', icon: '', category: 'Roster', tip: 'Players who rank top 5 at their position league-wide. These are your cornerstone assets.' },
-            'bench-quality':  { label: 'Bench Quality', icon: '', category: 'Roster', tip: 'Average DHQ of non-starter roster players' },
-            'playoff-record':   { label: 'Playoff Win-Loss', icon: '', category: 'History', tip: 'Career playoff wins and losses' },
-            'playoff-winpct':   { label: 'Playoff Win %', icon: '', category: 'History', tip: 'Win percentage in playoff matchups' },
-            'champ-appearances':{ label: 'Championship Appearances', icon: '', category: 'History', tip: 'Times reached the championship round' },
-            'dynasty-score':    { label: 'Dynasty Score', icon: '', category: 'History', tip: 'Championships (40%) + Playoffs (30%) + Regular Season (30%)' },
-            'draft-roi':        { label: 'Draft ROI', icon: '', category: 'Draft', tip: 'Current DHQ of drafted players vs capital spent' },
-            'roster-turnover':  { label: 'Roster Turnover', icon: '', category: 'Roster', tip: 'Trades completed this cycle' },
-            'pick-capital':     { label: 'Pick Capital', icon: '', category: 'Roster', tip: 'Total value of your draft picks across next 3 seasons. Includes traded picks.' },
-            'trade-leverage':   { label: 'Trade Leverage', icon: '', category: 'Trades', tip: 'How many league teams need positions where you have surplus. Higher = more trade partners available.' },
-            'sched-sos':        { label: 'Schedule SOS', icon: '', category: 'Roster', tip: 'Average opponent defense rank faced by your starters (1=hardest, 32=easiest). Based on last completed season. Higher = easier schedule.' },
+            'health-score':   { label: 'Health Score',    icon: '', category: 'Roster',   tip: 'Blended score: 60% scoring power (contender) + 40% position coverage (dynasty depth). 90+=Elite, 80+=Contender, 70+=Crossroads' },
+            'avg-age':        { label: 'DHQ-Wtd Age',     icon: '', category: 'Roster',   tip: 'DHQ-weighted average age. Lower = longer dynasty window' },
+            'elite-count':    { label: 'Elite Players',   icon: '', category: 'Roster',   tip: 'Players who rank top 5 at their position league-wide. These are your cornerstone assets.' },
+            'aging-cliff':    { label: 'Aging Cliff %',   icon: '', category: 'Roster',   tip: '% of DHQ held by players past peak within 2 years' },
+            'bench-quality':  { label: 'Bench Quality',   icon: '', category: 'Roster',   tip: 'Average DHQ of non-starter roster players' },
+            'contender-rank': { label: 'Contender Rank',  icon: '', category: 'League',   tip: 'Win-now rank based on optimal starting lineup PPG vs league. How competitive are you THIS season?' },
+            'dynasty-rank':   { label: 'Dynasty Rank',    icon: '', category: 'League',   tip: 'Long-term rank based on total roster DHQ value. How strong is your dynasty foundation?' },
+            'window':         { label: 'Compete Window',  icon: '', category: 'Projection',tip: 'Estimated years your roster can compete based on age decay' },
+            'hit-rate':       { label: 'Trade Win Rate',  icon: '', category: 'Trades',   tip: 'Percentage of trades where you gained value (won or fair)' },
+            'net-trade':      { label: 'Net DHQ/Trade',   icon: '', category: 'Trades',   tip: 'Average DHQ gained or lost per trade' },
+            'trade-velocity': { label: 'Trade Velocity',  icon: '', category: 'Trades',   tip: 'Number of trades completed this season' },
+            'pick-capital':   { label: 'Pick Capital',    icon: '', category: 'Draft',    tip: 'Total value of your draft picks across next 3 seasons. Includes traded picks.' },
+            'draft-roi':      { label: 'Draft ROI',       icon: '', category: 'Draft',    tip: 'Current DHQ of drafted players vs capital spent' },
+            'faab-efficiency':{ label: 'FAAB Remaining',  icon: '', category: 'Waivers',  tip: 'Remaining FAAB budget available for waiver claims' },
             'transaction-ticker': { label: 'Transaction Ticker', icon: '', category: 'League', sizes: ['md', 'lg'], tip: 'Recent league transactions: trades, waivers, and free agent moves' },
-            'league-standings':   { label: 'League Standings', icon: '', category: 'League', sizes: ['md', 'lg'], tip: 'Current league standings with W-L records and DHQ totals' },
+            'league-standings':   { label: 'League Standings',   icon: '', category: 'League', sizes: ['md', 'lg'], tip: 'Current league standings with W-L records and DHQ totals' },
         };
+        // Default 5-widget dashboard — module-based format
         const DEFAULT_WIDGETS = [
-            { key: 'contender-rank', size: 'sm' },
-            { key: 'dynasty-rank', size: 'sm' },
-            { key: 'health-score', size: 'sm' },
-            { key: 'window', size: 'sm' },
-            { key: 'elite-count', size: 'sm' },
-            { key: 'transaction-ticker', size: 'md' },
-            { key: 'league-standings', size: 'lg' },
-            { key: 'portfolio', size: 'sm' },
-            { key: 'avg-age', size: 'sm' },
-            { key: 'trade-velocity', size: 'sm' },
+            { id: 'dw1', key: 'roster',            size: 'md', primaryMetric: 'health-score' },
+            { id: 'dw2', key: 'competitive',        size: 'sm', primaryMetric: 'contender-rank' },
+            { id: 'dw3', key: 'competitive',        size: 'sm', primaryMetric: 'dynasty-rank' },
+            { id: 'dw4', key: 'trading',            size: 'md', primaryMetric: 'hit-rate' },
+            { id: 'dw5', key: 'league-standings',   size: 'lg' },
         ];
-        // Migrate old string-array KPI format to widget object format
+        // Migrate legacy formats to current widget object format
         function migrateKpisToWidgets(stored) {
             if (!stored || !Array.isArray(stored)) return DEFAULT_WIDGETS;
-            if (stored.length > 0 && typeof stored[0] === 'string') {
-                // Old format: array of key strings → convert to objects with size: 'sm'
-                return stored.map(k => ({ key: k, size: 'sm' }));
+            if (stored.length === 0) return DEFAULT_WIDGETS;
+            // Old format v1: array of KPI key strings
+            if (typeof stored[0] === 'string') {
+                const keyToModule = {
+                    'health-score': 'roster', 'avg-age': 'roster', 'elite-count': 'roster',
+                    'aging-cliff': 'roster', 'bench-quality': 'roster',
+                    'contender-rank': 'competitive', 'dynasty-rank': 'competitive', 'window': 'competitive',
+                    'hit-rate': 'trading', 'net-trade': 'trading', 'trade-velocity': 'trading',
+                    'pick-capital': 'draft', 'draft-roi': 'draft',
+                    'faab-efficiency': 'waivers',
+                    'transaction-ticker': 'transaction-ticker',
+                    'league-standings': 'league-standings',
+                };
+                return stored.map((k, i) => ({ id: 'mig_' + i, key: keyToModule[k] || k, size: 'sm', primaryMetric: k }));
             }
-            // Already in new widget format
-            return stored;
+            // Old format v2: {key, size} without id or primaryMetric
+            return stored.map((w, i) => {
+                if (!w.id) w = { ...w, id: 'mig2_' + i };
+                // Map old KPI keys to module keys
+                const legacyKpiModules = {
+                    'health-score': 'roster', 'avg-age': 'roster', 'elite-count': 'roster',
+                    'aging-cliff': 'roster', 'bench-quality': 'roster', 'portfolio': 'roster',
+                    'top5-conc': 'roster', 'starter-gap': 'roster', 'roster-turnover': 'roster',
+                    'sched-sos': 'roster',
+                    'contender-rank': 'competitive', 'dynasty-rank': 'competitive', 'window': 'competitive',
+                    'hit-rate': 'trading', 'net-trade': 'trading', 'trade-velocity': 'trading',
+                    'trade-leverage': 'trading', 'partner-wr': 'trading',
+                    'pick-capital': 'draft', 'draft-roi': 'draft',
+                    'faab-efficiency': 'waivers',
+                    'playoff-record': 'competitive', 'playoff-winpct': 'competitive',
+                    'champ-appearances': 'competitive', 'dynasty-score': 'competitive',
+                };
+                if (legacyKpiModules[w.key]) {
+                    return { ...w, primaryMetric: w.primaryMetric || w.key, key: legacyKpiModules[w.key] };
+                }
+                return w;
+            });
         }
         const [selectedWidgets, setSelectedWidgets] = useState(() =>
             migrateKpisToWidgets(WrStorage.get(WR_KEYS.KPI_SELECTION(currentLeague?.id || ''))) || DEFAULT_WIDGETS

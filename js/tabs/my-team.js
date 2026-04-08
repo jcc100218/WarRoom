@@ -916,7 +916,10 @@ function MyTeamTab({
                       <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', fontSize: '0.7rem', fontWeight: 700, padding: '1px 8px', borderRadius: '8px', background: (posColors[r.pos]||'#666')+'25', color: posColors[r.pos]||'var(--silver)', whiteSpace: 'nowrap' }}>{r.pos}</div>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--white)', letterSpacing: '0.02em', lineHeight: 1.1 }}>{r.p.full_name || getPlayerName(r.pid)}</div>
+                      <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--white)', letterSpacing: '0.02em', lineHeight: 1.1, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {r.p.full_name || getPlayerName(r.pid)}
+                        {typeof StarBtn !== 'undefined' && <StarBtn id={'myteam_' + r.pid} title={r.p.full_name || getPlayerName(r.pid)} content={`${r.pos} · ${r.p.team || 'FA'} · Age ${r.age || '?'} · ${r.dhq.toLocaleString()} DHQ · ${r.rec}`} sourceModule="My Team" />}
+                      </div>
                       <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginTop: '2px' }}>
                         {r.pos} {'\u00B7'} {r.p.team || 'FA'} {'\u00B7'} Age {r.age || '?'} {'\u00B7'} {r.p.years_exp||0}yr exp
                         {r.p.college ? ' \u00B7 '+r.p.college : ''}

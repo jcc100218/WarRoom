@@ -137,6 +137,9 @@ module.exports = [
         ErrorBoundary: "readonly",
         // ── Tab/panel components (loaded via separate script files) ──────────
         DashboardPanel: "readonly",
+        DashboardWidgetPicker: "readonly",
+        WIDGET_MODULES: "readonly",
+        StarBtn: "readonly",
         FlashBriefPanel: "readonly",
         AnalyticsPanel: "readonly",
         MyTeamTab: "readonly",

@@ -144,6 +144,7 @@ module.exports = [
         DraftTab: "readonly",
         TradeCalcTab: "readonly",
         LeagueMapTab: "readonly",
+        TrophyRoomTab: "readonly",
         SettingsModal: "readonly",
         MockDraftPanel: "readonly",
         // ── Analytics / AI helpers ───────────────────────────────────────────

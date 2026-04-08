@@ -2061,6 +2061,7 @@
                         { label: 'Draft', tab: 'draft' },
                         { section: 'LEAGUE' },
                         { label: 'League Map', tab: 'league' },
+                        { label: 'Trophy Room', tab: 'trophies' },
                         { section: 'SYSTEM' },
                         { label: 'Settings', action: () => onOpenSettings && onOpenSettings() },
                     ].map((item, i) => {
@@ -2364,6 +2365,11 @@
                     sendReconMessage={sendReconMessage}
                     timeRecomputeTs={timeRecomputeTs}
                     viewMode={viewMode}
+                /> : activeTab === 'trophies' ? <TrophyRoomTab
+                    currentLeague={currentLeague}
+                    playersData={playersData}
+                    myRoster={myRoster}
+                    sleeperUserId={sleeperUserId}
                 /> : (
                 <DashboardPanel
                     selectedWidgets={selectedWidgets}

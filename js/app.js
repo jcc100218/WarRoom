@@ -438,7 +438,7 @@
 
                     {/* Pro tier upgrade card */}
                     {showProCard && (
-                        <div onClick={() => { window.location.href = 'landing.html'; }}
+                        <div onClick={() => { if (typeof window.showProLaunchPage === 'function') window.showProLaunchPage(); else window.location.href = 'landing.html'; }}
                             style={{ cursor: 'pointer', marginBottom: '12px', borderRadius: '12px', padding: '14px 16px', background: isPaid ? 'linear-gradient(135deg, rgba(46,204,113,0.08), rgba(46,204,113,0.02))' : 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.04))', border: isPaid ? '1.5px solid rgba(46,204,113,0.3)' : '1.5px solid rgba(212,175,55,0.35)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.18s' }}
                             onMouseEnter={e => { e.currentTarget.style.borderColor = isPaid ? 'rgba(46,204,113,0.5)' : 'rgba(212,175,55,0.6)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(212,175,55,0.15)'; }}
                             onMouseLeave={e => { e.currentTarget.style.borderColor = isPaid ? 'rgba(46,204,113,0.3)' : 'rgba(212,175,55,0.35)'; e.currentTarget.style.boxShadow = 'none'; }}>

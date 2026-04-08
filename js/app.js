@@ -429,7 +429,7 @@
             if (sleeperLeagues.length === 0) return <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--silver)', fontSize: '0.82rem' }}>No leagues found for {selectedYear}</div>;
 
             const tier = typeof getUserTier === 'function' ? getUserTier() : 'free';
-            const showProCard = tier !== 'war_room' && tier !== 'warroom' && tier !== 'commissioner';
+            const showProCard = tier === 'free' || tier === 'scout';
 
             return (
                 <div className="hub-league-selector">

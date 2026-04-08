@@ -240,10 +240,12 @@ test('no profile → free',
   () => { ls.clear(); eq(getUserTier(), 'free'); });
 test('tier = warroom → warroom',
   () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'warroom' })); eq(getUserTier(), 'warroom'); ls.clear(); });
-test('tier = commissioner → warroom',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'commissioner' })); eq(getUserTier(), 'warroom'); ls.clear(); });
-test('tier = power → warroom',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'power' })); eq(getUserTier(), 'warroom'); ls.clear(); });
+test('tier = commissioner → commissioner',
+  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'commissioner' })); eq(getUserTier(), 'commissioner'); ls.clear(); });
+test('tier = power → pro',
+  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'power' })); eq(getUserTier(), 'pro'); ls.clear(); });
+test('tier = pro → pro',
+  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'pro' })); eq(getUserTier(), 'pro'); ls.clear(); });
 test('tier = scout → scout',
   () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'scout' })); eq(getUserTier(), 'scout'); ls.clear(); });
 test('tier = reconai → scout (legacy rename)',

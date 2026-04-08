@@ -74,8 +74,9 @@
                     let dhq = window.App?.LI?.playerScores?.[pid] || 0;
                     // Enrich with CSV data from The Beast
                     const csv = typeof window.findProspect === 'function' ? window.findProspect((p.first_name || '') + ' ' + (p.last_name || '')) : null;
-                    // For IDP/K rookies with no DHQ from engine, use CSV draftScore as fallback
-                    if (dhq === 0 && csv?.draftScore) dhq = csv.draftScore;
+                    // For rookies with no DHQ from engine, use startup-comp dynasty value
+                    // (slots rookies into the DHQ position ladder based on startup ADP)
+                    if (dhq === 0 && csv) dhq = csv.dynastyValue || csv.draftScore || 0;
                     return { pid, p, dhq, csv };
                 });
 

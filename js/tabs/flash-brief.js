@@ -272,7 +272,10 @@ function FlashBriefPanel({
                         React.createElement('span', { style: { fontSize: '1rem' } }, '🎯'),
                         React.createElement('div', null,
                             React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: '0.85rem' } }, p.waiver(waiverTarget.name, waiverTarget.pos, waiverTarget.dhq)),
-                            React.createElement('div', { style: { fontSize: '0.75rem', color: 'var(--silver)', marginTop: '2px' } }, `${waiverTarget.pos} · DHQ ${waiverTarget.dhq.toLocaleString()} · Fills your ${waiverTarget.pos} gap perfectly. Worth a look.`),
+                            React.createElement('div', { style: { fontSize: '0.75rem', color: 'var(--silver)', marginTop: '2px' } },
+                                React.createElement('span', { style: { color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '2px' }, onClick: e => { e.stopPropagation(); if (typeof window.openPlayerModal === 'function' && waiverTarget.pid) window.openPlayerModal(waiverTarget.pid); } }, waiverTarget.name),
+                                ` · ${waiverTarget.pos} · DHQ ${waiverTarget.dhq.toLocaleString()} · Fills your ${waiverTarget.pos} gap.`
+                            ),
                         ),
                     ),
                     // Key drops
@@ -284,7 +287,13 @@ function FlashBriefPanel({
                         React.createElement('span', { style: { fontSize: '1rem' } }, '⚠️'),
                         React.createElement('div', null,
                             React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: '0.85rem' } }, `Heads up — ${keyDrops.length > 1 ? 'some high-value players hit' : 'a high-value player hit'} the wire recently.`),
-                            React.createElement('div', { style: { fontSize: '0.75rem', color: 'var(--silver)', marginTop: '2px' } }, keyDrops.map(d => `${d.name} (${d.pos}, ${d.dhq.toLocaleString()})`).join(', ') + '. Might be worth scooping up before someone else does.'),
+                            React.createElement('div', { style: { fontSize: '0.75rem', color: 'var(--silver)', marginTop: '2px' } },
+                                ...keyDrops.map((d, i) => [
+                                    i > 0 ? ', ' : '',
+                                    React.createElement('span', { key: d.pid || i, style: { color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '2px' }, onClick: e => { e.stopPropagation(); if (typeof window.openPlayerModal === 'function' && d.pid) window.openPlayerModal(d.pid); } }, `${d.name} (${d.pos}, ${d.dhq.toLocaleString()})`)
+                                ]).flat(),
+                                '. Might be worth scooping up before someone else does.'
+                            ),
                         ),
                     ),
                     // Trade block
@@ -395,10 +404,10 @@ function FlashBriefPanel({
                                     React.createElement('span', { style: { fontSize: '0.65rem', color: 'var(--silver)', opacity: 0.7, minWidth: '42px' } }, timeStr),
                                     React.createElement('span', { style: { fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.06em', padding: '1px 5px', borderRadius: '3px', background: badgeColor, color: badgeText } }, typeBadge),
                                 ),
-                                adds.map(pid => React.createElement('div', { key: 'a-' + pid, style: { color: '#4ade80', fontSize: '0.78rem', paddingLeft: '4px' } },
+                                adds.map(pid => React.createElement('div', { key: 'a-' + pid, style: { color: '#4ade80', fontSize: '0.78rem', paddingLeft: '4px', cursor: 'pointer' }, onClick: () => { if (typeof window.openPlayerModal === 'function') window.openPlayerModal(pid); } },
                                     '\u25B2 ' + pn(pid)
                                 )),
-                                drops.map(pid => React.createElement('div', { key: 'd-' + pid, style: { color: '#f87171', fontSize: '0.78rem', paddingLeft: '4px' } },
+                                drops.map(pid => React.createElement('div', { key: 'd-' + pid, style: { color: '#f87171', fontSize: '0.78rem', paddingLeft: '4px', cursor: 'pointer' }, onClick: () => { if (typeof window.openPlayerModal === 'function') window.openPlayerModal(pid); } },
                                     '\u25BC ' + pn(pid)
                                 )),
                             );

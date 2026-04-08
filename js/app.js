@@ -436,21 +436,44 @@
                 <div className="hub-league-selector">
                     <label>Select League</label>
 
-                    {/* Pro tier upgrade card */}
-                    {showProCard && (
+                    {/* Pro tier card — launcher for paid, upgrade for free */}
+                    {showProCard && !isPaid && (
                         <div onClick={() => { if (typeof window.showProLaunchPage === 'function') window.showProLaunchPage(); else window.location.href = 'landing.html'; }}
-                            style={{ cursor: 'pointer', marginBottom: '12px', borderRadius: '12px', padding: '14px 16px', background: isPaid ? 'linear-gradient(135deg, rgba(46,204,113,0.08), rgba(46,204,113,0.02))' : 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.04))', border: isPaid ? '1.5px solid rgba(46,204,113,0.3)' : '1.5px solid rgba(212,175,55,0.35)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.18s' }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = isPaid ? 'rgba(46,204,113,0.5)' : 'rgba(212,175,55,0.6)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(212,175,55,0.15)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = isPaid ? 'rgba(46,204,113,0.3)' : 'rgba(212,175,55,0.35)'; e.currentTarget.style.boxShadow = 'none'; }}>
+                            style={{ cursor: 'pointer', marginBottom: '12px', borderRadius: '12px', padding: '14px 16px', background: 'linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.04))', border: '1.5px solid rgba(212,175,55,0.35)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.18s' }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.6)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(212,175,55,0.15)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.35)'; e.currentTarget.style.boxShadow = 'none'; }}>
                             <div style={{ width: '36px', height: '36px', flexShrink: 0 }}><ProTierIcon size={36} /></div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--white)' }}>{isPaid ? 'Pro Active' : 'Upgrade to Pro'}</span>
-                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: isPaid ? '#2ECC71' : 'var(--gold)', background: isPaid ? 'rgba(46,204,113,0.15)' : 'rgba(212,175,55,0.15)', border: '1px solid ' + (isPaid ? 'rgba(46,204,113,0.3)' : 'rgba(212,175,55,0.3)'), borderRadius: '10px', padding: '1px 7px', letterSpacing: '0.04em' }}>{isPaid ? 'ACTIVE' : '$4.99/mo'}</span>
+                                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--white)' }}>Upgrade to War Room</span>
+                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--gold)', background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '10px', padding: '1px 7px', letterSpacing: '0.04em' }}>$4.99/mo</span>
                                 </div>
-                                <div style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6 }}>{isPaid ? 'Full access · All leagues · Owner DNA · Draft Intel' : 'Unlock full AI analysis · All leagues · Owner DNA'}</div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6 }}>Unlock full AI analysis · All leagues · Owner DNA</div>
                             </div>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={isPaid ? 'rgba(46,204,113,0.5)' : 'rgba(212,175,55,0.5)'} strokeWidth="2.5" style={{ flexShrink: 0 }}><polyline points="9 18 15 12 9 6"/></svg>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="rgba(212,175,55,0.5)" strokeWidth="2.5" style={{ flexShrink: 0 }}><polyline points="9 18 15 12 9 6"/></svg>
+                        </div>
+                    )}
+                    {showProCard && isPaid && sleeperLeagues.length > 0 && (
+                        <div onClick={() => {
+                            // Auto-launch: pick last used league or first available
+                            const lastId = WrStorage.get(WR_KEYS.LAST_LEAGUE_ID, null);
+                            const target = (lastId && sleeperLeagues.find(l => l.id === lastId)) || sleeperLeagues[0];
+                            if (target) onSelect(target);
+                        }}
+                            style={{ cursor: 'pointer', marginBottom: '12px', borderRadius: '12px', padding: '14px 16px', background: 'linear-gradient(135deg, rgba(212,175,55,0.1), rgba(0,0,0,0.3))', border: '1.5px solid rgba(212,175,55,0.4)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.18s' }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.7)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(212,175,55,0.2)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.4)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}>
+                            <div style={{ width: '36px', height: '36px', flexShrink: 0 }}><ProTierIcon size={36} /></div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--gold)' }}>Launch War Room</span>
+                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#2ECC71', background: 'rgba(46,204,113,0.15)', border: '1px solid rgba(46,204,113,0.3)', borderRadius: '10px', padding: '1px 7px', letterSpacing: '0.04em' }}>PRO</span>
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6 }}>
+                                    {(() => { const lastId = WrStorage.get(WR_KEYS.LAST_LEAGUE_ID, null); const last = lastId && sleeperLeagues.find(l => l.id === lastId); return last ? 'Resume: ' + last.name : 'Select a league to enter your command center'; })()}
+                                </div>
+                            </div>
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--gold)" strokeWidth="2" style={{ flexShrink: 0 }}><polyline points="9 18 15 12 9 6"/></svg>
                         </div>
                     )}
 

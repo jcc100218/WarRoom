@@ -1003,7 +1003,9 @@
                 else if (otherDnaKey === 'STALWART') likelihood = Math.min(85, Math.max(20, Math.round((1 - Math.abs(normalizedDiff)*3)*80)));
                 else if (otherDnaKey === 'ACCEPTOR') likelihood = Math.min(90, Math.max(30, 60 + Math.round(normalizedDiff*100)));
                 else if (otherDnaKey === 'DESPERATE') { const fitsNeed = theirAssessment?.needs?.some(n => (myAssessment?.strengths||[]).includes(n.pos)); likelihood = fitsNeed ? Math.min(92, 65 + Math.round(Math.abs(normalizedDiff)*20) + 20) : Math.min(75, 55 + Math.round(Math.abs(normalizedDiff)*30)); }
-                else likelihood = Math.min(85, Math.max(15, 50 - Math.round(normalizedDiff*120)));
+                else likelihood = Math.round(85 / (1 + Math.exp(normalizedDiff * 8)));
+                const dnaMult = DNA_TYPES[otherDnaKey]?.multiplier ?? 1.0;
+                likelihood = Math.round(likelihood * dnaMult);
                 likelihood += netTaxTotal;
             }
             likelihood = Math.round(Math.max(5, Math.min(97, likelihood)));
@@ -1275,7 +1277,7 @@
                         const diff = val1 - val2;
                         const maxVal = Math.max(val1, val2, 1);
                         const pctDiff = Math.round(Math.abs(diff) / maxVal * 100);
-                        const grade = pctDiff <= 5 ? 'A' : pctDiff <= 12 ? 'B+' : pctDiff <= 20 ? 'B' : pctDiff <= 30 ? 'C' : pctDiff <= 40 ? 'D' : 'F';
+                        const grade = pctDiff <= 2 ? 'A+' : pctDiff <= 5 ? 'A' : pctDiff <= 12 ? 'B+' : pctDiff <= 20 ? 'B' : pctDiff <= 30 ? 'C' : pctDiff <= 40 ? 'D' : 'F';
                         const gradeCol = grade.startsWith('A') ? 'var(--win-green)' : grade.startsWith('B') ? '#F0A500' : 'var(--loss-red)';
                         return { idx, trade, rids, sides: {[rid1]:s1,[rid2]:s2}, rid1, rid2, val1, val2, diff, grade, gradeCol, pctDiff };
                     });

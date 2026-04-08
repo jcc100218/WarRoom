@@ -142,7 +142,7 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
             if (p.tier === 'warroom') return 'warroom';
             if (p.tier === 'scout' || p.tier === 'reconai') return 'scout';
         } catch(e) { wrLog('getUserTier.parse', e); }
-        if (new URLSearchParams(window.location.search).has('dev') || window.location.hostname.includes('sandbox')) return 'pro';
+        if (new URLSearchParams(window.location.search).has('dev') || ['localhost', '127.0.0.1'].includes(window.location.hostname)) return 'pro';
         return 'free';
     }
 

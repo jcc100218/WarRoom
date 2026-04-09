@@ -911,9 +911,13 @@
 <script src="https://jcc100218.github.io/ReconAI/shared/analytics-engine.js?v=20260408"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/dhq-ai.js?v=20260408"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/ai-dispatch.js?v=20260408"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/strategy.js?v=20260408"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/gm-engine.js?v=20260408"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/player-modal.js?v=20260408"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/rookie-data.js?v=20260408"></script>
 <script src="https://jcc100218.github.io/ReconAI/js/pro-launch.js?v=20260408"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/strategy.js?v=20260408"></script>
+<script src="https://jcc100218.github.io/ReconAI/shared/gm-engine.js?v=20260408"></script>
 <script src="college-stats.js"></script>
 <script src="draft-history.js"></script>
 <script src="charts.js"></script>
@@ -947,9 +951,11 @@
 <script type="text/babel" src="js/tabs/calendar.js"></script>
 <script type="text/babel" src="js/tabs/global-view.js"></script>
 <script src="js/tutorial.js"></script>
-<!-- 6. League detail: coordinator shell, depends on all above -->
+<!-- 6. Strategy editor: calls shared GMStrategy API, no logic duplication -->
+<script type="text/babel" src="js/strategy-editor.js"></script>
+<!-- 7. League detail: coordinator shell, depends on all above -->
 <script type="text/babel" src="js/league-detail.js"></script>
-<!-- 7. App: OwnerDashboard + ReactDOM.render (loads last) -->
+<!-- 8. App: OwnerDashboard + ReactDOM.render (loads last) -->
 <script type="text/babel" src="js/app.js"></script>
 
 <!-- All JSX code extracted to js/ modules. Only bootstrap remains. -->

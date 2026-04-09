@@ -2507,19 +2507,13 @@
                 /> : activeTab === 'calendar' ? <CalendarTab
                     currentLeague={currentLeague}
                     myRoster={myRoster}
-                /> : activeTab === 'strategy' ? (
-                <div style={{ padding: '24px 16px', maxWidth: 600 }}>
-                    <div style={{ marginBottom: 20 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(212,175,55,0.55)', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 4 }}>AI GM</div>
-                        <div style={{ fontSize: 22, fontWeight: 800, color: '#E8E8F0', fontFamily: "'DM Sans', sans-serif" }}>Strategy Editor</div>
-                        <div style={{ fontSize: 13, color: '#9090A8', marginTop: 4 }}>Set your strategy once — Alex uses it everywhere, and Scout stays in sync.</div>
-                    </div>
-                    {typeof window.StrategyEditor !== 'undefined'
-                        ? React.createElement(window.StrategyEditor)
-                        : <div style={{ color: '#E74C3C', fontSize: 13 }}>StrategyEditor not loaded.</div>
-                    }
-                </div>
-                ) : activeTab === 'brief' ? null : (
+                /> : activeTab === 'strategy' ? <StrategyEditorTab // eslint-disable-line no-undef
+                    currentLeague={currentLeague}
+                    myRoster={myRoster}
+                    playersData={playersData}
+                    gmStrategy={gmStrategy}
+                    setGmStrategy={setGmStrategy}
+                /> : activeTab === 'brief' ? null : (
                 <DashboardPanel
                     selectedWidgets={selectedWidgets}
                     setSelectedWidgets={setSelectedWidgets}

@@ -134,23 +134,43 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
     // ===== PRODUCT TIER SYSTEM =====
     // Tiers: free → scout → warroom ($9.99) → pro ($12.99) → commissioner ($14.99)
+    //
+    // Delegates to shared/tier.js (window.getTier) for canonical paid/free detection,
+    // then resolves War Room's granular level from the profile tier field.
+    // Falls back to local logic if shared/tier.js failed to load.
     function getUserTier() {
-        // Delegate to shared tier system (reconai/shared/tier.js) when available.
-        // getTier() returns 'free' | 'trial' | 'paid'; map to minimum WR tier.
-        if (typeof window.getTier === 'function') {
-            const shared = window.getTier();
-            if (shared === 'paid') return 'scout';
-            if (shared === 'trial') return 'scout';
-            return shared;
+        // shared/tier.js returns 'free' | 'trial' | 'paid'
+        const sharedTier = typeof window.getTier === 'function' ? window.getTier() : null;
+
+        if (sharedTier === 'paid') {
+            // Shared confirms paid — resolve the specific War Room level from profile
+            try {
+                const p = JSON.parse(localStorage.getItem(window.STORAGE_KEYS?.OD_PROFILE || 'od_profile_v1') || '{}');
+                if (p.tier === 'commissioner') return 'commissioner';
+                if (p.tier === 'pro' || p.tier === 'power') return 'pro';
+                if (p.tier === 'warroom') return 'warroom';
+                if (p.tier === 'scout' || p.tier === 'reconai') return 'scout';
+            } catch(e) { wrLog('getUserTier.parse', e); }
+            // Dev mode returns 'paid' from shared — give full local access
+            if (new URLSearchParams(window.location.search).has('dev') || ['localhost', '127.0.0.1'].includes(window.location.hostname)) return 'pro';
+            return 'scout'; // paid but unrecognized profile tier → minimum paid level
         }
-        try {
-            const p = JSON.parse(localStorage.getItem((window.STORAGE_KEYS?.OD_PROFILE || 'od_profile_v1')) || '{}');
-            if (p.tier === 'commissioner') return 'commissioner';
-            if (p.tier === 'pro' || p.tier === 'power') return 'pro';
-            if (p.tier === 'warroom') return 'warroom';
-            if (p.tier === 'scout' || p.tier === 'reconai') return 'scout';
-        } catch(e) { wrLog('getUserTier.parse', e); }
-        if (new URLSearchParams(window.location.search).has('dev') || ['localhost', '127.0.0.1'].includes(window.location.hostname)) return 'pro';
+
+        // Trial users get free-tier access in War Room (no trial concept here)
+        if (sharedTier === 'trial') return 'free';
+
+        // Fallback: shared/tier.js not loaded — use local logic directly
+        if (sharedTier === null) {
+            try {
+                const p = JSON.parse(localStorage.getItem('od_profile_v1') || '{}');
+                if (p.tier === 'commissioner') return 'commissioner';
+                if (p.tier === 'pro' || p.tier === 'power') return 'pro';
+                if (p.tier === 'warroom') return 'warroom';
+                if (p.tier === 'scout' || p.tier === 'reconai') return 'scout';
+            } catch(e) { wrLog('getUserTier.parse', e); }
+            if (new URLSearchParams(window.location.search).has('dev') || ['localhost', '127.0.0.1'].includes(window.location.hostname)) return 'pro';
+        }
+
         return 'free';
     }
 
@@ -175,9 +195,16 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
             'league-chronicles', 'rule-simulator', 'trade-auditor', 'league-health', 'opus-analysis']),
     };
 
+    // Save shared canAccess reference (from shared/tier.js) before War Room overlay
+    const _sharedCanAccess = window.canAccess || null;
+
     function canAccess(feature) {
+        // War Room's granular feature matrix is the primary gate
         const tier = getUserTier();
-        return TIER_FEATURES[tier]?.has(feature) || false;
+        if (TIER_FEATURES[tier]?.has(feature)) return true;
+        // Fall back to shared tier.js canAccess for features not in War Room's matrix
+        // (covers shared FEATURES enum values used by ReconAI modules)
+        return _sharedCanAccess ? _sharedCanAccess(feature) : false;
     }
 
     function isPro() { const t = getUserTier(); return t === 'pro' || t === 'commissioner'; }
@@ -219,6 +246,15 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
 
     // ===== SLEEPER API =====
+    // ── Shared platform connectors (HIGH #10) ─────────────────────────────────
+    // The following shared connectors are available via CDN (loaded in index.html):
+    //   window.Sleeper — shared/sleeper-api.js  (preferred for new Sleeper features)
+    //   window.ESPN    — shared/espn-api.js     (ESPN league support)
+    //   window.MFL     — shared/mfl-api.js      (MFL league support)
+    //   window.Yahoo   — shared/yahoo-api.js    (Yahoo league support)
+    // War Room's local Sleeper fetchers below are kept as a stable fallback.
+    // Multi-platform support for new features should use the shared connectors.
+    // ─────────────────────────────────────────────────────────────────────────
     const SLEEPER_BASE_URL = 'https://api.sleeper.app/v1';
 
     async function fetchJSON(url) {
@@ -276,8 +312,8 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
         LB: ['LB','OLB','ILB','MLB'],
     };
 
-    // Peak windows default — single source of truth (was inlined in 11+ fallback patterns)
-    window.App.PEAK_WINDOWS_DEFAULT = {
+    // Peak windows default — fallback only; shared/constants.js is the primary source
+    window.App.PEAK_WINDOWS_DEFAULT = window.App.PEAK_WINDOWS_DEFAULT || {
         QB:[23,39], RB:[21,31], WR:[21,33], TE:[21,34],
         DL:[26,33], LB:[26,32], DB:[21,34]
     };

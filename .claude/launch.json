@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8082"],
       "port": 8082
+    },
+    {
+      "name": "warroom-worktree",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8083"],
+      "port": 8083
     }
   ]
 }

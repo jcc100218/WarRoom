@@ -195,8 +195,12 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
             'league-chronicles', 'rule-simulator', 'trade-auditor', 'league-health', 'opus-analysis']),
     };
 
-    // Save shared canAccess reference (from shared/tier.js) before War Room overlay
-    const _sharedCanAccess = window.canAccess || null;
+    // Save shared canAccess reference (from shared/tier.js) before War Room overlay.
+    // NOTE: window.canAccess is unreliable here — core.js's own `function canAccess`
+    // declaration hoists and overwrites window.canAccess before this line executes.
+    // index.html captures the shared ref into window._sharedCanAccess between
+    // tier.js and core.js (inline <script>), which runs before Babel compiles core.js.
+    const _sharedCanAccess = window._sharedCanAccess || null;
 
     function canAccess(feature) {
         // War Room's granular feature matrix is the primary gate

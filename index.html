@@ -916,6 +916,8 @@
 <script src="https://jcc100218.github.io/ReconAI/shared/gm-engine.js?v=20260408"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/player-modal.js?v=20260408"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/rookie-data.js?v=20260408"></script>
+<!-- Preserve shared/tier.js canAccess before core.js hoists its own canAccess over window.canAccess -->
+<script>window._sharedCanAccess = window.canAccess;</script>
 <script src="https://jcc100218.github.io/ReconAI/js/pro-launch.js?v=20260408"></script>
 <script src="college-stats.js"></script>
 <script src="draft-history.js"></script>

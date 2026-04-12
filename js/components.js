@@ -35,7 +35,8 @@
         );
     }
     window.UpgradeGate = UpgradeGate;
-    window.canAccess = canAccess;
+    // canAccess lives in core.js closure; do NOT re-assign to window
+    // (overwrites shared/tier.js and causes infinite recursion via _sharedCanAccess)
     window.getUserTier = getUserTier;
 
     // ===== PLAYER INLINE CARD (bottom-right, non-blocking) =====

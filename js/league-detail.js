@@ -100,6 +100,11 @@
         useEffect(() => {
             let cancelled = false;
             async function walkChain() {
+                // MFL/ESPN/Yahoo leagues don't use Sleeper's previous_league_id chain
+                if (currentLeague?._mfl || currentLeague?._espn || currentLeague?._yahoo) {
+                    if (!cancelled) setLeagueStartYear(currentSeason - 4);
+                    return;
+                }
                 let lid = currentLeague?.id;
                 let earliest = currentSeason;
                 for (let y = currentSeason - 1; y >= 2018 && lid; y--) {

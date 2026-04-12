@@ -63,14 +63,15 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
 
     // ── Roster players for untouchables picker ────────────────────────────────
     const rosterPlayers = React.useMemo(() => {
-        if (!myRoster || !playersData) return [];
-        return myRoster
-            .filter(p => p?.player_id)
-            .map(p => {
-                const pd = playersData[p.player_id] || {};
+        const pids = myRoster?.players || [];
+        if (!pids.length || !playersData) return [];
+        return pids
+            .filter(pid => pid && pid !== '0')
+            .map(pid => {
+                const pd = playersData[pid] || {};
                 return {
-                    id: p.player_id,
-                    name: pd.full_name || pd.name || p.player_id,
+                    id: pid,
+                    name: pd.full_name || pd.name || pid,
                     pos: pd.position || '?',
                 };
             })
@@ -569,3 +570,5 @@ const styles = {
         fontWeight: 600,
     }),
 };
+
+window.StrategyEditorTab = StrategyEditorTab;

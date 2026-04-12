@@ -916,6 +916,8 @@
 <script src="https://jcc100218.github.io/ReconAI/shared/gm-engine.js?v=20260408"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/player-modal.js?v=20260408"></script>
 <script src="https://jcc100218.github.io/ReconAI/shared/rookie-data.js?v=20260408"></script>
+<!-- Preserve shared/tier.js canAccess before core.js hoists its own canAccess over window.canAccess -->
+<script>window._sharedCanAccess = window.canAccess;</script>
 <script src="https://jcc100218.github.io/ReconAI/js/pro-launch.js?v=20260408"></script>
 <script src="college-stats.js"></script>
 <script src="draft-history.js"></script>
@@ -928,7 +930,7 @@
 
 <!-- War Room modules — loaded in dependency order by Babel standalone -->
 <!-- 1. Core: tier system, React hooks, fetch helpers (everything depends on this) -->
-<script type="text/babel" src="js/core.js"></script>
+<script type="text/babel" src="js/core.js?v=20260411a"></script>
 <!-- 2. Shared components: UpgradeGate, GMMessage, PlayerInlineCard, TradeFinderTab -->
 <script type="text/babel" src="js/components.js"></script>
 <!-- 3. Shared utilities: player valuation constants + projection engine -->
@@ -951,7 +953,7 @@
 <script type="text/babel" src="js/tabs/global-view.js"></script>
 <script src="js/tutorial.js"></script>
 <!-- 6. Strategy editor: calls shared GMStrategy API, no logic duplication -->
-<script type="text/babel" src="js/strategy-editor.js"></script>
+<script type="text/babel" src="js/tabs/strategy-editor.js"></script>
 <!-- 7. League detail: coordinator shell, depends on all above -->
 <script type="text/babel" src="js/league-detail.js"></script>
 <!-- 8. App: OwnerDashboard + ReactDOM.render (loads last) -->

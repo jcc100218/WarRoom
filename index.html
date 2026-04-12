@@ -930,7 +930,7 @@
 
 <!-- War Room modules — loaded in dependency order by Babel standalone -->
 <!-- 1. Core: tier system, React hooks, fetch helpers (everything depends on this) -->
-<script type="text/babel" src="js/core.js"></script>
+<script type="text/babel" src="js/core.js?v=20260411a"></script>
 <!-- 2. Shared components: UpgradeGate, GMMessage, PlayerInlineCard, TradeFinderTab -->
 <script type="text/babel" src="js/components.js"></script>
 <!-- 3. Shared utilities: player valuation constants + projection engine -->
@@ -953,7 +953,7 @@
 <script type="text/babel" src="js/tabs/global-view.js"></script>
 <script src="js/tutorial.js"></script>
 <!-- 6. Strategy editor: calls shared GMStrategy API, no logic duplication -->
-<script type="text/babel" src="js/strategy-editor.js"></script>
+<script type="text/babel" src="js/tabs/strategy-editor.js"></script>
 <!-- 7. League detail: coordinator shell, depends on all above -->
 <script type="text/babel" src="js/league-detail.js"></script>
 <!-- 8. App: OwnerDashboard + ReactDOM.render (loads last) -->

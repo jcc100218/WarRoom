@@ -1045,7 +1045,7 @@ function AnalyticsPanel({
                                                         }
                                                         // If rounds appear 0-indexed (max round is 0-based), shift up by 1
                                                         if (_mr >= 1 && _rd === 0) { _rd = 1; }
-                                                        if (typeof window.wrLog === 'function') window.wrLog('bracket.roundLabel', { season, bracket: b.key, mi, _mr, _rd, raw_r: matchup.r, raw_round: matchup.round });
+                                                        // Debug log removed — was flooding console with every bracket matchup
                                                         const roundLabel = _rd === _mr ? 'Championship' : _rd === _mr - 1 ? 'Semi-finals' : _rd === _mr - 2 ? 'Quarter-finals' : 'Round ' + _rd;
                                                         const isMyGame = t1 === myRidP || t2 === myRidP;
                                                         return (

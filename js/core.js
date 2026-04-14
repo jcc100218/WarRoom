@@ -440,6 +440,20 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
     window.App.WR_KEYS  = WR_KEYS;
     window.App.WrStorage = WrStorage;
     window.App.fetchAllPlayers = fetchAllPlayers;
+
+    // ── Normalize traded picks: owner_id can be roster_id OR user_id ─
+    // Sleeper's /traded_picks API is ambiguous — detect which type and
+    // convert to roster_id so all downstream code can compare safely.
+    window.App.normalizeTradedPicks = function normalizeTradedPicks(rosters, tps) {
+      if (!tps?.length || !rosters?.length) return tps || [];
+      const rosterIds = new Set(rosters.map(r => String(r.roster_id)));
+      const userIds   = new Set(rosters.map(r => String(r.owner_id)));
+      let rH = 0, uH = 0;
+      for (const tp of tps) { const o = String(tp.owner_id ?? ''); if (rosterIds.has(o)) rH++; if (userIds.has(o)) uH++; }
+      if (rH >= uH) return tps;
+      const u2r = {}; for (const r of rosters) u2r[String(r.owner_id)] = String(r.roster_id);
+      return tps.map(tp => { const rid = u2r[String(tp.owner_id ?? '')]; return rid ? { ...tp, owner_id: rid } : tp; });
+    };
     // ──────────────────────────────────────────────────────────────────────────
     // ──────────────────────────────────────────────────────────────────────────
 

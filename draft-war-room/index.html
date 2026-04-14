@@ -431,8 +431,18 @@
           if (sleeperTeams)  setNumTeams(sleeperTeams);
           if (sleeperType)   setDraftType(sleeperType);
 
-          // Filter traded picks to this draft's season
-          const tradedPicks = (tradedPicksRaw || []).filter(tp => String(tp.season) === String(draftSeason));
+          // Filter traded picks to this draft's season & normalize owner_id → roster_id
+          let tradedPicks = (tradedPicksRaw || []).filter(tp => String(tp.season) === String(draftSeason));
+          if (tradedPicks.length && rosters.length) {
+            const _rids = new Set(rosters.map(r => String(r.roster_id)));
+            const _uids = new Set(rosters.map(r => String(r.owner_id)));
+            let _rH = 0, _uH = 0;
+            for (const tp of tradedPicks) { const o = String(tp.owner_id ?? ''); if (_rids.has(o)) _rH++; if (_uids.has(o)) _uH++; }
+            if (_rH < _uH) {
+              const _u2r = {}; for (const r of rosters) _u2r[String(r.owner_id)] = String(r.roster_id);
+              tradedPicks = tradedPicks.map(tp => { const rid = _u2r[String(tp.owner_id ?? '')]; return rid ? { ...tp, owner_id: rid } : tp; });
+            }
+          }
 
           if (Object.keys(slotToRosterId).length && rosters.length && users.length) {
             const slotOwners = {};

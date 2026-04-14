@@ -1122,7 +1122,9 @@
                     window.S.currentLeagueId = currentLeague.id;
                     window.S.season = activeYear;
                     window.S.nflState = { season: activeYear };
-                    window.S.tradedPicks = tradedPicks || [];
+                    window.S.tradedPicks = window.App?.normalizeTradedPicks
+                        ? window.App.normalizeTradedPicks(window.S.rosters, tradedPicks)
+                        : tradedPicks || [];
                     window.S.matchups = matchupsData || [];
                     window.S.myRosterId = myRosterData?.roster_id;
                     const _isNonSleeper = currentLeague._mfl || currentLeague._espn || currentLeague._yahoo;

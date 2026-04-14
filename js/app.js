@@ -384,7 +384,11 @@
                         if (!lid) return;
                         try {
                             const tp = await fetch('https://api.sleeper.app/v1/league/' + lid + '/traded_picks').then(r => r.ok ? r.json() : []);
-                            if (tp?.length) { l.tradedPicks = tp; allTradedPicks.push(...tp); }
+                            if (tp?.length) {
+                                const norm = window.App?.normalizeTradedPicks;
+                                l.tradedPicks = norm ? norm(l.rosters || [], tp) : tp;
+                                allTradedPicks.push(...l.tradedPicks);
+                            }
                         } catch {}
                     }));
                     window.S.tradedPicks = allTradedPicks;

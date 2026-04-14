@@ -693,7 +693,9 @@
             handleSelectLeague(league);
         }
 
-        const resumeLeague = sleeperLeagues.find(l => l.id === lastLeagueId);
+        // Search ALL connected leagues (Sleeper + ESPN + MFL), not just
+        // Sleeper — resume-on-reload now works for every platform.
+        const resumeLeague = [...sleeperLeagues, ...espnLeagues, ...mflLeagues].find(l => l.id === lastLeagueId);
 
         return (
             <div className="app-container">

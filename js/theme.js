@@ -69,45 +69,46 @@
             },
         },
 
-        tecmo: {
-            id: 'tecmo',
-            name: 'Tecmo Bowl',
-            preview: '🎮',
+        // Tecmo Bowl + Madden 2005 themes parked for future rollout.
+        // Infrastructure preserved — just add the objects back to re-enable.
+
+        light: {
+            id: 'light',
+            name: 'Light Mode',
+            preview: '☀️',
             fonts: {
-                display: '"Press Start 2P", monospace',
-                ui: '"Press Start 2P", monospace',
-                mono: '"Press Start 2P", monospace',
-                sizeScale: 0.65, // pixel fonts are wider, need smaller sizes
+                display: 'Rajdhani, sans-serif',
+                ui: "'DM Sans', Inter, sans-serif",
+                mono: "'JetBrains Mono', monospace",
+                sizeScale: 1.0,
             },
             colors: {
-                // Same War Room palette — the retro feel comes from
-                // the font + square corners, not a color shift.
-                bg:         '#0A0A0A',
-                card:       '#0A0A0A',
+                bg:         '#F2F2F2',
+                card:       '#FFFFFF',
                 cardHover:  'rgba(212,175,55,0.06)',
-                accent:     'var(--gold, #D4AF37)',
-                accentDark: 'var(--dark-gold, #B8941E)',
-                text:       '#FFFFFF',
-                textMuted:  '#D0D0D0',
-                textFaint:  'rgba(255,255,255,0.4)',
-                positive:   '#2ECC71',
-                negative:   '#E74C3C',
-                info:       '#3498DB',
-                warn:       '#F0A500',
-                purple:     '#7C6BF8',
-                border:     'rgba(212,175,55,0.35)',
-                borderHover:'rgba(212,175,55,0.6)',
+                accent:     '#B8941E',       // slightly darker gold for contrast on white
+                accentDark: '#8B6914',
+                text:       '#1A1A1A',
+                textMuted:  '#555555',
+                textFaint:  'rgba(0,0,0,0.3)',
+                positive:   '#1B9E4B',       // darker green for light bg contrast
+                negative:   '#D32F2F',
+                info:       '#1976D2',
+                warn:       '#E68900',
+                purple:     '#6C4DC4',
+                border:     'rgba(0,0,0,0.12)',
+                borderHover:'rgba(0,0,0,0.25)',
             },
             card: {
-                background: '#0A0A0A',
-                border:     '2px solid rgba(212,175,55,0.35)',
-                borderHover:'2px solid rgba(212,175,55,0.6)',
-                radius:     '0px',
-                shadow:     'none',
-                shadowHover:'none',
+                background: '#FFFFFF',
+                border:     '1px solid rgba(0,0,0,0.1)',
+                borderHover:'1px solid rgba(0,0,0,0.2)',
+                radius:     '10px',
+                shadow:     '0 1px 4px rgba(0,0,0,0.08)',
+                shadowHover:'0 4px 12px rgba(0,0,0,0.12)',
             },
             badge: {
-                radius:     '0px',
+                radius:     '10px',
                 fontWeight:  700,
             },
             effects: {
@@ -115,58 +116,7 @@
                 glow:        false,
                 pixelate:    false,
                 hoverScale:  1.0,
-                transition:  '0.08s linear',
-            },
-        },
-
-        madden: {
-            id: 'madden',
-            name: 'Madden 2005',
-            preview: '🏈',
-            fonts: {
-                // Madden used a condensed sans-serif for headers, clean sans for body
-                display: "'Impact', 'Arial Narrow', sans-serif",
-                ui: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
-                mono: "'Consolas', 'Courier New', monospace",
-                sizeScale: 1.0,
-            },
-            colors: {
-                // Madden 2005's signature: dark steel/navy gradient bg,
-                // EA Sports gold accent, white text, blue-gray muted
-                bg:         '#1a1f2e',
-                card:       'linear-gradient(180deg, #2a3040 0%, #1a1f2e 100%)',
-                cardHover:  'rgba(218,165,32,0.08)',
-                accent:     '#DAA520',       // EA Sports gold
-                accentDark: '#B8860B',
-                text:       '#FFFFFF',
-                textMuted:  '#8899AA',
-                textFaint:  'rgba(136,153,170,0.4)',
-                positive:   '#4CAF50',
-                negative:   '#F44336',
-                info:       '#42A5F5',
-                warn:       '#FFA726',
-                purple:     '#AB47BC',
-                border:     'rgba(218,165,32,0.3)',
-                borderHover:'rgba(218,165,32,0.6)',
-            },
-            card: {
-                background: 'linear-gradient(180deg, #2a3040 0%, #1a1f2e 100%)',
-                border:     '1px solid rgba(218,165,32,0.3)',
-                borderHover:'1px solid rgba(218,165,32,0.6)',
-                radius:     '4px',           // subtle rounding — Madden had slightly rounded cards
-                shadow:     '0 2px 8px rgba(0,0,0,0.4)',
-                shadowHover:'0 4px 16px rgba(0,0,0,0.5)',
-            },
-            badge: {
-                radius:     '3px',
-                fontWeight:  700,
-            },
-            effects: {
-                scanlines:   false,
-                glow:        false,
-                pixelate:    false,
-                hoverScale:  1.02,           // subtle scale on hover — Madden had that PDA feel
-                transition:  '0.2s ease',
+                transition:  '0.15s ease',
             },
         },
     };
@@ -181,9 +131,34 @@
         }
 
         const t = THEMES[themeId] || THEMES.default;
+        const c = t.colors || {};
 
-        // Base: scanline overlay + glow effects, keyed by data attribute
-        let css = '';
+        // Override core CSS custom properties so the ENTIRE app (sidebar,
+        // tabs, modals) picks up the theme's palette — not just dashboard
+        // widgets that read from WrTheme directly.
+        let css = `
+:root[data-wr-theme="${themeId}"] {
+    --gold: ${c.accent || '#D4AF37'};
+    --dark-gold: ${c.accentDark || '#B8941E'};
+    --black: ${c.bg || '#0A0A0A'};
+    --off-black: ${c.card || c.bg || '#1A1A1A'};
+    --charcoal: ${c.cardHover || '#2A2A2A'};
+    --silver: ${c.textMuted || '#D0D0D0'};
+    --white: ${c.text || '#FFFFFF'};
+    --win-green: ${c.positive || '#2ECC71'};
+    --loss-red: ${c.negative || '#E74C3C'};
+}
+`;
+
+        // Body background for light mode
+        if (c.bg && c.bg !== '#0A0A0A') {
+            css += `
+[data-wr-theme="${themeId}"] body { background: ${c.bg} !important; }
+[data-wr-theme="${themeId}"] .wr-sidebar { background: ${c.card || c.bg} !important; border-color: ${c.border} !important; }
+[data-wr-theme="${themeId}"] .wr-main-content { background: ${c.bg} !important; }
+`;
+        }
+
 
         if (t.effects.scanlines) {
             css += `

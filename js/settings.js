@@ -379,7 +379,7 @@
                             <div style={{ fontSize: '0.78rem', color: 'var(--silver)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
                                 Change the visual style of your dashboard widgets.
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                                 {(window.WrTheme ? window.WrTheme.list() : ['default']).map(themeId => {
                                     const t = window.WrTheme?.themes?.[themeId] || {};
                                     const isActive = (window.WrTheme?.current || 'default') === themeId;
@@ -406,7 +406,7 @@
                                                 letterSpacing: '0.06em',
                                             }}>{t.name || themeId}</div>
                                             <div style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6, marginTop: '4px' }}>
-                                                {themeId === 'default' ? 'Dark gold · classic look' : themeId === 'tecmo' ? 'Retro pixel · blocky style' : themeId === 'madden' ? 'Steel gradients · EA Sports gold' : 'Custom theme'}
+                                                {themeId === 'default' ? 'Dark mode · gold accent' : themeId === 'light' ? 'Light mode · clean & bright' : 'Custom theme'}
                                             </div>
                                             {isActive && (
                                                 <div style={{

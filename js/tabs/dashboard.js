@@ -87,7 +87,7 @@ const WIDGET_MODULES = {
         description: "Alex's briefing — greeting, tier read, and action CTAs",
         accent: '#D4AF37',
         metrics: [],
-        sizes: ['md', 'lg', 'xl'],
+        sizes: ['md', 'lg', 'xl', 'xxl'],
     },
     'field-notes': {
         label: 'Field Notes',
@@ -170,6 +170,7 @@ function DashboardWidgetPicker({ onAdd, onClose, editWidget }) {
         md: { label: 'Medium', dims: '2×1', desc: 'Stat + sparkline + annotation + insight', w: 160, h: 80 },
         lg: { label: 'Large', dims: '2×2', desc: 'Mini-panel: 3-4 stats + chart + drill-down list', w: 160, h: 160 },
         xl: { label: 'Extra Large', dims: '4×2', desc: 'Full-width premium panel', w: 320, h: 160 },
+        xxl: { label: 'Full Page', dims: '4×4', desc: 'Full-width expanded view — no clipping', w: 320, h: 320 },
     };
 
     function handleConfirm() {
@@ -732,8 +733,8 @@ function DashboardPanel({
     // ══════════════════════════════════════════════════════════════
     function WidgetShell({ widget, idx, children }) {
         const [showGear, setShowGear] = React.useState(false);
-        const sizeSpan = { sm: 'span 1', md: 'span 2', lg: 'span 2', xl: 'span 4' };
-        const rowSpan = { sm: 'span 1', md: 'span 1', lg: 'span 2', xl: 'span 2' };
+        const sizeSpan = { sm: 'span 1', md: 'span 2', lg: 'span 2', xl: 'span 4', xxl: 'span 4' };
+        const rowSpan = { sm: 'span 1', md: 'span 1', lg: 'span 2', xl: 'span 2', xxl: 'span 4' };
 
         return (
             <div
@@ -835,12 +836,12 @@ function DashboardPanel({
                 </WidgetShell>
             );
         }
-        if (size === 'xl') {
-            // xl is full-width; intelligence-brief is currently the only xl consumer
+        if (size === 'xl' || size === 'xxl') {
+            // xl/xxl are full-width; intelligence-brief is currently the only consumer
             return (
                 <WidgetShell key={widget.id || key + idx} widget={widget} idx={idx}>
                     {key === 'intelligence-brief'
-                        ? renderIntelligenceBrief('xl')
+                        ? renderIntelligenceBrief(size)
                         : <LargeModuleCard moduleKey={key} primaryMetric={primaryMetric} />}
                 </WidgetShell>
             );

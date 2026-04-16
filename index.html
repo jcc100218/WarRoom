@@ -970,7 +970,12 @@
 <script type="text/babel" src="js/draft/command-center.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft-room.js?v=20260415cd8"></script>
 <!-- 5. League detail tab components (extracted from league-detail.js) -->
-<script type="text/babel" src="js/tabs/dashboard.js?v=20260415cd8"></script>
+<!-- v2 widget modules (load before dashboard.js which consumes them) -->
+<script type="text/babel" src="js/widgets/roster-pulse.js?v=20260415cd9"></script>
+<script type="text/babel" src="js/widgets/league-landscape.js?v=20260415cd9"></script>
+<script type="text/babel" src="js/widgets/market-radar.js?v=20260415cd9"></script>
+<script type="text/babel" src="js/widgets/draft-capital.js?v=20260415cd9"></script>
+<script type="text/babel" src="js/tabs/dashboard.js?v=20260415cd9"></script>
 <script type="text/babel" src="js/tabs/flash-brief.js"></script>
 <script type="text/babel" src="js/tabs/league-map.js"></script>
 <script type="text/babel" src="js/tabs/my-team.js"></script>

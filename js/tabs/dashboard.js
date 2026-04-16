@@ -4,99 +4,82 @@
 // Star-to-dashboard from any card across the app.
 // ══════════════════════════════════════════════════════════════════
 
-// ─── Module definitions ───────────────────────────────────────────
+// ─── Module definitions (v2 — 6 world-class modules) ─────────────
+// Each module must pass the test: actionable? leads somewhere? wow?
+// Old 9-module registry preserved in comments for reference during migration.
+const T = () => window.WrTheme || {};
 const WIDGET_MODULES = {
-    'roster': {
-        label: 'Roster Health',
-        icon: '🏋️',
-        description: 'Health score, age profile, elite assets, aging cliff',
-        accent: '#2ECC71',
-        metrics: [
-            { key: 'health-score', label: 'Health Score' },
-            { key: 'avg-age', label: 'DHQ-Wtd Age' },
-            { key: 'elite-count', label: 'Elite Players' },
-            { key: 'aging-cliff', label: 'Aging Cliff %' },
-            { key: 'bench-quality', label: 'Bench Quality' },
-        ],
-        sizes: ['sm', 'md', 'lg'],
-    },
-    'competitive': {
-        label: 'Competitive',
-        icon: '🏆',
-        description: 'Win-now rank, dynasty rank, compete window',
-        accent: '#D4AF37',
-        metrics: [
-            { key: 'contender-rank', label: 'Contender Rank' },
-            { key: 'dynasty-rank', label: 'Dynasty Rank' },
-            { key: 'window', label: 'Compete Window' },
-        ],
-        sizes: ['sm', 'md', 'lg'],
-    },
-    'trading': {
-        label: 'Trading',
-        icon: '🔄',
-        description: 'Win rate, net DHQ/trade, velocity',
-        accent: '#7C6BF8',
-        metrics: [
-            { key: 'hit-rate', label: 'Trade Win Rate' },
-            { key: 'net-trade', label: 'Net DHQ/Trade' },
-            { key: 'trade-velocity', label: 'Trade Velocity' },
-        ],
-        sizes: ['sm', 'md', 'lg'],
-    },
-    'draft': {
-        label: 'Draft',
-        icon: '📋',
-        description: 'Pick capital, draft ROI, compete window',
-        accent: '#F0A500',
-        metrics: [
-            { key: 'pick-capital', label: 'Pick Capital' },
-            { key: 'draft-roi', label: 'Draft ROI' },
-        ],
-        sizes: ['sm', 'md'],
-    },
-    'waivers': {
-        label: 'Waivers',
-        icon: '💰',
-        description: 'FAAB remaining, waiver priority',
-        accent: '#60A5FA',
-        metrics: [
-            { key: 'faab-efficiency', label: 'FAAB Remaining' },
-        ],
-        sizes: ['sm'],
-    },
-    'league-standings': {
-        label: 'League Standings',
-        icon: '📊',
-        description: 'Current standings with records and DHQ',
-        accent: '#D4AF37',
-        metrics: [],
-        sizes: ['md', 'lg'],
-    },
-    'transaction-ticker': {
-        label: 'Transaction Ticker',
-        icon: '📰',
-        description: 'Recent trades, waivers, FA moves',
-        accent: '#34D399',
-        metrics: [],
-        sizes: ['md', 'lg'],
-    },
-    'intelligence-brief': {
-        label: 'Intelligence Brief',
+    'intel-brief': {
+        label: 'Intel Brief',
         icon: '🧠',
         description: "Alex's briefing — greeting, tier read, and action CTAs",
-        accent: '#D4AF37',
+        accent: () => T().color?.('accent') || '#D4AF37',
         metrics: [],
         sizes: ['md', 'lg', 'tall', 'xl', 'xxl'],
+        clickTarget: {},  // CTAs handle navigation internally
+    },
+    'roster-pulse': {
+        label: 'Roster Pulse',
+        icon: '💊',
+        description: 'Your roster vital signs — health, elites, aging, window',
+        accent: () => T().color?.('positive') || '#2ECC71',
+        metrics: [
+            { key: 'health-score', label: 'Health Score' },
+            { key: 'elite-count', label: 'Elite Players' },
+            { key: 'contender-rank', label: 'Contender Rank' },
+        ],
+        sizes: ['sm', 'md', 'lg', 'tall'],
+        clickTarget: { sm: 'myteam', md: 'myteam' },
+    },
+    'league-landscape': {
+        label: 'League Landscape',
+        icon: '🌐',
+        description: 'Standings, transactions, who is moving',
+        accent: () => T().color?.('accent') || '#D4AF37',
+        metrics: [],
+        sizes: ['md', 'lg', 'tall', 'xl'],
+        clickTarget: { sm: 'league', md: 'league' },
+    },
+    'market-radar': {
+        label: 'Market Radar',
+        icon: '📡',
+        description: 'Trade opportunities, waiver targets, FAAB',
+        accent: () => T().color?.('purple') || '#7C6BF8',
+        metrics: [],
+        sizes: ['sm', 'md', 'lg', 'tall'],
+        clickTarget: { sm: 'trades', md: 'trades' },
+    },
+    'draft-capital': {
+        label: 'Draft Capital',
+        icon: '🎯',
+        description: 'Pick inventory, values, draft countdown',
+        accent: () => T().color?.('warn') || '#F0A500',
+        metrics: [],
+        sizes: ['sm', 'md', 'lg'],
+        clickTarget: { sm: 'draft', md: 'draft' },
     },
     'field-notes': {
         label: 'Field Notes',
         icon: '📋',
         description: 'Intel logged from War Room Scout sessions',
-        accent: '#00c8b4',
+        accent: () => T().color?.('info') || '#00c8b4',
         metrics: [],
         sizes: ['md', 'lg', 'tall'],
+        clickTarget: {},
     },
+};
+
+// Legacy module keys → new keys (for migration of saved widget configs)
+const LEGACY_MODULE_MAP = {
+    'roster': 'roster-pulse',
+    'competitive': 'roster-pulse',
+    'trading': 'market-radar',
+    'waivers': 'market-radar',
+    'draft': 'draft-capital',
+    'league-standings': 'league-landscape',
+    'transaction-ticker': 'league-landscape',
+    'intelligence-brief': 'intel-brief',
+    // field-notes stays as-is
 };
 
 // ─── Star widget utilities (exposed globally) ─────────────────────
@@ -361,14 +344,49 @@ function DashboardPanel({
         return () => window.removeEventListener('wr_starred_changed', handler);
     }, []);
 
+    // ── v2 migration: map old 9-module keys → new 6-module keys ──
+    React.useEffect(() => {
+        const WrSt = window.App?.WrStorage;
+        if (!WrSt) return;
+        const MIGRATED_KEY = 'wr_dashboard_migrated_v2';
+        if (WrSt.get(MIGRATED_KEY, false)) return;
+        const old = selectedWidgets || [];
+        if (!old.length) { WrSt.set(MIGRATED_KEY, true); return; }
+        // Check if ANY old key needs mapping
+        const needsMigration = old.some(w => LEGACY_MODULE_MAP[w.key]);
+        if (!needsMigration) { WrSt.set(MIGRATED_KEY, true); return; }
+        const seen = new Set();
+        const migrated = old.map(w => {
+            const newKey = LEGACY_MODULE_MAP[w.key] || w.key;
+            if (!WIDGET_MODULES[newKey]) return null; // orphaned module
+            if (seen.has(newKey)) return null;         // dedup (e.g., roster + competitive both → roster-pulse)
+            seen.add(newKey);
+            return { ...w, key: newKey, id: newKey + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), primaryMetric: WIDGET_MODULES[newKey].metrics?.[0]?.key || null };
+        }).filter(Boolean);
+        if (migrated.length) setSelectedWidgets(migrated);
+        WrSt.set(MIGRATED_KEY, true);
+    }, []);
+
+    // ── Listen for theme changes to re-render ──
+    const [themeKey, setThemeKey] = React.useState(() => window.WrTheme?.current || 'default');
+    React.useEffect(() => {
+        const handler = () => setThemeKey(window.WrTheme?.current || 'default');
+        window.addEventListener('wr_theme_changed', handler);
+        return () => window.removeEventListener('wr_theme_changed', handler);
+    }, []);
+
     const widgets = selectedWidgets || [];
 
-    // ── Shared style tokens ──
-    const G = 'var(--gold)', W = 'var(--white)', S = 'var(--silver)', BK = 'var(--black)';
-    const cardBase = { background: BK, border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden', height: '100%' };
-    const monoFont = 'JetBrains Mono, monospace';
-    const rajFont = 'Rajdhani, sans-serif';
-    const dmFont = 'DM Sans, sans-serif';
+    // ── Shared style tokens (theme-aware) ──
+    const theme = window.WrTheme?.get?.() || {};
+    const G = theme.colors?.accent || 'var(--gold)';
+    const W = theme.colors?.text || 'var(--white)';
+    const S = theme.colors?.textMuted || 'var(--silver)';
+    const BK = theme.colors?.card || 'var(--black)';
+    const cardBase = window.WrTheme?.cardStyle?.() || { background: BK, border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden', height: '100%' };
+    const monoFont = theme.fonts?.mono || 'JetBrains Mono, monospace';
+    const rajFont = theme.fonts?.display || 'Rajdhani, sans-serif';
+    const dmFont = theme.fonts?.ui || 'DM Sans, sans-serif';
 
     // ── KPI value helper ──
     function kv(key) {
@@ -438,7 +456,7 @@ function DashboardPanel({
         // Custom renderers for non-KPI modules
         if (moduleKey === 'league-standings') return renderStandings('md');
         if (moduleKey === 'transaction-ticker') return renderTransactionTicker('md');
-        if (moduleKey === 'intelligence-brief') return renderIntelligenceBrief('md');
+        if (moduleKey === 'intel-brief') return renderIntelligenceBrief('md');
         if (moduleKey === 'field-notes') return renderFieldNotes('md');
 
         const key = primaryMetric || mod.metrics?.[0]?.key;
@@ -506,7 +524,7 @@ function DashboardPanel({
 
         if (moduleKey === 'league-standings') return renderStandings('lg');
         if (moduleKey === 'transaction-ticker') return renderTransactionTicker('lg');
-        if (moduleKey === 'intelligence-brief') return renderIntelligenceBrief('lg');
+        if (moduleKey === 'intel-brief') return renderIntelligenceBrief('lg');
         if (moduleKey === 'field-notes') return renderFieldNotes('lg');
 
         const allMetrics = mod.metrics.map(m => ({ ...m, val: kv(m.key) }));
@@ -739,6 +757,7 @@ function DashboardPanel({
 
         return (
             <div
+                className="wr-widget"
                 draggable
                 onDragStart={e => { setDragIdx(idx); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(idx)); }}
                 onDragOver={e => e.preventDefault()}
@@ -758,7 +777,7 @@ function DashboardPanel({
                     gridRow: rowSpan[widget.size] || 'span 1',
                     position: 'relative',
                     opacity: dragIdx === idx ? 0.4 : 1,
-                    transition: 'opacity 0.15s',
+                    transition: theme.effects?.transition || 'opacity 0.15s',
                     minHeight: widget.size === 'sm' ? '160px' : undefined,
                 }}
             >
@@ -811,9 +830,21 @@ function DashboardPanel({
         const { key, size, primaryMetric } = widget;
 
         // Navigate on click for SM widgets
-        const categoryToTab = { roster: 'myteam', competitive: 'league', trading: 'trades', draft: 'draft', waivers: 'fa', 'league-standings': 'league', 'transaction-ticker': 'league' };
-        const clickTab = categoryToTab[key];
+        // v2 click targets use the module's clickTarget map; fall back to legacy
+        const mod = WIDGET_MODULES[key];
+        const clickTab = mod?.clickTarget?.[size] || mod?.clickTarget?.sm || null;
 
+        // ── Delegate to module-specific external widgets if available ──
+        const externalWidget = resolveExternalWidget(key, size, primaryMetric);
+        if (externalWidget !== null) {
+            return (
+                <WidgetShell key={widget.id || key + idx} widget={widget} idx={idx}>
+                    {externalWidget}
+                </WidgetShell>
+            );
+        }
+
+        // ── Fallback: generic KPI renderers for modules with metrics ──
         if (size === 'sm') {
             return (
                 <WidgetShell key={widget.id || key + idx} widget={widget} idx={idx}>
@@ -831,27 +862,68 @@ function DashboardPanel({
             );
         }
         if (size === 'lg' || size === 'tall') {
-            // lg = 2×2, tall = 2×4 — same renderers, WidgetShell handles the row span
             return (
                 <WidgetShell key={widget.id || key + idx} widget={widget} idx={idx}>
-                    {key === 'intelligence-brief'
-                        ? renderIntelligenceBrief(size)
-                        : key === 'field-notes'
-                            ? renderFieldNotes(size)
-                            : <LargeModuleCard moduleKey={key} primaryMetric={primaryMetric} />}
+                    <LargeModuleCard moduleKey={key} primaryMetric={primaryMetric} />
                 </WidgetShell>
             );
         }
         if (size === 'xl' || size === 'xxl') {
-            // xl/xxl are full-width; intelligence-brief is currently the only consumer
             return (
                 <WidgetShell key={widget.id || key + idx} widget={widget} idx={idx}>
-                    {key === 'intelligence-brief'
-                        ? renderIntelligenceBrief(size)
-                        : <LargeModuleCard moduleKey={key} primaryMetric={primaryMetric} />}
+                    <LargeModuleCard moduleKey={key} primaryMetric={primaryMetric} />
                 </WidgetShell>
             );
         }
+        return null;
+    }
+
+    // ── External widget resolver ─────────────────────────────────
+    // Each module can have an external widget component (loaded via
+    // <script> tags). If one exists, it takes priority over the
+    // generic KPI renderers.
+    function resolveExternalWidget(moduleKey, size, primaryMetric) {
+        // Intel Brief → IntelligenceBriefWidget (flash-brief.js)
+        if (moduleKey === 'intel-brief') {
+            return renderIntelligenceBrief(size);
+        }
+        // Field Notes → FieldNotesWidget (flash-brief.js)
+        if (moduleKey === 'field-notes') {
+            return renderFieldNotes(size);
+        }
+        // Roster Pulse → RosterPulseWidget (js/widgets/roster-pulse.js)
+        if (moduleKey === 'roster-pulse' && typeof window.RosterPulseWidget === 'function') {
+            const RPW = window.RosterPulseWidget;
+            return React.createElement(RPW, {
+                size, myRoster, rankedTeams, sleeperUserId, currentLeague,
+                playersData, computeKpiValue, setActiveTab,
+            });
+        }
+        // League Landscape → LeagueLandscapeWidget (js/widgets/league-landscape.js)
+        if (moduleKey === 'league-landscape' && typeof window.LeagueLandscapeWidget === 'function') {
+            const LLW = window.LeagueLandscapeWidget;
+            return React.createElement(LLW, {
+                size, standings, transactions, rankedTeams, sleeperUserId,
+                currentLeague, playersData, setActiveTab, getOwnerName, getPlayerName, timeAgo,
+            });
+        }
+        // Market Radar → MarketRadarWidget (js/widgets/market-radar.js)
+        if (moduleKey === 'market-radar' && typeof window.MarketRadarWidget === 'function') {
+            const MRW = window.MarketRadarWidget;
+            return React.createElement(MRW, {
+                size, myRoster, rankedTeams, sleeperUserId, currentLeague,
+                playersData, setActiveTab,
+            });
+        }
+        // Draft Capital → DraftCapitalWidget (js/widgets/draft-capital.js)
+        if (moduleKey === 'draft-capital' && typeof window.DraftCapitalWidget === 'function') {
+            const DCW = window.DraftCapitalWidget;
+            return React.createElement(DCW, {
+                size, myRoster, currentLeague, playersData, briefDraftInfo,
+                setActiveTab,
+            });
+        }
+        // No external widget — fall through to generic renderers
         return null;
     }
 
@@ -889,14 +961,14 @@ function DashboardPanel({
     return (
         <React.Fragment>
             {/* Widget grid */}
-            <div style={{
+            <div className="wr-dashboard-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(4, minmax(140px, 1fr))',
                 gridAutoRows: '160px',
                 gap: '12px',
                 padding: '16px 20px',
                 background: BK,
-                borderBottom: '1px solid rgba(212,175,55,0.12)',
+                borderBottom: '1px solid ' + (theme.colors?.border || 'rgba(212,175,55,0.12)'),
             }}>
                 {widgets.map((widget, idx) => renderWidget(widget, idx))}
 

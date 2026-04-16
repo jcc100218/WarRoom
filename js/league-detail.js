@@ -431,13 +431,14 @@
         };
         // Default 6-widget dashboard — module-based format. Intelligence brief
         // sits at the top as a full-width xl widget so new users land on Alex.
+        // v2 default layout — 6 world-class widgets
         const DEFAULT_WIDGETS = [
-            { id: 'dw0', key: 'intelligence-brief', size: 'xl' },
-            { id: 'dw1', key: 'roster',             size: 'md', primaryMetric: 'health-score' },
-            { id: 'dw2', key: 'competitive',        size: 'sm', primaryMetric: 'contender-rank' },
-            { id: 'dw3', key: 'competitive',        size: 'sm', primaryMetric: 'dynasty-rank' },
-            { id: 'dw4', key: 'trading',            size: 'md', primaryMetric: 'hit-rate' },
-            { id: 'dw5', key: 'league-standings',   size: 'lg' },
+            { id: 'dw0', key: 'intel-brief',        size: 'xl' },
+            { id: 'dw1', key: 'roster-pulse',       size: 'md', primaryMetric: 'health-score' },
+            { id: 'dw2', key: 'market-radar',       size: 'md' },
+            { id: 'dw3', key: 'league-landscape',   size: 'lg' },
+            { id: 'dw4', key: 'draft-capital',      size: 'md' },
+            { id: 'dw5', key: 'field-notes',        size: 'lg' },
         ];
         // Migrate legacy formats to current widget object format
         function migrateKpisToWidgets(stored) {
@@ -486,8 +487,8 @@
             // intelligence-brief widget once if it's not already in their layout.
             // Users who explicitly remove it will keep it removed (the new entry
             // will be persisted to storage by the useEffect below).
-            if (!widgets.some(w => w.key === 'intelligence-brief')) {
-                widgets = [{ id: 'mig3_brief', key: 'intelligence-brief', size: 'xl' }, ...widgets];
+            if (!widgets.some(w => w.key === 'intel-brief' || w.key === 'intelligence-brief')) {
+                widgets = [{ id: 'mig3_brief', key: 'intel-brief', size: 'xl' }, ...widgets];
             }
             return widgets;
         }

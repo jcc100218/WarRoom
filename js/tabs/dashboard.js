@@ -64,7 +64,7 @@ const WIDGET_MODULES = {
         description: 'Intel logged from War Room Scout sessions',
         accent: () => T().color?.('info') || '#00c8b4',
         metrics: [],
-        sizes: ['md', 'lg', 'tall'],
+        sizes: ['slim', 'md', 'lg', 'tall'],
         clickTarget: {},
     },
 };
@@ -150,6 +150,7 @@ function DashboardWidgetPicker({ onAdd, onClose, editWidget }) {
 
     const SIZE_META = {
         sm: { label: 'Small', dims: '1×1', desc: 'One key stat + trend arrow + color coding', w: 80, h: 80 },
+        slim: { label: 'Slim', dims: '1×2', desc: 'Narrow tall card — compact text list', w: 80, h: 160 },
         md: { label: 'Medium', dims: '2×1', desc: 'Stat + sparkline + annotation + insight', w: 160, h: 80 },
         lg: { label: 'Large', dims: '2×2', desc: 'Mini-panel: 3-4 stats + chart + drill-down list', w: 160, h: 160 },
         tall: { label: 'Tall', dims: '2×4', desc: 'Half-width tall panel — great for text-heavy cards', w: 160, h: 320 },
@@ -753,8 +754,8 @@ function DashboardPanel({
     // ══════════════════════════════════════════════════════════════
     function WidgetShell({ widget, idx, children }) {
         const [showGear, setShowGear] = React.useState(false);
-        const sizeSpan = { sm: 'span 1', md: 'span 2', lg: 'span 2', tall: 'span 2', xl: 'span 4', xxl: 'span 4' };
-        const rowSpan = { sm: 'span 1', md: 'span 1', lg: 'span 2', tall: 'span 4', xl: 'span 2', xxl: 'span 4' };
+        const sizeSpan = { sm: 'span 1', slim: 'span 1', md: 'span 2', lg: 'span 2', tall: 'span 2', xl: 'span 4', xxl: 'span 4' };
+        const rowSpan = { sm: 'span 1', slim: 'span 2', md: 'span 1', lg: 'span 2', tall: 'span 4', xl: 'span 2', xxl: 'span 4' };
 
         return (
             <div
@@ -839,7 +840,7 @@ function DashboardPanel({
         const externalWidget = resolveExternalWidget(key, size, primaryMetric);
         if (externalWidget !== null) {
             // lg+ sizes: wrap with click → drill-down. sm/md: click → tab nav (handled inside widget).
-            const isLargeSize = size === 'lg' || size === 'tall' || size === 'xl' || size === 'xxl';
+            const isLargeSize = size === 'slim' || size === 'lg' || size === 'tall' || size === 'xl' || size === 'xxl';
             const openDrillDown = isLargeSize ? () => setDrillDown({ module: key, widget }) : null;
             return (
                 <WidgetShell key={widget.id || key + idx} widget={widget} idx={idx}>

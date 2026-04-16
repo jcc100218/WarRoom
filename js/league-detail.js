@@ -1343,27 +1343,27 @@
                     })();
                 }
 
-                // Fire DHQ engine truly in parallel — don't await.
-                // The dashboard renders immediately with standings + rosters,
-                // and DHQ values fill in asynchronously once loadLeagueIntel completes.
-                // This saves 500-3000ms of blocking time on league switch.
-                (async () => {
-                    if (typeof window.App?.loadLeagueIntel === 'function' && !window.App.LI_LOADED) {
-                        setDhqStatus({ loading: true, step: 'Analyzing league history...', progress: 20 });
-                        try {
-                            await window.App.loadLeagueIntel();
-                            console.log('[War Room] DHQ engine loaded:', Object.keys(window.App.LI?.playerScores || {}).length, 'players valued');
-                            setDhqStatus({ loading: false, step: 'Complete!', progress: 100 });
-                            setStatsData(prev => ({ ...prev })); // force re-render
-                            setTimeRecomputeTs(Date.now()); // refresh KPIs and rankings
-                        } catch (e) {
-                            console.warn('[War Room] DHQ engine error:', e);
-                            setDhqStatus({ loading: false, step: 'Error: ' + e.message, progress: 0 });
-                        }
-                    }
-                })(); // fire-and-forget — NOT awaited
-
+                // Paint the dashboard shell before DHQ starts, then await DHQ.
+                // This lets React commit the initial render (standings, rosters,
+                // nav) while DHQ computes — user sees the page immediately, then
+                // DHQ values populate once loadLeagueIntel finishes.
                 setLoadStage('');
+                // Yield to the browser so the render commits before DHQ blocks
+                await new Promise(r => setTimeout(r, 0));
+
+                if (typeof window.App?.loadLeagueIntel === 'function' && !window.App.LI_LOADED) {
+                    setDhqStatus({ loading: true, step: 'Analyzing league history...', progress: 20 });
+                    try {
+                        await window.App.loadLeagueIntel();
+                        console.log('[War Room] DHQ engine loaded:', Object.keys(window.App.LI?.playerScores || {}).length, 'players valued');
+                        setDhqStatus({ loading: false, step: 'Complete!', progress: 100 });
+                        setStatsData(prev => ({ ...prev })); // force re-render
+                        setTimeRecomputeTs(Date.now()); // refresh KPIs and rankings
+                    } catch (e) {
+                        console.warn('[War Room] DHQ engine error:', e);
+                        setDhqStatus({ loading: false, step: 'Error: ' + e.message, progress: 0 });
+                    }
+                }
 
                 // Load rookie prospect data from enrichment CSVs (fire-and-forget)
                 if (typeof window.loadRookieProspects === 'function') {

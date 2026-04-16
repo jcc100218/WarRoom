@@ -99,7 +99,7 @@
                         fontFamily: fonts.mono, fontSize: fs(2.2), fontWeight: 700,
                         color: dealCol, lineHeight: 1,
                     }} className="wr-data-value">{dealCount}</div>
-                    <div style={{ fontSize: fs(0.5), color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px', fontFamily: fonts.ui }}>
+                    <div style={{ fontSize: fs(0.85), color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px', fontFamily: fonts.ui }}>
                         TRADE TARGETS
                     </div>
                     {dealCount > 0 && (
@@ -119,23 +119,23 @@
                 <div onClick={onClick} style={{ ...cardStyle, padding: '14px 16px', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                         <span style={{ fontSize: '1rem' }}>📡</span>
-                        <span style={{ fontFamily: fonts.display, fontSize: fs(0.82), fontWeight: 700, color: colors.purple, letterSpacing: '0.07em', textTransform: 'uppercase' }}>Market Radar</span>
+                        <span style={{ fontFamily: fonts.display, fontSize: fs(0.92), fontWeight: 700, color: colors.purple, letterSpacing: '0.07em', textTransform: 'uppercase' }}>Market Radar</span>
                     </div>
                     {top ? (
                         <div style={{ marginBottom: '8px' }}>
-                            <div style={{ fontSize: fs(0.7), fontWeight: 700, color: colors.text, fontFamily: fonts.ui }}>{top.name}</div>
-                            <div style={{ fontSize: fs(0.5), color: colors.textMuted, marginTop: '2px', fontFamily: fonts.ui }}>
+                            <div style={{ fontSize: fs(0.85), fontWeight: 700, color: colors.text, fontFamily: fonts.ui }}>{top.name}</div>
+                            <div style={{ fontSize: fs(0.85), color: colors.textMuted, marginTop: '2px', fontFamily: fonts.ui }}>
                                 wants {top.theirNeeds.join(', ') || '—'} · you have {top.myOffers.join(', ') || '—'}
                             </div>
                         </div>
                     ) : (
-                        <div style={{ fontSize: fs(0.6), color: colors.textFaint, fontStyle: 'italic', marginBottom: '8px', fontFamily: fonts.ui }}>
+                        <div style={{ fontSize: fs(0.8), color: colors.textFaint, fontStyle: 'italic', marginBottom: '8px', fontFamily: fonts.ui }}>
                             No strong matches found
                         </div>
                     )}
                     {/* FAAB bar */}
                     <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: fs(0.44), color: colors.textMuted, marginBottom: '3px', fontFamily: fonts.ui }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: fs(0.64), color: colors.textMuted, marginBottom: '3px', fontFamily: fonts.ui }}>
                             <span>FAAB</span>
                             <span>${faab.remaining} / ${faab.budget}</span>
                         </div>
@@ -152,13 +152,13 @@
             <div style={{ ...cardStyle, padding: '14px 16px', display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                     <span style={{ fontSize: '1.1rem' }}>📡</span>
-                    <span style={{ fontFamily: fonts.display, fontSize: fs(0.9), fontWeight: 700, color: colors.purple, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>Market Radar</span>
-                    <span style={{ fontSize: fs(0.48), color: colors.textMuted }}>{dealCount} targets</span>
+                    <span style={{ fontFamily: fonts.display, fontSize: fs(1.0), fontWeight: 700, color: colors.purple, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>Market Radar</span>
+                    <span style={{ fontSize: fs(0.68), color: colors.textMuted }}>{dealCount} targets</span>
                 </div>
 
                 {/* Trade partners */}
                 <div style={{ marginBottom: '12px' }}>
-                    <div style={{ fontSize: fs(0.44), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Trade Partners</div>
+                    <div style={{ fontSize: fs(0.64), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Trade Partners</div>
                     {tradeTargets.slice(0, 3).map((t, i) => (
                         <div key={i} style={{
                             display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 0',
@@ -169,37 +169,37 @@
                                 background: t.compat >= 60 ? colors.positive : t.compat >= 30 ? colors.accent : colors.warn,
                             }} />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: fs(0.58), fontWeight: 700, color: colors.text, fontFamily: fonts.ui }}>{t.name}</div>
-                                <div style={{ fontSize: fs(0.44), color: colors.textMuted, fontFamily: fonts.ui }}>
+                                <div style={{ fontSize: fs(0.78), fontWeight: 700, color: colors.text, fontFamily: fonts.ui }}>{t.name}</div>
+                                <div style={{ fontSize: fs(0.64), color: colors.textMuted, fontFamily: fonts.ui }}>
                                     wants {t.theirNeeds.join(', ') || '—'}
                                 </div>
                             </div>
-                            <span style={{ fontSize: fs(0.48), fontWeight: 700, color: colors.accent, fontFamily: fonts.mono }}>{t.compat}%</span>
+                            <span style={{ fontSize: fs(0.68), fontWeight: 700, color: colors.accent, fontFamily: fonts.mono }}>{t.compat}%</span>
                         </div>
                     ))}
                     {tradeTargets.length === 0 && (
-                        <div style={{ fontSize: fs(0.52), color: colors.textFaint, fontStyle: 'italic', padding: '8px 0', fontFamily: fonts.ui }}>No strong complementarity matches</div>
+                        <div style={{ fontSize: fs(0.72), color: colors.textFaint, fontStyle: 'italic', padding: '8px 0', fontFamily: fonts.ui }}>No strong complementarity matches</div>
                     )}
                 </div>
 
                 {/* Waiver wire */}
                 <div style={{ marginBottom: '10px' }}>
-                    <div style={{ fontSize: fs(0.44), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Waiver Wire</div>
+                    <div style={{ fontSize: fs(0.64), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Waiver Wire</div>
                     {waiverTargets.map((p, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: fs(0.52) }}>
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: fs(0.72) }}>
                             <span style={{ fontWeight: 700, color: colors.text, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: fonts.ui }}>{p.name}</span>
-                            <span style={{ ...window.WrTheme?.badgeStyle?.(window.App?.POS_COLORS?.[p.pos] || colors.accent) || {}, fontSize: fs(0.4) }}>{p.pos}</span>
-                            <span style={{ fontSize: fs(0.44), fontWeight: 700, color: colors.textMuted, fontFamily: fonts.mono }}>{p.dhq >= 1000 ? (p.dhq / 1000).toFixed(1) + 'k' : p.dhq}</span>
+                            <span style={{ ...window.WrTheme?.badgeStyle?.(window.App?.POS_COLORS?.[p.pos] || colors.accent) || {}, fontSize: fs(0.78) }}>{p.pos}</span>
+                            <span style={{ fontSize: fs(0.64), fontWeight: 700, color: colors.textMuted, fontFamily: fonts.mono }}>{p.dhq >= 1000 ? (p.dhq / 1000).toFixed(1) + 'k' : p.dhq}</span>
                         </div>
                     ))}
                     {waiverTargets.length === 0 && (
-                        <div style={{ fontSize: fs(0.52), color: colors.textFaint, fontStyle: 'italic', fontFamily: fonts.ui }}>Wire is clean</div>
+                        <div style={{ fontSize: fs(0.72), color: colors.textFaint, fontStyle: 'italic', fontFamily: fonts.ui }}>Wire is clean</div>
                     )}
                 </div>
 
                 {/* FAAB */}
                 <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: fs(0.44), color: colors.textMuted, marginBottom: '3px', fontFamily: fonts.ui }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: fs(0.64), color: colors.textMuted, marginBottom: '3px', fontFamily: fonts.ui }}>
                         <span>FAAB BUDGET</span>
                         <span>${faab.remaining} / ${faab.budget}</span>
                     </div>

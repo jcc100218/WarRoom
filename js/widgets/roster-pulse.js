@@ -104,7 +104,7 @@
                         {health}
                     </div>
                     <div style={{
-                        fontSize: fs(0.5),
+                        fontSize: fs(0.85),
                         color: colors.textMuted,
                         textTransform: 'uppercase',
                         letterSpacing: '0.1em',
@@ -113,7 +113,7 @@
                     }}>HEALTH</div>
                     <div style={{
                         marginTop: '6px',
-                        fontSize: fs(0.52),
+                        fontSize: fs(0.72),
                         fontWeight: 700,
                         padding: '2px 8px',
                         borderRadius: theme.card?.radius === '0px' ? '0' : '10px',
@@ -146,7 +146,7 @@
                             color: healthCol,
                             lineHeight: 1,
                         }} className="wr-data-value">{health}</div>
-                        <div style={{ fontSize: fs(0.44), color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px', fontFamily: fonts.ui }}>HEALTH</div>
+                        <div style={{ fontSize: fs(0.64), color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px', fontFamily: fonts.ui }}>HEALTH</div>
                     </div>
 
                     {/* Center: sparkline (all teams' health, yours highlighted) */}
@@ -178,7 +178,7 @@
                     {/* Header */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                         <span style={{ fontSize: '1.1rem' }}>💊</span>
-                        <span style={{ fontFamily: fonts.display, fontSize: fs(0.9), fontWeight: 700, color: colors.accent, letterSpacing: '0.07em', textTransform: 'uppercase' }}>Roster Pulse</span>
+                        <span style={{ fontFamily: fonts.display, fontSize: fs(1.0), fontWeight: 700, color: colors.accent, letterSpacing: '0.07em', textTransform: 'uppercase' }}>Roster Pulse</span>
                     </div>
 
                     {/* Vital signs grid */}
@@ -204,14 +204,14 @@
                                     lineHeight: 1.1,
                                 }} className="wr-data-value">{v.value}</div>
                                 <div style={{
-                                    fontSize: fs(0.42),
+                                    fontSize: fs(0.8),
                                     color: colors.textMuted,
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.06em',
                                     marginTop: '3px',
                                     fontFamily: fonts.ui,
                                 }}>{v.label}</div>
-                                {v.sub && <div style={{ fontSize: fs(0.4), color: colors.textFaint, marginTop: '1px' }}>{v.sub}</div>}
+                                {v.sub && <div style={{ fontSize: fs(0.78), color: colors.textFaint, marginTop: '1px' }}>{v.sub}</div>}
                             </div>
                         ))}
                     </div>
@@ -219,7 +219,7 @@
                     {/* Needs chips */}
                     {needs.length > 0 && (
                         <div style={{ marginBottom: '8px' }}>
-                            <div style={{ fontSize: fs(0.44), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Needs</div>
+                            <div style={{ fontSize: fs(0.64), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Needs</div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
                                 {needs.slice(0, 5).map((n, i) => {
                                     const pos = typeof n === 'string' ? n : n?.pos;
@@ -234,7 +234,7 @@
                     {/* Mini health sparkline for lg */}
                     <div style={{ flex: 1, minHeight: 40 }}>
                         <MiniBarChart data={healthSparkData} highlight={health} colors={colors} fonts={fonts} fs={fs} height={36} />
-                        <div style={{ fontSize: fs(0.4), color: colors.textFaint, marginTop: '2px', fontFamily: fonts.ui }}>
+                        <div style={{ fontSize: fs(0.78), color: colors.textFaint, marginTop: '2px', fontFamily: fonts.ui }}>
                             League health distribution · you: {health}
                         </div>
                     </div>
@@ -248,14 +248,14 @@
                             border: '1px solid ' + (colors.border || 'rgba(255,255,255,0.06)'),
                             borderRadius: theme.card?.radius === '0px' ? '0' : '6px',
                         }}>
-                            <div style={{ fontSize: fs(0.44), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', fontFamily: fonts.ui }}>Strengths</div>
+                            <div style={{ fontSize: fs(0.64), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', fontFamily: fonts.ui }}>Strengths</div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: '8px' }}>
                                 {(strengths.length ? strengths : ['—']).map((s, i) => {
                                     const pos = typeof s === 'string' ? s : s?.pos;
                                     return <Badge key={i} label={pos || '—'} color={colors.positive} theme={theme} />;
                                 })}
                             </div>
-                            <div style={{ fontSize: fs(0.62), color: colors.textMuted, lineHeight: 1.5, fontFamily: fonts.ui }}>
+                            <div style={{ fontSize: fs(0.92), color: colors.textMuted, lineHeight: 1.5, fontFamily: fonts.ui }}>
                                 {tier === 'ELITE' ? 'You\'re the team to beat. Protect your core and make surgical upgrades.'
                                 : tier === 'CONTENDER' ? 'Push for a title. Trade future picks for win-now assets.'
                                 : tier === 'CROSSROADS' ? 'Decision time: commit to competing or start a rebuild.'
@@ -304,7 +304,7 @@
         const t = theme || {};
         return (
             <span style={{
-                fontSize: window.WrTheme?.fontSize?.(0.52) || '0.52rem',
+                fontSize: window.WrTheme?.fontSize?.(0.72) || '0.72rem',
                 fontWeight: 700,
                 padding: '2px 6px',
                 borderRadius: t.card?.radius === '0px' ? '0' : '10px',

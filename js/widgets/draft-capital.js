@@ -93,12 +93,12 @@
                     }} className="wr-data-value">
                         {totalValue >= 1000 ? (totalValue / 1000).toFixed(1) + 'k' : totalValue}
                     </div>
-                    <div style={{ fontSize: fs(0.5), color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px', fontFamily: fonts.ui }}>
+                    <div style={{ fontSize: fs(0.85), color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px', fontFamily: fonts.ui }}>
                         {pickCount} PICKS
                     </div>
                     {countdown && (
                         <div style={{
-                            marginTop: '6px', fontSize: fs(0.44),
+                            marginTop: '6px', fontSize: fs(0.64),
                             color: countdown.live ? colors.positive : colors.accent,
                             fontWeight: 700, fontFamily: fonts.ui,
                         }}>{countdown.text}</div>
@@ -113,8 +113,8 @@
                 <div onClick={onClick} style={{ ...cardStyle, padding: '14px 16px', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                         <span style={{ fontSize: '1rem' }}>🎯</span>
-                        <span style={{ fontFamily: fonts.display, fontSize: fs(0.82), fontWeight: 700, color: colors.warn, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>Draft Capital</span>
-                        {countdown && <span style={{ fontSize: fs(0.48), color: countdown.live ? colors.positive : colors.accent, fontWeight: 700, fontFamily: fonts.ui }}>{countdown.text}</span>}
+                        <span style={{ fontFamily: fonts.display, fontSize: fs(0.92), fontWeight: 700, color: colors.warn, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>Draft Capital</span>
+                        {countdown && <span style={{ fontSize: fs(0.68), color: countdown.live ? colors.positive : colors.accent, fontWeight: 700, fontFamily: fonts.ui }}>{countdown.text}</span>}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
                         {picks.slice(0, 10).map((p, i) => {
@@ -122,7 +122,7 @@
                             return (
                                 <div key={i} style={{
                                     position: 'relative', overflow: 'hidden',
-                                    padding: '3px 8px', fontSize: fs(0.48), fontWeight: 700,
+                                    padding: '3px 8px', fontSize: fs(0.68), fontWeight: 700,
                                     borderRadius: theme.card?.radius === '0px' ? '0' : '4px',
                                     background: 'rgba(255,255,255,0.04)',
                                     border: '1px solid ' + (p.own ? 'rgba(255,255,255,0.08)' : colors.accent + '44'),
@@ -135,9 +135,9 @@
                                 </div>
                             );
                         })}
-                        {picks.length > 10 && <span style={{ fontSize: fs(0.44), color: colors.textFaint, alignSelf: 'center' }}>+{picks.length - 10}</span>}
+                        {picks.length > 10 && <span style={{ fontSize: fs(0.64), color: colors.textFaint, alignSelf: 'center' }}>+{picks.length - 10}</span>}
                     </div>
-                    <div style={{ fontSize: fs(0.5), color: colors.textMuted, fontFamily: fonts.mono }}>
+                    <div style={{ fontSize: fs(0.85), color: colors.textMuted, fontFamily: fonts.mono }}>
                         Total: {totalValue >= 1000 ? (totalValue / 1000).toFixed(1) + 'k' : totalValue} DHQ value · {pickCount} picks
                     </div>
                 </div>
@@ -149,10 +149,10 @@
             <div style={{ ...cardStyle, padding: '14px 16px', display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                     <span style={{ fontSize: '1.1rem' }}>🎯</span>
-                    <span style={{ fontFamily: fonts.display, fontSize: fs(0.9), fontWeight: 700, color: colors.warn, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>Draft Capital</span>
+                    <span style={{ fontFamily: fonts.display, fontSize: fs(1.0), fontWeight: 700, color: colors.warn, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>Draft Capital</span>
                     {countdown && (
                         <span style={{
-                            fontSize: fs(0.52), fontWeight: 700,
+                            fontSize: fs(0.72), fontWeight: 700,
                             color: countdown.live ? colors.positive : colors.accent,
                             fontFamily: fonts.ui,
                         }}>{countdown.live ? '🔴 ' : '📅 '}{countdown.text}</span>
@@ -166,13 +166,13 @@
                             display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0',
                             borderBottom: '1px solid rgba(255,255,255,0.03)',
                         }}>
-                            <span style={{ fontSize: fs(0.52), fontWeight: 700, color: p.own ? colors.text : colors.accent, minWidth: 80, fontFamily: fonts.ui }}>
+                            <span style={{ fontSize: fs(0.72), fontWeight: 700, color: p.own ? colors.text : colors.accent, minWidth: 80, fontFamily: fonts.ui }}>
                                 {p.label}
                             </span>
                             <div style={{ flex: 1, height: 8, background: 'rgba(255,255,255,0.04)', borderRadius: theme.card?.radius === '0px' ? '0' : '3px', overflow: 'hidden' }}>
                                 <div style={{ width: ((p.value / maxRoundVal) * 100) + '%', height: '100%', background: p.round <= 2 ? colors.accent : colors.textMuted + '66', transition: '0.3s' }} />
                             </div>
-                            <span style={{ fontSize: fs(0.44), fontWeight: 700, color: colors.textMuted, minWidth: 36, textAlign: 'right', fontFamily: fonts.mono }}>
+                            <span style={{ fontSize: fs(0.64), fontWeight: 700, color: colors.textMuted, minWidth: 36, textAlign: 'right', fontFamily: fonts.mono }}>
                                 {p.value >= 1000 ? (p.value / 1000).toFixed(1) + 'k' : p.value}
                             </span>
                         </div>
@@ -187,7 +187,7 @@
                     borderRadius: theme.card?.radius === '0px' ? '0' : '6px',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 }}>
-                    <span style={{ fontSize: fs(0.52), color: colors.textMuted, fontFamily: fonts.ui }}>TOTAL CAPITAL</span>
+                    <span style={{ fontSize: fs(0.72), color: colors.textMuted, fontFamily: fonts.ui }}>TOTAL CAPITAL</span>
                     <span style={{ fontSize: fs(1.0), fontWeight: 700, color: valCol, fontFamily: fonts.mono }} className="wr-data-value">
                         {totalValue >= 1000 ? (totalValue / 1000).toFixed(1) + 'k' : totalValue}
                     </span>

@@ -480,6 +480,9 @@ ${importText.substring(0, 8000)}`;
             const parsed = JSON.parse(jsonMatch[0]);
             setChronicles(parsed);
             localStorage.setItem(CHRONICLES_KEY, JSON.stringify(parsed));
+            // Invalidate the PlayerCard's cached chronicles-awards index so a
+            // freshly-imported chronicles file surfaces in player cards immediately.
+            if (typeof window._wrChroniclesInvalidate === 'function') window._wrChroniclesInvalidate();
             setImportStatus('done');
             setTimeout(() => setView('chronicles'), 500);
         } catch (e) {

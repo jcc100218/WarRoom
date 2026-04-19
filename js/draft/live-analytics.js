@@ -336,9 +336,14 @@
                     />
                     {/* User picks as dots */}
                     {userPicks.map((p, i) => {
-                        const consensusAtX = baseline[p.x - 1]?.y || 0;
-                        const isSteal = p.y > consensusAtX * 1.05;
-                        const isReach = p.y < consensusAtX * 0.85;
+                        // Clamp x into baseline bounds and fall back to a neutral color
+                        // when there's no consensus value to compare against (prevents
+                        // misleading "steal" coloring when consensusAtX is 0).
+                        const clampedIdx = Math.max(0, Math.min(baseline.length - 1, p.x - 1));
+                        const consensusAtX = baseline[clampedIdx]?.y || 0;
+                        const hasConsensus = consensusAtX > 0;
+                        const isSteal = hasConsensus && p.y > consensusAtX * 1.05;
+                        const isReach = hasConsensus && p.y < consensusAtX * 0.85;
                         const dotCol = isSteal ? '#2ECC71' : isReach ? '#E74C3C' : 'var(--gold)';
                         return (
                             <circle

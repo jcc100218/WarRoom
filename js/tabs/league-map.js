@@ -395,7 +395,13 @@ function LeagueMapTab({
   const [allPlayersCols, setAllPlayersCols] = React.useState(() => {
       try {
           const saved = JSON.parse(localStorage.getItem(ALL_PLAYERS_COL_KEY) || 'null');
-          if (Array.isArray(saved) && saved.length) return saved;
+          if (Array.isArray(saved) && saved.length) {
+              // Drop any stored keys that aren't in the current registry — prevents
+              // dead entries from silently widening the grid vs the row renderer.
+              const registryKeys = new Set(ALL_PLAYERS_COLUMNS.map(c => c.key));
+              const clean = saved.filter(k => registryKeys.has(k));
+              if (clean.length) return clean;
+          }
       } catch (_) {}
       return ALL_PLAYERS_DEFAULT_VISIBLE.slice();
   });
@@ -1163,10 +1169,13 @@ function LeagueMapTab({
                                     case 'ppg': {
                                         let shown = x.ppg;
                                         let marker = '';
-                                        if (ppgWindow !== 'season' && typeof window.App?.computeRollingPPG === 'function') {
+                                        if (ppgWindow !== 'season') {
                                             const n = ppgWindow === 'l3' ? 3 : 5;
-                                            const rolling = window.App.computeRollingPPG(x.pid, n);
+                                            const rolling = typeof window.App?.computeRollingPPG === 'function'
+                                                ? window.App.computeRollingPPG(x.pid, n)
+                                                : 0;
                                             if (rolling > 0) { shown = rolling; marker = ' · L' + n; }
+                                            else { marker = ' · Szn'; }
                                         }
                                         return <span key={c.key} style={{ color: 'var(--silver)' }}>{shown || '\u2014'}{marker}</span>;
                                     }

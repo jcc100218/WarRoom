@@ -29,6 +29,37 @@
         return { label: '—', color: '#7d8291' };
     }
 
+    // Chronicles → custom-awards index. Scans `wr_chronicles_*` keys ONCE and
+    // returns a lowercased-name → [awards] map so repeated card opens don't
+    // rescan localStorage. Invalidated via window._wrChroniclesInvalidate()
+    // whenever chronicles are imported or removed.
+    let _chroniclesIndexCache = null;
+    function _getChroniclesAwardIndex() {
+        if (_chroniclesIndexCache) return _chroniclesIndexCache;
+        const index = {};
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || !k.startsWith('wr_chronicles_')) continue;
+                let data;
+                try { data = JSON.parse(localStorage.getItem(k) || 'null'); } catch (_) { continue; }
+                if (!data || !Array.isArray(data.customAwards)) continue;
+                data.customAwards.forEach(a => {
+                    (a.winners || []).forEach(w => {
+                        const key = (w.winner || '').toLowerCase();
+                        if (!key) return;
+                        if (!index[key]) index[key] = [];
+                        index[key].push({ name: a.name, year: w.year, stats: w.stats, league: data.leagueName || '' });
+                    });
+                });
+            }
+        } catch (_) { /* noop */ }
+        _chroniclesIndexCache = index;
+        return index;
+    }
+    // Public invalidator — Trophy Room calls this after a chronicles import/delete.
+    window._wrChroniclesInvalidate = function () { _chroniclesIndexCache = null; };
+
     // ── Team history: best-effort from career stats + current team ────
     // Sleeper doesn't expose a first-class team history. We reconstruct from
     // the yearly NFL career stats table (already fetched by fwFetchCareerStats).
@@ -110,28 +141,15 @@
         // Custom awards hook must fire unconditionally — hoisted above the early
         // return so hook count stays stable across renders where p flips between
         // defined/undefined (otherwise React hook-count mismatch crashes the card).
+        // Uses a single cached player→awards index so we don't rescan localStorage
+        // on every card open. Cache is rebuilt on demand when storage version changes.
         const customAwards = React.useMemo(() => {
-            const matches = [];
-            if (!p) return matches;
-            try {
-                const fullName = (p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || '').toLowerCase();
-                if (!fullName) return matches;
-                for (let i = 0; i < localStorage.length; i++) {
-                    const k = localStorage.key(i);
-                    if (!k || !k.startsWith('wr_chronicles_')) continue;
-                    let data;
-                    try { data = JSON.parse(localStorage.getItem(k) || 'null'); } catch (_) { continue; }
-                    if (!data || !Array.isArray(data.customAwards)) continue;
-                    data.customAwards.forEach(a => {
-                        (a.winners || []).forEach(w => {
-                            if ((w.winner || '').toLowerCase() === fullName) {
-                                matches.push({ name: a.name, year: w.year, stats: w.stats, league: data.leagueName || '' });
-                            }
-                        });
-                    });
-                }
-            } catch (_) { /* noop */ }
-            return matches.sort((a, b) => (b.year || 0) - (a.year || 0));
+            if (!p) return [];
+            const fullName = (p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || '').toLowerCase();
+            if (!fullName) return [];
+            const index = _getChroniclesAwardIndex();
+            const hits = index[fullName] || [];
+            return hits.slice().sort((a, b) => (b.year || 0) - (a.year || 0));
         }, [pid, p?.full_name, p?.first_name, p?.last_name]);
 
         if (!p) return null;

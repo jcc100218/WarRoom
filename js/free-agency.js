@@ -871,13 +871,18 @@
                                 const st = statsData[pid] || {};
                                 const prevSt = (prevStatsData || {})[pid] || {};
                                 const seasonPpg = st.gp > 0 ? +(calcRawPts(st) / st.gp).toFixed(1) : (prevSt.gp > 0 ? +(calcRawPts(prevSt) / prevSt.gp).toFixed(1) : 0);
-                                // Rolling PPG — swap in when user toggled L5/L3 and weekly data is loaded
+                                // Rolling PPG — swap in when user toggled L5/L3 and weekly data is loaded.
+                                // If a window is active but the player has no weekly data yet, annotate
+                                // the cell with "· Szn" so the user knows the shown value is seasonal.
                                 let ppg = seasonPpg;
                                 let ppgMarker = '';
-                                if (ppgWindow !== 'season' && typeof window.App?.computeRollingPPG === 'function') {
+                                if (ppgWindow !== 'season') {
                                     const n = ppgWindow === 'l3' ? 3 : 5;
-                                    const rolling = window.App.computeRollingPPG(pid, n);
+                                    const rolling = typeof window.App?.computeRollingPPG === 'function'
+                                        ? window.App.computeRollingPPG(pid, n)
+                                        : 0;
                                     if (rolling > 0) { ppg = rolling; ppgMarker = ' · L' + n; }
+                                    else { ppgMarker = ' · Szn'; }
                                 }
                                 const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.25)';
                                 const faab = faabSuggest(dhq, pos);

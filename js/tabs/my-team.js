@@ -95,7 +95,19 @@ function MyTeamTab({
       }
       if (key === 'dhq') return (b.dhq - a.dhq) * dir;
       if (key === 'age') return ((a.age||99) - (b.age||99)) * dir;
-      if (key === 'ppg') return ((b.curPPG||0) - (a.curPPG||0)) * dir;
+      if (key === 'ppg') {
+        // Honor the rolling PPG window so sort order matches what's displayed.
+        let av = a.curPPG || 0, bv = b.curPPG || 0;
+        if (ppgWindow !== 'season' && typeof window.App?.computeRollingPPG === 'function') {
+          const n = ppgWindow === 'l3' ? 3 : 5;
+          const ra = window.App.computeRollingPPG(a.pid, n);
+          const rb = window.App.computeRollingPPG(b.pid, n);
+          // Only override if rolling data is available for the player; else fall back to seasonal.
+          if (ra > 0) av = ra;
+          if (rb > 0) bv = rb;
+        }
+        return (bv - av) * dir;
+      }
       if (key === 'prev') return ((b.prevPPG||0) - (a.prevPPG||0)) * dir;
       if (key === 'trend') return ((b.trend||0) - (a.trend||0)) * dir;
       if (key === 'gp') return ((b.curGP||0) - (a.curGP||0)) * dir;
@@ -295,13 +307,17 @@ function MyTeamTab({
       case 'dhq': return <div key={colKey} style={{...base, background: dhqBg(r.dhq)}}><span style={{ color: dhqCol(r.dhq), fontWeight: 700, fontFamily: 'Inter, sans-serif', fontSize: '0.82rem' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span></div>;
       case 'ppg': {
         // Rolling PPG override — swap in last-N-games PPG when user toggled the window.
-        // Falls back to effective (season) PPG when weekly data isn't loaded yet.
+        // If a window is active but weekly data isn't ready for this player, fall back
+        // to seasonal and mark the cell "· Szn" so the user knows it's not rolling.
         let shown = r.effectivePPG;
         let marker = r.curPPG === 0 && r.prevPPG > 0 ? '*' : '';
-        if (ppgWindow !== 'season' && typeof window.App?.computeRollingPPG === 'function') {
+        if (ppgWindow !== 'season') {
           const n = ppgWindow === 'l3' ? 3 : 5;
-          const rolling = window.App.computeRollingPPG(r.pid, n);
+          const rolling = typeof window.App?.computeRollingPPG === 'function'
+            ? window.App.computeRollingPPG(r.pid, n)
+            : 0;
           if (rolling > 0) { shown = rolling; marker = ' · L' + n; }
+          else { marker = ' · Szn'; }
         }
         return <div key={colKey} style={{...base, background: ppgBg(shown, r.pos)}}><span style={{ color: shown >= (posP75[r.pos]||10) ? '#2ECC71' : 'var(--silver)' }}>{shown > 0 ? shown : '\u2014'}{marker}</span></div>;
       }
@@ -610,14 +626,19 @@ function MyTeamTab({
             // Phase 4: Regular-season H2H from window.S.matchups (array of week matchups).
             // Each matchup entry has { week, matchup_id, roster_id, points }. Two rosters share
             // a matchup_id within the same week — that's the game.
+            // Exclude playoff weeks (playoff_week_start and later) so the count
+            // doesn't conflate playoff meetings with the regular season.
             let regH2HWins = 0, regH2HLosses = 0, regH2HTies = 0;
             try {
               const matchups = Array.isArray(window.S?.matchups) ? window.S.matchups : [];
+              const playoffStart = Number(currentLeague?.settings?.playoff_week_start) || 15;
               // Group by week + matchup_id
               const byWeek = {};
               matchups.forEach(m => {
                 if (!m || m.roster_id == null) return;
-                const k = (m.week || 0) + '_' + (m.matchup_id || 0);
+                const wk = Number(m.week) || 0;
+                if (wk >= playoffStart || wk <= 0) return;
+                const k = wk + '_' + (m.matchup_id || 0);
                 (byWeek[k] = byWeek[k] || []).push(m);
               });
               Object.values(byWeek).forEach(pair => {

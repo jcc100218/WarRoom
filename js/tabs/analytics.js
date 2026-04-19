@@ -4,6 +4,38 @@
 // Extracted from league-detail.js. Props: all required state from LeagueDetail.
 // ══════════════════════════════════════════════════════════════════
 
+// Phase 8 deferred: small wrapper that holds the local state needed to mount
+// LeagueMapTab in embed mode. Keeping it separate prevents AnalyticsPanel from
+// re-initialising the sort/filter/search state on every render of other sub-tabs.
+window.AnalyticsLeagueEmbed = function AnalyticsLeagueEmbed(props) {
+    const { analyticsTab, standings, currentLeague, playersData, statsData, sleeperUserId,
+        myRoster, activeYear, timeRecomputeTs, setActiveTab, getAcquisitionInfo, getOwnerName } = props;
+    const [lpSort, setLpSort] = React.useState({ key: 'dhq', dir: -1 });
+    const [lpFilter, setLpFilter] = React.useState('');
+    const [lpSearch, setLpSearch] = React.useState('');
+    const [leagueSelectedTeam, setLeagueSelectedTeam] = React.useState(null);
+    const [leagueSort, setLeagueSort] = React.useState('health');
+    const [leagueViewMode, setLeagueViewMode] = React.useState('cards');
+    if (typeof window.LeagueMapTab !== 'function') {
+        return React.createElement('div', { style: { padding: '40px', textAlign: 'center', color: 'var(--silver)' } }, 'League Map module not loaded.');
+    }
+    return React.createElement(window.LeagueMapTab, {
+        embedSubView: analyticsTab,
+        leagueViewTab: 'analyst', setLeagueViewTab: () => {},
+        leagueSelectedTeam, setLeagueSelectedTeam,
+        leagueSort, setLeagueSort,
+        leagueSubView: analyticsTab, setLeagueSubView: () => {},
+        leagueViewMode, setLeagueViewMode,
+        lpSort, setLpSort,
+        lpFilter, setLpFilter,
+        lpSearch, setLpSearch,
+        standings, currentLeague, playersData, statsData, sleeperUserId, myRoster,
+        activeYear, timeRecomputeTs, setActiveTab,
+        getAcquisitionInfo: getAcquisitionInfo || (() => ({ method: 'Unknown', date: '', cost: '' })),
+        getOwnerName,
+    });
+};
+
 function AnalyticsPanel({
   analyticsData,
   analyticsTab,
@@ -25,6 +57,8 @@ function AnalyticsPanel({
   timeYear,
   setTradeSubTab,
   getOwnerName,
+  // Phase 8: needed when embedding LeagueMapTab (All Players / Draft Picks / Custom Reports).
+  getAcquisitionInfo,
 }) {
     const _seasonCtx = React.useContext(window.App.SeasonContext) || {};
     // _SS mirrors the window.S shape consumed throughout this component
@@ -48,12 +82,17 @@ function AnalyticsPanel({
     // showAlerts block removed — alerts now on Brief tab
 
     // ── ANALYST VIEW: full analytics terminal ──
+    // Phase 8: Absorbed ex-League Map sub-views (All Players, Draft Picks, Custom Reports)
+    // since League Map was removed from the nav. They render LeagueMapTab in embed mode.
     const subTabs = [
         { key: 'roster', label: 'Roster' },
         { key: 'draft', label: 'Draft' },
         { key: 'trades', label: 'Waiver / Trades' },
         { key: 'playoffs', label: 'Playoffs' },
         { key: 'timeline', label: 'Timeline' },
+        { key: 'players', label: 'All Players' },
+        { key: 'picks', label: 'Draft Picks' },
+        { key: 'reports', label: 'Custom Reports' },
     ];
     const subTabBtnStyle = (active) => ({
         padding: '8px 18px', borderRadius: '6px', cursor: 'pointer', fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', letterSpacing: '0.06em', transition: 'all 0.2s',
@@ -83,7 +122,8 @@ function AnalyticsPanel({
             if (bw !== aw) return bw - aw;
             return (b.settings?.fpts || 0) - (a.settings?.fpts || 0);
         });
-        const myRank = sorted.findIndex(r => String(r.roster_id) === myRid) + 1;
+        const anyGamesPlayed = allRosters.some(r => (r.settings?.wins || 0) + (r.settings?.losses || 0) > 0);
+        const myRank = anyGamesPlayed ? sorted.findIndex(r => String(r.roster_id) === myRid) + 1 : 0;
         const dhqVsAvg = avgDhq > 0 ? Math.round((myDhq - avgDhq) / avgDhq * 100) : 0;
         return { totalTeams, myRank, wins, losses, winPct, myDhq, avgDhq, dhqVsAvg };
     })();
@@ -1240,6 +1280,14 @@ function AnalyticsPanel({
                 </React.Fragment>
             );
         })()}
+
+        {/* Phase 8: All Players / Draft Picks / Custom Reports — ex-League Map sub-views
+            rendered inline via LeagueMapTab's embed mode. Local state lives in AnalyticsPanel
+            so sort/filter/search persist as the user moves between sub-tabs. */}
+        {(analyticsTab === 'players' || analyticsTab === 'picks' || analyticsTab === 'reports') && React.createElement(window.AnalyticsLeagueEmbed || (() => null), {
+            analyticsTab, standings, currentLeague, playersData, statsData, sleeperUserId,
+            myRoster, activeYear, timeRecomputeTs, setActiveTab, getAcquisitionInfo, getOwnerName,
+        })}
 
         </React.Fragment>
         )}

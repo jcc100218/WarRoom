@@ -67,6 +67,63 @@ const WIDGET_MODULES = {
         sizes: ['slim', 'narrow', 'md', 'lg', 'tall'],
         clickTarget: {},
     },
+    // Phase 3: League intelligence surfaced to Home (ex-League Map widgets)
+    'competitive-tiers': {
+        label: 'Competitive Tiers',
+        icon: '🏆',
+        description: 'Every team grouped into Elite · Contender · Crossroads · Rebuilding',
+        accent: () => T().color?.('accent') || '#D4AF37',
+        metrics: [],
+        sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
+        clickTarget: { sm: 'league', md: 'league' },
+    },
+    'power-rankings': {
+        label: 'Power Rankings',
+        icon: '📈',
+        description: 'Blended health, contender PPG, and dynasty DHQ rankings',
+        accent: () => T().color?.('positive') || '#2ECC71',
+        metrics: [],
+        sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
+        clickTarget: { sm: 'league', md: 'league' },
+    },
+    // SI-3: Tag-driven widgets — surface My Roster tags into Home
+    'trade-block': {
+        label: 'Trade Block',
+        icon: '🏷️',
+        description: 'Players you\'ve tagged to shop in trades',
+        accent: () => T().color?.('warn') || '#F0A500',
+        metrics: [],
+        sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
+        clickTarget: { sm: 'myteam', md: 'myteam' },
+    },
+    'cut-candidates': {
+        label: 'Cut Candidates',
+        icon: '✂️',
+        description: 'Players flagged as drop candidates',
+        accent: () => T().color?.('negative') || '#E74C3C',
+        metrics: [],
+        sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
+        clickTarget: { sm: 'myteam', md: 'myteam' },
+    },
+    'waiver-targets': {
+        label: 'Waiver Targets',
+        icon: '🎯',
+        description: 'Players you\'re watching for pickup',
+        accent: () => T().color?.('info') || '#3498DB',
+        metrics: [],
+        sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
+        clickTarget: { sm: 'waiver', md: 'waiver' },
+    },
+    // Phase 9: My Trophies widget — surfaces user's championship count + HOF inductees
+    'my-trophies': {
+        label: 'My Trophies',
+        icon: '🏆',
+        description: 'Titles, runner-ups, hall of fame — your team\'s legacy',
+        accent: () => T().color?.('accent') || '#D4AF37',
+        metrics: [],
+        sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
+        clickTarget: { sm: 'trophies', md: 'trophies' },
+    },
 };
 
 // Legacy module keys → new keys (for migration of saved widget configs)
@@ -924,6 +981,28 @@ function DashboardPanel({
                 size, myRoster, currentLeague, playersData, briefDraftInfo,
                 setActiveTab,
             });
+        }
+        // Phase 3: Competitive Tiers widget (js/widgets/competitive-tiers.js)
+        if (moduleKey === 'competitive-tiers' && typeof window.CompetitiveTiersWidget === 'function') {
+            return React.createElement(window.CompetitiveTiersWidget, { size, sleeperUserId, setActiveTab });
+        }
+        // Phase 3: Power Rankings widget (js/widgets/power-rankings.js)
+        if (moduleKey === 'power-rankings' && typeof window.PowerRankingsWidget === 'function') {
+            return React.createElement(window.PowerRankingsWidget, { size, sleeperUserId, currentLeague, playersData, setActiveTab });
+        }
+        // SI-3: Tag-driven widgets (js/widgets/player-tags.js)
+        if (moduleKey === 'trade-block' && typeof window.TradeBlockWidget === 'function') {
+            return React.createElement(window.TradeBlockWidget, { size, playersData, setActiveTab });
+        }
+        if (moduleKey === 'cut-candidates' && typeof window.CutCandidatesWidget === 'function') {
+            return React.createElement(window.CutCandidatesWidget, { size, playersData, setActiveTab });
+        }
+        if (moduleKey === 'waiver-targets' && typeof window.WaiverTargetsWidget === 'function') {
+            return React.createElement(window.WaiverTargetsWidget, { size, playersData, setActiveTab });
+        }
+        // Phase 9: My Trophies widget
+        if (moduleKey === 'my-trophies' && typeof window.MyTrophiesWidget === 'function') {
+            return React.createElement(window.MyTrophiesWidget, { size, myRoster, setActiveTab });
         }
         // No external widget — fall through to generic renderers
         return null;

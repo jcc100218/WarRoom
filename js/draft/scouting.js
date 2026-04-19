@@ -69,7 +69,11 @@
     }
 
     const POSITION_VALUES = {
-        'QB': 1.5, 'EDGE': 1.3, 'DE': 1.3, 'OT': 1.25, 'T': 1.25,
+        // Phase 7: 'ED' is a valid CSV abbreviation for edge rushers alongside 'EDGE' / 'DE'.
+        // Previously only 'EDGE' / 'DE' were keyed — CSVs using 'ED' (e.g., draft-war-room/player.csv)
+        // fell through to the default 1.0, producing under-weighted draftScores
+        // (Rueben Bain Jr., rank 7, pos 'ED': (250-7)/25 * 1.0 = 9.72 instead of × 1.3).
+        'QB': 1.5, 'EDGE': 1.3, 'DE': 1.3, 'ED': 1.3, 'OT': 1.25, 'T': 1.25,
         'WR': 1.2, 'CB': 1.15, 'DT': 1.1, 'DL': 1.1, 'IDL': 1.1,
         'LB': 1.05, 'ILB': 1.05, 'OLB': 1.05, 'S': 1.0, 'TE': 0.95,
         'IOL': 0.9, 'OG': 0.9, 'G': 0.9, 'C': 0.9, 'RB': 0.85,
@@ -78,7 +82,7 @@
 
     const FANTASY_POS_MULT = {
         'QB': 2.0, 'RB': 1.90, 'WR': 1.75, 'TE': 1.5, 'K': 0.5,
-        'DE': 0.35, 'EDGE': 0.35, 'OLB': 0.35,
+        'DE': 0.35, 'EDGE': 0.35, 'ED': 0.35, 'OLB': 0.35,
         'LB': 0.30, 'ILB': 0.30,
         'DB': 0.25, 'S': 0.25, 'CB': 0.25,
         'DL': 0.2, 'DT': 0.2, 'IDL': 0.2,
@@ -96,7 +100,8 @@
     function mapCSVPos(pos) {
         if (!pos) return '';
         const upper = pos.toUpperCase();
-        if (['DE','DT','EDGE','IDL','NT'].includes(upper)) return 'DL';
+        // Phase 7 fix: include 'ED' (CSV variant for edge rusher) so it maps to DL alongside DE/EDGE.
+        if (['DE','DT','ED','EDGE','IDL','NT'].includes(upper)) return 'DL';
         if (['ILB','OLB','MLB'].includes(upper)) return 'LB';
         if (['CB','S','FS','SS'].includes(upper)) return 'DB';
         return upper;

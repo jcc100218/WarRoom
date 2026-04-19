@@ -8,12 +8,15 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
     const leagueId = currentLeague?.league_id || currentLeague?.id;
 
     // ── Local draft of strategy (save only on explicit Save) ──────────────────
+    // Phase 1: Three canonical presets (Rebuild / Compete / Win Now) + Custom.
+    // Selecting a preset auto-bundles downstream variables; Custom unlocks them.
     const [draft, setDraft] = React.useState(() => {
         const saved = window.GMStrategy?.getStrategy?.(leagueId)
             || window.WrStorage?.get?.(window.WR_KEYS?.GM_STRATEGY?.(leagueId))
             || {};
+        const normalize = window.WR?.GmMode?.normalize || ((m) => m || 'compete');
         return {
-            mode: saved.mode || 'balanced_rebuild',
+            mode: normalize(saved.mode) || 'compete',
             aggression: saved.aggression || 'medium',
             draftStyle: saved.draftStyle || 'bpa',
             marketPosture: saved.marketPosture || 'hold',
@@ -25,6 +28,18 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
             untouchable: saved.untouchable || [],
         };
     });
+
+    // Selecting a preset auto-applies its bundled config.
+    const applyPreset = (modeId) => {
+        const preset = window.WR?.GmMode?.getPreset?.(modeId);
+        const cfg = preset?.config || {};
+        setDraft(d => ({
+            ...d,
+            ...cfg,
+            mode: modeId,
+        }));
+    };
+    const isCustom = draft.mode === 'custom';
 
     const [syncStatus, setSyncStatus] = React.useState('idle'); // idle | saving | saved | error
     const [newSellRule, setNewSellRule] = React.useState('');
@@ -52,6 +67,8 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
             }
             window._wrGmStrategy = payload;
             if (setGmStrategy) setGmStrategy(payload);
+            // Phase 1: broadcast mode change so the header card + engines pick it up
+            window.dispatchEvent(new CustomEvent('wr:gm-mode-changed', { detail: { mode: draft.mode, strategy: payload } }));
             setSyncStatus('saved');
             setTimeout(() => setSyncStatus('idle'), 3000);
         } catch (e) {
@@ -167,12 +184,12 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
 
     const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'DL', 'LB', 'DB', 'PICKS'];
 
-    // ── Mode configs ──────────────────────────────────────────────────────────
+    // ── Mode configs (Phase 1: 3 canonical presets + Custom) ──────────────────
     const MODES = [
-        { value: 'rebuild',          label: 'Rebuild',          desc: 'Tear it down. Youth and picks above all else.' },
-        { value: 'balanced_rebuild', label: 'Balanced Rebuild',  desc: 'Win when you can, but eyes on the future.' },
-        { value: 'retool',           label: 'Retool',            desc: 'Swap aging assets for similar-value youth.' },
-        { value: 'win_now',          label: 'Win Now',           desc: 'Championship window is open. Spend it all.' },
+        { value: 'rebuild',  label: 'Rebuild',  desc: 'Youth, picks, and patience.', color: '#3498DB' },
+        { value: 'compete',  label: 'Compete',  desc: 'Build long-term while staying competitive.', color: '#D4AF37' },
+        { value: 'win_now',  label: 'Win Now',  desc: 'Spend it all to win this year.', color: '#E74C3C' },
+        { value: 'custom',   label: 'Custom',   desc: 'Hand-tune every variable below.', color: '#7C6BF8' },
     ];
 
     const AGGRESSION = [
@@ -229,32 +246,42 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
                 </div>
             </div>
 
-            {/* ── Mode ── */}
+            {/* ── Mode (Phase 1: preset-first) ── */}
             <div style={styles.card}>
-                <SectionHeader title="Mode" sub={currentMode?.desc} />
+                <SectionHeader title="Mode" sub={currentMode?.desc + (isCustom ? '' : ' Preset bundles every downstream setting — switch to Custom to tune individually.')} />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
                     {MODES.map(m => {
                         const active = draft.mode === m.value;
                         return (
-                            <button key={m.value} onClick={() => set('mode', m.value)} style={{
+                            <button key={m.value} onClick={() => {
+                                if (m.value === 'custom') set('mode', 'custom');
+                                else applyPreset(m.value);
+                            }} style={{
                                 padding: '12px 14px',
-                                border: active ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)',
+                                border: active ? `1px solid ${m.color}` : '1px solid rgba(255,255,255,0.1)',
                                 borderRadius: 8,
-                                background: active ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.03)',
+                                background: active ? (m.color + '18') : 'rgba(255,255,255,0.03)',
                                 cursor: 'pointer',
                                 textAlign: 'left',
                                 transition: 'all 0.15s',
+                                position: 'relative',
                             }}>
-                                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.95rem', fontWeight: 700, color: active ? 'var(--gold)' : 'rgba(255,255,255,0.8)', letterSpacing: '0.03em' }}>{m.label}</div>
+                                <div style={{ position: 'absolute', top: 10, right: 12, width: 8, height: 8, borderRadius: '50%', background: active ? m.color : 'transparent' }} />
+                                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.95rem', fontWeight: 700, color: active ? m.color : 'rgba(255,255,255,0.8)', letterSpacing: '0.03em' }}>{m.label}</div>
                                 <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', marginTop: 3, fontFamily: 'DM Sans, sans-serif', lineHeight: 1.3 }}>{m.desc}</div>
                             </button>
                         );
                     })}
                 </div>
+                {!isCustom && (
+                    <div style={{ marginTop: 14, padding: '10px 12px', background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 6, fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>
+                        <strong style={{ color: 'var(--gold)' }}>Preset applied:</strong> aggression <em>{draft.aggression}</em> · draft <em>{draft.draftStyle}</em> · market <em>{draft.marketPosture}</em> · timeline <em>{draft.timeline}</em> · personality <em>{draft.alexPersonality}</em>
+                    </div>
+                )}
             </div>
 
-            {/* ── Aggression ── */}
-            <div style={styles.card}>
+            {/* ── Aggression (Custom only) ── */}
+            {isCustom && <div style={styles.card}>
                 <SectionHeader title="Aggression" sub={currentAggression?.desc} />
                 <PillGroup
                     options={AGGRESSION.map(a => ({ value: a.value, label: a.label }))}
@@ -262,7 +289,7 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
                     onChange={v => set('aggression', v)}
                     fullWidth
                 />
-            </div>
+            </div>}
 
             {/* ── Priorities ── */}
             <div style={styles.card}>
@@ -353,8 +380,8 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
                 </div>
             </div>
 
-            {/* ── Draft Style ── */}
-            <div style={styles.card}>
+            {/* ── Draft Style (Custom only) ── */}
+            {isCustom && <div style={styles.card}>
                 <SectionHeader title="Draft Style" />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
                     {DRAFT_STYLES.map(ds => {
@@ -375,10 +402,10 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
                         );
                     })}
                 </div>
-            </div>
+            </div>}
 
-            {/* ── Market Posture ── */}
-            <div style={styles.card}>
+            {/* ── Market Posture (Custom only) ── */}
+            {isCustom && <div style={styles.card}>
                 <SectionHeader title="Market Posture" />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
                     {MARKET_POSTURES.map(mp => {
@@ -399,10 +426,10 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
                         );
                     })}
                 </div>
-            </div>
+            </div>}
 
-            {/* ── Timeline ── */}
-            <div style={styles.card}>
+            {/* ── Timeline (Custom only) ── */}
+            {isCustom && <div style={styles.card}>
                 <SectionHeader title="Timeline" />
                 <PillGroup
                     options={TIMELINES.map(t => ({ value: t.value, label: t.label }))}
@@ -415,10 +442,10 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
                         {TIMELINES.find(t => t.value === draft.timeline).desc}
                     </div>
                 )}
-            </div>
+            </div>}
 
-            {/* ── Alex Personality ── */}
-            <div style={styles.card}>
+            {/* ── Alex Personality (Custom only) ── */}
+            {isCustom && <div style={styles.card}>
                 <SectionHeader title="Alex Personality" sub="How Alex frames advice and makes recommendations." />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
                     {PERSONALITIES.map(p => {
@@ -439,7 +466,7 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
                         );
                     })}
                 </div>
-            </div>
+            </div>}
 
             {/* ── Bottom save bar ── */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, paddingBottom: 40 }}>
@@ -456,7 +483,7 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
 // ── Shared style helpers ──────────────────────────────────────────────────────
 const styles = {
     card: {
-        background: 'rgba(255,255,255,0.03)',
+        background: 'var(--off-black, #0f0f14)',
         border: '1px solid rgba(212,175,55,0.15)',
         borderRadius: 10,
         padding: '16px 18px',

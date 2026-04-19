@@ -18,6 +18,9 @@
     function BigBoardPanel({ state, dispatch, isUserTurn }) {
         const [posFilter, setPosFilter] = React.useState('');
         const [search, setSearch] = React.useState('');
+        // Phase 7: sortable rookie attributes — fit/rank/tier/age in addition to DHQ
+        const [sortKey, setSortKey] = React.useState('dhq');
+        const [sortDir, setSortDir] = React.useState(-1); // -1 desc (default for value), 1 asc
 
         const posColors = window.App?.POS_COLORS || {
             QB: '#FF6B6B', RB: '#4ECDC4', WR: '#45B7D1', TE: '#F7DC6F',
@@ -26,15 +29,27 @@
 
         const available = React.useMemo(() => {
             if (!state.pool || !state.pool.length) return [];
-            return state.pool.filter(p => {
+            const filtered = state.pool.filter(p => {
                 if (posFilter && p.pos !== posFilter) return false;
                 if (search) {
                     const q = search.toLowerCase();
                     if (!(p.name || '').toLowerCase().includes(q)) return false;
                 }
                 return true;
-            }).slice(0, 80);
-        }, [state.pool, posFilter, search]);
+            });
+            const dir = sortDir;
+            const sorted = [...filtered].sort((a, b) => {
+                switch (sortKey) {
+                    case 'rank':  return dir * ((a.rank || a.overallRank || 999) - (b.rank || b.overallRank || 999));
+                    case 'tier':  return dir * ((a.tier || 99) - (b.tier || 99));
+                    case 'age':   return dir * ((a.age || 99) - (b.age || 99));
+                    case 'fit':   return dir * ((b.fit?.score || 0) - (a.fit?.score || 0));
+                    case 'dhq':
+                    default:      return dir * ((b.dhq || 0) - (a.dhq || 0));
+                }
+            });
+            return sorted.slice(0, 80);
+        }, [state.pool, posFilter, search, sortKey, sortDir]);
 
         const onDraft = (player) => {
             // Allow picks when it's the user's turn OR when override mode is on (user picking for CPU)
@@ -106,6 +121,42 @@
                     }}
                 />
 
+                {/* Phase 7: Sort bar — rank / tier / age / fit / dhq */}
+                <div style={{ display: 'flex', gap: '3px', marginBottom: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--silver)', opacity: 0.65, fontFamily: FONT_UI, marginRight: '2px' }}>SORT:</span>
+                    {[{ k: 'dhq', l: 'DHQ' }, { k: 'rank', l: 'Rank' }, { k: 'tier', l: 'Tier' }, { k: 'age', l: 'Age' }, { k: 'fit', l: 'Fit' }].map(s => (
+                        <button key={s.k} onClick={() => {
+                            if (sortKey === s.k) { setSortDir(d => d * -1); }
+                            else { setSortKey(s.k); setSortDir(s.k === 'rank' || s.k === 'tier' || s.k === 'age' ? 1 : -1); }
+                        }} style={{
+                            padding: '2px 7px', fontSize: '0.6rem',
+                            borderRadius: '3px',
+                            border: '1px solid ' + (sortKey === s.k ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'),
+                            background: sortKey === s.k ? 'rgba(212,175,55,0.15)' : 'transparent',
+                            color: sortKey === s.k ? 'var(--gold)' : 'var(--silver)',
+                            cursor: 'pointer', fontFamily: FONT_UI, fontWeight: sortKey === s.k ? 700 : 400,
+                        }}>{s.l}{sortKey === s.k ? (sortDir === -1 ? ' ▼' : ' ▲') : ''}</button>
+                    ))}
+                    {/* Phase 7 deferred: SI-1 SavedViewBar — save named sort/filter combos for the big board */}
+                    {window.WR?.SavedViews?.SavedViewBar && (
+                        <div style={{ marginLeft: 'auto' }}>
+                            {React.createElement(window.WR.SavedViews.SavedViewBar, {
+                                surface: 'big_board',
+                                leagueId: state.leagueId || window.S?.leagues?.[0]?.league_id,
+                                currentState: { columns: [], sort: { key: sortKey, dir: sortDir }, filters: { posFilter, search } },
+                                onApply: (v) => {
+                                    if (v.sort && v.sort.key) { setSortKey(v.sort.key); setSortDir(v.sort.dir || -1); }
+                                    if (v.filters) {
+                                        if (typeof v.filters.posFilter === 'string') setPosFilter(v.filters.posFilter);
+                                        if (typeof v.filters.search === 'string') setSearch(v.filters.search);
+                                    }
+                                },
+                                label: 'VIEW',
+                            })}
+                        </div>
+                    )}
+                </div>
+
                 {/* Position filter chips */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: '8px' }}>
                     <button onClick={() => setPosFilter('')} style={{
@@ -170,21 +221,28 @@
                                     flexShrink: 0,
                                     fontFamily: FONT_MONO,
                                 }}>{idx + 1}</span>
-                                {p.photoUrl && (
-                                    <img
-                                        src={p.photoUrl}
-                                        onError={e => e.target.style.display = 'none'}
-                                        style={{
-                                            width: 22,
-                                            height: 22,
-                                            borderRadius: '50%',
-                                            objectFit: 'cover',
-                                            objectPosition: 'top',
-                                            flexShrink: 0,
-                                            background: 'rgba(255,255,255,0.04)',
-                                        }}
-                                        alt=""
-                                    />
+                                {/* Phase 7: always show a photo — prefer explicit p.photoUrl, fall back to Sleeper CDN */}
+                                <img
+                                    src={p.photoUrl || ('https://sleepercdn.com/content/nfl/players/thumb/' + p.pid + '.jpg')}
+                                    onError={e => { e.target.style.visibility = 'hidden'; }}
+                                    style={{
+                                        width: 22,
+                                        height: 22,
+                                        borderRadius: '50%',
+                                        objectFit: 'cover',
+                                        objectPosition: 'top',
+                                        flexShrink: 0,
+                                        background: 'rgba(212,175,55,0.08)',
+                                        border: '1px solid rgba(212,175,55,0.15)',
+                                    }}
+                                    alt=""
+                                />
+                                {/* Show age inline if present (sort-aware) */}
+                                {p.age != null && sortKey === 'age' && (
+                                    <span style={{ fontSize: '0.6rem', fontFamily: FONT_MONO, color: 'var(--silver)', opacity: 0.7, minWidth: '20px', textAlign: 'right', flexShrink: 0 }}>{p.age}yo</span>
+                                )}
+                                {p.fit?.score != null && sortKey === 'fit' && (
+                                    <span style={{ fontSize: '0.6rem', fontFamily: FONT_MONO, color: p.fit.score >= 70 ? '#2ECC71' : p.fit.score >= 50 ? 'var(--gold)' : 'var(--silver)', minWidth: '26px', textAlign: 'right', flexShrink: 0 }}>{p.fit.score}</span>
                                 )}
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{

@@ -1409,7 +1409,7 @@
                                                                 <div key={id} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.18rem 0.1rem', borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
                                                                     <span style={{ fontSize:'0.72rem', color: overBy >= 3 ? '#E74C3C' : '#E67E22', flexShrink:0 }}>&#9888;</span>
                                                                     <span className="pos-badge" style={{ color: posColor(grp), width:'26px', fontSize:'0.55rem' }}>{grp}</span>
-                                                                    <a href="#" onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(id, playersData, statsData); }}
+                                                                    <a href="#" onClick={e => { e.preventDefault(); if (window.WR?.openPlayerCard) window.WR.openPlayerCard(id); else if (window.openFWPlayerModal) openFWPlayerModal(id, playersData, statsData);}}
                                                                        style={{ flex:1, fontSize:'0.72rem', color:'var(--white)', textDecoration:'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
                                                                        onMouseEnter={e => e.currentTarget.style.color='var(--gold)'}
                                                                        onMouseLeave={e => e.currentTarget.style.color='var(--white)'}>
@@ -1589,7 +1589,7 @@
                                                                     onClick={() => { setQuickPlayer(fa); setQuickCost(''); }}>
                                                                     <span className="pos-badge" style={{ color: posColor(fa.pos), width:'28px', fontSize:'0.55rem' }}>{fa.pos}</span>
                                                                     <div style={{ flex:1, minWidth:0 }}>
-                                                                        <a href="#" onClick={e => { e.preventDefault(); e.stopPropagation(); if(window.openFWPlayerModal) openFWPlayerModal(fa.id, playersData, statsData); }}
+                                                                        <a href="#" onClick={e => { e.preventDefault(); e.stopPropagation(); if (window.WR?.openPlayerCard) window.WR.openPlayerCard(fa.id); else if (window.openFWPlayerModal) openFWPlayerModal(fa.id, playersData, statsData);}}
                                                                            style={{ fontSize:'0.78rem', color:'var(--white)', textDecoration:'none', display:'flex', alignItems:'center', gap:'5px' }}
                                                                            onMouseEnter={e => e.currentTarget.style.color='var(--gold)'}
                                                                            onMouseLeave={e => e.currentTarget.style.color='var(--white)'}>
@@ -1650,7 +1650,7 @@
                                                                 onDragStart={e => { e.dataTransfer.effectAllowed='copy'; e.dataTransfer.setData('fa-id', fa.id); }}
                                                                 onClick={() => { setQuickPlayer(fa); setQuickCost(''); }}>
                                                                 <span className="pos-badge" style={{ color: posColor(fa.pos), width:'26px', fontSize:'0.52rem' }}>{fa.pos}</span>
-                                                                <a href="#" onClick={e => { e.preventDefault(); e.stopPropagation(); if(window.openFWPlayerModal) openFWPlayerModal(fa.id, playersData, statsData); }}
+                                                                <a href="#" onClick={e => { e.preventDefault(); e.stopPropagation(); if (window.WR?.openPlayerCard) window.WR.openPlayerCard(fa.id); else if (window.openFWPlayerModal) openFWPlayerModal(fa.id, playersData, statsData);}}
                                                                    className="player-name" style={{ fontSize:'0.75rem', display:'inline-flex', alignItems:'center', gap:'5px' }}
                                                                    onMouseEnter={e => e.currentTarget.style.color='var(--gold)'}
                                                                    onMouseLeave={e => e.currentTarget.style.color='inherit'}>
@@ -1695,7 +1695,7 @@
                                                     {fa.pos}
                                                 </span>
                                                 <a className="player-name" href="#"
-                                                    onClick={e => { e.preventDefault(); e.stopPropagation(); if(window.openFWPlayerModal) openFWPlayerModal(fa.id, playersData, statsData); }}
+                                                    onClick={e => { e.preventDefault(); e.stopPropagation(); if (window.WR?.openPlayerCard) window.WR.openPlayerCard(fa.id); else if (window.openFWPlayerModal) openFWPlayerModal(fa.id, playersData, statsData);}}
                                                     onMouseEnter={e => e.currentTarget.style.color='var(--gold)'}
                                                     onMouseLeave={e => e.currentTarget.style.color='inherit'}
                                                     style={{ display:'inline-flex', alignItems:'center', gap:'6px', cursor:'pointer' }}>

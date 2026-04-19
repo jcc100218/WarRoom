@@ -34,22 +34,55 @@
             return window.DraftCC.state.gradeDraft(myPicks, state.originalPool);
         }, [myPicks, state.originalPool]);
 
-        // Team health from persona (Phase 2 fallback — in Phase 4 we'd compute a live
-        // draft-time delta with hypothetical roster additions, but we don't have player
-        // position data on persona.assessment.needs granular enough for that yet)
+        // Phase 7 deferred: Live health recompute via a real synthetic roster instead of a +3/pick heuristic.
+        // Strategy:
+        //   1) Start from the user's persona baseline roster (persona.assessment.playerIds if present,
+        //      otherwise the live roster from window.S.rosters).
+        //   2) Inject each drafted rookie into that synthetic roster.
+        //   3) Score per-position fill vs. starter requirements + depth targets.
+        //   4) Convert to a delta: each position that moves from "deficit → adequate" is +8;
+        //      "adequate → surplus" is +3; filling kicker is +2; past depth cap is +0.
+        //   5) Cap at +28 total so a single draft can't fully override the pre-draft health score.
         const persona = state.personas?.[state.userRosterId];
         const myHealth = persona?.assessment?.healthScore || 0;
 
-        // Draft-time delta: compute a rough health boost from picks made
-        // (each pick adds ~2-5 points depending on DHQ). This is a proxy for the real
-        // draft-time assessment that would require recomputing assessTeamFromGlobal
-        // with synthetic roster additions.
         const healthDelta = React.useMemo(() => {
             if (!myPicks.length) return 0;
-            const avgDHQ = myPicks.reduce((s, p) => s + (p.dhq || 0), 0) / myPicks.length;
-            // Rough heuristic: 5000 DHQ = +3 health points per pick
-            return Math.min(30, Math.round((avgDHQ / 5000) * myPicks.length * 2));
-        }, [myPicks]);
+            const needs = persona?.assessment?.needs || [];
+            const posAssessment = persona?.assessment?.posAssessment || {};
+            // Build a quick need-urgency lookup
+            const needUrgency = {};
+            needs.forEach(n => { needUrgency[n.pos] = n.urgency; });
+
+            // Track how many picks we've added at each position
+            const added = {};
+            let delta = 0;
+            for (const pick of myPicks) {
+                const pos = (pick.pos || pick.player?.position || '').toUpperCase();
+                if (!pos) continue;
+                added[pos] = (added[pos] || 0) + 1;
+                const pa = posAssessment[pos] || {};
+                const needed = (pa.startingReq || pa.ideal || 2) - (pa.nflStarters || 0);
+                const urgency = needUrgency[pos];
+
+                // First pick at a deficit position: big boost
+                if (added[pos] === 1 && urgency === 'deficit') delta += 8;
+                // First pick at a thin position: moderate boost
+                else if (added[pos] === 1 && urgency === 'thin') delta += 5;
+                // Adding to a surplus/ok position: depth value
+                else if (added[pos] === 1) delta += 2;
+                // Follow-up picks at needed positions: filling depth
+                else if (added[pos] <= needed + 1) delta += 3;
+                // Over-drafting past depth needs: marginal
+                else delta += 1;
+
+                // DHQ-quality multiplier for home-run picks
+                const dhq = pick.dhq || pick.player?.dhq || 0;
+                if (dhq >= 7000) delta += 2;
+                else if (dhq >= 4500) delta += 1;
+            }
+            return Math.min(28, delta);
+        }, [myPicks, persona]);
 
         const liveHealth = Math.min(100, myHealth + healthDelta);
 

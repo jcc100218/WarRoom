@@ -41,6 +41,11 @@
         const isSleeper = _provider?.id === 'sleeper';
         const [trending, setTrending] = useState({ adds: [], drops: [] });
         const [localActiveTab, setLocalActiveTab] = useState('dashboard');
+        // Phase 8: any stale/saved state that points at the removed 'league' tab auto-redirects to Analytics.
+        useEffect(() => {
+            if (localActiveTab === 'league') setLocalActiveTab('analytics');
+            if (propActiveTab === 'league' && typeof onTabChange === 'function') onTabChange('analytics');
+        }, [localActiveTab, propActiveTab]);
         const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
         const setActiveTab = onTabChange || setLocalActiveTab;
         const [tradeSubTab, setTradeSubTab] = useState(null); // when set, TradeCalcTab opens this sub-tab
@@ -72,15 +77,25 @@
         const isAnalyst = true;
 
         // Open full player modal instead of mini card
-        // selectPlayer is exposed via SeasonContext AND kept on window for legacy CDN consumers
-        // Also aliased as openPlayerModal so flash-brief, global-view, etc. all use the same entry point
+        // selectPlayer is exposed via SeasonContext AND kept on window for legacy consumers
+        // Also aliased as openPlayerModal so flash-brief, global-view, etc. all use the same entry point.
+        // SI-2: Unified PlayerCard (window.WR.openPlayerCard) is the primary surface.
+        // Expose playersData/statsData globally so the unified card host can read them without prop drilling.
+        useEffect(() => {
+            window.App._playersCache = playersData;
+            window._wrStatsData = statsData;
+        }, [playersData, statsData]);
         const selectPlayer = useCallback((pid) => {
-            // Close any existing inline card first to prevent nesting
+            // Close any existing inline card / legacy CDN modal first
             setSelectedPlayerPid(null);
-            // Close any existing full modal
             if (typeof window.closeFWPlayerModal === 'function') window.closeFWPlayerModal();
-            // Small delay to ensure clean close before re-open
             setTimeout(() => {
+                // Primary: unified War Room PlayerCard (SI-2)
+                if (window.WR && typeof window.WR.openPlayerCard === 'function') {
+                    window.WR.openPlayerCard(pid, { scoringSettings: currentLeague?.scoring_settings || {} });
+                    return;
+                }
+                // Fallbacks (kept for safety during rollout)
                 if (typeof window.openFWPlayerModal === 'function') {
                     window.openFWPlayerModal(pid, playersData, statsData, currentLeague?.scoring_settings || {});
                 } else {
@@ -90,6 +105,18 @@
         }, [playersData, statsData, currentLeague]);
         window._wrSelectPlayer = selectPlayer;
         window.openPlayerModal = selectPlayer;
+        // SI-2 deferred: expose nav + compare globals so the unified PlayerCard's action buttons work.
+        window.wrNavigateTab = (tab) => { try { setActiveTab(tab); } catch (_) {} };
+        window.wrOpenCompare = (pid) => {
+            try {
+                // Jump to My Roster → Compare view and pre-select the player's team when possible.
+                setActiveTab('myteam');
+                const roster = (currentLeague?.rosters || []).find(r => (r.players || []).concat(r.taxi || [], r.reserve || []).includes(String(pid)));
+                if (roster) window._wrComparePreselect = roster.roster_id;
+                // Defer dispatching a custom event so the tab has time to mount
+                setTimeout(() => window.dispatchEvent(new CustomEvent('wr:open-compare', { detail: { pid, rosterId: roster?.roster_id } })), 50);
+            } catch (_) { /* noop */ }
+        };
 
         // Derived selectors — modules use these, never compute their own
         const isCurrentYear = timeYear === currentSeason;
@@ -223,14 +250,14 @@
                         React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--silver)', lineHeight: 1.4, marginTop: '1px' } }, item.def)
                     ))
                 ),
-                // Expanded modal overlay
+                // Expanded modal overlay — theme-aware so it remains readable in light mode
                 expanded && React.createElement('div', {
                     onClick: () => setExpanded(false),
-                    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }
+                    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }
                 },
                     React.createElement('div', {
                         onClick: e => e.stopPropagation(),
-                        style: { background: '#0a0b0d', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '14px', width: '100%', maxWidth: '640px', maxHeight: '80vh', overflowY: 'auto', padding: '24px 28px' }
+                        style: { background: 'var(--off-black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '14px', width: '100%', maxWidth: '640px', maxHeight: '80vh', overflowY: 'auto', padding: '24px 28px' }
                     },
                         React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' } },
                             React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.4rem', color: 'var(--gold)', letterSpacing: '0.06em' } }, 'WAR ROOM GUIDE'),
@@ -969,13 +996,13 @@
             setReconPanelOpen(true);
             setReconMessages([{
               role: 'assistant',
+              // Phase 10/1: strategy is now driven by GM Mode (header badge + GM Strategy tab),
+              // not a per-chat prompt. Welcome copy references the persistent badge instead.
               content: 'Hey! I\'m **Alex Ingram** — your AI General Manager. I\'ll be sitting in the war room with you, analyzing your roster, scouting trade targets, and helping you build a dynasty.\n\nA few things to get us started:\n\n' +
                 '\u2022 **Ask me anything** — trades, waivers, draft strategy, player analysis\n' +
-                '\u2022 **Customize my look** below, or in the GM Strategy panel on your roster tab\n' +
-                '\u2022 **Set your strategy** so I know if we\'re going all-in or rebuilding\n\n' +
+                '\u2022 **Your GM Mode** (top of every page) already tells me whether we\'re rebuilding, competing, or winning now — change it anytime in GM Strategy\n\n' +
                 'Let\'s get to work. What\'s on your mind? \u2014 Alex',
               onboardChoices: [
-                { label: 'Set my strategy', value: 'strategy' },
                 { label: 'What should I do?', value: 'advice' },
                 { label: 'Pick Alex\'s look', value: 'avatar' }
               ]
@@ -1011,14 +1038,10 @@
         }
 
         // Auto-trigger GM onboarding when panel opens with unconfigured strategy
-        useEffect(() => {
-          if (reconPanelOpen && gmIsUnconfigured && gmOnboardStep === 0 && myRoster?.players?.length) {
-            // Don't auto-trigger if welcome just showed
-            const welcomeKey = 'wr_welcomed_' + currentLeague?.league_id;
-            if (reconMessages.length <= 1 || reconMessages[0]?.content?.includes('Alex Ingram')) return;
-            startGmOnboarding();
-          }
-        }, [reconPanelOpen]);
+        // Phase 10/1: auto-triggered in-chat GM strategy onboarding removed.
+        // Strategy is now configured via the persistent GM Mode badge + GM Strategy tab.
+        // Leaving startGmOnboarding() callable via the dead 'strategy' welcome-choice branch
+        // as a safety net in case any legacy link still passes value='strategy'.
 
         // Persist chat messages to localStorage (cap at 20 messages)
         useEffect(() => {
@@ -1213,6 +1236,40 @@
                         : tradedPicks;
                     window.S.matchups = matchupsData;
                     window.S.drafts = hydrated.drafts || [];
+
+                    // Rolling PPG — fetch all played weeks' matchups in parallel
+                    // so we can compute last-N-games PPG for each player. Runs
+                    // in the background; consumers listen for wr:weekly-points-loaded.
+                    // Only runs for Sleeper (other providers don't have this endpoint shape).
+                    const _wppLeagueId = currentLeague.id || currentLeague.league_id;
+                    if (provider.id === 'sleeper' && _wppLeagueId && currentWeek > 0) {
+                        (async () => {
+                            try {
+                                const weeks = [];
+                                const maxWeek = Math.min(18, Math.max(1, currentWeek));
+                                for (let w = 1; w <= maxWeek; w++) weeks.push(w);
+                                const results = await Promise.all(weeks.map(w =>
+                                    fetch('https://api.sleeper.app/v1/league/' + _wppLeagueId + '/matchups/' + w)
+                                        .then(r => r.ok ? r.json() : [])
+                                        .catch(() => [])
+                                ));
+                                const wpp = {};
+                                weeks.forEach((w, i) => {
+                                    const wk = {};
+                                    (results[i] || []).forEach(m => {
+                                        if (m && m.players_points) {
+                                            Object.entries(m.players_points).forEach(([pid, pts]) => {
+                                                if (pts != null) wk[pid] = pts;
+                                            });
+                                        }
+                                    });
+                                    wpp[w] = wk;
+                                });
+                                window.S.weeklyPlayerPoints = wpp;
+                                window.dispatchEvent(new CustomEvent('wr:weekly-points-loaded'));
+                            } catch (e) { /* non-fatal */ }
+                        })();
+                    }
                     window.S.myRosterId = myRoster?.roster_id;
                     window.S.platform = provider.id;   // canonical marker
                     const _isNonSleeper = provider.id !== 'sleeper';
@@ -1253,6 +1310,26 @@
                     window.App.dynastyValue = window.dynastyValue;
                     window.App.getFAAB = window.getFAAB;
                     window.App.loadMentality = window.loadMentality;
+
+                    // Rolling PPG helper — returns avg points over the last N
+                    // games where the player actually played (> minPts threshold).
+                    // Uses window.S.weeklyPlayerPoints populated by the background
+                    // weekly fetch above. Returns 0 if no data yet.
+                    window.App.computeRollingPPG = function (pid, lastN, minPts) {
+                        const wpp = window.S?.weeklyPlayerPoints || {};
+                        const weeks = Object.keys(wpp).map(Number).sort((a, b) => b - a);
+                        const threshold = minPts == null ? 0.1 : minPts;
+                        const games = [];
+                        for (const w of weeks) {
+                            const pts = wpp[w]?.[pid];
+                            if (pts != null && pts >= threshold) {
+                                games.push(pts);
+                                if (games.length >= (lastN || 5)) break;
+                            }
+                        }
+                        if (!games.length) return 0;
+                        return +(games.reduce((a, b) => a + b, 0) / games.length).toFixed(1);
+                    };
 
                     // Load AI keys from localStorage so callClaude can use them
                     const savedProvider = localStorage.getItem('dynastyhq_provider') || 'gemini';
@@ -1794,6 +1871,13 @@
             if (window._leagueDocsContext) {
                 context += '\n\n--- LEAGUE DOCUMENTS ---\n' + window._leagueDocsContext;
             }
+            // Phase 1: inject GM mode preamble so Alex's advice matches the GM's strategy
+            try {
+                const gm = window.WR?.GmMode?.describe?.(gmStrategy?.mode);
+                if (gm && gm.prompt) {
+                    context = '--- GM MODE DIRECTIVE ---\n' + gm.prompt + '\n\n' + context;
+                }
+            } catch (e) { /* ignore */ }
             const messages = [...reconMessages.slice(-4), userMsg].map((m, i, arr) => {
               if (m.role === 'user' && i === arr.length - 1) {
                 return { role: 'user', content: context + '\n\n' + m.content };
@@ -2101,8 +2185,9 @@
             for (const t of txns) {
                 if ((t.type === 'waiver' || t.type === 'free_agent') && t.adds && t.adds[pid] != null) {
                     const cost = t.settings?.waiver_bid || 0;
-                    const date = t.created ? new Date(t.created * 1000).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '\u2014';
-                    return { method: t.type === 'waiver' ? 'Waiver' : 'FA', date, cost: cost > 0 ? '$' + cost : '', season: '', week: 0 };
+                    const d = t.created ? new Date(t.created * 1000) : null;
+                    const date = d ? d.toLocaleDateString('en-US', {month:'short', day:'numeric', year: '2-digit'}) : '\u2014';
+                    return { method: t.type === 'waiver' ? 'Waiver' : 'FA', date, cost: cost > 0 ? '$' + cost : '', season: d ? String(d.getFullYear()) : '', week: t.leg || t.week || 0 };
                 }
             }
             // Check trades — search LI trade history
@@ -2113,21 +2198,35 @@
                 if (side && side.players && side.players.includes(pid)) {
                     const season = t.season || '';
                     const week = t.week || '';
-                    return { method: 'Traded', date: season + ' W' + week, cost: '', season, week };
+                    // Identify partner (other roster on the trade)
+                    const partners = (t.roster_ids || Object.keys(t.sides)).filter(r => String(r) !== String(rosterId));
+                    const partnerRid = partners[0];
+                    const users = window.S?.users || [];
+                    const rosters = window.S?.rosters || [];
+                    const partnerRoster = rosters.find(r => String(r.roster_id) === String(partnerRid));
+                    const partnerUser = users.find(u => u.user_id === partnerRoster?.owner_id);
+                    const partnerName = partnerUser?.display_name || partnerUser?.metadata?.team_name || (partnerRid != null ? 'T' + partnerRid : '');
+                    const date = season + (week ? ' W' + week : '');
+                    return { method: 'Traded', date, cost: partnerName ? 'from ' + partnerName : '', season, week };
                 }
             }
             // Fallback: check raw transaction data for trades
             for (const t of txns) {
                 if (t.type === 'trade' && t.adds && t.adds[pid] === rosterId) {
-                    const date = t.created ? new Date(t.created * 1000).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '\u2014';
-                    return { method: 'Traded', date, cost: '', season: '', week: 0 };
+                    const d = t.created ? new Date(t.created * 1000) : null;
+                    const date = d ? d.toLocaleDateString('en-US', {month:'short', day:'numeric', year: '2-digit'}) : '\u2014';
+                    return { method: 'Traded', date, cost: '', season: d ? String(d.getFullYear()) : '', week: t.leg || 0 };
                 }
             }
             // Check draft outcomes
             const drafts = window.App?.LI?.draftOutcomes || [];
             const draftPick = drafts.find(d => d.pid === pid && d.roster_id === rosterId);
             if (draftPick) {
-                return { method: 'Drafted', date: draftPick.season + ' R' + draftPick.round, cost: '', season: draftPick.season, week: 0 };
+                // Format as "2024 2.03" when we know the pick slot, else "2024 R2"
+                const totalTeams = window.S?.league?.total_rosters || (window.S?.rosters?.length) || 12;
+                const slotInRound = draftPick.pick_no != null && totalTeams ? (((draftPick.pick_no - 1) % totalTeams) + 1) : null;
+                const slotStr = slotInRound != null ? (draftPick.round + '.' + String(slotInRound).padStart(2, '0')) : ('R' + draftPick.round);
+                return { method: 'Drafted', date: draftPick.season + ' ' + slotStr, cost: '', season: draftPick.season, week: 0 };
             }
             // Default: original/keeper
             return { method: 'Original', date: '\u2014', cost: '', season: '', week: 0 };
@@ -2226,7 +2325,7 @@
                                 if (name.toLowerCase().includes(lower)) matches.push({ type: 'player', pid, name, pos: p.position || '?', team: p.team || 'FA' });
                             });
                             // Search tabs
-                            [{ label: 'Home', tab: 'dashboard' }, { label: 'My Roster', tab: 'myteam' }, { label: 'Trade Center', tab: 'trades' }, { label: 'Free Agency', tab: 'fa' }, { label: 'Draft Command', tab: 'draft' }, { label: 'League Map', tab: 'league' }, { label: 'Trophy Room', tab: 'trophies' }, { label: 'Analytics', tab: 'analytics' }].forEach(t => {
+                            [{ label: 'Home', tab: 'dashboard' }, { label: 'My Roster', tab: 'myteam' }, { label: 'Trade Center', tab: 'trades' }, { label: 'Free Agency', tab: 'fa' }, { label: 'Draft Command', tab: 'draft' }, { label: 'Trophy Room', tab: 'trophies' }, { label: 'Analytics', tab: 'analytics' }].forEach(t => {
                                 if (t.label.toLowerCase().includes(lower)) matches.push({ type: 'tab', label: t.label, tab: t.tab });
                             });
                             setResults(matches.slice(0, 8));
@@ -2270,14 +2369,15 @@
                         { label: 'Home', tab: 'dashboard' },
                         { section: 'STRATEGY' },
                         { label: 'GM Strategy', tab: 'strategy' },
-                        { label: 'Analytics', tab: 'analytics' },
                         { label: 'My Roster', tab: 'myteam' },
                         { section: 'MARKET' },
                         { label: 'Trade Center', tab: 'trades' },
                         { label: 'Free Agency', tab: 'fa' },
                         { label: 'Draft', tab: 'draft' },
                         { section: 'LEAGUE' },
-                        { label: 'League Map', tab: 'league' },
+                        // Phase 8: League Map removed; Analytics promoted into the LEAGUE group.
+                        // All Players / Draft Picks / Custom Reports now live as sub-tabs in Analytics.
+                        { label: 'Analytics', tab: 'analytics' },
                         { label: 'Trophy Room', tab: 'trophies' },
                         { label: 'Calendar', tab: 'calendar' },
                         { section: 'SYSTEM' },
@@ -2352,11 +2452,31 @@
 
                 {/* Main content shifted right */}
                 <div className="wr-main-content" style={{ marginLeft: '160px' }}>
-                {/* Header */}
+                {/* Header — includes persistent GM Mode badge (Phase 1) */}
                 <header className="header" style={{ position: 'relative', marginBottom: '0', paddingBottom: '0.75rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
                         <div className="header-title">{currentLeague.name}</div>
                         <button onClick={onBack} style={{ padding: '4px 12px', fontSize: '0.68rem', fontFamily: 'Inter, sans-serif', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'rgba(212,175,55,0.10)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>SWITCH</button>
+                        {(() => {
+                            const gm = window.WR?.GmMode?.describe?.(gmStrategy?.mode || 'compete');
+                            if (!gm) return null;
+                            return React.createElement('button', {
+                                key: 'gm-badge-' + gm.id,
+                                onClick: () => setActiveTab && setActiveTab('strategy'),
+                                title: 'GM Mode — click to edit strategy',
+                                style: {
+                                    padding: '4px 10px 4px 8px', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                    fontSize: '0.68rem', fontFamily: 'Inter, sans-serif', fontWeight: 700,
+                                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                                    background: gm.badgeColor + '22', color: gm.badgeColor,
+                                    border: '1px solid ' + gm.badgeColor + '66',
+                                    borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap'
+                                }
+                            },
+                                React.createElement('span', { style: { width: 6, height: 6, borderRadius: '50%', background: gm.badgeColor } }),
+                                'GM · ' + gm.label
+                            );
+                        })()}
                     </div>
                     <div style={{ textAlign: 'center', color: 'var(--gold)', fontSize: '1.1rem', fontFamily: 'Inter, sans-serif', marginTop: '0.25rem' }}>
                         {timeYear} SEASON
@@ -2549,6 +2669,7 @@
                     timeYear={timeYear}
                     setTradeSubTab={setTradeSubTab}
                     getOwnerName={getOwnerName}
+                    getAcquisitionInfo={getAcquisitionInfo}
                 /> : activeTab === 'fa' ? <FreeAgencyTab
                     playersData={playersData}
                     statsData={statsData}

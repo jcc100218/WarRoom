@@ -42,6 +42,83 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
         try { return JSON.parse(localStorage.getItem(CHRONICLES_KEY) || 'null'); } catch { return null; }
     });
 
+    // Phase 9: Hall of Fame entries — per-league, stored in WrStorage. Schema:
+    // { id, scope: 'team'|'league', teamRosterId?, name, category, year, note }
+    const HOF_KEY = 'wr_hof_' + (currentLeague?.id || '');
+    const [hof, setHof] = useState(() => {
+        try { return JSON.parse(localStorage.getItem(HOF_KEY) || '[]'); } catch { return []; }
+    });
+    const [hofDraft, setHofDraft] = useState({ scope: 'team', name: '', category: '', year: new Date().getFullYear(), note: '' });
+    function saveHof(next) {
+        setHof(next);
+        try { localStorage.setItem(HOF_KEY, JSON.stringify(next)); } catch {}
+    }
+    function addHof(scope) {
+        if (!hofDraft.name.trim()) return;
+        const entry = {
+            id: 'hof_' + Date.now(),
+            scope, // 'team' or 'league'
+            teamRosterId: scope === 'team' ? (selectedOwner || myRoster?.roster_id) : null,
+            name: hofDraft.name.trim(),
+            category: hofDraft.category.trim() || (scope === 'team' ? 'Franchise Legend' : 'All-Time'),
+            year: Number(hofDraft.year) || new Date().getFullYear(),
+            note: hofDraft.note.trim(),
+            createdAt: Date.now(),
+        };
+        saveHof([...hof, entry]);
+        setHofDraft({ scope, name: '', category: '', year: new Date().getFullYear(), note: '' });
+    }
+    function removeHof(id) { saveHof(hof.filter(h => h.id !== id)); }
+
+    // Phase 9: Pull all-time earnings out of chronicles.standings (prizeMoney) — keyed by owner name.
+    const earningsByOwner = useMemo(() => {
+        const map = {};
+        (chronicles?.standings || []).forEach(s => {
+            const key = (s.owner || s.team || '').toLowerCase();
+            if (!key) return;
+            // Accept '$1,234' or numeric
+            const raw = typeof s.prizeMoney === 'string' ? s.prizeMoney.replace(/[^\d.-]/g, '') : s.prizeMoney;
+            const amount = Number(raw) || 0;
+            if (amount > 0) map[key] = (map[key] || 0) + amount;
+        });
+        return map;
+    }, [chronicles]);
+    function earningsFor(ownerName) {
+        const k = (ownerName || '').toLowerCase();
+        return earningsByOwner[k] || 0;
+    }
+
+    // Phase 9 deferred: chronicles → CSV-first precedence helpers.
+    // When a league imports Chronicles, those records overwrite scraped
+    // buildOwnerHistory values where available (all-time record, custom awards,
+    // championship counts from standings). Matching is done by case-insensitive
+    // owner name or team name.
+    function chroniclesRowFor(ownerName, teamName) {
+        const list = chronicles?.standings || [];
+        const q = (ownerName || '').toLowerCase();
+        const t = (teamName || '').toLowerCase();
+        return list.find(s =>
+            (s.owner || '').toLowerCase() === q ||
+            (s.team || '').toLowerCase() === q ||
+            (t && (s.team || '').toLowerCase() === t)
+        ) || null;
+    }
+    function chroniclesAwardsFor(ownerName, teamName) {
+        const list = chronicles?.customAwards || [];
+        const q = (ownerName || '').toLowerCase();
+        const t = (teamName || '').toLowerCase();
+        const won = [];
+        list.forEach(a => {
+            (a.winners || []).forEach(w => {
+                const winner = (w.winner || '').toLowerCase();
+                if (winner === q || (t && winner === t)) {
+                    won.push({ name: a.name, year: w.year, stats: w.stats });
+                }
+            });
+        });
+        return won.sort((a, b) => (b.year || 0) - (a.year || 0));
+    }
+
     const ownerHistory = useMemo(() => {
         if (typeof buildOwnerHistory !== 'function') return {};
         try { return buildOwnerHistory(); } catch (e) { return {}; }
@@ -147,45 +224,8 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
                 ),
             ),
 
-            // Winner's Perch — draft pick position → championship correlation
-            (() => {
-                const draftOutcomes = window.App?.LI?.draftOutcomes || [];
-                if (draftOutcomes.length < 10) return null;
-                // Count championships by draft pick position (round 1 only for clarity)
-                const pickSlotResults = {};
-                const champRids = new Set();
-                Object.values(championships).forEach(c => { if (c.champion) champRids.add(c.champion); });
-
-                draftOutcomes.filter(d => d.round === 1).forEach(d => {
-                    const slot = d.pick_no || d.draft_slot || 0;
-                    if (!slot || slot > 16) return;
-                    if (!pickSlotResults[slot]) pickSlotResults[slot] = { picks: 0, starters: 0, champTeam: 0 };
-                    pickSlotResults[slot].picks++;
-                    if (d.isStarter) pickSlotResults[slot].starters++;
-                    if (champRids.has(d.roster_id)) pickSlotResults[slot].champTeam++;
-                });
-
-                const slots = Object.entries(pickSlotResults)
-                    .map(([slot, data]) => ({ slot: parseInt(slot), ...data, hitRate: data.picks > 0 ? Math.round(data.starters / data.picks * 100) : 0 }))
-                    .sort((a, b) => a.slot - b.slot);
-
-                if (!slots.length) return null;
-                const maxHit = Math.max(...slots.map(s => s.hitRate), 1);
-
-                return React.createElement('div', { style: cardStyle },
-                    React.createElement('div', { style: headerStyle }, "WINNER'S PERCH \u2014 R1 Pick Value"),
-                    React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '8px' } }, 'Historical hit rate by first-round draft slot'),
-                    React.createElement('div', { style: { display: 'flex', gap: '4px', alignItems: 'flex-end', height: '80px' } },
-                        slots.map(s =>
-                            React.createElement('div', { key: s.slot, style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }, title: 'Pick ' + s.slot + ': ' + s.hitRate + '% hit rate (' + s.starters + '/' + s.picks + ')' },
-                                React.createElement('div', { style: { fontSize: '0.55rem', color: s.hitRate >= 50 ? 'var(--gold)' : 'var(--silver)', fontWeight: 700 } }, s.hitRate + '%'),
-                                React.createElement('div', { style: { width: '100%', background: s.hitRate >= 50 ? 'var(--gold)' : s.hitRate >= 25 ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.1)', borderRadius: '2px 2px 0 0', height: Math.max(4, (s.hitRate / maxHit) * 60) + 'px', transition: 'height 0.4s' } }),
-                                React.createElement('div', { style: { fontSize: '0.55rem', color: 'var(--silver)' } }, s.slot),
-                            )
-                        ),
-                    ),
-                );
-            })(),
+            // Phase 9: Winner's Perch removed. League-wide HOF builder takes its place here.
+            renderHofSection('league'),
         );
     }
 
@@ -211,6 +251,15 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
         if (!o) return React.createElement('div', { style: { color: 'var(--silver)', padding: '20px', textAlign: 'center' } }, 'Team not found');
 
         const avatarUrl = o.avatar ? 'https://sleepercdn.com/avatars/thumbs/' + o.avatar : null;
+        // Phase 9 deferred: if Chronicles (imported CSV) has an all-time row for this owner,
+        // it overrides the scraped record — the user's historical data is canonical.
+        const chronRow = chroniclesRowFor(o.ownerName, o.teamName);
+        const wonAwards = chroniclesAwardsFor(o.ownerName, o.teamName);
+        const displayRecord = chronRow
+            ? (chronRow.wins + '-' + chronRow.losses + (chronRow.winPct ? ' (' + chronRow.winPct + ')' : ''))
+            : o.record;
+        const chronChamps = chronRow?.championships || 0;
+        const displayChamps = Math.max(o.championships, chronChamps);
 
         return React.createElement('div', null,
             // Back button
@@ -221,15 +270,44 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
                 avatarUrl && React.createElement('img', { src: avatarUrl, style: { width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }, onError: e => e.target.style.display = 'none' }),
                 React.createElement('div', { style: { flex: 1 } },
                     React.createElement('div', { style: { fontSize: '1.1rem', fontWeight: 700, color: 'var(--white)' } }, o.ownerName),
-                    React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)' } }, o.record, ' \u00B7 ', o.tenure, ' seasons \u00B7 ', o.pointsFor.toLocaleString(), ' PF'),
+                    React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)' } }, displayRecord, ' \u00B7 ', o.tenure, ' seasons \u00B7 ', o.pointsFor.toLocaleString(), ' PF'),
+                    chronRow && React.createElement('div', { style: { fontSize: '0.62rem', color: 'var(--gold)', opacity: 0.7, marginTop: '2px' } }, 'All-time record imported from Chronicles'),
                 ),
-                o.championships > 0 && React.createElement('div', { style: { textAlign: 'center' } },
-                    React.createElement('div', { style: { display: 'flex', gap: '2px' } }, Array.from({ length: o.championships }, (_, i) => React.createElement('span', { key: i, style: { fontSize: '1.3rem' } }, '\uD83C\uDFC6'))),
-                    React.createElement('div', { style: { fontSize: '0.65rem', color: 'var(--gold)', marginTop: '2px' } }, o.championships + 'x Champ'),
+                displayChamps > 0 && React.createElement('div', { style: { textAlign: 'center' } },
+                    React.createElement('div', { style: { display: 'flex', gap: '2px' } }, Array.from({ length: displayChamps }, (_, i) => React.createElement('span', { key: i, style: { fontSize: '1.3rem' } }, '\uD83C\uDFC6'))),
+                    React.createElement('div', { style: { fontSize: '0.65rem', color: 'var(--gold)', marginTop: '2px' } }, displayChamps + 'x Champ'),
                 ),
             ),
 
-            // Stats grid
+            // Phase 9 deferred: all-time RS record card (chronicles)
+            chronRow && React.createElement('div', { style: cardStyle },
+                React.createElement('div', { style: headerStyle }, 'ALL-TIME REGULAR SEASON'),
+                React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' } },
+                    _statBox('Wins', chronRow.wins || 0, chronRow.winPct || ''),
+                    _statBox('Losses', chronRow.losses || 0, ''),
+                    _statBox('Playoffs', chronRow.playoffsMade || 0, (chronRow.playoffWins || 0) + '-' + (chronRow.playoffLosses || 0)),
+                    _statBox('Titles', chronRow.championships || 0, (chronRow.runnerUps || 0) + ' RU'),
+                ),
+                chronRow.fromYear && React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.7, marginTop: '6px' } },
+                    'Seasons: ', chronRow.fromYear, chronRow.toYear ? ' – ' + chronRow.toYear : '', chronRow.isDefunct ? ' · defunct' : ''
+                ),
+            ),
+
+            // Phase 9 deferred: custom awards won — pulled from chronicles.customAwards
+            wonAwards.length > 0 && React.createElement('div', { style: cardStyle },
+                React.createElement('div', { style: headerStyle }, 'CUSTOM AWARDS'),
+                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
+                    wonAwards.map((a, i) => React.createElement('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: 'rgba(212,175,55,0.06)', borderRadius: '6px' } },
+                        React.createElement('span', { style: { fontSize: '0.95rem' } }, '\uD83C\uDFC5'),
+                        React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+                            React.createElement('div', { style: { fontSize: '0.8rem', fontWeight: 700, color: 'var(--white)' } }, a.name),
+                            React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--silver)' } }, a.year || '', a.stats ? ' · ' + a.stats : ''),
+                        ),
+                    ))
+                )
+            ),
+
+            // Stats grid — Phase 9: added all-time earnings tile
             React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' } },
                 _statBox('Playoffs', o.playoffAppearances, o.playoffRecord),
                 _statBox('Draft Hit%', o.draftHitRate + '%', o.draftHits + '/' + o.draftTotal),
@@ -237,6 +315,10 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
                 _statBox('Runner-Up', o.runnerUps, o.runnerUpSeasons.join(', ')),
                 _statBox('#1 Picks', o.numberOnePicks.length, o.numberOnePicks.map(p => p.season).join(', ')),
                 _statBox('Portfolio', Math.round(o.totalDHQ / 1000) + 'k', 'DHQ Value'),
+                (() => {
+                    const earn = earningsFor(o.ownerName);
+                    return _statBox('Earnings', earn > 0 ? '$' + earn.toLocaleString() : '\u2014', earn > 0 ? 'All-time' : 'Import via Chronicles');
+                })(),
             ),
 
             // 3-column: Season Timeline | Best Pick | Rivalries
@@ -286,6 +368,40 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
                     ),
                 ),
             ),
+
+            // Phase 9: Team Hall of Fame builder — per-team entries saved locally
+            renderHofSection('team', o.rosterId, o.ownerName),
+        );
+    }
+
+    // Phase 9: HOF builder — list existing entries, show a small add form, scope-filtered.
+    function renderHofSection(scope, rosterIdFilter, ownerName) {
+        const entries = hof.filter(h => h.scope === scope && (scope === 'league' || h.teamRosterId === rosterIdFilter));
+        const scopeLabel = scope === 'team' ? (ownerName ? ownerName.toUpperCase() + ' HALL OF FAME' : 'TEAM HALL OF FAME') : 'LEAGUE HALL OF FAME';
+        return React.createElement('div', { style: cardStyle },
+            React.createElement('div', { style: { ...headerStyle, display: 'flex', alignItems: 'center', gap: '6px' } },
+                React.createElement('span', { style: { flex: 1 } }, scopeLabel),
+                React.createElement('span', { style: { fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'none', letterSpacing: 0 } }, entries.length + ' inductee' + (entries.length === 1 ? '' : 's'))
+            ),
+            entries.length === 0
+                ? React.createElement('div', { style: { fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' } }, 'No inductees yet. Add a legendary player, manager move, or season below.')
+                : React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' } },
+                    entries.map(h => React.createElement('div', { key: h.id, style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'rgba(212,175,55,0.05)', borderLeft: '3px solid var(--gold)', borderRadius: '0 6px 6px 0' } },
+                        React.createElement('span', { style: { fontSize: '1rem' } }, '\uD83C\uDFF5\uFE0F'),
+                        React.createElement('div', { style: { flex: 1, minWidth: 0 } },
+                            React.createElement('div', { style: { fontSize: '0.84rem', fontWeight: 700, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, h.name),
+                            React.createElement('div', { style: { fontSize: '0.68rem', color: 'var(--silver)', marginTop: '2px' } }, h.category + ' · ' + h.year + (h.note ? ' · ' + h.note : ''))
+                        ),
+                        React.createElement('button', { onClick: () => removeHof(h.id), style: { background: 'none', border: '1px solid rgba(231,76,60,0.3)', color: '#E74C3C', borderRadius: '4px', padding: '2px 8px', fontSize: '0.68rem', cursor: 'pointer', fontFamily: 'inherit' } }, 'Remove')
+                    ))
+                ),
+            // Add form (scope-aware)
+            React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1.5fr 1fr 0.6fr auto', gap: '6px' } },
+                React.createElement('input', { value: hofDraft.scope === scope ? hofDraft.name : '', onChange: e => setHofDraft({ ...hofDraft, scope, name: e.target.value }), placeholder: scope === 'team' ? 'Player or moment name' : 'Player, team, or moment', style: { padding: '6px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--white)', fontSize: '0.76rem', fontFamily: 'inherit' } }),
+                React.createElement('input', { value: hofDraft.scope === scope ? hofDraft.category : '', onChange: e => setHofDraft({ ...hofDraft, scope, category: e.target.value }), placeholder: 'Category (e.g., QB, Draft Steal)', style: { padding: '6px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--white)', fontSize: '0.76rem', fontFamily: 'inherit' } }),
+                React.createElement('input', { type: 'number', value: hofDraft.scope === scope ? hofDraft.year : '', onChange: e => setHofDraft({ ...hofDraft, scope, year: e.target.value }), placeholder: 'Year', style: { padding: '6px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: 'var(--white)', fontSize: '0.76rem', fontFamily: 'inherit' } }),
+                React.createElement('button', { onClick: () => addHof(scope), disabled: hofDraft.scope !== scope || !hofDraft.name.trim(), style: { padding: '6px 12px', background: (hofDraft.scope === scope && hofDraft.name.trim()) ? 'var(--gold)' : 'rgba(212,175,55,0.2)', color: (hofDraft.scope === scope && hofDraft.name.trim()) ? 'var(--black)' : 'var(--silver)', border: 'none', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, cursor: (hofDraft.scope === scope && hofDraft.name.trim()) ? 'pointer' : 'not-allowed', fontFamily: 'inherit' } }, 'Induct')
+            )
         );
     }
 

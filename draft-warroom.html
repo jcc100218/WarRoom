@@ -832,7 +832,7 @@
                                                         <div key={r.id} className="player-row" style={{ borderLeft:`3px solid var(--gold)` }}>
                                                             <span className="pos-badge" style={{ color: posColor(r.pos), borderColor: posColor(r.pos) }}>{r.pos}</span>
                                                             <a className="player-name" href="#"
-                                                                onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData); }}
+                                                                onClick={e => { e.preventDefault(); if (window.WR?.openPlayerCard) window.WR.openPlayerCard(r.id); else if (window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData);}}
                                                                 style={{ color:'inherit', textDecoration:'none', cursor:'pointer' }}
                                                                 onMouseEnter={e=>e.currentTarget.style.color='var(--gold)'}
                                                                 onMouseLeave={e=>e.currentTarget.style.color='inherit'}>
@@ -859,7 +859,7 @@
                                                         <div key={r.id} className="player-row">
                                                             <span className="pos-badge" style={{ color: posColor(r.pos), borderColor: posColor(r.pos) }}>{r.pos}</span>
                                                             <a className="player-name" href="#"
-                                                                onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData); }}
+                                                                onClick={e => { e.preventDefault(); if (window.WR?.openPlayerCard) window.WR.openPlayerCard(r.id); else if (window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData);}}
                                                                 style={{ color:'inherit', textDecoration:'none', cursor:'pointer' }}
                                                                 onMouseEnter={e=>e.currentTarget.style.color='var(--gold)'}
                                                                 onMouseLeave={e=>e.currentTarget.style.color='inherit'}>
@@ -886,7 +886,7 @@
                                                         <div key={r.id} className="player-row" style={{ opacity:0.75 }}>
                                                             <span className="pos-badge" style={{ color: posColor(r.pos), borderColor: posColor(r.pos) }}>{r.pos}</span>
                                                             <a className="player-name" href="#"
-                                                                onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData); }}
+                                                                onClick={e => { e.preventDefault(); if (window.WR?.openPlayerCard) window.WR.openPlayerCard(r.id); else if (window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData);}}
                                                                 style={{ color:'inherit', textDecoration:'none', cursor:'pointer' }}
                                                                 onMouseEnter={e=>e.currentTarget.style.color='var(--gold)'}
                                                                 onMouseLeave={e=>e.currentTarget.style.color='inherit'}>
@@ -911,7 +911,7 @@
                                                     <span style={{ color:'var(--silver)', opacity:0.4, fontSize:'0.6rem', width:'20px', textAlign:'right', flexShrink:0 }}>{idx+1}</span>
                                                     <span className="pos-badge" style={{ color: posColor(r.pos), borderColor: posColor(r.pos) }}>{r.pos}</span>
                                                     <a className="player-name" href="#"
-                                                        onClick={e => { e.preventDefault(); if(window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData); }}
+                                                        onClick={e => { e.preventDefault(); if (window.WR?.openPlayerCard) window.WR.openPlayerCard(r.id); else if (window.openFWPlayerModal) openFWPlayerModal(r.id, playersData, statsData);}}
                                                         style={{ color:'inherit', textDecoration:'none', cursor:'pointer' }}
                                                         onMouseEnter={e=>e.currentTarget.style.color='var(--gold)'}
                                                         onMouseLeave={e=>e.currentTarget.style.color='inherit'}>

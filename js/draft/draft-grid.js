@@ -38,6 +38,30 @@
 
         const userIdx = (state.userSlot || 1) - 1;
 
+        // Phase 7 deferred: per-owner accent color so each team column is visually distinct.
+        // Uses a 12-color palette hashed by rosterId for stability across renders.
+        const OWNER_PALETTE = ['#E74C3C', '#F0A500', '#D4AF37', '#2ECC71', '#1ABC9C', '#3498DB', '#9B8AFB', '#E67E22', '#FF6B6B', '#27AE60', '#3FA7D6', '#C678DD'];
+        const ownerColor = (teamIdx) => {
+            if (teamIdx === userIdx) return '#D4AF37'; // gold for the user
+            for (const s of state.pickOrder) {
+                if (s.teamIdx === teamIdx) {
+                    const rid = s.rosterId || teamIdx;
+                    const n = typeof rid === 'number' ? rid : parseInt(rid, 10) || teamIdx;
+                    return OWNER_PALETTE[n % OWNER_PALETTE.length];
+                }
+            }
+            return OWNER_PALETTE[teamIdx % OWNER_PALETTE.length];
+        };
+        const ownerAvatarUrl = (teamIdx) => {
+            for (const s of state.pickOrder) {
+                if (s.teamIdx === teamIdx) {
+                    const persona = state.personas?.[s.rosterId];
+                    if (persona?.avatar) return 'https://sleepercdn.com/avatars/thumbs/' + persona.avatar;
+                }
+            }
+            return null;
+        };
+
         // Team labels: prefer persona.teamName, fall back to pickOrder ownerName
         const teamLabel = (teamIdx) => {
             if (teamIdx === userIdx) return 'YOU';
@@ -163,19 +187,22 @@
                                     const dna = teamDNALabel(i);
                                     const isPinned = pinnedTeamIdx === i;
                                     const isClickable = i !== userIdx;
+                                    const isUser = i === userIdx;
+                                    const accent = ownerColor(i);
+                                    const avatar = ownerAvatarUrl(i);
                                     return (
                                         <th
                                             key={i}
                                             onClick={isClickable ? () => onPinTeam(i) : undefined}
                                             title={isClickable ? (isPinned ? 'Unpin team' : 'Pin to Opponent Intel') : 'Your team'}
                                             style={{
-                                                padding: '4px 2px',
+                                                padding: '0 2px 4px',
                                                 textAlign: 'center',
-                                                fontWeight: i === userIdx ? 800 : 600,
-                                                color: i === userIdx ? 'var(--gold)' : isPinned ? 'var(--gold)' : 'var(--silver)',
+                                                fontWeight: isUser ? 800 : 600,
+                                                color: isUser ? 'var(--gold)' : isPinned ? 'var(--gold)' : 'var(--silver)',
                                                 borderBottom: '1px solid rgba(212,175,55,' + (isPinned ? '0.5' : '0.15') + ')',
-                                                background: i === userIdx
-                                                    ? 'rgba(212,175,55,0.06)'
+                                                background: isUser
+                                                    ? 'rgba(212,175,55,0.10)'
                                                     : isPinned
                                                         ? 'rgba(212,175,55,0.12)'
                                                         : 'transparent',
@@ -185,14 +212,22 @@
                                                 transition: 'background 0.12s',
                                             }}
                                             onMouseEnter={e => { if (isClickable && !isPinned) e.currentTarget.style.background = 'rgba(212,175,55,0.08)'; }}
-                                            onMouseLeave={e => { if (isClickable && !isPinned) e.currentTarget.style.background = 'transparent'; }}
+                                            onMouseLeave={e => { if (isClickable && !isPinned) e.currentTarget.style.background = isUser ? 'rgba(212,175,55,0.10)' : 'transparent'; }}
                                         >
-                                            <div style={{
-                                                whiteSpace: 'nowrap',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                fontSize: '0.62rem',
-                                            }}>{isPinned && '📌 '}{label}</div>
+                                            {/* Phase 7 deferred: owner accent strip — fills the column width with the owner's color */}
+                                            <div style={{ height: '3px', background: accent, marginBottom: '3px' }} />
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'center' }}>
+                                                {avatar && (
+                                                    <img src={avatar} alt="" onError={e => { e.target.style.display = 'none'; }}
+                                                        style={{ width: '12px', height: '12px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                                )}
+                                                <div style={{
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    fontSize: '0.62rem',
+                                                }}>{isPinned && '📌 '}{label}</div>
+                                            </div>
                                             {dna && (
                                                 <div style={{
                                                     fontSize: '0.5rem',

@@ -81,11 +81,18 @@ function MyTeamTab({
     else if (rosterFilter === 'IDP') filtered = rows.filter(r => idpPos.has(r.pos));
 
     const posOrder = {QB:0,RB:1,WR:2,TE:3,K:4,DL:5,LB:6,DB:7};
-    const groupByPos = rosterFilter === 'Offense' || rosterFilter === 'IDP';
+    // Phase 2: Position grouping is ALWAYS the primary ordering (QB→RB→WR→TE→K→DL→LB→DB).
+    // Works for every filter — All, Starters, Bench, Taxi, IR, Offense, IDP — and within
+    // each position group the user's selected sort column + direction applies as a secondary sort.
+    // Exception: when the user explicitly clicks the Pos header, direction toggles the whole
+    // block (so Pos ▼ reverses to DB→LB→…→QB).
     return [...filtered].sort((a, b) => {
-      // When filtering by Offense/IDP, group by position first then sort within
-      if (groupByPos && a.pos !== b.pos) return (posOrder[a.pos]||99) - (posOrder[b.pos]||99);
       const {key, dir} = rosterSort;
+      if (a.pos !== b.pos) {
+        const d = ((posOrder[a.pos] ?? 99) - (posOrder[b.pos] ?? 99));
+        // Only invert position grouping when user is explicitly sorting by Pos desc.
+        return key === 'pos' ? d * dir : d;
+      }
       if (key === 'dhq') return (b.dhq - a.dhq) * dir;
       if (key === 'age') return ((a.age||99) - (b.age||99)) * dir;
       if (key === 'ppg') return ((b.curPPG||0) - (a.curPPG||0)) * dir;
@@ -94,7 +101,7 @@ function MyTeamTab({
       if (key === 'gp') return ((b.curGP||0) - (a.curGP||0)) * dir;
       if (key === 'durability') return ((b.durabilityGP||0) - (a.durabilityGP||0)) * dir;
       if (key === 'name') { const na = getPlayerName(a.pid).toLowerCase(), nb = getPlayerName(b.pid).toLowerCase(); return (na < nb ? -1 : na > nb ? 1 : 0) * dir; }
-      if (key === 'pos') return ((posOrder[a.pos]||99) - (posOrder[b.pos]||99)) * dir;
+      if (key === 'pos') { const d = ((posOrder[a.pos] ?? 99) - (posOrder[b.pos] ?? 99)); return d !== 0 ? d * dir : (b.dhq - a.dhq); }
       if (key === 'peak') return ((b.peakYrsLeft||0) - (a.peakYrsLeft||0)) * dir;
       if (key === 'action') { const ord = {BUY:3,HOLD:2,SELL:1}; return ((ord[b.rec]||0) - (ord[a.rec]||0)) * dir; }
       if (key === 'yrsExp') return ((b.p.years_exp||0) - (a.p.years_exp||0)) * dir;
@@ -125,7 +132,7 @@ function MyTeamTab({
     dhq:        { label: 'DHQ Dynasty Value', shortLabel: 'DHQ', width: '64px', group: 'dynasty' },
     ppg:        { label: 'Points Per Game', shortLabel: 'PPG', width: '48px', group: 'stats' },
     prev:       { label: 'Previous Season PPG', shortLabel: 'Prev', width: '48px', group: 'stats' },
-    trend:      { label: 'Year-over-Year Trend %', shortLabel: 'Trend', width: '50px', group: 'dynasty' },
+    trend:      { label: 'Year-over-Year PPG Change (%) — how this season\u2019s PPG compares to last season\u2019s', shortLabel: 'YoY PPG %', width: '58px', group: 'dynasty' },
     peak:       { label: 'Peak Window Phase', shortLabel: 'Peak', width: '50px', group: 'dynasty' },
     action:     { label: 'Trade Recommendation', shortLabel: 'Action', width: '56px', group: 'dynasty' },
     gp:         { label: 'Games Played', shortLabel: 'GP', width: '36px', group: 'stats' },
@@ -146,7 +153,7 @@ function MyTeamTab({
   };
 
   const COLUMN_PRESETS = {
-    dynasty: ['pos','age','dhq','peak','trend','action','acquired'],
+    dynasty: ['pos','age','dhq','peak','trend','action','acquired','acquiredDate'],
     stats:   ['pos','age','dhq','ppg','prev','trend','gp','durability','sos'],
     scout:   ['pos','age','college','slot','height','weight','depthChart','yrsExp'],
     full:    Object.keys(ROSTER_COLUMNS),
@@ -244,6 +251,23 @@ function MyTeamTab({
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch { return new Set(); }
   });
+
+  // Rolling PPG window — persisted per-user. 'season' = full season-to-date,
+  // 'l5' / 'l3' = last N games computed from window.App.computeRollingPPG
+  // (populated once wr:weekly-points-loaded fires).
+  const [ppgWindow, setPpgWindow] = React.useState(() => {
+    try { return localStorage.getItem('wr_ppg_window') || 'season'; } catch { return 'season'; }
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem('wr_ppg_window', ppgWindow); } catch {}
+  }, [ppgWindow]);
+  // Force a re-render when weekly points become available so rolling-PPG cells update.
+  const [, forcePpgRerender] = React.useState(0);
+  React.useEffect(() => {
+    const h = () => forcePpgRerender(n => n + 1);
+    window.addEventListener('wr:weekly-points-loaded', h);
+    return () => window.removeEventListener('wr:weekly-points-loaded', h);
+  }, []);
   const dismissDrop = React.useCallback((pid) => {
     const playerName = window.App?.playersData?.[pid]?.full_name || pid;
     setDismissedDrops(prev => {
@@ -269,7 +293,18 @@ function MyTeamTab({
       case 'pos': return <div key={colKey} style={{...base}}><span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '1px 4px', borderRadius: '2px', background: (posColors[r.pos]||'#666')+'22', color: posColors[r.pos]||'var(--silver)' }}>{r.pos}</span></div>;
       case 'age': return <div key={colKey} style={{...base, background: ageBg(r.age)}}><span style={{ color: ageCol(r.age), fontWeight: 600 }}>{r.age||'\u2014'}</span></div>;
       case 'dhq': return <div key={colKey} style={{...base, background: dhqBg(r.dhq)}}><span style={{ color: dhqCol(r.dhq), fontWeight: 700, fontFamily: 'Inter, sans-serif', fontSize: '0.82rem' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span></div>;
-      case 'ppg': return <div key={colKey} style={{...base, background: ppgBg(r.effectivePPG, r.pos)}}><span style={{ color: r.effectivePPG >= (posP75[r.pos]||10) ? '#2ECC71' : 'var(--silver)' }}>{r.effectivePPG > 0 ? r.effectivePPG : '\u2014'}{r.curPPG === 0 && r.prevPPG > 0 ? '*' : ''}</span></div>;
+      case 'ppg': {
+        // Rolling PPG override — swap in last-N-games PPG when user toggled the window.
+        // Falls back to effective (season) PPG when weekly data isn't loaded yet.
+        let shown = r.effectivePPG;
+        let marker = r.curPPG === 0 && r.prevPPG > 0 ? '*' : '';
+        if (ppgWindow !== 'season' && typeof window.App?.computeRollingPPG === 'function') {
+          const n = ppgWindow === 'l3' ? 3 : 5;
+          const rolling = window.App.computeRollingPPG(r.pid, n);
+          if (rolling > 0) { shown = rolling; marker = ' · L' + n; }
+        }
+        return <div key={colKey} style={{...base, background: ppgBg(shown, r.pos)}}><span style={{ color: shown >= (posP75[r.pos]||10) ? '#2ECC71' : 'var(--silver)' }}>{shown > 0 ? shown : '\u2014'}{marker}</span></div>;
+      }
       case 'prev': return <div key={colKey} style={{...base}}><span style={{ color: 'var(--silver)', opacity: 0.6 }}>{r.prevPPG > 0 ? r.prevPPG : '\u2014'}</span></div>;
       case 'trend': {
         const trendBars = (() => {
@@ -348,7 +383,8 @@ function MyTeamTab({
       }
       case 'acquiredDate': {
         const acq = getAcquisitionInfo(r.pid, myRoster?.roster_id);
-        return <div key={colKey} style={{...base}}><span style={{ fontSize: '0.56rem', color: 'var(--silver)', opacity: 0.6 }}>{acq.date}</span></div>;
+        const show = acq.date && acq.date !== '\u2014' ? acq.date : '';
+        return <div key={colKey} style={{...base}}><span style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.8 }}>{show || '\u2014'}</span></div>;
       }
       case 'sos': {
         const sosMod = window.App?.SOS;
@@ -448,18 +484,55 @@ function MyTeamTab({
             {elites < 2 ? ' Need more elite assets (top 5 at position).' : ''}
           </GMMessage>
 
-          {/* 4 KPIs */}
+          {/* 4 KPIs — Phase 2: WINDOW card replaced with TIER */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginTop: '10px' }}>
-            {[
-              { label: 'CONTENDER', value: '#' + contenderRank + '/' + totalTeams, color: contenderRank <= 3 ? '#2ECC71' : contenderRank <= 8 ? 'var(--gold)' : '#E74C3C' },
-              { label: 'DYNASTY', value: '#' + dynastyRank + '/' + totalTeams, color: dynastyRank <= 3 ? '#2ECC71' : dynastyRank <= 8 ? 'var(--gold)' : '#E74C3C' },
-              { label: 'WINDOW', value: competeWindow > 0 ? competeWindow + 'yr' : 'Now', color: competeWindow >= 3 ? '#2ECC71' : competeWindow >= 1 ? 'var(--gold)' : '#E74C3C' },
-              { label: 'PICKS', value: pickCount + ' picks', color: pickCount >= expectedPicks ? '#2ECC71' : pickCount >= expectedPicks * 0.6 ? 'var(--gold)' : '#E74C3C' },
-            ].map((kpi, i) => <div key={i} style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: kpi.color }}>{kpi.value}</div>
-              <div style={{ fontSize: '0.64rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</div>
-            </div>)}
+            {(() => {
+              const tierColor = tier === 'ELITE' ? '#2ECC71'
+                : tier === 'CONTENDER' ? 'var(--gold)'
+                : tier === 'CROSSROADS' ? '#F0A500'
+                : tier === 'REBUILDING' ? '#E74C3C'
+                : 'var(--silver)';
+              const tierLabel = tier ? tier.charAt(0) + tier.slice(1).toLowerCase() : '—';
+              return [
+                { label: 'CONTENDER', value: '#' + contenderRank + '/' + totalTeams, color: contenderRank <= 3 ? '#2ECC71' : contenderRank <= 8 ? 'var(--gold)' : '#E74C3C' },
+                { label: 'DYNASTY', value: '#' + dynastyRank + '/' + totalTeams, color: dynastyRank <= 3 ? '#2ECC71' : dynastyRank <= 8 ? 'var(--gold)' : '#E74C3C' },
+                { label: 'TIER', value: tierLabel, color: tierColor },
+                { label: 'PICKS', value: pickCount + ' picks', color: pickCount >= expectedPicks ? '#2ECC71' : pickCount >= expectedPicks * 0.6 ? 'var(--gold)' : '#E74C3C' },
+              ].map((kpi, i) => <div key={i} style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '6px', padding: '8px', textAlign: 'center' }}>
+                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: kpi.color }}>{kpi.value}</div>
+                <div style={{ fontSize: '0.64rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</div>
+              </div>);
+            })()}
           </div>
+
+          {/* Phase 2: Per-position peak summary — avg peak years left by position group */}
+          {(() => {
+            const POS_ORDER = ['QB','RB','WR','TE','K','DL','LB','DB'];
+            const stats = {};
+            rows.forEach(r => {
+              if (!stats[r.pos]) stats[r.pos] = { total: 0, count: 0, rising: 0 };
+              if (r.peakYrsLeft > 0) stats[r.pos].total += r.peakYrsLeft;
+              stats[r.pos].count += 1;
+              if (r.peakPhase === 'PRE' || r.peakPhase === 'PRIME') stats[r.pos].rising += 1;
+            });
+            const shown = POS_ORDER.filter(p => stats[p] && stats[p].count > 0);
+            if (!shown.length) return null;
+            return React.createElement('div', {
+              style: { marginTop: '10px', padding: '8px 12px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '6px', display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }
+            },
+              React.createElement('div', { style: { fontSize: '0.62rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, opacity: 0.7 } }, 'PEAKS'),
+              ...shown.map(p => {
+                const s = stats[p];
+                const avg = s.count > 0 ? (s.total / s.count) : 0;
+                const col = avg >= 4 ? '#2ECC71' : avg >= 2 ? 'var(--gold)' : '#E74C3C';
+                return React.createElement('div', { key: p, style: { display: 'flex', alignItems: 'baseline', gap: '4px' } },
+                  React.createElement('span', { style: { fontSize: '0.7rem', fontWeight: 700, color: (window.App?.POS_COLORS?.[p] || 'var(--silver)') } }, p),
+                  React.createElement('span', { style: { fontSize: '0.76rem', fontFamily: 'JetBrains Mono, monospace', color: col } }, avg > 0 ? avg.toFixed(1) + 'yr' : '—'),
+                  React.createElement('span', { style: { fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5 } }, '(' + s.count + ')')
+                );
+              })
+            );
+          })()}
         </div>;
       })()}
 
@@ -534,92 +607,200 @@ function MyTeamTab({
                 });
             });
 
+            // Phase 4: Regular-season H2H from window.S.matchups (array of week matchups).
+            // Each matchup entry has { week, matchup_id, roster_id, points }. Two rosters share
+            // a matchup_id within the same week — that's the game.
+            let regH2HWins = 0, regH2HLosses = 0, regH2HTies = 0;
+            try {
+              const matchups = Array.isArray(window.S?.matchups) ? window.S.matchups : [];
+              // Group by week + matchup_id
+              const byWeek = {};
+              matchups.forEach(m => {
+                if (!m || m.roster_id == null) return;
+                const k = (m.week || 0) + '_' + (m.matchup_id || 0);
+                (byWeek[k] = byWeek[k] || []).push(m);
+              });
+              Object.values(byWeek).forEach(pair => {
+                if (pair.length !== 2) return;
+                const me = pair.find(x => x.roster_id === myRoster.roster_id);
+                const them = pair.find(x => x.roster_id === compareTeamId);
+                if (!me || !them) return;
+                if (me.points > them.points) regH2HWins++;
+                else if (me.points < them.points) regH2HLosses++;
+                else regH2HTies++;
+              });
+            } catch (e) { /* ignore */ }
+
+            // Win percentages
+            const myWinPct = (myWins + myLosses) > 0 ? myWins / (myWins + myLosses) : 0;
+            const theirWinPct = (theirWins + theirLosses) > 0 ? theirWins / (theirWins + theirLosses) : 0;
+            const totalDhq = Math.max(1, myTotal + theirTotal);
+            const myDhqPct = (myTotal / totalDhq) * 100;
+
+            // Winner of each metric for highlight coloring
+            const myColor = 'var(--gold)';
+            const theirColor = '#7C6BF8';
+
             return (
               <div>
-                {/* Matchup header */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '12px', marginBottom: '16px', alignItems: 'start' }}>
-                  {/* You */}
-                  <div style={{ textAlign: 'center', padding: '14px', background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px' }}>
-                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '6px' }}>You</div>
-                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--white)', marginBottom: '4px' }}>{myWins}-{myLosses}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.4 }}>
-                      {myTotal.toLocaleString()} DHQ<br/>
-                      Playoffs: {myPW}-{myPL}<br/>
-                      {myChamps > 0 ? myChamps + 'x Champion' : 'No titles'}
-                    </div>
+                {/* Phase 4: Enhanced hero — DHQ stacked bar, win-pct gauges, prominent totals */}
+                <div style={{ marginBottom: '16px', padding: '18px 20px', background: 'linear-gradient(135deg, rgba(212,175,55,0.06), rgba(124,107,248,0.06))', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '12px' }}>
+                  {/* Name row */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: myColor, letterSpacing: '0.04em', textAlign: 'left' }}>You</div>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.9rem', color: 'var(--silver)', opacity: 0.6 }}>VS</div>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: theirColor, letterSpacing: '0.04em', textAlign: 'right' }}>{theirUser?.display_name || 'Opponent'}</div>
                   </div>
-                  {/* VS + H2H */}
-                  <div style={{ textAlign: 'center', paddingTop: '10px' }}>
-                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: 'var(--gold)', marginBottom: '6px' }}>VS</div>
-                    {(h2hWins > 0 || h2hLosses > 0) ? (
-                      <div style={{ fontSize: '0.74rem', color: 'var(--silver)' }}>
-                        <div style={{ fontWeight: 700, color: h2hWins > h2hLosses ? '#2ECC71' : h2hWins < h2hLosses ? '#E74C3C' : 'var(--silver)' }}>H2H: {h2hWins}-{h2hLosses}</div>
-                        <div style={{ opacity: 0.65, marginTop: '2px' }}>in playoffs</div>
+
+                  {/* DHQ stacked bar */}
+                  <div style={{ marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '6px' }}>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', color: myColor, fontWeight: 700 }}>{myTotal.toLocaleString()} <span style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.6 }}>DHQ</span></span>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.6, alignSelf: 'center', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Roster DHQ</span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', color: theirColor, fontWeight: 700 }}>{theirTotal.toLocaleString()} <span style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.6 }}>DHQ</span></span>
+                    </div>
+                    <div style={{ display: 'flex', height: '12px', borderRadius: '6px', overflow: 'hidden', background: 'rgba(255,255,255,0.04)' }}>
+                      <div style={{ width: myDhqPct + '%', background: `linear-gradient(90deg, ${myColor}, ${myColor}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: '6px', fontSize: '0.58rem', color: '#0A0A0A', fontWeight: 800 }}>
+                        {myDhqPct >= 12 ? Math.round(myDhqPct) + '%' : ''}
                       </div>
-                    ) : (
-                      <div style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6 }}>No playoff H2H</div>
-                    )}
-                  </div>
-                  {/* Them */}
-                  <div style={{ textAlign: 'center', padding: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }}>
-                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--silver)', textTransform: 'uppercase', marginBottom: '6px' }}>{theirUser?.display_name || 'Opponent'}</div>
-                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--white)', marginBottom: '4px' }}>{theirWins}-{theirLosses}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.4 }}>
-                      {theirTotal.toLocaleString()} DHQ<br/>
-                      Playoffs: {theirPW}-{theirPL}<br/>
-                      {theirChamps > 0 ? theirChamps + 'x Champion' : 'No titles'}
+                      <div style={{ width: (100 - myDhqPct) + '%', background: `linear-gradient(90deg, ${theirColor}cc, ${theirColor})`, display: 'flex', alignItems: 'center', paddingLeft: '6px', fontSize: '0.58rem', color: '#0A0A0A', fontWeight: 800 }}>
+                        {(100 - myDhqPct) >= 12 ? Math.round(100 - myDhqPct) + '%' : ''}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Stat tiles: record + win% gauges + playoffs + titles + regular-season H2H */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                    {[
+                      { label: 'Record', my: myWins + '-' + myLosses, their: theirWins + '-' + theirLosses, myWinner: myWinPct >= theirWinPct, gauge: null, sub: null },
+                      { label: 'Win %', my: Math.round(myWinPct * 100) + '%', their: Math.round(theirWinPct * 100) + '%', myWinner: myWinPct > theirWinPct, gauge: [myWinPct, theirWinPct], sub: null },
+                      { label: 'Playoffs', my: myPW + '-' + myPL, their: theirPW + '-' + theirPL, myWinner: myPW >= theirPW, gauge: null, sub: null },
+                      { label: 'Titles', my: myChamps + '🏆', their: theirChamps + '🏆', myWinner: myChamps >= theirChamps, gauge: null, sub: null },
+                      { label: 'Reg H2H', my: regH2HWins + 'W', their: regH2HLosses + 'W', myWinner: regH2HWins > regH2HLosses, gauge: null, sub: (regH2HWins + regH2HLosses + regH2HTies) > 0 ? null : 'no data' },
+                    ].map((m, i) => (
+                      <div key={i} style={{ padding: '8px', background: 'var(--black)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.58rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px', opacity: 0.65 }}>{m.label}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem', fontWeight: 700, color: m.myWinner ? myColor : 'var(--silver)' }}>{m.my}</span>
+                          <span style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.4 }}>·</span>
+                          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem', fontWeight: 700, color: !m.myWinner ? theirColor : 'var(--silver)' }}>{m.their}</span>
+                        </div>
+                        {m.gauge && (
+                          <div style={{ display: 'flex', height: '3px', borderRadius: '2px', overflow: 'hidden', marginTop: '5px', background: 'rgba(255,255,255,0.06)' }}>
+                            <div style={{ width: (m.gauge[0] * 100) + '%', background: myColor }}></div>
+                            <div style={{ width: ((1 - m.gauge[0]) * 100) + '%', background: 'transparent' }}></div>
+                          </div>
+                        )}
+                        {m.sub && <div style={{ fontSize: '0.56rem', color: 'var(--silver)', opacity: 0.4, marginTop: '3px' }}>{m.sub}</div>}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Playoff H2H callout — retained as a secondary strip below stat tiles */}
+                  {(h2hWins > 0 || h2hLosses > 0) ? (
+                    <div style={{ marginTop: '10px', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', fontSize: '0.72rem', color: 'var(--silver)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '0.6rem', letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.65 }}>Playoff H2H</span>
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: h2hWins > h2hLosses ? '#2ECC71' : h2hWins < h2hLosses ? '#E74C3C' : 'var(--silver)' }}>{h2hWins}-{h2hLosses}</span>
+                    </div>
+                  ) : null}
                 </div>
-                {/* Full roster comparison by position */}
+                {/* Phase 4: Per-position comparison with richer per-player columns
+                    (team, age, PPG, yrs in league, peak yrs remaining). */}
                 <div style={{ marginTop: '16px' }}>
                     <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>Full Roster by Position</div>
                     {['QB','RB','WR','TE','K','DL','LB','DB'].map(pos => {
-                        const myAtPos = myPlayers.filter(pid => normPos(playersData[pid]?.position) === pos)
-                            .map(pid => ({ pid, p: playersData[pid], dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
-                            .sort((a,b) => b.dhq - a.dhq);
-                        const theirAtPos = theirPlayers.filter(pid => normPos(playersData[pid]?.position) === pos)
-                            .map(pid => ({ pid, p: playersData[pid], dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
-                            .sort((a,b) => b.dhq - a.dhq);
+                        const peaks = window.App?.peakWindows || {};
+                        const [pLo, pHi] = peaks[pos] || [24, 29];
+                        const statsRef = window.S?.playerStats || statsData || {};
+                        const stats2025Ref = stats2025Data || {};
+                        const scoring = currentLeague?.scoring_settings;
+                        const enrich = (pid) => {
+                            const p = playersData[pid];
+                            if (!p) return null;
+                            const dhq = window.App?.LI?.playerScores?.[pid] || 0;
+                            const st = statsRef[pid] || statsData?.[pid] || {};
+                            const prev = stats2025Ref?.[pid] || {};
+                            const curPPG = (st.gp > 0 && typeof window.App?.calcPPG === 'function') ? +window.App.calcPPG(st, scoring).toFixed(1) : 0;
+                            const prevPPG = (prev.gp > 0 && typeof window.App?.calcPPG === 'function') ? +window.App.calcPPG(prev, scoring).toFixed(1) : 0;
+                            const effectivePPG = curPPG > 0 ? curPPG : prevPPG;
+                            const age = p.age || null;
+                            const peakYrs = age ? Math.max(0, pHi - age) : 0;
+                            return { pid, p, dhq, age, team: p.team || 'FA', yrsExp: p.years_exp || 0, peakYrs, ppg: effectivePPG };
+                        };
+                        const myAtPos = myPlayers.map(enrich).filter(r => r && normPos(r.p?.position) === pos).sort((a,b) => b.dhq - a.dhq);
+                        const theirAtPos = theirPlayers.map(enrich).filter(r => r && normPos(r.p?.position) === pos).sort((a,b) => b.dhq - a.dhq);
                         if (!myAtPos.length && !theirAtPos.length) return null;
                         const maxLen = Math.max(myAtPos.length, theirAtPos.length);
 
                         const myPosDHQ = myAtPos.reduce((s, x) => s + x.dhq, 0);
                         const theirPosDHQ = theirAtPos.reduce((s, x) => s + x.dhq, 0);
                         const posDiff = myPosDHQ - theirPosDHQ;
+                        // Stacked %-bar split for this position group (mirrors the hero DHQ bar)
+                        const posTotalDhq = Math.max(1, myPosDHQ + theirPosDHQ);
+                        const myPosPct = (myPosDHQ / posTotalDhq) * 100;
                         return (
                             <div key={pos} style={{ marginBottom: '12px', background: 'var(--black)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', overflow: 'hidden' }}>
-                                <div style={{ padding: '6px 10px', background: (posColors[pos] || '#666') + '15', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
-                                    <div style={{ display: 'flex', gap: '12px', fontSize: '0.72rem' }}>
-                                        <span style={{ color: myPosDHQ >= theirPosDHQ ? '#2ECC71' : 'var(--silver)' }}>You: {myPosDHQ.toLocaleString()}</span>
-                                        <span style={{ color: theirPosDHQ >= myPosDHQ ? '#2ECC71' : 'var(--silver)' }}>Them: {theirPosDHQ.toLocaleString()}</span>
-                                        <span style={{ fontWeight: 700, color: posDiff > 0 ? '#2ECC71' : posDiff < 0 ? '#E74C3C' : 'var(--silver)' }}>{posDiff > 0 ? '+' : ''}{posDiff.toLocaleString()}</span>
+                                <div style={{ padding: '8px 10px 10px', background: (posColors[pos] || '#666') + '15', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
+                                        <div style={{ display: 'flex', gap: '12px', fontSize: '0.72rem' }}>
+                                            <span style={{ color: myPosDHQ >= theirPosDHQ ? '#2ECC71' : 'var(--silver)' }}>You: {myPosDHQ.toLocaleString()}</span>
+                                            <span style={{ color: theirPosDHQ >= myPosDHQ ? '#2ECC71' : 'var(--silver)' }}>Them: {theirPosDHQ.toLocaleString()}</span>
+                                            <span style={{ fontWeight: 700, color: posDiff > 0 ? '#2ECC71' : posDiff < 0 ? '#E74C3C' : 'var(--silver)' }}>{posDiff > 0 ? '+' : ''}{posDiff.toLocaleString()}</span>
+                                        </div>
                                     </div>
+                                    {/* Per-position stacked %-bar (matches hero DHQ bar) */}
+                                    {(myPosDHQ > 0 || theirPosDHQ > 0) ? (
+                                      <div style={{ display: 'flex', height: '6px', borderRadius: '3px', overflow: 'hidden', background: 'rgba(255,255,255,0.04)' }}>
+                                        <div title={'You: ' + Math.round(myPosPct) + '%'} style={{ width: myPosPct + '%', background: `linear-gradient(90deg, var(--gold), var(--gold)cc)`, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: '4px', fontSize: '0.5rem', color: '#0A0A0A', fontWeight: 800 }}>
+                                          {myPosPct >= 18 ? Math.round(myPosPct) + '%' : ''}
+                                        </div>
+                                        <div title={'Them: ' + Math.round(100 - myPosPct) + '%'} style={{ width: (100 - myPosPct) + '%', background: `linear-gradient(90deg, #7C6BF8cc, #7C6BF8)`, display: 'flex', alignItems: 'center', paddingLeft: '4px', fontSize: '0.5rem', color: '#0A0A0A', fontWeight: 800 }}>
+                                          {(100 - myPosPct) >= 18 ? Math.round(100 - myPosPct) + '%' : ''}
+                                        </div>
+                                      </div>
+                                    ) : null}
                                 </div>
                                 {Array.from({ length: maxLen }).map((_, i) => {
                                     const my = myAtPos[i];
                                     const their = theirAtPos[i];
+                                    const openCard = (pid) => {
+                                        if (!pid) return;
+                                        if (window.WR && typeof window.WR.openPlayerCard === 'function') window.WR.openPlayerCard(pid);
+                                        else if (typeof window._wrSelectPlayer === 'function') window._wrSelectPlayer(pid);
+                                    };
+                                    // Compact row renderer — photo, name, meta chips (team/age/PPG/yrs/peak), DHQ
+                                    const renderCell = (r, isMine) => {
+                                        if (!r) return <span style={{ color: 'var(--silver)', opacity: 0.3, fontSize: '0.72rem', padding: '6px 10px', display: 'inline-block' }}>{'\u2014'}</span>;
+                                        const dhqCol = r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#3498DB' : 'var(--silver)';
+                                        const winsDhq = isMine ? (their && r.dhq > their.dhq) : (my && r.dhq > my.dhq);
+                                        return (
+                                            <div onClick={() => openCard(r.pid)} style={{
+                                                padding: '6px 10px',
+                                                display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem',
+                                                background: winsDhq ? 'rgba(46,204,113,0.04)' : 'transparent',
+                                                cursor: 'pointer',
+                                                borderRight: isMine ? '1px solid rgba(255,255,255,0.04)' : 'none'
+                                            }}>
+                                                <img src={'https://sleepercdn.com/content/nfl/players/thumb/'+r.pid+'.jpg'} onError={e=>e.target.style.display='none'} style={{ width:'22px',height:'22px',borderRadius:'50%',objectFit:'cover', flexShrink: 0 }} />
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ color: 'var(--white)', fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.p?.full_name || '?'}</div>
+                                                    <div style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.7, marginTop: '1px', display: 'flex', gap: '6px' }}>
+                                                        <span>{r.team}</span>
+                                                        {r.age != null ? <span>· {r.age}yo</span> : null}
+                                                        {r.ppg > 0 ? <span>· {r.ppg} PPG</span> : null}
+                                                        <span>· {r.yrsExp}y</span>
+                                                        <span>· {r.peakYrs}yr peak</span>
+                                                    </div>
+                                                </div>
+                                                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '0.76rem', color: dhqCol, flexShrink: 0 }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span>
+                                            </div>
+                                        );
+                                    };
                                     return (
                                         <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                            {/* My player */}
-                                            <div style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', borderRight: '1px solid rgba(255,255,255,0.04)', background: my && their && my.dhq > their.dhq ? 'rgba(46,204,113,0.04)' : 'transparent', cursor: my ? 'pointer' : 'default' }}
-                                                onClick={() => { if (my && window._wrSelectPlayer) window._wrSelectPlayer(my.pid); }}>
-                                                {my ? (<>
-                                                    <div style={{ width: '18px', height: '18px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+my.pid+'.jpg'} onError={e=>e.target.style.display='none'} style={{ width:'18px',height:'18px',borderRadius:'50%',objectFit:'cover' }} /></div>
-                                                    <span style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: 'var(--white)', cursor: 'pointer' }}>{my.p?.full_name || '?'}</span>
-                                                    <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '0.76rem', color: my.dhq >= 7000 ? '#2ECC71' : my.dhq >= 4000 ? '#3498DB' : 'var(--silver)' }}>{my.dhq > 0 ? my.dhq.toLocaleString() : '\u2014'}</span>
-                                                </>) : <span style={{ color: 'var(--silver)', opacity: 0.3, fontSize: '0.72rem' }}>{'\u2014'}</span>}
-                                            </div>
-                                            {/* Their player */}
-                                            <div style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', background: their && my && their.dhq > my.dhq ? 'rgba(46,204,113,0.04)' : 'transparent', cursor: their ? 'pointer' : 'default' }}
-                                                onClick={() => { if (their && window._wrSelectPlayer) window._wrSelectPlayer(their.pid); }}>
-                                                {their ? (<>
-                                                    <div style={{ width: '18px', height: '18px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+their.pid+'.jpg'} onError={e=>e.target.style.display='none'} style={{ width:'18px',height:'18px',borderRadius:'50%',objectFit:'cover' }} /></div>
-                                                    <span style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: 'var(--white)', cursor: 'pointer' }}>{their.p?.full_name || '?'}</span>
-                                                    <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '0.76rem', color: their.dhq >= 7000 ? '#2ECC71' : their.dhq >= 4000 ? '#3498DB' : 'var(--silver)' }}>{their.dhq > 0 ? their.dhq.toLocaleString() : '\u2014'}</span>
-                                                </>) : <span style={{ color: 'var(--silver)', opacity: 0.3, fontSize: '0.72rem' }}>{'\u2014'}</span>}
-                                            </div>
+                                            {renderCell(my, true)}
+                                            {renderCell(their, false)}
                                         </div>
                                     );
                                 })}
@@ -633,24 +814,10 @@ function MyTeamTab({
         </div>
       )}
 
-      {/* ── GM STRATEGY PANEL ── */}
-      <div style={{ marginBottom: '14px' }}>
-        <button onClick={() => setGmStrategyOpen(!gmStrategyOpen)} style={{
-          width: '100%', padding: '10px 14px', background: gmStrategyOpen ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)',
-          border: '1px solid ' + (gmStrategyOpen ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.06)'),
-          borderRadius: gmStrategyOpen ? '10px 10px 0 0' : '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.15s'
-        }}>
-          <AlexAvatar size={28} />
-          <div style={{ flex: 1, textAlign: 'left' }}>
-            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.9rem', color: 'var(--gold)', letterSpacing: '0.04em' }}>GM STRATEGY</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6 }}>
-              {gmStrategy.mode === 'contend' ? 'Win Now' : gmStrategy.mode === 'rebuild' ? 'Rebuilding' : 'Balanced'} · {gmStrategy.riskTolerance} risk
-              {gmStrategy.untouchable?.length > 0 ? ' · ' + gmStrategy.untouchable.length + ' untouchable' : ''}
-            </div>
-          </div>
-          <span style={{ color: 'var(--gold)', fontSize: '0.8rem' }}>{gmStrategyOpen ? '\u25B2' : '\u25BC'}</span>
-        </button>
-        {gmStrategyOpen && (
+      {/* Phase 1: GM STRATEGY PANEL removed from My Roster — now lives in the dedicated GM Strategy tab.
+          The persistent GM mode badge in the page header shows current mode. */}
+      {false && (
+        <div style={{ display: 'none' }}>
           <div style={{ background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.2)', borderTop: 'none', borderRadius: '0 0 10px 10px', padding: '16px' }}>
             {/* Mode */}
             <div style={{ marginBottom: '14px' }}>
@@ -781,8 +948,8 @@ function MyTeamTab({
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {myTeamView === 'roster' && (<div>
       {/* Filter bar */}
@@ -823,11 +990,38 @@ function MyTeamTab({
             }}>{key}</button>
         ))}
         <button onClick={() => setShowColPicker(!showColPicker)} style={{
-          marginLeft: 'auto', padding: '3px 10px', fontSize: '0.7rem',
+          padding: '3px 10px', fontSize: '0.7rem',
           fontFamily: 'Inter, sans-serif', background: showColPicker ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)',
           color: showColPicker ? 'var(--gold)' : 'var(--silver)',
           border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px', cursor: 'pointer'
         }}>COLUMNS</button>
+        {/* Rolling PPG window selector — Season / L5 / L3 — wires to window.App.computeRollingPPG */}
+        <span style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.65, marginLeft: '6px', fontFamily: 'Inter, sans-serif' }}>PPG:</span>
+        {[{k:'season',l:'Season'},{k:'l5',l:'L5'},{k:'l3',l:'L3'}].map(opt => (
+          <button key={opt.k} onClick={() => setPpgWindow(opt.k)} title={opt.k === 'season' ? 'Season-to-date PPG' : 'Last ' + (opt.k === 'l5' ? 5 : 3) + ' games — requires weekly data'} style={{
+            padding: '3px 8px', fontSize: '0.7rem', fontWeight: ppgWindow === opt.k ? 700 : 400,
+            fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
+            background: ppgWindow === opt.k ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
+            color: ppgWindow === opt.k ? 'var(--black)' : 'var(--silver)',
+            border: '1px solid ' + (ppgWindow === opt.k ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
+            borderRadius: '3px', cursor: 'pointer', letterSpacing: '0.03em'
+          }}>{opt.l}</button>
+        ))}
+        {/* SI-1: Saved List Views — capture columns/sort/filter, restore across sessions */}
+        {window.WR?.SavedViews?.SavedViewBar && (
+          <div style={{ marginLeft: 'auto' }}>
+            {React.createElement(window.WR.SavedViews.SavedViewBar, {
+              surface: 'roster',
+              leagueId: currentLeague?.id,
+              currentState: { columns: visibleCols, sort: rosterSort, filters: { rosterFilter } },
+              onApply: (v) => {
+                if (Array.isArray(v.columns) && v.columns.length) { setVisibleCols(v.columns); setColPreset('custom'); }
+                if (v.sort && v.sort.key) setRosterSort({ key: v.sort.key, dir: v.sort.dir || 1 });
+                if (v.filters && typeof v.filters.rosterFilter === 'string') setRosterFilter(v.filters.rosterFilter);
+              },
+            })}
+          </div>
+        )}
       </div>
 
       {/* Column picker dropdown */}
@@ -1033,7 +1227,7 @@ function MyTeamTab({
                   {/* Action buttons */}
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button onClick={e => { e.stopPropagation(); const playerName = r.p.full_name || getPlayerName(r.pid); setReconPanelOpen(true); sendReconMessage("I'd like help with " + playerName + ". Here are my options:\n1. Who are the best trade partners for " + playerName + "?\n2. What's the long-term projection for " + playerName + "?\n3. Should I hold or sell " + playerName + " right now?"); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>ASK ALEX</button>
-                    <button onClick={e => { e.stopPropagation(); window.open('https://www.fantasypros.com/nfl/players/' + encodeURIComponent((r.p.first_name + '-' + r.p.last_name).toLowerCase().replace(/[^a-z-]/g, '')) + '.php', '_blank'); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(52,152,219,0.15)', color: '#3498DB', border: '1px solid rgba(52,152,219,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>NEWS</button>
+                    {/* Phase 2: News button removed per user feedback (2026-04-18) */}
                     {[{tag:'trade',label:'TRADE BLOCK',bg:'rgba(240,165,0,0.15)',col:'#F0A500',border:'rgba(240,165,0,0.3)'},{tag:'cut',label:'CUT',bg:'rgba(231,76,60,0.15)',col:'#E74C3C',border:'rgba(231,76,60,0.3)'},{tag:'untouchable',label:'UNTOUCHABLE',bg:'rgba(46,204,113,0.15)',col:'#2ECC71',border:'rgba(46,204,113,0.3)'},{tag:'watch',label:'WATCH',bg:'rgba(52,152,219,0.15)',col:'#3498DB',border:'rgba(52,152,219,0.3)'}].map(t => {
                       const isActive = window._playerTags?.[r.pid] === t.tag;
                       return <button key={t.tag} onClick={e => { e.stopPropagation(); const leagueId = currentLeague.id || currentLeague.league_id || ''; const tags = window._playerTags || {}; const wasActive = tags[r.pid] === t.tag; if (wasActive) delete tags[r.pid]; else tags[r.pid] = t.tag; window._playerTags = { ...tags }; if (window.OD?.savePlayerTags) window.OD.savePlayerTags(leagueId, tags); if (!wasActive) { const playerName = r.p.full_name || getPlayerName(r.pid); window.wrLogAction?.('\uD83C\uDFF7\uFE0F', 'Tagged ' + playerName + ' as ' + t.label, 'roster', { players: [{ name: playerName, pid: r.pid }], actionType: 'tag' }); } setTimeRecomputeTs(Date.now()); }} style={{ padding: '7px 12px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', background: isActive ? t.bg : 'transparent', color: isActive ? t.col : 'var(--silver)', border: '1px solid ' + (isActive ? t.border : 'rgba(255,255,255,0.1)'), borderRadius: '6px', cursor: 'pointer', fontWeight: isActive ? 700 : 400, letterSpacing: '0.03em' }}>{t.label}</button>;

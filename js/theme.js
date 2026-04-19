@@ -35,8 +35,8 @@
                 bg:         '#0A0A0A',
                 card:       '#0A0A0A',
                 cardHover:  'rgba(212,175,55,0.04)',
-                accent:     'var(--gold, #D4AF37)',
-                accentDark: 'var(--dark-gold, #B8941E)',
+                accent:     '#D4AF37',
+                accentDark: '#B8941E',
                 text:       '#FFFFFF',
                 textMuted:  '#D0D0D0',
                 textFaint:  'rgba(255,255,255,0.4)',
@@ -156,6 +156,44 @@
 [data-wr-theme="${themeId}"] body { background: ${c.bg} !important; }
 [data-wr-theme="${themeId}"] .wr-sidebar { background: ${c.card || c.bg} !important; border-color: ${c.border} !important; }
 [data-wr-theme="${themeId}"] .wr-main-content { background: ${c.bg} !important; }
+
+/* Phase 10: Light-mode font cascade fix.
+   Many components use hardcoded hex backgrounds/colors inline that don't pick
+   up the theme's remapped CSS vars. Target the most common patterns via
+   attribute selectors so we swap them for theme-appropriate values without
+   touching each call site. */
+
+/* Dark-surface backgrounds → card white */
+[data-wr-theme="${themeId}"] [style*="background: #0a0b0d"],
+[data-wr-theme="${themeId}"] [style*="background:#0a0b0d"],
+[data-wr-theme="${themeId}"] [style*="background: #0A0A0A"],
+[data-wr-theme="${themeId}"] [style*="background:#0A0A0A"],
+[data-wr-theme="${themeId}"] [style*="background: #0a0a0a"],
+[data-wr-theme="${themeId}"] [style*="background:#0a0a0a"],
+[data-wr-theme="${themeId}"] [style*="background: #0D0D0D"],
+[data-wr-theme="${themeId}"] [style*="background: #0d0d0d"] {
+    background: ${c.card} !important;
+}
+
+/* Hardcoded near-white text → theme body text */
+[data-wr-theme="${themeId}"] [style*="color: #f0f0f3"],
+[data-wr-theme="${themeId}"] [style*="color:#f0f0f3"],
+[data-wr-theme="${themeId}"] [style*="color: #FFFFFF"],
+[data-wr-theme="${themeId}"] [style*="color:#FFFFFF"],
+[data-wr-theme="${themeId}"] [style*="color: white"],
+[data-wr-theme="${themeId}"] [style*="color:white"] {
+    color: ${c.text} !important;
+}
+
+/* Hardcoded silver/muted text → theme muted */
+[data-wr-theme="${themeId}"] [style*="color: #D0D0D0"],
+[data-wr-theme="${themeId}"] [style*="color:#D0D0D0"],
+[data-wr-theme="${themeId}"] [style*="color: #d0d0d0"],
+[data-wr-theme="${themeId}"] [style*="color:#d0d0d0"],
+[data-wr-theme="${themeId}"] [style*="color: #7d8291"],
+[data-wr-theme="${themeId}"] [style*="color:#7d8291"] {
+    color: ${c.textMuted} !important;
+}
 `;
         }
 

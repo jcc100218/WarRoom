@@ -52,15 +52,19 @@
             if (!simulator) return { likelihood: 0, grade: null, taxes: [], myGiveDHQ: 0, theirGiveDHQ: 0 };
             // Peek-only evaluation — no randomness wobble, deterministic display
             const helpers = window.DraftCC.tradeHelpers;
-            const myGiveDHQ = simulator.sumPickValue(state, drawer.myGive);
-            const theirGiveDHQ = simulator.sumPickValue(state, drawer.theirGive);
+            const myGiveDHQ = simulator.sumPickValue(state, drawer.myGive)
+                + simulator.sumPlayerValue(drawer.myGivePlayers)
+                + simulator.faabToDhq(drawer.myGiveFaab);
+            const theirGiveDHQ = simulator.sumPickValue(state, drawer.theirGive)
+                + simulator.sumPlayerValue(drawer.theirGivePlayers)
+                + simulator.faabToDhq(drawer.theirGiveFaab);
             const taxes = helpers.calcPsychTaxes(
                 myPersona?.assessment,
                 targetPersona.assessment,
                 targetPersona.tradeDna?.key,
                 targetPersona.posture
             );
-            const likelihood = helpers.calcAcceptanceLikelihood(
+            const baseLikelihood = helpers.calcAcceptanceLikelihood(
                 myGiveDHQ,
                 theirGiveDHQ,
                 targetPersona.tradeDna?.key,
@@ -68,14 +72,59 @@
                 targetPersona.assessment,
                 myPersona?.assessment
             );
+            // Phase 1 deferred: nudge acceptance likelihood by GM mode tradeWeights.
+            // WIN_NOW discounts future-year picks (vetPenalty > 1 means sending vets is easier);
+            // REBUILD inflates future picks (futureYearBias > 1 means they're more reluctant to send picks).
+            // We apply a small multiplicative delta so mode influences feel without overwhelming DNA signals.
+            let likelihood = baseLikelihood;
+            try {
+                const leagueId = state?.leagueId || window.S?.leagues?.[0]?.league_id;
+                const gm = window.WR?.GmMode?.describe?.(window.WR.GmMode.getMode(leagueId));
+                if (gm?.tradeWeights) {
+                    const fyb = gm.tradeWeights.futureYearBias ?? 1;
+                    const vp = gm.tradeWeights.vetPenalty ?? 1;
+                    // Bonus if our give aligns with a sell-forward mode (rebuild wanting picks, win-now wanting vets)
+                    const diffPct = theirGiveDHQ > 0 ? (myGiveDHQ - theirGiveDHQ) / theirGiveDHQ : 0;
+                    const modeDelta = Math.round(((fyb - 1) * 3) + ((vp - 1) * 3) + diffPct * 2);
+                    likelihood = Math.max(3, Math.min(95, baseLikelihood + modeDelta));
+                }
+            } catch (_) { /* silent — fall back to base likelihood */ }
             const grade = helpers.fairnessGrade(myGiveDHQ, theirGiveDHQ);
             return { likelihood, grade, taxes, myGiveDHQ, theirGiveDHQ };
-        }, [drawer.myGive, drawer.theirGive, state.pickOrder, state.currentIdx, targetPersona, myPersona]);
+        }, [drawer.myGive, drawer.theirGive, drawer.myGivePlayers, drawer.theirGivePlayers, drawer.myGiveFaab, drawer.theirGiveFaab, state.pickOrder, state.currentIdx, targetPersona, myPersona]);
+
+        // Phase 7 deferred: players + FAAB togglers
+        const togglePlayer = (pid, side) => {
+            if (drawer.status === 'sending' || drawer.status === 'accepted') return;
+            const key = side === 'my' ? 'myGivePlayers' : 'theirGivePlayers';
+            const arr = drawer[key] || [];
+            const exists = arr.includes(pid);
+            const next = exists ? arr.filter(p => p !== pid) : [...arr, pid];
+            dispatch({ type: 'UPDATE_PROPOSER', payload: { [key]: next, status: 'building' } });
+        };
+        const setFaab = (val, side) => {
+            if (drawer.status === 'sending' || drawer.status === 'accepted') return;
+            const key = side === 'my' ? 'myGiveFaab' : 'theirGiveFaab';
+            dispatch({ type: 'UPDATE_PROPOSER', payload: { [key]: Math.max(0, Math.min(1000, Number(val) || 0)), status: 'building' } });
+        };
+
+        // Surface each side's existing rosters (exclude players already picked in the draft)
+        const pickedPids = new Set((state.picks || []).map(p => p.pid).filter(Boolean));
+        const rosterOf = (rid) => {
+            const rosters = window.S?.rosters || [];
+            const r = rosters.find(x => String(x.roster_id) === String(rid));
+            return (r?.players || []).filter(pid => pid && !pickedPids.has(pid));
+        };
+        const myPlayerIds = rosterOf(state.userRosterId);
+        const theirPlayerIds = rosterOf(targetId);
 
         const onClose = () => dispatch({ type: 'CLOSE_PROPOSER' });
 
+        const mySideHasAssets = (drawer.myGive?.length || 0) + (drawer.myGivePlayers?.length || 0) + (drawer.myGiveFaab || 0) > 0;
+        const theirSideHasAssets = (drawer.theirGive?.length || 0) + (drawer.theirGivePlayers?.length || 0) + (drawer.theirGiveFaab || 0) > 0;
+
         const onSend = () => {
-            if (!drawer.myGive?.length || !drawer.theirGive?.length) return;
+            if (!mySideHasAssets || !theirSideHasAssets) return;
             dispatch({ type: 'UPDATE_PROPOSER', payload: { status: 'sending' } });
             // CPU "thinks" for 1.5s, then evaluates with randomness
             setTimeout(() => {
@@ -83,6 +132,10 @@
                     targetRosterId: targetId,
                     myGive: drawer.myGive,
                     theirGive: drawer.theirGive,
+                    myGivePlayers: drawer.myGivePlayers || [],
+                    theirGivePlayers: drawer.theirGivePlayers || [],
+                    myGiveFaab: drawer.myGiveFaab || 0,
+                    theirGiveFaab: drawer.theirGiveFaab || 0,
                 });
                 if (result.accepted) {
                     const offer = {
@@ -91,6 +144,10 @@
                         toRosterId: state.userRosterId,
                         theirGive: drawer.theirGive,
                         myGive: drawer.myGive,
+                        theirGivePlayers: drawer.theirGivePlayers || [],
+                        myGivePlayers: drawer.myGivePlayers || [],
+                        theirGiveFaab: drawer.theirGiveFaab || 0,
+                        myGiveFaab: drawer.myGiveFaab || 0,
                         myGainDHQ: result.theirGiveDHQ,
                         myGiveDHQ: result.myGiveDHQ,
                         theirGainDHQ: result.myGiveDHQ,
@@ -260,15 +317,19 @@
                             label="You give"
                             color="#E74C3C"
                             picks={drawer.myGive}
+                            playerIds={drawer.myGivePlayers}
+                            faab={drawer.myGiveFaab}
                             dhq={evaluation.myGiveDHQ}
-                            empty="No picks selected"
+                            empty="Nothing selected"
                         />
                         <PickSide
                             label="You get"
                             color="#2ECC71"
                             picks={drawer.theirGive}
+                            playerIds={drawer.theirGivePlayers}
+                            faab={drawer.theirGiveFaab}
                             dhq={evaluation.theirGiveDHQ}
-                            empty="No picks selected"
+                            empty="Nothing selected"
                         />
                     </div>
 
@@ -288,6 +349,30 @@
                         onToggle={pick => togglePick(pick, 'their')}
                         state={state}
                         disabled={isSending || isAccepted}
+                    />
+
+                    {/* Phase 7 deferred: player + FAAB lanes */}
+                    <PlayerList
+                        title="Your players"
+                        playerIds={myPlayerIds}
+                        selected={new Set(drawer.myGivePlayers || [])}
+                        onToggle={pid => togglePlayer(pid, 'my')}
+                        disabled={isSending || isAccepted}
+                    />
+                    <PlayerList
+                        title={targetPersona.teamName + "'s players"}
+                        playerIds={theirPlayerIds}
+                        selected={new Set(drawer.theirGivePlayers || [])}
+                        onToggle={pid => togglePlayer(pid, 'their')}
+                        disabled={isSending || isAccepted}
+                    />
+                    <FaabRow
+                        myFaab={drawer.myGiveFaab || 0}
+                        theirFaab={drawer.theirGiveFaab || 0}
+                        onChange={(val, side) => setFaab(val, side)}
+                        disabled={isSending || isAccepted}
+                        myLabel="Your FAAB"
+                        theirLabel={targetPersona.teamName + "'s FAAB"}
                     />
 
                     {/* Psych taxes */}
@@ -348,11 +433,11 @@
                         <>
                             <button
                                 onClick={onSend}
-                                disabled={isSending || !(drawer.myGive?.length && drawer.theirGive?.length)}
+                                disabled={isSending || !(mySideHasAssets && theirSideHasAssets)}
                                 style={{
                                     ...primaryBtn,
-                                    opacity: (isSending || !(drawer.myGive?.length && drawer.theirGive?.length)) ? 0.5 : 1,
-                                    cursor: (isSending || !(drawer.myGive?.length && drawer.theirGive?.length)) ? 'not-allowed' : 'pointer',
+                                    opacity: (isSending || !(mySideHasAssets && theirSideHasAssets)) ? 0.5 : 1,
+                                    cursor: (isSending || !(mySideHasAssets && theirSideHasAssets)) ? 'not-allowed' : 'pointer',
                                 }}
                             >{isSending ? 'SENDING…' : 'SEND OFFER'}</button>
                             <button onClick={onClose} style={secondaryBtn}>CANCEL</button>
@@ -363,7 +448,14 @@
         );
     }
 
-    function PickSide({ label, color, picks, dhq, empty }) {
+    function PickSide({ label, color, picks, playerIds, faab, dhq, empty }) {
+        const hasAny = (picks && picks.length > 0) || (playerIds && playerIds.length > 0) || (faab && faab > 0);
+        const pdata = window.S?.players || {};
+        const playerName = (pid) => {
+            const p = pdata[pid];
+            const n = p?.full_name || ((p?.first_name || '') + ' ' + (p?.last_name || '')).trim();
+            return n || pid;
+        };
         return (
             <div style={{
                 padding: '10px',
@@ -373,11 +465,11 @@
                 minHeight: 66,
             }}>
                 <div style={{ fontSize: '0.52rem', color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>{label}</div>
-                {picks && picks.length > 0 ? (
+                {hasAny ? (
                     <>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: '4px' }}>
-                            {picks.map((p, i) => (
-                                <span key={i} style={{
+                            {(picks || []).map((p, i) => (
+                                <span key={'p'+i} style={{
                                     fontSize: '0.58rem',
                                     fontWeight: 700,
                                     padding: '2px 6px',
@@ -386,6 +478,30 @@
                                     color: 'var(--white)',
                                 }}>R{p.round}.{String(p.slot || 0).padStart(2, '0')}</span>
                             ))}
+                            {(playerIds || []).map((pid) => (
+                                <span key={'pl'+pid} title={playerName(pid)} style={{
+                                    fontSize: '0.58rem',
+                                    fontWeight: 700,
+                                    padding: '2px 6px',
+                                    borderRadius: '3px',
+                                    background: 'rgba(124,107,248,0.18)',
+                                    color: '#9b8afb',
+                                    maxWidth: '100%',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}>{playerName(pid)}</span>
+                            ))}
+                            {faab > 0 && (
+                                <span style={{
+                                    fontSize: '0.58rem',
+                                    fontWeight: 700,
+                                    padding: '2px 6px',
+                                    borderRadius: '3px',
+                                    background: 'rgba(46,204,113,0.18)',
+                                    color: '#2ECC71',
+                                }}>${faab} FAAB</span>
+                            )}
                         </div>
                         <div style={{ fontSize: '0.6rem', color: 'var(--silver)', fontFamily: FONT_MONO, opacity: 0.7 }}>
                             ≈ {(dhq || 0).toLocaleString()} DHQ
@@ -394,6 +510,95 @@
                 ) : (
                     <div style={{ fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5, fontStyle: 'italic' }}>{empty}</div>
                 )}
+            </div>
+        );
+    }
+
+    function PlayerList({ title, playerIds, selected, onToggle, disabled }) {
+        const simulator = window.DraftCC.tradeSimulator;
+        const pdata = window.S?.players || {};
+        if (!playerIds || playerIds.length === 0) return null;
+        const playerName = (pid) => {
+            const p = pdata[pid];
+            const n = p?.full_name || ((p?.first_name || '') + ' ' + (p?.last_name || '')).trim();
+            return n || pid;
+        };
+        // Sort by DHQ value desc, cap to 40 to keep the drawer light
+        const sorted = [...playerIds]
+            .map(pid => ({ pid, val: simulator ? simulator.playerValueFor(pid) : 0 }))
+            .sort((a, b) => b.val - a.val)
+            .slice(0, 40);
+        return (
+            <div style={{ marginBottom: '10px' }}>
+                <div style={{
+                    fontSize: '0.54rem',
+                    fontWeight: 700,
+                    color: 'var(--gold)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    marginBottom: '4px',
+                }}>{title}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxHeight: '120px', overflowY: 'auto' }}>
+                    {sorted.map(({ pid, val }) => {
+                        const isSel = selected.has(pid);
+                        const p = pdata[pid] || {};
+                        const pos = p.position || p.fantasy_positions?.[0] || '';
+                        return (
+                            <button
+                                key={pid}
+                                disabled={disabled}
+                                onClick={() => onToggle(pid)}
+                                title={playerName(pid) + ' · ' + pos + ' · ~' + val.toLocaleString() + ' DHQ'}
+                                style={{
+                                    padding: '4px 8px',
+                                    fontSize: '0.6rem',
+                                    fontWeight: 700,
+                                    background: isSel ? 'rgba(124,107,248,0.25)' : 'rgba(255,255,255,0.03)',
+                                    border: '1px solid ' + (isSel ? 'rgba(155,138,251,0.55)' : 'rgba(255,255,255,0.08)'),
+                                    borderRadius: '4px',
+                                    color: isSel ? '#9b8afb' : 'var(--silver)',
+                                    cursor: disabled ? 'not-allowed' : 'pointer',
+                                    fontFamily: FONT_UI,
+                                    opacity: disabled ? 0.5 : 1,
+                                    maxWidth: '100%',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {playerName(pid)}{pos ? ' · ' + pos : ''}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    function FaabRow({ myFaab, theirFaab, onChange, disabled, myLabel, theirLabel }) {
+        const inputStyle = {
+            width: '60px',
+            padding: '4px 6px',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '4px',
+            color: 'var(--white)',
+            fontFamily: FONT_MONO,
+            fontSize: '0.72rem',
+            textAlign: 'right',
+        };
+        return (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.56rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+                    <span style={{ flex: 1 }}>{myLabel}</span>
+                    <span style={{ color: 'var(--silver)' }}>$</span>
+                    <input type="number" min="0" max="1000" value={myFaab} onChange={e => onChange(e.target.value, 'my')} disabled={disabled} style={inputStyle} />
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.56rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+                    <span style={{ flex: 1 }}>{theirLabel}</span>
+                    <span style={{ color: 'var(--silver)' }}>$</span>
+                    <input type="number" min="0" max="1000" value={theirFaab} onChange={e => onChange(e.target.value, 'their')} disabled={disabled} style={inputStyle} />
+                </label>
             </div>
         );
     }

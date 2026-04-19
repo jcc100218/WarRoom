@@ -770,8 +770,235 @@
         // ── renderOwnerDna ──
         function renderOwnerDna() {
             if (!assessments.length) return <div style={{ color:'var(--silver)', textAlign:'center', padding:'2rem' }}>No roster data.</div>;
+            // Phase 5: Two-pane layout — left list sorted by Power Ranking, right panel
+            // holds the full detail card for the selected owner. The original grid-of-cards
+            // is kept (below) for a fallback/legacy experience, but the split takes priority.
+            const selectedRid = expandedDnaOwner != null ? expandedDnaOwner : (myRosterId || sortedAssessments[0]?.rosterId);
+            const selectedAssessment = sortedAssessments.find(a => a.rosterId === selectedRid) || sortedAssessments[0];
             return (
-                <div>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    {/* Left pane: PR-sorted owner list */}
+                    <div style={{ flex: '0 0 240px', minWidth: '200px', maxHeight: '78vh', overflowY: 'auto', background: 'var(--off-black)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '10px', padding: '6px' }}>
+                        <div style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.6, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '6px 8px' }}>Owners · sorted by power</div>
+                        {sortedAssessments.map((a, idx) => {
+                            const rid = a.rosterId;
+                            const dnaKey = ownerDna[a.ownerId] || 'NONE';
+                            const isMe = a.rosterId === myRosterId;
+                            const isSel = rid === selectedRid;
+                            const avatarSrc = avatarUrl(a.avatar);
+                            const aiDna = typeof computeWeightedDNA === 'function' ? computeWeightedDNA(rid) : null;
+                            const shownDnaKey = (dnaKey && dnaKey !== 'NONE') ? dnaKey : (aiDna?.key || 'NONE');
+                            const shownDna = DNA_TYPES[shownDnaKey] || DNA_TYPES.NONE;
+                            return (
+                                <div key={rid} onClick={() => setExpandedDnaOwner(rid)} style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    padding: '7px 8px', borderRadius: '6px', cursor: 'pointer',
+                                    background: isSel ? 'rgba(212,175,55,0.12)' : 'transparent',
+                                    border: '1px solid ' + (isSel ? 'rgba(212,175,55,0.35)' : 'transparent'),
+                                    marginBottom: '2px', transition: 'background 0.15s'
+                                }}>
+                                    <span style={{ fontSize: '0.64rem', color: idx < 3 ? 'var(--gold)' : 'var(--silver)', width: '18px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', opacity: 0.7 }}>{idx + 1}</span>
+                                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--charcoal)', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(212,175,55,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {avatarSrc ? <img src={avatarSrc} alt={a.ownerName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => e.target.style.display='none'} /> : <span style={{ fontSize: '0.68rem', color: 'var(--gold)', fontWeight: 700 }}>{a.ownerName.charAt(0).toUpperCase()}</span>}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: '0.78rem', fontWeight: isSel ? 700 : 500, color: isSel ? 'var(--gold)' : 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {a.ownerName}{isMe && <span style={{ fontSize: '0.58rem', color: 'var(--gold)', fontWeight: 700, marginLeft: '4px' }}>ME</span>}
+                                        </div>
+                                        <div style={{ fontSize: '0.62rem', color: shownDna.color || 'var(--silver)', opacity: 0.85 }}>{shownDna.label || '—'}</div>
+                                    </div>
+                                    <span style={{ fontSize: '0.74rem', fontWeight: 700, color: a.tierColor, fontFamily: 'JetBrains Mono, monospace' }}>{a.healthScore}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Right pane: selected owner detail */}
+                    <div style={{ flex: '1 1 480px', minWidth: '320px' }}>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px', lineHeight: 1.5 }}>
+                            Profile each owner's behavioral DNA. {React.createElement(Tip, null, 'Owner DNA classifies each league member\'s trading personality. Multiplier = expected value adjustment.')}
+                            {' '}
+                            {React.createElement(function DnaGuideInline() {
+                                const [guideOpen, setGuideOpen] = React.useState(false);
+                                return React.createElement(React.Fragment, null,
+                                    React.createElement('button', { onClick:()=>setGuideOpen(!guideOpen), style:{fontSize:'0.7rem',color:'var(--gold)',background:'rgba(212,175,55,0.08)',border:'1px solid rgba(212,175,55,0.25)',borderRadius:'4px',padding:'2px 8px',cursor:'pointer',fontFamily:'Inter, sans-serif',textTransform:'uppercase',letterSpacing:'0.05em',marginLeft:'6px'} }, guideOpen ? 'Hide DNA Guide' : 'Show DNA Guide'),
+                                    guideOpen ? React.createElement('div', { style:{marginTop:'8px', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'8px'} },
+                                        ...Object.entries(DNA_TYPES).filter(function(e){return e[0]!=='NONE'}).map(function(entry) {
+                                            var key=entry[0], d=entry[1];
+                                            return React.createElement('div', { key:key, style:{background:d.color+'08',border:'1px solid '+d.color+'44',borderLeft:'3px solid '+d.color,borderRadius:'6px',padding:'8px 10px'} },
+                                                React.createElement('div', { style:{display:'flex', alignItems:'center', gap:'6px', marginBottom:'4px'} },
+                                                    React.createElement('span', { style:{fontFamily:'Rajdhani, sans-serif',fontSize:'0.9rem',color:d.color,fontWeight:700,letterSpacing:'0.03em'} }, d.label),
+                                                    React.createElement('span', { style:{fontSize:'0.62rem',fontFamily:'JetBrains Mono, monospace',color:d.color,background:d.color+'18',padding:'1px 5px',borderRadius:'3px'} }, '×'+d.multiplier)
+                                                ),
+                                                React.createElement('div', { style:{fontSize:'0.7rem',color:'var(--silver)',lineHeight:1.45,marginBottom:'4px'} }, d.desc),
+                                                d.strategy ? React.createElement('div', { style:{fontSize:'0.66rem',color:d.color,opacity:0.85,fontStyle:'italic',paddingTop:'4px',borderTop:'1px dashed '+d.color+'33',marginTop:'4px'} }, '→ ' + d.strategy) : null,
+                                                d.taxes && d.taxes.length ? React.createElement('div', { style:{display:'flex',flexWrap:'wrap',gap:'3px',marginTop:'5px'} },
+                                                    ...d.taxes.slice(0, 3).map(function(t,i){ return React.createElement('span', { key:i, style:{fontSize:'0.58rem',padding:'1px 4px',borderRadius:'3px',border:'1px solid '+d.color+'40',color:d.color,background:d.color+'08'} }, t); })
+                                                ) : null
+                                            );
+                                        })
+                                    ) : null
+                                );
+                            })}
+                        </div>
+                        {selectedAssessment ? renderOwnerDetailCard(selectedAssessment) : <div style={{ padding: '40px', textAlign: 'center', color: 'var(--silver)', opacity: 0.6, fontSize: '0.82rem' }}>Select an owner on the left to view their full profile.</div>}
+                    </div>
+                </div>
+            );
+        }
+
+        // ── Big detail card rendered in the right pane (Phase 5 redesign) ──
+        function renderOwnerDetailCard(a) {
+            const rid = a.rosterId;
+            const dnaKey = ownerDna[a.ownerId] || 'NONE';
+            const dna = DNA_TYPES[dnaKey] || DNA_TYPES.NONE;
+            const isMyTeam = a.rosterId === myRosterId;
+            const avatarSrc = avatarUrl(a.avatar);
+            const draftDna = ownerDraftDna[a.ownerId] || null;
+            const posture = calcOwnerPosture(a, dnaKey);
+            const ownerTrades = (window.App?.LI?.tradeHistory || []).filter(t => t.roster_ids?.includes(rid));
+            const tradeCount = ownerTrades.length;
+            const aiDna = typeof computeWeightedDNA === 'function' ? computeWeightedDNA(rid) : null;
+            const currentDna = ownerDna[a.ownerId] || aiDna?.key || 'NONE';
+            const isOverridden = ownerDna[a.ownerId] && aiDna && ownerDna[a.ownerId] !== aiDna.key;
+            const derivedDnaKey = deriveDNAFromHistory(a.ownerId, grudges);
+            const derivedDna = derivedDnaKey ? DNA_TYPES[derivedDnaKey] : null;
+            const profile = window.App?.LI?.ownerProfiles?.[rid] || {};
+            return (
+                <div style={{ background: 'var(--off-black)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '12px', padding: '18px 20px' }}>
+                    {/* Hero strip */}
+                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '14px', paddingBottom: '14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--charcoal)', overflow: 'hidden', flexShrink: 0, border: '2px solid rgba(212,175,55,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {avatarSrc ? <img src={avatarSrc} alt={a.ownerName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => e.target.style.display='none'} /> : <span style={{ fontSize: '1.1rem', color: 'var(--gold)', fontWeight: 700 }}>{a.ownerName.charAt(0).toUpperCase()}</span>}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.35rem', color: 'var(--white)', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {a.ownerName}{isMyTeam && <span className="tc-my-team-badge">ME</span>}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--silver)', opacity: 0.75 }}>{a.teamName}</div>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                <span className="tc-tier-badge" style={{ color: a.tierColor, borderColor: a.tierColor, background: a.tierBg }}>{a.tier}</span>
+                                <span className="tc-posture-badge" style={{ color: posture.color, borderColor: posture.color, background: posture.color + '18' }}>{posture.label}</span>
+                                {tradeCount > 0 && <span style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6 }}>{tradeCount} trades on file</span>}
+                            </div>
+                        </div>
+                        {typeof MiniDonut !== 'undefined' && React.createElement(MiniDonut, { value: a.healthScore, size: 64, label: 'HEALTH' })}
+                    </div>
+
+                    {/* KPI row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '14px' }}>
+                        {[
+                            { label: 'RECORD', value: a.wins + '-' + a.losses + (a.ties > 0 ? '-' + a.ties : ''), color: 'var(--white)' },
+                            { label: 'PANIC', value: a.panic + '/5', color: a.panic >= 3 ? 'var(--loss-red)' : 'var(--silver)' },
+                            { label: 'WINDOW', value: a.window || '—', color: a.tierColor },
+                            { label: 'PF', value: a.pf > 0 ? Math.round(a.pf) : '—', color: 'var(--silver)' },
+                        ].map((k, i) => <div key={i} style={{ padding: '8px', background: 'var(--black)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', textAlign: 'center' }}>
+                            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', fontWeight: 700, color: k.color }}>{k.value}</div>
+                            <div style={{ fontSize: '0.58rem', color: 'var(--silver)', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px' }}>{k.label}</div>
+                        </div>)}
+                    </div>
+
+                    {/* Owner DNA block */}
+                    <div style={{ marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Owner DNA</span>
+                            {derivedDna && <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '1px 6px', borderRadius: '3px', border: `1px solid ${derivedDna.color}55`, color: derivedDna.color, background: `${derivedDna.color}10` }}>AUTO: {derivedDna.label}</span>}
+                        </div>
+                        {aiDna ? (
+                            <div style={{ fontSize: '0.76rem', marginBottom: '6px' }}>
+                                <span style={{ color: 'var(--gold)', fontWeight: 600 }}>Scout suggests: </span>
+                                <span style={{ color: DNA_TYPES[aiDna.key]?.color || 'var(--silver)', fontWeight: 700 }}>{DNA_TYPES[aiDna.key]?.label || aiDna.key}</span>
+                                <span style={{ color: 'var(--silver)', marginLeft: '4px', opacity: 0.65 }}>({aiDna.confidence}% confidence)</span>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.7, marginTop: '2px' }}>{aiDna.reasoning}</div>
+                            </div>
+                        ) : (
+                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.55, marginBottom: '6px', fontStyle: 'italic' }}>
+                                {tradeCount > 0 ? 'Insufficient signal — tag manually' : 'Not enough data — tag manually'}
+                            </div>
+                        )}
+                        <select className="tc-dna-select" value={currentDna} onChange={e => updateDna(a.ownerId, e.target.value)}>
+                            {aiDna && <option value={aiDna.key}>AI: {DNA_TYPES[aiDna.key]?.label} (recommended)</option>}
+                            {Object.entries(DNA_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                        </select>
+                        {isOverridden && <div style={{ fontSize: '0.68rem', color: '#F0A500', marginTop: '4px' }}>Overridden from AI suggestion</div>}
+                        {dnaKey && dnaKey !== 'NONE' && dna.desc && (
+                            <div style={{ marginTop: '8px', padding: '8px 10px', background: dna.color + '08', borderLeft: '3px solid ' + dna.color, borderRadius: '0 6px 6px 0' }}>
+                                <div style={{ fontSize: '0.74rem', color: 'var(--silver)', lineHeight: 1.5 }}>{dna.desc}</div>
+                                {dna.strategy && <div style={{ marginTop: '4px', fontSize: '0.72rem', color: dna.color, opacity: 0.9, fontStyle: 'italic' }}>→ {dna.strategy}</div>}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Draft DNA (if present) */}
+                    {draftDna && (
+                        <div style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '6px', padding: '8px 10px', marginBottom: '14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                                <span style={{ fontSize: '0.66rem', color: 'var(--silver)', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Draft DNA</span>
+                                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#a5b4fc' }}>{draftDna.label}</span>
+                                <span style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.55, marginLeft: 'auto' }}>{draftDna.seasons} · {draftDna.picksAnalyzed} picks</span>
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.75, fontStyle: 'italic' }}>{draftDna.tendency}</div>
+                        </div>
+                    )}
+
+                    {/* Roster Audit */}
+                    {a.posAssessment && Object.keys(a.posAssessment).length > 0 && (
+                        <div style={{ marginBottom: '14px' }}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px', display: 'flex', gap: '8px', alignItems: 'baseline', flexWrap: 'wrap' }}>
+                                <span>Roster Audit</span>
+                                {a.strengths?.length > 0 && <span style={{ fontSize: '0.66rem', color: '#2ECC71', opacity: 0.9 }}>surplus: {a.strengths.join(', ')}</span>}
+                                {a.needs?.filter(n => n.urgency === 'deficit').length > 0 && <span style={{ fontSize: '0.66rem', color: '#E74C3C', opacity: 0.9 }}>deficit: {a.needs.filter(n => n.urgency === 'deficit').map(n => n.pos).join(', ')}</span>}
+                            </div>
+                            <div className="tc-pos-grid">
+                                {Object.entries(a.posAssessment).sort((pa, pb) => (TC_POS_ORDER[pa[0]] ?? 9) - (TC_POS_ORDER[pb[0]] ?? 9)).map(([pos, data]) => <TcPosRow key={pos} pos={pos} assessment={data} />)}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Trade History (condensed) */}
+                    {ownerTrades.length > 0 && (
+                        <div>
+                            <div style={{ display: 'flex', gap: '12px', marginBottom: '6px', flexWrap: 'wrap', fontSize: '0.72rem', alignItems: 'baseline' }}>
+                                <span style={{ color: 'var(--silver)', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.66rem' }}>Trade History</span>
+                                <span style={{ color: '#2ECC71' }}>Won {profile.tradesWon || 0}</span>
+                                <span style={{ color: '#E74C3C' }}>Lost {profile.tradesLost || 0}</span>
+                                <span style={{ color: 'var(--silver)' }}>Fair {profile.tradesFair || 0}</span>
+                                <span style={{ color: (profile.avgValueDiff || 0) >= 0 ? '#2ECC71' : '#E74C3C', marginLeft: 'auto' }}>Avg {(profile.avgValueDiff || 0) >= 0 ? '+' : ''}{Math.round(profile.avgValueDiff || 0)} DHQ</span>
+                            </div>
+                            <div style={{ maxHeight: '220px', overflowY: 'auto', background: 'var(--black)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px' }}>
+                                {ownerTrades.slice(0, 10).sort((ta, tb) => {
+                                    const aSeason = parseInt(ta.season) || 0;
+                                    const bSeason = parseInt(tb.season) || 0;
+                                    if (bSeason !== aSeason) return bSeason - aSeason;
+                                    return (tb.week || 0) - (ta.week || 0);
+                                }).map((t, ti) => {
+                                    const otherRid = t.roster_ids.find(r => r !== rid);
+                                    const otherUser = ownerNameForRosterId(otherRid) || ('Owner ' + otherRid);
+                                    const mySide = t.sides?.[rid] || { players: [], picks: [] };
+                                    const theirSide = t.sides?.[otherRid] || { players: [], picks: [] };
+                                    const myValue = mySide.totalValue || 0;
+                                    const theirValue = theirSide.totalValue || 0;
+                                    const won = myValue > theirValue * 1.15;
+                                    const lost = theirValue > myValue * 1.15;
+                                    const verdict = won ? 'Won' : lost ? 'Lost' : 'Fair';
+                                    const verdictCol = won ? '#2ECC71' : lost ? '#E74C3C' : 'var(--silver)';
+                                    return (
+                                        <div key={ti} style={{ padding: '7px 10px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px', fontSize: '0.7rem' }}>
+                                                <span style={{ color: 'var(--silver)', opacity: 0.6 }}>{t.season} W{t.week}</span>
+                                                <span style={{ fontWeight: 700, color: verdictCol, padding: '1px 6px', borderRadius: '3px', background: verdictCol + '15' }}>{verdict}</span>
+                                                <span style={{ color: 'var(--silver)' }}>vs {otherUser}</span>
+                                                <span style={{ color: verdictCol, fontWeight: 700, marginLeft: 'auto' }}>{myValue >= theirValue ? '+' : ''}{(myValue - theirValue).toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Legacy grid retained only for backwards compat — hidden */}
+                    <div style={{ display: 'none' }}>
                     <div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.655, marginBottom:'0.75rem', lineHeight:1.5 }}>
                         Profile each owner's behavioral DNA. This unlocks psychological tax calculations in the Trade Analyzer. {React.createElement(Tip, null, 'Owner DNA classifies each league member\'s trading personality based on historical behavior. The system auto-derives DNA from trade history and applies psychological taxes to acceptance likelihood calculations. Multiplier = how much value adjustment to expect.')}
                     </div>
@@ -886,6 +1113,19 @@
                                         <div style={{ textAlign:'center' }}><div style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'1rem', color:a.panic>=3?'var(--loss-red)':'var(--silver)' }}>{a.panic}/5</div><div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.65 }}>PANIC</div></div>
                                         <div style={{ textAlign:'center' }}><div style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'1rem', color:'var(--silver)' }}>{a.wins}-{a.losses}</div><div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.65 }}>RECORD</div></div>
                                     </div>
+                                    {/* Phase 5: Roster Audit embedded inline — per-position surplus/deficit breakdown */}
+                                    {a.posAssessment && Object.keys(a.posAssessment).length > 0 && (
+                                        <div style={{ marginTop:'10px', paddingTop:'10px', borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+                                            <div style={{ fontSize:'0.7rem', color:'var(--silver)', opacity:0.65, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'6px', display:'flex', gap:'8px', alignItems:'baseline' }}>
+                                                <span>Roster Audit</span>
+                                                {a.strengths?.length > 0 && <span style={{ fontSize:'0.68rem', color:'#2ECC71', opacity:0.8 }}>surplus: {a.strengths.join(', ')}</span>}
+                                                {a.needs?.filter(n => n.urgency === 'deficit').length > 0 && <span style={{ fontSize:'0.68rem', color:'#E74C3C', opacity:0.8 }}>deficit: {a.needs.filter(n => n.urgency === 'deficit').map(n => n.pos).join(', ')}</span>}
+                                            </div>
+                                            <div className="tc-pos-grid">
+                                                {Object.entries(a.posAssessment).sort((pa, pb) => (TC_POS_ORDER[pa[0]] ?? 9) - (TC_POS_ORDER[pb[0]] ?? 9)).map(([pos, data]) => <TcPosRow key={pos} pos={pos} assessment={data} />)}
+                                            </div>
+                                        </div>
+                                    )}
                                     </>)}
                                     {expandedDnaOwner === rid && (() => {
                                         const trades = (window.App?.LI?.tradeHistory || []).filter(t => t.roster_ids?.includes(rid));
@@ -971,6 +1211,7 @@
                             );
                         })}
                     </div>
+                    </div>
                 </div>
             );
         }
@@ -1041,7 +1282,30 @@
             function addPick(side, pickId) { if (tradePickIds[side].includes(pickId)) return; setTradePickIds(prev => ({ ...prev, [side]: [...prev[side], pickId] })); }
             function removePick(side, pickId) { setTradePickIds(prev => ({ ...prev, [side]: prev[side].filter(id => id !== pickId) })); }
             function makePickId(year, round, fromRosterId) { return `PICK-${year}-${round}-${fromRosterId}`; }
-            function pickLabel(round) { const s=['th','st','nd','rd']; const v=round%100; return round+(s[(v-20)%10]||s[v]||s[0])+' Round'; }
+            // Phase 5: compute draft slot (1..N) for the given "from" roster — used to render picks as "2026 2.01".
+            // For rookie drafts, slot = inverse of current standings (worst team picks 1). Tiebreaker: fewer points for.
+            const _draftOrderCache = (() => {
+                const sorted = [...allRosters].sort((a, b) => {
+                    const aW = a.settings?.wins || 0, bW = b.settings?.wins || 0;
+                    if (aW !== bW) return aW - bW;
+                    const aP = (a.settings?.fpts || 0) + (a.settings?.fpts_decimal || 0) / 100;
+                    const bP = (b.settings?.fpts || 0) + (b.settings?.fpts_decimal || 0) / 100;
+                    return aP - bP;
+                });
+                const map = {};
+                sorted.forEach((r, i) => { map[String(r.roster_id)] = i + 1; });
+                return map;
+            })();
+            function draftSlot(fromRid) { return _draftOrderCache[String(fromRid)] || null; }
+            function pickLabel(round, fromRid) {
+                if (fromRid != null) {
+                    const slot = draftSlot(fromRid);
+                    if (slot) return round + '.' + String(slot).padStart(2, '0');
+                }
+                // Fallback: ordinal round label
+                const s = ['th','st','nd','rd']; const v = round % 100;
+                return round + (s[(v-20)%10] || s[v] || s[0]) + ' Round';
+            }
             const ownerOptions = [{ id: null, label: '-- None --' }, ...assessments.map(a => ({ id: a.ownerId, label: `${a.ownerName} (${a.teamName})` }))];
 
             function TradeSide({ side, color, label }) {
@@ -1093,7 +1357,7 @@
                                 <div key={pkId} className="tc-ta-player-row">
                                     <button className="tc-ta-remove" onClick={() => removePick(side, pkId)}>X</button>
                                     <span className="tc-ta-pos-dot" style={{ background: pickColor }} />
-                                    <span style={{ flex:1, fontSize:'0.82rem', fontWeight:600 }}>{yr} {pickLabel(rd)}{!isOwn && via && <span style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.6, marginLeft:'0.3rem' }}>via {via}</span>}</span>
+                                    <span style={{ flex:1, fontSize:'0.82rem', fontWeight:600 }}>{yr} {pickLabel(rd, fromRid)}{!isOwn && via && <span style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.6, marginLeft:'0.3rem' }}>via {via}</span>}</span>
                                     <div className="tc-ta-val-col" style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:2 }}>
                                         <div className="tc-ta-val-bar-wrap"><div className="tc-ta-val-bar-fill" style={{ width:`${pct}%`, background: pickColor }} /></div>
                                         <span style={{ fontSize:'0.7rem', fontWeight:700, color: pickColor }}>{val.toLocaleString()}</span>
@@ -1141,7 +1405,7 @@
                                                 return (
                                                     <div key={pkId} className={`tc-ta-roster-item${added?' tc-added':''}`} onClick={() => !added && addPick(side, pkId)}>
                                                         <span className="tc-ta-pos-dot" style={{ background: pickColor }} />
-                                                        <span style={{ flex:1, fontWeight:600 }}>{year} {pickLabel(round)}{!isOwn2 && via && <span style={{ fontSize:'0.74rem', color:'var(--silver)', opacity:0.6, marginLeft:'0.3rem' }}>via {via}</span>}</span>
+                                                        <span style={{ flex:1, fontWeight:600 }}>{year} {pickLabel(round, fromRosterId)}{!isOwn2 && via && <span style={{ fontSize:'0.74rem', color:'var(--silver)', opacity:0.6, marginLeft:'0.3rem' }}>via {via}</span>}</span>
                                                         <span className="tc-ta-player-val" style={{ color: pickColor }}>{val.toLocaleString()}</span>
                                                     </div>
                                                 );
@@ -1172,8 +1436,33 @@
                 );
             }
 
+            // Phase 5: Build vs Find mode — lets the user pick between manually building a trade
+            // or auto-generating proposals. "Find" mode renders the TradeFinderTab inline.
+            const _analyzerMode = window._wrAnalyzerMode || 'build';
             return (
                 <div>
+                    <div style={{ display:'flex', gap:'6px', marginBottom:'10px' }}>
+                        {['build','find'].map(m => (
+                            <button key={m} onClick={() => { window._wrAnalyzerMode = m; setExpandedDnaOwner(prev => prev); /* trigger re-render via setState noop */ if (typeof setGrudges === 'function') setGrudges(g => [...g]); }} style={{
+                                padding: '5px 12px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif',
+                                textTransform: 'uppercase', letterSpacing: '0.05em',
+                                background: _analyzerMode === m ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.04)',
+                                color: _analyzerMode === m ? 'var(--gold)' : 'var(--silver)',
+                                border: '1px solid ' + (_analyzerMode === m ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'),
+                                borderRadius: '4px', cursor: 'pointer', fontWeight: _analyzerMode === m ? 700 : 400,
+                            }}>{m === 'build' ? 'Build a Trade' : 'Find a Trade'}</button>
+                        ))}
+                    </div>
+
+                    {/* FIND mode — auto-generate proposals (ex-Trade Finder tab) */}
+                    {_analyzerMode === 'find' && (
+                        canAccess('trade-finder')
+                            ? React.createElement(TradeFinderTab, { allRosters, myRosterId, assessments, ownerDna, playersData, picksByOwner, getPlayerValue, getPickValue, calcOwnerPosture, calcPsychTaxes, calcAcceptanceLikelihood: window.App?.calcAcceptanceLikelihood || function(){return 50;}, DNA_TYPES, autoTarget: finderAutoTarget, onAutoTargetConsumed: () => setFinderAutoTarget(null) })
+                            : React.createElement(UpgradeGate, { feature:'trade-finder', title:'UNLOCK TRADE FINDER', description:'Auto-generate trade proposals with every team. See acceptance likelihood based on owner psychology. Find deals they\'ll actually accept.', targetTier:'warroom' })
+                    )}
+
+                    {/* BUILD mode — manual trade builder (the original analyzer) */}
+                    {_analyzerMode === 'build' && <>
                     <div style={{ fontSize:'0.74rem', color:'var(--silver)', opacity:0.65, marginBottom:'0.75rem', lineHeight:1.5 }}>
                         Values sourced from <strong style={{ color:'var(--gold)' }}>DHQ Engine</strong> (dynasty valuations). Select owners, add players and picks, and see the full psychological trade analysis.
                     </div>
@@ -1266,6 +1555,7 @@
                             </div>
                         </div>
                     )}
+                    </>}
                 </div>
             );
         }
@@ -1484,27 +1774,29 @@
             );
         }
 
-        // ── Analyst mode: full intelligence terminal ──
+        // ── Phase 5: 2-tab Trade Analyzer layout ──
+        // Owner Profiles (DNA) + Trade Analyzer (Builder + Finder merged via inline toggle below).
+        // Removed as separate tabs: Trade Finder (now a mode inside Analyzer), Roster Audit
+        // (now embedded in owner detail), Trade History (removed per user feedback). Legacy
+        // tcTab values are normalized to 'dna' so saved deep-links don't break.
+        const _activeTcTab = (tcTab === 'analyzer') ? 'analyzer' : 'dna';
         return (
             <div style={{ padding: '16px' }}>
                 <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' }}>TRADE CENTER</div>
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
-                    {['dna','finder','analyzer','audit','inbox'].map(tab => (
+                    {['dna','analyzer'].map(tab => (
                         <button key={tab} onClick={() => setTcTab(tab)} style={{
                             padding: '6px 14px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif',
                             textTransform: 'uppercase', letterSpacing: '0.04em',
-                            background: tcTab === tab ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
-                            color: tcTab === tab ? 'var(--black)' : 'var(--silver)',
-                            border: '1px solid ' + (tcTab === tab ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
+                            background: _activeTcTab === tab ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
+                            color: _activeTcTab === tab ? 'var(--black)' : 'var(--silver)',
+                            border: '1px solid ' + (_activeTcTab === tab ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
                             borderRadius: '4px', cursor: 'pointer'
-                        }}>{({dna:'Owner Profiles',finder:'Trade Finder',analyzer:'Trade Builder',inbox:'Trade History',audit:'Roster Audit'})[tab]}</button>
+                        }}>{({dna:'Owner Profiles',analyzer:'Trade Analyzer'})[tab]}</button>
                     ))}
                 </div>
-                {tcTab === 'audit' && renderAudit()}
-                {tcTab === 'dna' && (canAccess('owner-dna') ? renderOwnerDna() : React.createElement(UpgradeGate, { feature:'owner-dna', title:'UNLOCK OWNER DNA', description:'Profile every manager\'s trading psychology. Know who\'s a Fleecer, who\'s Desperate, and exactly how to approach each trade conversation.', targetTier:'warroom' }))}
-                {tcTab === 'analyzer' && renderTradeAnalyzer()}
-                {tcTab === 'finder' && (canAccess('trade-finder') ? React.createElement(TradeFinderTab, { allRosters, myRosterId, assessments, ownerDna, playersData, picksByOwner, getPlayerValue, getPickValue, calcOwnerPosture, calcPsychTaxes, calcAcceptanceLikelihood: window.App?.calcAcceptanceLikelihood || function(){return 50;}, DNA_TYPES, autoTarget: finderAutoTarget, onAutoTargetConsumed: () => setFinderAutoTarget(null) }) : React.createElement(UpgradeGate, { feature:'trade-finder', title:'UNLOCK TRADE FINDER', description:'Auto-generate trade proposals with every team. See acceptance likelihood based on owner psychology. Find deals they\'ll actually accept.', targetTier:'warroom' }))}
-                {tcTab === 'inbox' && renderTradeInbox()}
+                {_activeTcTab === 'dna' && (canAccess('owner-dna') ? renderOwnerDna() : React.createElement(UpgradeGate, { feature:'owner-dna', title:'UNLOCK OWNER DNA', description:'Profile every manager\'s trading psychology. Know who\'s a Fleecer, who\'s Desperate, and exactly how to approach each trade conversation.', targetTier:'warroom' }))}
+                {_activeTcTab === 'analyzer' && renderTradeAnalyzer()}
             </div>
         );
     }

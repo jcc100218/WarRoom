@@ -8,6 +8,30 @@
     // ══════════════════════════════════════════════════════════════════════════
     // FREE AGENCY TAB — migrated from free-agency.html
     // ══════════════════════════════════════════════════════════════════════════
+    // Phase 6 deferred: FA column registry — mirrors the My Roster column contract so
+    // SavedViewBar's `columns` slot round-trips correctly between surfaces.
+    const FA_COLUMNS = {
+        pos:        { label: 'Position',                shortLabel: 'Pos',    width: '40px', sortKey: 'pos',   group: 'core'    },
+        team:       { label: 'NFL Team',                shortLabel: 'Team',   width: '44px', sortKey: 'team',  group: 'core'    },
+        age:        { label: 'Age',                     shortLabel: 'Age',    width: '34px', sortKey: 'age',   group: 'dynasty' },
+        dhq:        { label: 'DHQ Dynasty Value',       shortLabel: 'DHQ',    width: '58px', sortKey: 'dhq',   group: 'dynasty' },
+        ppg:        { label: 'Points Per Game',         shortLabel: 'PPG',    width: '44px', sortKey: 'ppg',   group: 'stats'   },
+        peakYr:     { label: 'Peak Years Left',         shortLabel: 'Peak',   width: '44px', sortKey: 'peak',  group: 'dynasty' },
+        yrsExp:     { label: 'NFL Years Experience',    shortLabel: 'Exp',    width: '38px', sortKey: 'exp',   group: 'dynasty' },
+        college:    { label: 'College',                 shortLabel: 'College',width: '90px', sortKey: 'college', group: 'scout' },
+        height:     { label: 'Height',                  shortLabel: 'Ht',     width: '44px', sortKey: 'height',  group: 'scout' },
+        weight:     { label: 'Weight (lbs)',            shortLabel: 'Wt',     width: '42px', sortKey: 'weight',  group: 'scout' },
+        depthChart: { label: 'NFL Depth Chart Position',shortLabel: 'Depth',  width: '50px', group: 'scout'   },
+        injury:     { label: 'Injury Status',           shortLabel: 'Inj',    width: '46px', sortKey: 'injury',  group: 'stats' },
+        faab:       { label: 'Suggested FAAB Bid',      shortLabel: 'FAAB',   width: '60px', group: 'stats'   },
+    };
+    const FA_COLUMN_PRESETS = {
+        default: ['pos','team','age','dhq','ppg','peakYr'],
+        scout:   ['pos','age','college','height','weight','depthChart'],
+        bidding: ['pos','team','dhq','ppg','faab','injury'],
+        full:    Object.keys(FA_COLUMNS),
+    };
+
     function FreeAgencyTab({ playersData, statsData, prevStatsData, myRoster, currentLeague, sleeperUserId, timeRecomputeTs, viewMode }) {
         const [faTargets, setFaTargets] = useState([]);
         const [faFilter, setFaFilter] = useState('');
@@ -15,6 +39,20 @@
         const [faSort, setFaSort] = useState({ key: 'dhq', dir: -1 });
         const [faSelectedPid, setFaSelectedPid] = useState(null);
         const [waiverBoardExpanded, setWaiverBoardExpanded] = useState(false);
+        const [visibleFaCols, setVisibleFaCols] = useState(() => (window.App?.WrStorage?.get?.('wr_fa_cols') || FA_COLUMN_PRESETS.default));
+        const [faColPreset, setFaColPreset] = useState('default');
+        const [showFaColPicker, setShowFaColPicker] = useState(false);
+        // Rolling PPG window — shared localStorage key with My Roster so the setting persists across tabs.
+        const [ppgWindow, setPpgWindow] = useState(() => { try { return localStorage.getItem('wr_ppg_window') || 'season'; } catch { return 'season'; } });
+        useEffect(() => { try { localStorage.setItem('wr_ppg_window', ppgWindow); } catch {} }, [ppgWindow]);
+        const [, forcePpgRerender] = useState(0);
+        useEffect(() => {
+            const h = () => forcePpgRerender(n => n + 1);
+            window.addEventListener('wr:weekly-points-loaded', h);
+            return () => window.removeEventListener('wr:weekly-points-loaded', h);
+        }, []);
+
+        useEffect(() => { try { window.App?.WrStorage?.set?.('wr_fa_cols', visibleFaCols); } catch {} }, [visibleFaCols]);
 
         const normPos = window.App.normPos;
         const calcRawPts = (s) => window.App.calcRawPts(s, currentLeague?.scoring_settings);
@@ -252,7 +290,12 @@
             const renderFaCard = (r, tier, tierCol) => {
                 const isMustFirst = tier === 'must' && _mustAddIdx++ === 0;
                 return (
-                <div key={r.pid} className={isMustFirst ? 'wr-pulse-gold' : undefined} onClick={() => { if (typeof window.openFWPlayerModal === 'function') { window.openFWPlayerModal(r.pid, playersData, statsData, currentLeague?.scoring_settings); } else { setFaSelectedPid(r.pid); } }} style={{ background: faSelectedPid === r.pid ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (faSelectedPid === r.pid ? 'var(--gold)' : 'rgba(212,175,55,0.15)'), borderLeft: '3px solid ' + tierCol, borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'background 0.12s' }}>
+                <div key={r.pid} className={isMustFirst ? 'wr-pulse-gold' : undefined} onClick={() => {
+                    // Phase 6: route to unified PlayerCard (SI-2) — fall back to inline panel if not loaded
+                    if (window.WR && typeof window.WR.openPlayerCard === 'function') { window.WR.openPlayerCard(r.pid, { scoringSettings: currentLeague?.scoring_settings }); }
+                    else if (typeof window.openFWPlayerModal === 'function') { window.openFWPlayerModal(r.pid, playersData, statsData, currentLeague?.scoring_settings); }
+                    else { setFaSelectedPid(r.pid); }
+                }} style={{ background: faSelectedPid === r.pid ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (faSelectedPid === r.pid ? 'var(--gold)' : 'rgba(212,175,55,0.15)'), borderLeft: '3px solid ' + tierCol, borderRadius: '8px', padding: '12px', cursor: 'pointer', transition: 'background 0.12s' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                         <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--white)' }}>{r.p?.full_name || 'Unknown'}</span>
                         <span style={{ fontSize: '0.74rem', color: posColors[r.pos] || 'var(--silver)', fontWeight: 700 }}>{r.pos}</span>
@@ -270,7 +313,7 @@
 
             return (
                 <div style={{ padding: '20px 24px', maxWidth: '1200px', margin: '0 auto' }} className="wr-fade-in">
-                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '16px' }}>{hasFAAB ? 'WAIVER DECISIONS' : 'WAIVER WIRE TARGETS'}</div>
+                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '16px' }}>WAIVER RECOMMENDATIONS</div>
 
                     {/* Decision summary */}
                     <div style={{ display: 'grid', gridTemplateColumns: hasFAAB ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
@@ -556,9 +599,9 @@
                 <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' }}>FREE AGENCY</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '20px' }}>Full market analysis and player evaluation</div>
 
-                {/* ── TOP: FAAB + Position Needs Grid ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: hasFAAB ? '200px 1fr' : '1fr', gap: '16px', marginBottom: '24px' }}>
-                    {/* FAAB gauge */}
+                {/* ── TOP: FAAB + Position Needs Grid (Phase 6: shrunk FAAB card) ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: hasFAAB ? '120px 1fr' : '1fr', gap: '12px', marginBottom: '20px' }}>
+                    {/* FAAB gauge — compact */}
                     {hasFAAB && (() => {
                         const rosters = currentLeague.rosters || [];
                         const totalBudget = currentLeague?.settings?.waiver_budget || 0;
@@ -566,19 +609,36 @@
                         const leagueAvgRemaining = Math.round(Math.max(0, totalBudget - avgUsed));
                         const sortedByRemaining = rosters.map(r => ({ rid: r.roster_id, rem: Math.max(0, totalBudget - (r.settings?.waiver_budget_used || 0)) })).sort((a, b) => b.rem - a.rem);
                         const myRank = sortedByRemaining.findIndex(r => r.rid === myRoster?.roster_id) + 1;
-                        return <div style={{ background: 'var(--black)', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                            {typeof MiniDonut !== 'undefined' && React.createElement(MiniDonut, { value: Math.round(remaining / Math.max(1, budget) * 100), size: 80, label: 'FAAB' })}
-                            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.6rem', fontWeight: 600, color: remaining > budget * 0.5 ? '#2ECC71' : remaining > budget * 0.25 ? '#F0A500' : '#E74C3C', marginTop: '8px' }}>{'$' + remaining}</div>
-                            <div style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>of ${budget} remaining</div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.7, marginTop: '6px', lineHeight: 1.5 }}>
-                                {'Rank #' + myRank + ' of ' + rosters.length + ' \u00B7 League avg: $' + leagueAvgRemaining + ' remaining'}
+                        const faabCol = remaining > budget * 0.5 ? '#2ECC71' : remaining > budget * 0.25 ? '#F0A500' : '#E74C3C';
+                        return <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '10px', padding: '10px 8px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.58rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.65, marginBottom: '4px' }}>FAAB</div>
+                            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '1.4rem', fontWeight: 700, color: faabCol, lineHeight: 1 }}>{'$' + remaining}</div>
+                            <div style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.7, marginTop: '2px' }}>of ${budget}</div>
+                            <div style={{ fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.55, marginTop: '6px', lineHeight: 1.3 }}>
+                                #{myRank}/{rosters.length} · lg avg ${leagueAvgRemaining}
                             </div>
                         </div>;
                     })()}
 
-                    {/* Position Needs — Enhanced Grid with Rostered Players */}
-                    {assess && <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '12px', padding: '16px' }}>
-                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '10px' }}>ROSTER NEEDS</div>
+                    {/* Position Needs — leads with actual needs, then shows per-pos detail */}
+                    {assess && <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '12px', padding: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                            <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.08em' }}>ROSTER NEEDS</div>
+                            {/* Phase 6: Lead with the actual need/surplus summary so this card answers "what do I need?" first */}
+                            {(() => {
+                                const deficits = (assess.needs || []).filter(n => n.urgency === 'deficit').map(n => n.pos);
+                                const thin = (assess.needs || []).filter(n => n.urgency === 'thin').map(n => n.pos);
+                                const surplus = (assess.strengths || []);
+                                const chip = (label, items, col, bg) => items.length ? React.createElement('span', { style: { display: 'inline-flex', gap: '4px', alignItems: 'baseline', padding: '2px 8px', borderRadius: '4px', background: bg, border: '1px solid ' + col + '55', fontSize: '0.68rem', color: col, fontWeight: 700, letterSpacing: '0.04em' } }, label, React.createElement('span', { style: { fontFamily: 'JetBrains Mono, monospace', opacity: 0.95 } }, items.join(' '))) : null;
+                                const none = !deficits.length && !thin.length;
+                                return React.createElement(React.Fragment, null,
+                                    chip('DEFICIT', deficits, '#E74C3C', 'rgba(231,76,60,0.08)'),
+                                    chip('THIN', thin, '#F0A500', 'rgba(240,165,0,0.08)'),
+                                    chip('SURPLUS', surplus, '#2ECC71', 'rgba(46,204,113,0.08)'),
+                                    none && !surplus.length ? React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6 } }, 'No urgent gaps') : null
+                                );
+                            })()}
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
                             {['QB','DL','RB','LB','WR','DB','TE','K'].filter(pos => (assess.posAssessment || {})[pos]).map(pos => { const data = assess.posAssessment[pos];
                                 const status = data.status || 'ok';
@@ -627,7 +687,7 @@
                     const visibleCount = waiverBoardExpanded ? 10 : 5;
                     const boardPlayers = availablePlayers.slice(0, visibleCount);
                     return React.createElement('div', { style: { marginBottom: '20px' } },
-                        React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' } }, 'WAIVER PRIORITY BOARD'),
+                        React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' } }, 'WAIVER RECOMMENDATIONS'),
                         React.createElement('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' } }, "Alex's top pickup recommendations"),
                         React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: waiverBoardExpanded ? '480px' : 'none', overflowY: waiverBoardExpanded ? 'auto' : 'visible' } },
                             ...boardPlayers.map((x, i) => {
@@ -684,55 +744,183 @@
                 })()}
 
                 {/* ── POSITION FILTER + FULL LIST ── */}
-                <React.Fragment><div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <React.Fragment>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', marginRight: '8px' }}>ALL FREE AGENTS</span>
                     {['', 'QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'].map(pos =>
                         <button key={pos} onClick={() => setFaFilter(pos)} style={{ padding: '5px 12px', fontSize: '0.76rem', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', background: faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.04)', color: faFilter === pos ? 'var(--black)' : 'var(--silver)', border: '1px solid ' + (faFilter === pos ? 'var(--gold)' : 'rgba(255,255,255,0.08)'), borderRadius: '4px', cursor: 'pointer' }}>{pos || 'All'}</button>
                     )}
                 </div>
 
-                <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
-                    {/* Header */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '32px 1fr 40px 34px 58px 44px 44px', gap: '4px', padding: '8px 12px', background: 'rgba(212,175,55,0.06)', borderBottom: '2px solid rgba(212,175,55,0.2)' }}>
-                        <span style={faHeaderStyle}></span>
-                        <span style={faHeaderStyle} onClick={() => handleFaSort('name')}>Player{faSortIndicator('name')}</span>
-                        <span style={faHeaderStyle} onClick={() => handleFaSort('pos')}>Pos{faSortIndicator('pos')}</span>
-                        <span style={faHeaderStyle} onClick={() => handleFaSort('age')}>Age{faSortIndicator('age')}</span>
-                        <span style={faHeaderStyle} onClick={() => handleFaSort('dhq')}>DHQ{faSortIndicator('dhq')}</span>
-                        <span style={faHeaderStyle} onClick={() => handleFaSort('ppg')}>PPG{faSortIndicator('ppg')}</span>
-                        <span style={faHeaderStyle} onClick={() => handleFaSort('exp')}>Peak{faSortIndicator('exp')}</span>
+                {/* Phase 6 deferred: presets + column picker + SavedViewBar */}
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.65, fontFamily: 'Inter, sans-serif' }}>VIEW:</span>
+                    {Object.entries(FA_COLUMN_PRESETS).map(([key, cols]) => (
+                        <button key={key} onClick={() => { setVisibleFaCols(cols); setFaColPreset(key); }}
+                            style={{
+                                padding: '3px 10px', fontSize: '0.7rem', fontWeight: faColPreset === key ? 700 : 400,
+                                fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
+                                background: faColPreset === key ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
+                                color: faColPreset === key ? 'var(--black)' : 'var(--silver)',
+                                border: '1px solid ' + (faColPreset === key ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
+                                borderRadius: '3px', cursor: 'pointer', letterSpacing: '0.03em'
+                            }}>{key}</button>
+                    ))}
+                    <button onClick={() => setShowFaColPicker(!showFaColPicker)} style={{
+                        padding: '3px 10px', fontSize: '0.7rem',
+                        fontFamily: 'Inter, sans-serif', background: showFaColPicker ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)',
+                        color: showFaColPicker ? 'var(--gold)' : 'var(--silver)',
+                        border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px', cursor: 'pointer'
+                    }}>COLUMNS</button>
+                    {/* Rolling PPG window selector — shared with My Roster */}
+                    <span style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.65, marginLeft: '6px', fontFamily: 'Inter, sans-serif' }}>PPG:</span>
+                    {[{k:'season',l:'Season'},{k:'l5',l:'L5'},{k:'l3',l:'L3'}].map(opt => (
+                        <button key={opt.k} onClick={() => setPpgWindow(opt.k)} title={opt.k === 'season' ? 'Season-to-date PPG' : 'Last ' + (opt.k === 'l5' ? 5 : 3) + ' games'} style={{
+                            padding: '3px 8px', fontSize: '0.7rem', fontWeight: ppgWindow === opt.k ? 700 : 400,
+                            fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
+                            background: ppgWindow === opt.k ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
+                            color: ppgWindow === opt.k ? 'var(--black)' : 'var(--silver)',
+                            border: '1px solid ' + (ppgWindow === opt.k ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
+                            borderRadius: '3px', cursor: 'pointer', letterSpacing: '0.03em'
+                        }}>{opt.l}</button>
+                    ))}
+
+                    {window.WR?.SavedViews?.SavedViewBar && (
+                        <div style={{ marginLeft: 'auto' }}>
+                            {React.createElement(window.WR.SavedViews.SavedViewBar, {
+                                surface: 'free_agency',
+                                leagueId: currentLeague?.id || currentLeague?.league_id,
+                                currentState: { columns: visibleFaCols, sort: faSort, filters: { faFilter } },
+                                onApply: (v) => {
+                                    if (Array.isArray(v.columns) && v.columns.length) { setVisibleFaCols(v.columns); setFaColPreset('custom'); }
+                                    if (v.sort && v.sort.key) setFaSort({ key: v.sort.key, dir: v.sort.dir || 1 });
+                                    if (v.filters && typeof v.filters.faFilter === 'string') setFaFilter(v.filters.faFilter);
+                                },
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {showFaColPicker && (
+                    <div style={{ background: '#0a0a0a', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '8px', padding: '12px', marginBottom: '8px' }}>
+                        {/* Active columns — reorderable */}
+                        <div style={{ fontSize: '0.64rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px', fontWeight: 700 }}>Active order (click ◀ ▶ to reorder)</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
+                            {visibleFaCols.map((key, i) => {
+                                const col = FA_COLUMNS[key]; if (!col) return null;
+                                const moveLeft = () => { setFaColPreset('custom'); setVisibleFaCols(prev => { if (i === 0) return prev; const next = [...prev]; [next[i - 1], next[i]] = [next[i], next[i - 1]]; return next; }); };
+                                const moveRight = () => { setFaColPreset('custom'); setVisibleFaCols(prev => { if (i === prev.length - 1) return prev; const next = [...prev]; [next[i + 1], next[i]] = [next[i], next[i + 1]]; return next; }); };
+                                const remove = () => { setFaColPreset('custom'); setVisibleFaCols(prev => prev.filter(c => c !== key)); };
+                                return (
+                                    <span key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '2px 4px 2px 8px', borderRadius: '4px', fontSize: '0.72rem', background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.35)', color: 'var(--gold)' }}>
+                                        <span style={{ marginRight: '4px' }}>{col.shortLabel}</span>
+                                        <button onClick={moveLeft} disabled={i === 0} title="Move left" style={{ padding: '0 3px', background: 'transparent', border: 'none', color: i === 0 ? 'rgba(212,175,55,0.25)' : 'var(--gold)', cursor: i === 0 ? 'default' : 'pointer', fontSize: '0.66rem' }}>◀</button>
+                                        <button onClick={moveRight} disabled={i === visibleFaCols.length - 1} title="Move right" style={{ padding: '0 3px', background: 'transparent', border: 'none', color: i === visibleFaCols.length - 1 ? 'rgba(212,175,55,0.25)' : 'var(--gold)', cursor: i === visibleFaCols.length - 1 ? 'default' : 'pointer', fontSize: '0.66rem' }}>▶</button>
+                                        <button onClick={remove} title="Remove" style={{ padding: '0 4px', background: 'transparent', border: 'none', color: '#E74C3C', cursor: 'pointer', fontSize: '0.7rem' }}>×</button>
+                                    </span>
+                                );
+                            })}
+                        </div>
+
+                        {/* All available columns — tick to add */}
+                        <div style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px', fontWeight: 700 }}>Available columns</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+                            {Object.entries(FA_COLUMNS).map(([key, col]) => {
+                                const active = visibleFaCols.includes(key);
+                                return (
+                                    <label key={key} style={{
+                                        display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
+                                        borderRadius: '4px', cursor: 'pointer', fontSize: '0.76rem',
+                                        background: active ? 'rgba(212,175,55,0.1)' : 'transparent',
+                                        color: active ? 'var(--gold)' : 'var(--silver)'
+                                    }}>
+                                        <input type="checkbox" checked={active} onChange={() => {
+                                            setVisibleFaCols(prev => active ? prev.filter(c => c !== key) : [...prev, key]);
+                                            setFaColPreset('custom');
+                                        }} style={{ accentColor: 'var(--gold)' }} />
+                                        {col.label}
+                                        <span style={{ fontSize: '0.7rem', opacity: 0.6, marginLeft: 'auto' }}>{col.group}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
                     </div>
-                    {/* Body */}
-                    <div style={{ maxHeight: 'none', overflow: 'visible' }}>
-                        {sortedPlayers.map(({ pid, p, dhq }) => {
-                            const pos = normPos(p.position) || p.position;
-                            const st = statsData[pid] || {};
-                            const prevSt = (prevStatsData || {})[pid] || {};
-                            const ppg = st.gp > 0 ? +(calcRawPts(st) / st.gp).toFixed(1) : (prevSt.gp > 0 ? +(calcRawPts(prevSt) / prevSt.gp).toFixed(1) : 0);
-                            const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.25)';
-                            const faab = faabSuggest(dhq, pos);
-                            const meta = window.App?.LI?.playerMeta?.[pid];
-                            const [, pHi] = peaks[pos] || [24, 29];
-                            const peakYrs = Math.max(0, pHi - (p.age || 25));
-                            const peakLabel = peakYrs >= 4 ? 'Rising' : peakYrs >= 1 ? 'Prime' : 'Post';
-                            const peakCol = peakYrs >= 4 ? '#2ECC71' : peakYrs >= 1 ? 'var(--gold)' : '#E74C3C';
-                            return <div key={pid} onClick={() => setFaSelectedPid(pid)} style={{ display: 'grid', gridTemplateColumns: '32px 1fr 40px 34px 58px 44px 44px', background: faSelectedPid===pid?'rgba(212,175,55,0.08)':'transparent', gap: '4px', padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                <div className={'wr-ring wr-ring-' + pos} style={{ width: '26px', height: '26px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.target.style.display='none'; const s=document.createElement('span'); s.style.cssText='font-size:10px;font-weight:700;color:var(--gold)'; s.textContent=((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase(); e.target.after(s); }} />
-                                </div>
-                                <div style={{ overflow: 'hidden' }}>
-                                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.full_name || 'Unknown'}</div>
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6 }}>{p.team || 'FA'}{p.injury_status ? ' · ' : ''}{p.injury_status ? <span style={{ color: '#E74C3C' }}>{p.injury_status}</span> : ''}</div>
-                                </div>
-                                <span style={{ fontSize: '0.76rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
-                                <span style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>{p.age || '\u2014'}</span>
-                                <span style={{ fontSize: '0.82rem', fontWeight: 700, fontFamily: 'Inter, sans-serif', color: dhqCol }}>{dhq > 0 ? dhq.toLocaleString() : '\u2014'}</span>
-                                <span style={{ fontSize: '0.78rem', color: ppg >= 10 ? '#2ECC71' : ppg >= 5 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{ppg > 0 ? ppg : '\u2014'}</span>
-                                <span style={{ fontSize: '0.74rem', color: peakCol, fontWeight: 600 }}>{peakLabel}</span>
-                            </div>;
-                        })}
-                    </div>
-                </div></React.Fragment>
+                )}
+
+                {/* Dynamic grid — photo + Player + configured columns */}
+                {(() => {
+                    const gridTemplate = '32px 1fr ' + visibleFaCols.map(k => (FA_COLUMNS[k]?.width || '44px')).join(' ');
+                    return <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
+                        {/* Header */}
+                        <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: '4px', padding: '8px 12px', background: 'rgba(212,175,55,0.06)', borderBottom: '2px solid rgba(212,175,55,0.2)' }}>
+                            <span style={faHeaderStyle}></span>
+                            <span style={faHeaderStyle} onClick={() => handleFaSort('name')}>Player{faSortIndicator('name')}</span>
+                            {visibleFaCols.map(k => {
+                                const col = FA_COLUMNS[k]; if (!col) return null;
+                                const clickable = !!col.sortKey;
+                                return <span key={k} style={{ ...faHeaderStyle, cursor: clickable ? 'pointer' : 'default' }} title={col.label}
+                                    onClick={() => clickable && handleFaSort(col.sortKey)}>
+                                    {col.shortLabel}{clickable ? faSortIndicator(col.sortKey) : ''}
+                                </span>;
+                            })}
+                        </div>
+                        {/* Body */}
+                        <div style={{ maxHeight: 'none', overflow: 'visible' }}>
+                            {sortedPlayers.map(({ pid, p, dhq }) => {
+                                const pos = normPos(p.position) || p.position;
+                                const st = statsData[pid] || {};
+                                const prevSt = (prevStatsData || {})[pid] || {};
+                                const seasonPpg = st.gp > 0 ? +(calcRawPts(st) / st.gp).toFixed(1) : (prevSt.gp > 0 ? +(calcRawPts(prevSt) / prevSt.gp).toFixed(1) : 0);
+                                // Rolling PPG — swap in when user toggled L5/L3 and weekly data is loaded
+                                let ppg = seasonPpg;
+                                let ppgMarker = '';
+                                if (ppgWindow !== 'season' && typeof window.App?.computeRollingPPG === 'function') {
+                                    const n = ppgWindow === 'l3' ? 3 : 5;
+                                    const rolling = window.App.computeRollingPPG(pid, n);
+                                    if (rolling > 0) { ppg = rolling; ppgMarker = ' · L' + n; }
+                                }
+                                const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.25)';
+                                const faab = faabSuggest(dhq, pos);
+                                const [, pHi] = peaks[pos] || [24, 29];
+                                const peakYrs = Math.max(0, pHi - (p.age || 25));
+                                const peakLabel = peakYrs >= 4 ? 'Rising' : peakYrs >= 1 ? 'Prime' : 'Post';
+                                const peakCol = peakYrs >= 4 ? '#2ECC71' : peakYrs >= 1 ? 'var(--gold)' : '#E74C3C';
+                                const renderCell = (k) => {
+                                    switch (k) {
+                                        case 'pos':        return <span style={{ fontSize: '0.76rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>;
+                                        case 'team':       return <span style={{ fontSize: '0.74rem', color: 'var(--silver)', fontWeight: 600 }}>{p.team || 'FA'}</span>;
+                                        case 'age':        return <span style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>{p.age || '\u2014'}</span>;
+                                        case 'dhq':        return <span style={{ fontSize: '0.82rem', fontWeight: 700, fontFamily: 'Inter, sans-serif', color: dhqCol }}>{dhq > 0 ? dhq.toLocaleString() : '\u2014'}</span>;
+                                        case 'ppg':        return <span style={{ fontSize: '0.78rem', color: ppg >= 10 ? '#2ECC71' : ppg >= 5 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{ppg > 0 ? ppg : '\u2014'}{ppgMarker}</span>;
+                                        case 'peakYr':     return <span style={{ fontSize: '0.74rem', color: peakCol, fontWeight: 600 }}>{peakLabel}</span>;
+                                        case 'yrsExp':     return <span style={{ fontSize: '0.74rem', color: 'var(--silver)' }}>{p.years_exp != null ? p.years_exp : '\u2014'}</span>;
+                                        case 'college':    return <span style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.college || '\u2014'}</span>;
+                                        case 'height':     return <span style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>{p.height ? Math.floor(p.height/12) + "'" + (p.height%12) + '"' : '\u2014'}</span>;
+                                        case 'weight':     return <span style={{ fontSize: '0.72rem', color: 'var(--silver)' }}>{p.weight || '\u2014'}</span>;
+                                        case 'depthChart': return <span style={{ fontSize: '0.72rem', color: p.depth_chart_order != null ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{p.depth_chart_order != null ? pos + (p.depth_chart_order + 1) : '\u2014'}</span>;
+                                        case 'injury':     return <span style={{ fontSize: '0.72rem', fontWeight: 600, color: p.injury_status ? '#E74C3C' : 'rgba(255,255,255,0.3)' }}>{p.injury_status || '—'}</span>;
+                                        case 'faab':       return <span style={{ fontSize: '0.74rem', color: 'var(--gold)', fontWeight: 700 }}>{faab ? '$' + faab.lo + '-' + faab.hi : '\u2014'}</span>;
+                                        default:           return <span>—</span>;
+                                    }
+                                };
+                                return <div key={pid} onClick={() => {
+                                    if (window.WR && typeof window.WR.openPlayerCard === 'function') { window.WR.openPlayerCard(pid, { scoringSettings: currentLeague?.scoring_settings }); }
+                                    else { setFaSelectedPid(pid); }
+                                }} style={{ display: 'grid', gridTemplateColumns: gridTemplate, background: faSelectedPid === pid ? 'rgba(212,175,55,0.08)' : 'transparent', gap: '4px', padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                    <div className={'wr-ring wr-ring-' + pos} style={{ width: '26px', height: '26px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.target.style.display='none'; const s=document.createElement('span'); s.style.cssText='font-size:10px;font-weight:700;color:var(--gold)'; s.textContent=((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase(); e.target.after(s); }} />
+                                    </div>
+                                    <div style={{ overflow: 'hidden' }}>
+                                        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.full_name || 'Unknown'}</div>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.55 }}>{p.team || 'FA'}{p.injury_status ? ' · ' : ''}{p.injury_status ? <span style={{ color: '#E74C3C' }}>{p.injury_status}</span> : ''}</div>
+                                    </div>
+                                    {visibleFaCols.map(k => <span key={k} style={{ display: 'flex', alignItems: 'center' }}>{renderCell(k)}</span>)}
+                                </div>;
+                            })}
+                        </div>
+                    </div>;
+                })()}
+                </React.Fragment>
 
                 {/* ── RIGHT: PLAYER DETAIL PANEL ── */}
                 {faSelectedPid && selPlayer && <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: '380px', background: 'linear-gradient(135deg, var(--off-black), var(--charcoal))', borderLeft: '2px solid var(--gold)', zIndex: 200, overflowY: 'auto', padding: '20px', boxShadow: '-8px 0 32px rgba(0,0,0,0.5)' }}>

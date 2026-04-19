@@ -342,174 +342,109 @@
 
                         </div>{/* end countdown + class preview grid */}
 
-                        {/* Your Picks + On the Clock side by side */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '16px' }}>
-
-                        {/* Your Picks */}
-                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '12px 16px' }}>
-                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Your Picks</div>
-                            {[leagueSeason, leagueSeason + 1, leagueSeason + 2].map(yr => {
-                                const yearPicks = myPicks.filter(pk => pk.year === yr);
-                                if (!yearPicks.length) return null;
-                                return (
-                                    <div key={yr} style={{ marginBottom: '12px' }}>
-                                        <div style={{ fontSize: '0.74rem', color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>{yr}</div>
-                                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                            {yearPicks.map((pk, i) => (
-                                                <div key={i} style={{ padding: '4px 8px', borderRadius: '4px', background: pk.own ? 'rgba(212,175,55,0.08)' : 'rgba(124,107,248,0.1)', border: '1px solid ' + (pk.own ? 'rgba(212,175,55,0.25)' : 'rgba(124,107,248,0.25)'), fontSize: '0.76rem' }}>
-                                                    <span style={{ fontWeight: 700, color: pk.own ? 'var(--gold)' : 'var(--gold)' }}>R{pk.round}</span>
-                                                    {!pk.own && <span style={{ fontSize: '0.78rem', color: 'var(--silver)', marginLeft: '4px' }}>(acq)</span>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* ON THE CLOCK card */}
-                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '8px', padding: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2ECC71', animation: 'pulse 2s infinite' }} />
-                                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.9rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>On The Clock</span>
-                            </div>
-                            {nextPick ? (
-                                <div>
-                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '14px' }}>
-                                        <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', color: 'var(--gold)' }}>R{nextPick.round}</span>
-                                        <span style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>{nextPick.year} {nextPick.own ? '' : '(acquired)'}</span>
-                                    </div>
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', fontFamily: 'Inter, sans-serif' }}>Likely Available at Your Pick</div>
-                                    {recommendations.map((r, i) => {
-                                        const pos = normPos(r.p.position) || r.p.position;
-                                        const composite = Math.round(r.dhq * 0.7 + r.fit.score * 30);
-                                        const confidence = Math.min(99, Math.round((composite / (rookies[0]?.dhq * 0.7 + 99 * 30 || 1)) * 100));
-                                        const needMatch = assess?.needs?.find(n => n.pos === pos);
-                                        const reason = needMatch ? (needMatch.urgency === 'deficit' ? 'Fills critical ' + pos + ' need' : 'Addresses ' + pos + ' depth') : 'Best player available at ' + pos;
-                                        return (
-                                            <div key={r.pid} onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(r.pid); }}
-                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', marginBottom: '4px', borderRadius: '6px', background: i === 0 ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)', border: i === 0 ? '1px solid rgba(212,175,55,0.2)' : '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', transition: 'background 0.1s' }}
-                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.1)'}
-                                                onMouseLeave={e => e.currentTarget.style.background = i === 0 ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.02)'}>
-                                                <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '1.1rem', color: 'var(--gold)', width: '20px' }}>{i + 1}</span>
-                                                <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--white)' }}>{pName(r.p)}</div>
-                                                    <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.5)' }}>{reason}</div>
-                                                </div>
-                                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)', padding: '2px 6px', background: 'rgba(0,0,0,0.3)', borderRadius: '3px' }}>{pos}</span>
-                                                <div style={{ textAlign: 'right', minWidth: '48px' }}>
-                                                    <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '0.82rem', color: fitColor(r.fit.score) }}>{confidence}%</div>
-                                                    <div style={{ fontSize: '0.6rem', color: 'var(--silver)' }}>conf</div>
-                                                </div>
+                        {/* Phase 7: Consolidated Picks + On the Clock header with 2.01 slot format */}
+                        {(() => {
+                            // Compute slot (1..N) for a roster by ascending wins → worst team picks first
+                            const _slotMap = (() => {
+                                const rosters = currentLeague?.rosters || [];
+                                const sorted = [...rosters].sort((a, b) => {
+                                    const aW = a.settings?.wins || 0, bW = b.settings?.wins || 0;
+                                    if (aW !== bW) return aW - bW;
+                                    const aP = (a.settings?.fpts || 0) + (a.settings?.fpts_decimal || 0) / 100;
+                                    const bP = (b.settings?.fpts || 0) + (b.settings?.fpts_decimal || 0) / 100;
+                                    return aP - bP;
+                                });
+                                const m = {}; sorted.forEach((r, i) => { m[String(r.roster_id)] = i + 1; });
+                                return m;
+                            })();
+                            const slotFor = (pk) => {
+                                const src = pk.own ? myRoster?.roster_id : pk.from;
+                                return src != null ? _slotMap[String(src)] : null;
+                            };
+                            const fmtPick = (pk) => {
+                                const s = slotFor(pk);
+                                return pk.year + ' ' + pk.round + '.' + (s ? String(s).padStart(2, '0') : '??');
+                            };
+                            const nextSlot = nextPick ? slotFor(nextPick) : null;
+                            return <div style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.10), rgba(0,0,0,0.5))', border: '2px solid rgba(212,175,55,0.3)', borderRadius: '10px', padding: '16px 20px', marginBottom: '16px' }}>
+                                {/* Hero: current slot + "on the clock" indicator */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '14px' }}>
+                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#2ECC71', animation: 'pulse 2s infinite', flexShrink: 0 }} />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: '0.62rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.8 }}>On The Clock — Your Next Pick</div>
+                                        {nextPick ? (
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '2px' }}>
+                                                <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2.2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.04em' }}>{fmtPick(nextPick)}</span>
+                                                {!nextPick.own && <span style={{ fontSize: '0.7rem', color: '#9b8afb', background: 'rgba(124,107,248,0.12)', padding: '2px 8px', borderRadius: '3px', fontWeight: 700, letterSpacing: '0.04em' }}>ACQUIRED</span>}
                                             </div>
-                                        );
+                                        ) : (
+                                            <div style={{ fontSize: '0.88rem', color: 'var(--silver)', marginTop: '4px' }}>No picks available for {leagueSeason}</div>
+                                        )}
+                                    </div>
+                                    <div style={{ fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'right' }}>
+                                        <div>Total picks</div>
+                                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.6rem', color: 'var(--gold)', fontWeight: 700, marginTop: '2px' }}>{myPicks.length}</div>
+                                    </div>
+                                </div>
+
+                                {/* All picks by year — compact chip grid */}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+                                    {[leagueSeason, leagueSeason + 1, leagueSeason + 2].flatMap(yr => {
+                                        const yearPicks = myPicks.filter(pk => pk.year === yr);
+                                        if (!yearPicks.length) return [];
+                                        return yearPicks.map((pk, i) => {
+                                            const isNext = pk === nextPick;
+                                            return <span key={yr + '-' + pk.round + '-' + i} style={{
+                                                padding: '3px 9px', borderRadius: '4px',
+                                                background: isNext ? 'rgba(212,175,55,0.2)' : (pk.own ? 'rgba(212,175,55,0.05)' : 'rgba(124,107,248,0.08)'),
+                                                border: '1px solid ' + (isNext ? 'var(--gold)' : pk.own ? 'rgba(212,175,55,0.2)' : 'rgba(124,107,248,0.2)'),
+                                                fontSize: '0.74rem', fontFamily: 'JetBrains Mono, monospace',
+                                                color: isNext ? 'var(--gold)' : pk.own ? 'var(--silver)' : '#9b8afb',
+                                                fontWeight: isNext ? 700 : 500,
+                                            }} title={pk.own ? 'Your pick' : ('Acquired from roster ' + pk.from)}>
+                                                {fmtPick(pk)}
+                                            </span>;
+                                        });
                                     })}
                                 </div>
-                            ) : (
-                                <div style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>No picks available for {leagueSeason}</div>
-                            )}
-                        </div>
 
-                        </div>{/* end your picks + on the clock grid */}
-
-                        {/* Draft Strategy — Alex Ingram Message Card */}
-                        <div style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.06), rgba(0,0,0,0.4))', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '10px', padding: '16px 18px', marginBottom: '16px' }}>
-                            {/* Alex header */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(212,175,55,0.15)', border: '2px solid rgba(212,175,55,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0 }}>{'\uD83E\uDDE0'}</div>
-                                <div>
-                                    <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.82rem', color: 'var(--gold)', letterSpacing: '0.08em', fontWeight: 700 }}>ALEX INGRAM</div>
-                                    <div style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.6, fontFamily: 'Inter, sans-serif' }}>Draft Strategy Advisor</div>
-                                </div>
-                                <span style={{ marginLeft: 'auto', fontSize: '0.68rem', padding: '2px 10px', borderRadius: '10px', background: strategyRec.type === 'target' ? 'rgba(240,165,0,0.15)' : 'rgba(46,204,113,0.15)', color: strategyRec.type === 'target' ? '#F0A500' : '#2ECC71', fontFamily: 'Inter, sans-serif', fontWeight: 700, textTransform: 'uppercase' }}>
-                                    {strategyRec.type === 'target' ? 'Position Target' : 'BPA'}
-                                </span>
-                            </div>
-
-                            {/* Strategy message */}
-                            <div style={{ background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.12)', borderRadius: '8px', padding: '12px 14px', marginBottom: '10px' }}>
-                                {customDraftStrategy ? (
-                                    <div style={{ fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.7, fontStyle: 'italic' }}>
-                                        <span style={{ color: 'var(--gold)', fontWeight: 600, fontStyle: 'normal' }}>Your strategy: </span>{customDraftStrategy}
-                                    </div>
-                                ) : (
-                                    <div style={{ fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.7 }}>
-                                        Based on your roster needs, I recommend <span style={{ color: strategyRec.type === 'target' ? '#F0A500' : '#2ECC71', fontWeight: 700 }}>{strategyRec.label.toLowerCase()}</span> this draft. {strategyRec.reason}
-                                        {assess?.needs?.length > 0 && (' Your biggest gaps are at ' + assess.needs.slice(0, 3).map(n => n.pos).join(', ') + '.')}
+                                {/* Likely-available recommendations for current pick */}
+                                {nextPick && recommendations.length > 0 && (
+                                    <div>
+                                        <div style={{ fontSize: '0.64rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px', opacity: 0.7 }}>Likely Available at Your Pick</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                            {recommendations.slice(0, 5).map((r, i) => {
+                                                const pos = normPos(r.p.position) || r.p.position;
+                                                const composite = Math.round(r.dhq * 0.7 + r.fit.score * 30);
+                                                const confidence = Math.min(99, Math.round((composite / (rookies[0]?.dhq * 0.7 + 99 * 30 || 1)) * 100));
+                                                const needMatch = assess?.needs?.find(n => n.pos === pos);
+                                                const reason = needMatch ? (needMatch.urgency === 'deficit' ? 'Fills critical ' + pos + ' need' : 'Addresses ' + pos + ' depth') : 'BPA at ' + pos;
+                                                return (
+                                                    <div key={r.pid} onClick={() => { if (window.WR?.openPlayerCard) window.WR.openPlayerCard(r.pid); else if (window._wrSelectPlayer) window._wrSelectPlayer(r.pid); }}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 10px', borderRadius: '6px', background: i === 0 ? 'rgba(212,175,55,0.08)' : 'transparent', border: '1px solid ' + (i === 0 ? 'rgba(212,175,55,0.2)' : 'transparent'), cursor: 'pointer' }}>
+                                                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.76rem', color: 'var(--gold)', width: '16px' }}>{i + 1}</span>
+                                                        <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pName(r.p)}</div>
+                                                            <div style={{ fontSize: '0.64rem', color: 'rgba(255,255,255,0.5)' }}>{reason}</div>
+                                                        </div>
+                                                        <span style={{ fontSize: '0.66rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)', padding: '1px 5px', background: 'rgba(0,0,0,0.3)', borderRadius: '3px' }}>{pos}</span>
+                                                        <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '0.76rem', color: fitColor(r.fit.score), minWidth: '32px', textAlign: 'right' }}>{confidence}%</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 )}
-                            </div>
+                            </div>;
+                        })()}
 
-                            {/* Team needs pills */}
-                            {assess?.needs?.length > 0 && (
-                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                                    {assess.needs.slice(0, 5).map(n => (
-                                        <span key={n.pos} style={{ padding: '2px 8px', fontSize: '0.68rem', borderRadius: '10px', fontFamily: 'Inter, sans-serif', background: n.urgency === 'deficit' ? 'rgba(231,76,60,0.15)' : 'rgba(240,165,0,0.12)', color: n.urgency === 'deficit' ? '#E74C3C' : '#F0A500', border: '1px solid ' + (n.urgency === 'deficit' ? 'rgba(231,76,60,0.3)' : 'rgba(240,165,0,0.25)') }}>
-                                            {n.pos} {n.urgency === 'deficit' ? 'CRITICAL' : 'THIN'}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
+                        {/* Phase 7: Alex Ingram card removed per user feedback (2026-04-18).
+                            Strategy advice now lives in the persistent GM Mode badge + GM Strategy tab.
+                            Draft-strategy notes are still persistable via the Alex chat panel.
+                            The in-draft AI stream (AlexStream in CommandCenter) is unaffected. */}
 
-                            {/* Editable strategy textarea */}
-                            {draftStrategyEditing && (
-                                <div style={{ marginBottom: '10px' }}>
-                                    <textarea
-                                        value={customDraftStrategy}
-                                        onChange={e => setCustomDraftStrategy(e.target.value)}
-                                        placeholder="Declare your draft interests... (e.g., 'Targeting WR and TE early, willing to trade back in round 2 for depth picks')"
-                                        style={{ width: '100%', minHeight: '70px', padding: '10px 12px', fontSize: '0.78rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '6px', color: 'var(--silver)', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5, outline: 'none' }}
-                                    />
-                                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
-                                        <button onClick={() => { try { localStorage.setItem(draftStrategyKey, customDraftStrategy); } catch(e) {} window.wrLogAction?.('\uD83D\uDCCB', 'Set draft strategy: ' + (customDraftStrategy || '').substring(0, 60), 'draft', { actionType: 'draft-strategy' }); setDraftStrategyEditing(false); }}
-                                            style={{ padding: '5px 14px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 700 }}>Save</button>
-                                        <button onClick={() => { setCustomDraftStrategy(''); try { localStorage.removeItem(draftStrategyKey); } catch(e) {} setDraftStrategyEditing(false); }}
-                                            style={{ padding: '5px 14px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', background: 'rgba(231,76,60,0.15)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '4px', cursor: 'pointer' }}>Clear</button>
-                                        <button onClick={() => setDraftStrategyEditing(false)}
-                                            style={{ padding: '5px 14px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Action buttons */}
-                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                <button onClick={() => setDraftStrategyEditing(!draftStrategyEditing)}
-                                    style={{ padding: '6px 14px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '5px', color: 'var(--gold)', cursor: 'pointer', fontWeight: 600 }}>
-                                    {draftStrategyEditing ? '\u25B2 Close' : '\u270E Edit Strategy'}
-                                </button>
-                                <button onClick={() => { if (typeof window._wrSetActiveTab === 'function') { window._wrSetActiveTab('myteam'); setTimeout(() => { if (typeof window._wrSetGmStrategyOpen === 'function') window._wrSetGmStrategyOpen(true); }, 150); } }}
-                                    style={{ padding: '6px 14px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', background: 'rgba(124,107,248,0.12)', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '5px', color: '#9b8afb', cursor: 'pointer', fontWeight: 600 }}>
-                                    {'\u2699'} Edit GM Strategy
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Tier 1 Prospects */}
-                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '14px 16px' }}>
-                            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>Tier 1 Prospects</div>
-                            {topProspects.slice(0, 5).map((r, idx) => {
-                                const pos = normPos(r.p.position) || r.p.position;
-                                const dhqCol = r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#3498DB' : 'var(--silver)';
-                                return (
-                                    <div key={r.pid} onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(r.pid); }}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 8px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', transition: 'background 0.1s' }}
-                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}
-                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--silver)', width: '18px' }}>{idx + 1}</span>
-                                        <img className={'wr-ring wr-ring-' + pos} src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.target.style.display='none'} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <span style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--white)' }}>{pName(r.p)}</span>
-                                        </div>
-                                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: posColors[pos] || 'var(--silver)' }}>{pos}</span>
-                                        <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: '0.76rem', color: dhqCol, minWidth: '42px', textAlign: 'right' }}>{r.dhq > 0 ? r.dhq.toLocaleString() : '\u2014'}</span>
-                                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: fitColor(r.fit.score), padding: '1px 6px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', minWidth: '48px', textAlign: 'center' }}>
-                                            Fit: {r.fit.score}
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                        {/* Phase 7: Tier 1 Prospects card removed per user feedback (2026-04-18) */}
                     </div>
                 )}
 
@@ -747,23 +682,51 @@
                                     <a href={'https://www.youtube.com/results?search_query=' + encodeURIComponent(pName(r.p) + ' highlights ' + leagueSeason)} target="_blank" rel="noopener" style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(231,76,60,0.12)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\u25B6'} HIGHLIGHTS</a>
                                     <a href={'https://www.fantasypros.com/nfl/players/' + encodeURIComponent(((r.p.first_name || '') + '-' + (r.p.last_name || '')).toLowerCase().replace(/[^a-z-]/g, '')) + '.php'} target="_blank" rel="noopener" style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(52,152,219,0.15)', color: '#3498DB', border: '1px solid rgba(52,152,219,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\uD83D\uDCF0'} NEWS</a>
                                     {(r.p.years_exp === 0) && <a href={'https://www.nfl.com/prospects/' + encodeURIComponent(((r.p.first_name || '') + '-' + (r.p.last_name || '')).toLowerCase().replace(/\s+/g, '-')) + '/'} target="_blank" rel="noopener" style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(46,204,113,0.15)', color: '#2ECC71', border: '1px solid rgba(46,204,113,0.3)', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>{'\uD83C\uDFC8'} NFL PROFILE</a>}
-                                    <button onClick={() => { setReconPanelOpen(true); sendReconMessage('Give me a full scouting report on ' + pName(r.p) + ' (' + pos + ', ' + college + '). Include strengths, weaknesses, NFL comparison, and where I should draft them.'); }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>ASK ALEX</button>
+                                    <button onClick={() => {
+                                        // Phase 7 deferred: emit scouting event so the CommandCenter's AlexStream
+                                        // picks it up inline instead of hijacking the separate chat panel.
+                                        const name = pName(r.p);
+                                        const summary = r.csv?.summary || '';
+                                        const csv = r.csv || {};
+                                        // Compose a multi-section fullText from available CSV fields
+                                        const sections = [];
+                                        if (csv.summary) sections.push(csv.summary);
+                                        if (csv.strengths) sections.push('Strengths: ' + csv.strengths);
+                                        if (csv.weaknesses) sections.push('Weaknesses: ' + csv.weaknesses);
+                                        if (csv.nflComp || csv.comp) sections.push('NFL Comp: ' + (csv.nflComp || csv.comp));
+                                        if (csv.notes) sections.push(csv.notes);
+                                        const fullText = sections.join('\n\n') || summary;
+                                        window.dispatchEvent(new CustomEvent('wr:scouting-generate', { detail: { pid: r.pid, playerName: name, pos, college, summary, fullText } }));
+                                        // Also fall back to chat when AlexStream isn't mounted (user is on Draft tab, not in mock draft)
+                                        if (typeof sendReconMessage === 'function') { setReconPanelOpen(true); sendReconMessage('Give me a full scouting report on ' + name + ' (' + pos + ', ' + college + '). Include strengths, weaknesses, NFL comparison, and where I should draft them.'); }
+                                    }} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'rgba(124,107,248,0.15)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.3)', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>ASK ALEX</button>
                                     <button onClick={() => setExpandedDraftPid(null)} style={{ padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', cursor: 'pointer' }}>COLLAPSE</button>
                                   </div>
                                 </div>
                             );
                         })()}
 
-                        {/* Side-by-side boards */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
-                            <div>
-                                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>DHQ Board <span style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.5, textTransform: 'none' }}>engine rankings</span></div>
-                                {renderCompactBoard(dhqBoardPlayers, true)}
-                            </div>
-                            <div>
-                                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>My Board <span style={{ fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.5, textTransform: 'none' }}>your rankings</span></div>
-                                {renderCompactBoard(myBoardPlayers, false)}
-                            </div>
+                        {/* Phase 7 deferred: Full-screen single board with DHQ ↔ My Board toggle */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                            {[
+                                { k: 'dhq', label: 'DHQ Board', sub: 'engine rankings' },
+                                { k: 'my', label: 'My Board', sub: 'your rankings (drag to reorder)' },
+                            ].map(t => (
+                                <button key={t.k} onClick={() => setBoardMode(t.k)} style={{
+                                    padding: '7px 16px', fontSize: '0.78rem', fontFamily: 'Inter, sans-serif',
+                                    textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700,
+                                    background: boardMode === t.k ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
+                                    color: boardMode === t.k ? 'var(--black)' : 'var(--silver)',
+                                    border: '1px solid ' + (boardMode === t.k ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
+                                    borderRadius: '6px', cursor: 'pointer'
+                                }}>{t.label}</button>
+                            ))}
+                            <span style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.55, marginLeft: '6px' }}>
+                                {boardMode === 'dhq' ? 'Auto-sorted by DHQ engine' : 'Drag any row to reorder · click # to edit rank'}
+                            </span>
+                        </div>
+                        <div style={{ marginBottom: '14px' }}>
+                            {boardMode === 'dhq' ? renderCompactBoard(dhqBoardPlayers, true) : renderCompactBoard(myBoardPlayers, false)}
                         </div>
 
                         {/* Expanded card moved above boards — old location */}

@@ -321,52 +321,7 @@
                         {pwMsg && <div style={{ marginTop: '0.5rem', fontSize: '0.73rem', color: pwMsg.startsWith('ok') ? 'var(--win-green)' : '#E74C3C' }}>{pwMsg}</div>}
                     </div>
 
-                    {/* ── LEAGUEMATES ACCESS ── */}
-                    {leagueMates && leagueMates.length > 0 && (
-                        <div style={sectionStyle}>
-                            <div style={sectionTitle}>LEAGUEMATE ACCESS</div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '0.75rem' }}>
-                                Share the dashboard with your league. Each leaguemate gets their own login with full access to all features including AI Scout.
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '220px', overflowY: 'auto' }}>
-                                {leagueMates.map(mate => {
-                                    const username = mate.username;
-                                    if (!username) return null;
-                                    const hasAccess = matesAccess?.has(username);
-                                    const link = giftLinks[username];
-                                    const isGifting = giftingFor === username;
-                                    return (
-                                        <div key={username} style={{ padding: '0.5rem 0.6rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', border: `1px solid ${hasAccess ? 'rgba(46,204,113,0.3)' : 'rgba(212,175,55,0.15)'}` }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: link ? '0.4rem' : 0 }}>
-                                                {mate.avatar
-                                                    ? <div style={{ width: 24, height: 24, flexShrink: 0 }}><img src={`https://sleepercdn.com/avatars/thumbs/${mate.avatar}`} style={{ width: 24, height: 24, borderRadius: '50%' }} onError={e => { e.target.style.display='none'; }} /></div>
-                                                    : <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(212,175,55,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.76rem', fontWeight:700, flexShrink: 0 }}>{(mate.display_name || username || '?')[0].toUpperCase()}</div>
-                                                }
-                                                <span style={{ flex: 1, fontSize: '0.78rem', color: 'var(--white)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {mate.display_name || username}
-                                                </span>
-                                                {matesAccess === null
-                                                    ? <span style={{ fontSize: '0.76rem', color: 'var(--silver)' }}>checking…</span>
-                                                    : hasAccess
-                                                        ? <span style={{ fontSize: '0.76rem', color: 'var(--win-green)', fontWeight: 700 }}>ok Has access</span>
-                                                        : <button onClick={() => handleGiftAccess(mate)} disabled={isGifting} style={{ padding: '0.2rem 0.55rem', background: 'var(--gold)', border: 'none', borderRadius: '4px', color: 'var(--black)', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
-                                                            {isGifting ? '…' : 'Generate Link'}
-                                                        </button>
-                                                }
-                                            </div>
-                                            {link && (
-                                                <div style={{ fontSize: '0.76rem', color: 'var(--silver)', wordBreak: 'break-all', background: 'rgba(0,0,0,0.4)', padding: '0.3rem 0.4rem', borderRadius: '4px' }}>
-                                                    <div><strong style={{ color: 'var(--gold)' }}>Link:</strong> {link.url}</div>
-                                                    <div><strong style={{ color: 'var(--gold)' }}>Temp password:</strong> {link.password}</div>
-                                                    <div style={{ color: 'rgba(255,255,255,0.4)', marginTop: '0.2rem' }}>Share both — they can change password after login</div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
+                    {/* Phase 10: Leaguemate Access card removed per user feedback (2026-04-18) */}
                     </>)}
 
                     {/* ══ ALEX TAB — Coaching Style + Avatar ══ */}
@@ -447,47 +402,7 @@
                         <div style={{ marginTop: '0.6rem', fontSize: '0.66rem', color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Manage your Dynasty HQ subscription</div>
                     </div>
 
-                    {/* ── AI STATUS ── */}
-                    <div style={sectionStyle}>
-                        <div style={sectionTitle}>AI STATUS</div>
-                        {(() => {
-                            const hasServer = typeof hasServerAI === 'function' && hasServerAI();
-                            const hasKey = !!(window.S?.apiKey || localStorage.getItem('dynastyhq_gemini_key') || localStorage.getItem('dynastyhq_anthropic_key'));
-                            const isActive = hasServer || hasKey;
-                            return <>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: isActive ? '#2ECC71' : '#E74C3C' }} />
-                                    <span style={{ fontSize: '0.82rem', color: isActive ? '#2ECC71' : '#E74C3C', fontWeight: 700 }}>
-                                        {isActive ? 'AI Active' : 'AI Not Connected'}
-                                    </span>
-                                </div>
-                                <div style={{ fontSize: '0.76rem', color: 'var(--silver)', lineHeight: 1.6, marginBottom: '10px' }}>
-                                    {hasServer ? 'AI is included with your subscription. Chat, scouting, and analysis are powered by Claude and Gemini.'
-                                     : hasKey ? 'Using your personal API key. AI chat and scouting are active.'
-                                     : 'AI features require a subscription or API key. Subscribe to get AI included, or add your own key below.'}
-                                </div>
-                                {!hasServer && <div style={{ marginTop: '8px' }}>
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '4px' }}>OPTIONAL: Add your own API key (power users)</div>
-                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                        <select id="wr-ai-provider" defaultValue="gemini" style={{ padding: '6px 10px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--silver)', fontFamily: 'Inter, sans-serif', fontSize: '0.78rem' }}>
-                                            <option value="gemini">Gemini (Free)</option>
-                                            <option value="anthropic">Claude</option>
-                                        </select>
-                                        <input id="wr-ai-key" type="password" placeholder="Paste API key..." style={{ flex: 1, padding: '6px 10px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--white)', fontFamily: 'monospace', fontSize: '0.78rem' }} />
-                                        <button onClick={() => {
-                                            const prov = document.getElementById('wr-ai-provider')?.value || 'gemini';
-                                            const key = document.getElementById('wr-ai-key')?.value?.trim();
-                                            if (!key) return;
-                                            if (window.S) { window.S.aiProvider = prov; window.S.apiKey = key; }
-                                            localStorage.setItem('dynastyhq_' + prov + '_key', key);
-                                            localStorage.setItem('dynastyhq_provider', prov);
-                                            alert('API key saved. AI is now active.');
-                                        }} style={{ ...btnPrimary, flex: 'none', padding: '6px 14px', fontSize: '0.78rem' }}>Save</button>
-                                    </div>
-                                </div>}
-                            </>;
-                        })()}
-                    </div>
+                    {/* Phase 10: AI Status card removed per user feedback (2026-04-18) — users are not allowed to use their own AI. */}
                     </>)}
 
                     {/* ══ DATA TAB ══ */}

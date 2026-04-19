@@ -9,7 +9,7 @@
 // ══════════════════════════════════════════════════════════════════
 function ReportSubView({
   runReport, loadSavedReports, saveReportsToStorage, DEFAULT_REPORTS,
-  getPlayerColumns, getTeamColumns, getFilterableFields, getFilterOps, sortBtnStyle,
+  getPlayerColumns, getTeamColumns, getFilterableFields, getFilterOps, getFilterOptionSet, sortBtnStyle,
 }) {
   const [reportView, setReportView] = React.useState('list'); // 'list' | 'edit' | 'view'
   const [reports, setReports] = React.useState(() => {
@@ -192,18 +192,29 @@ function ReportSubView({
           {/* Filters */}
           <div>
             <label style={labelStyle}>Filters</label>
-            {(draft.filters || []).map((f, i) => (
+            {(draft.filters || []).map((f, i) => {
+              // Phase 8 deferred: dropdown value picker when the field has a known option set
+              const optSet = typeof getFilterOptionSet === 'function' ? getFilterOptionSet(f.field) : null;
+              return (
               <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
-                <select value={f.field} onChange={e => updateFilter(i, { field: e.target.value })} style={selectStyle}>
+                <select value={f.field} onChange={e => updateFilter(i, { field: e.target.value, value: '' })} style={selectStyle}>
                   {filterFields.map(ff => <option key={ff} value={ff}>{ff}</option>)}
                 </select>
                 <select value={f.op} onChange={e => updateFilter(i, { op: e.target.value })} style={selectStyle}>
                   {ops.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                 </select>
-                <input value={f.value} onChange={e => updateFilter(i, { value: e.target.value })} placeholder="value" style={{ ...inputStyle, flex: 1 }} />
+                {optSet && optSet.length && f.op !== 'in' ? (
+                  <select value={f.value} onChange={e => updateFilter(i, { value: e.target.value })} style={{ ...selectStyle, flex: 1 }}>
+                    <option value="">— choose —</option>
+                    {optSet.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                ) : (
+                  <input value={f.value} onChange={e => updateFilter(i, { value: e.target.value })} placeholder={optSet && f.op === 'in' ? optSet.slice(0, 3).join(',') + '…' : 'value'} style={{ ...inputStyle, flex: 1 }} />
+                )}
                 <button onClick={() => removeFilter(i)} style={{ background: 'none', border: '1px solid rgba(231,76,60,0.3)', borderRadius: '4px', padding: '3px 8px', color: '#E74C3C', cursor: 'pointer', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif' }}>X</button>
               </div>
-            ))}
+              );
+            })}
             <button onClick={addFilter} style={{ ...sortBtnStyle(false), fontSize: '0.72rem', padding: '3px 10px' }}>+ Add Filter</button>
           </div>
           {/* Sort */}
@@ -319,7 +330,33 @@ function ReportSubView({
   return <div style={{ color: 'var(--silver)', padding: '16px' }}>Loading reports...</div>;
 }
 
+// ══════════════════════════════════════════════════════════════════
+// All Players column registry — parity with My Roster's customizable
+// columns. Each entry declares label, width, and a cell renderer.
+// Deferred missed item: bring All Players list up to Roster-column parity.
+// ══════════════════════════════════════════════════════════════════
+const ALL_PLAYERS_COLUMNS = [
+    { key: 'name',     label: 'Player',  width: '1fr',   toggleable: false },
+    { key: 'pos',      label: 'Pos',     width: '36px' },
+    { key: 'nflTeam',  label: 'NFL',     width: '44px' },
+    { key: 'age',      label: 'Age',     width: '32px' },
+    { key: 'yoe',      label: 'YOE',     width: '36px' },
+    { key: 'peak',     label: 'Peak',    width: '60px' },
+    { key: 'peakYrs',  label: 'Pk Yrs',  width: '42px' },
+    { key: 'dhq',      label: 'DHQ',     width: '54px', sortable: true, sortKey: 'dhq' },
+    { key: 'ppg',      label: 'PPG',     width: '42px', sortable: true, sortKey: 'ppg' },
+    { key: 'tier',     label: 'Tier',    width: '72px' },
+    { key: 'owner',    label: 'Owner',   width: '100px', sortable: true, sortKey: 'team' },
+    { key: 'acq',      label: 'Acq',     width: '72px' },
+];
+const ALL_PLAYERS_DEFAULT_VISIBLE = ['name', 'pos', 'age', 'peak', 'dhq', 'ppg', 'owner', 'acq'];
+
 function LeagueMapTab({
+  // Phase 8: when `embedSubView` is set, we render ONLY that sub-view content
+  // (Teams / All Players / Draft Picks / Custom Reports) without the outer header,
+  // the Overview/Analyst top tabs, or the sub-view tab row. Used by AnalyticsPanel
+  // after the League Map nav entry was removed.
+  embedSubView,
   leagueViewTab, setLeagueViewTab,
   leagueSelectedTeam, setLeagueSelectedTeam,
   leagueSort, setLeagueSort,
@@ -327,6 +364,8 @@ function LeagueMapTab({
   leagueViewMode, setLeagueViewMode,
   lpSort, setLpSort,
   lpFilter, setLpFilter,
+  // Phase 8 deferred: All Players search term (may be undefined when consumers pre-date the prop)
+  lpSearch, setLpSearch,
   standings,
   currentLeague,
   playersData,
@@ -349,6 +388,31 @@ function LeagueMapTab({
     const user = currentLeague.users?.find(u => u.user_id === roster?.owner_id);
     return user?.display_name || user?.username || 'Unknown';
   }
+
+  // All Players visible columns — persisted per league.
+  const LEAGUE_ID_KEY = currentLeague?.id || currentLeague?.league_id || 'default';
+  const ALL_PLAYERS_COL_KEY = 'wr_all_players_cols_' + LEAGUE_ID_KEY;
+  const [allPlayersCols, setAllPlayersCols] = React.useState(() => {
+      try {
+          const saved = JSON.parse(localStorage.getItem(ALL_PLAYERS_COL_KEY) || 'null');
+          if (Array.isArray(saved) && saved.length) return saved;
+      } catch (_) {}
+      return ALL_PLAYERS_DEFAULT_VISIBLE.slice();
+  });
+  const [allPlayersColPickerOpen, setAllPlayersColPickerOpen] = React.useState(false);
+  React.useEffect(() => {
+      try { localStorage.setItem(ALL_PLAYERS_COL_KEY, JSON.stringify(allPlayersCols)); } catch (_) {}
+  }, [ALL_PLAYERS_COL_KEY, allPlayersCols]);
+
+  // Rolling PPG window — shared with My Roster / FA so the setting is consistent.
+  const [ppgWindow, setPpgWindow] = React.useState(() => { try { return localStorage.getItem('wr_ppg_window') || 'season'; } catch { return 'season'; } });
+  React.useEffect(() => { try { localStorage.setItem('wr_ppg_window', ppgWindow); } catch {} }, [ppgWindow]);
+  const [, forcePpgRerender] = React.useState(0);
+  React.useEffect(() => {
+      const h = () => forcePpgRerender(n => n + 1);
+      window.addEventListener('wr:weekly-points-loaded', h);
+      return () => window.removeEventListener('wr:weekly-points-loaded', h);
+  }, []);
 
   // ── Report Engine ─────────────────────────────────────────────────
   const REPORT_STORAGE_KEY = 'wr_custom_reports';
@@ -430,6 +494,31 @@ function LeagueMapTab({
       { key: 'lte', label: '<=' },
       { key: 'in', label: 'IN (comma sep)' },
     ];
+  }
+
+  // Phase 8 deferred: enumerated option sets so Custom Reports filter values are dropdowns
+  // instead of free text. Each key maps the field name to the allowed values.
+  function getFilterOptionSet(field) {
+    switch (field) {
+      case 'pos':   return ['QB','RB','WR','TE','K','DL','LB','DB'];
+      case 'tier':  return ['ELITE','CONTENDER','CROSSROADS','REBUILDING'];
+      case 'owner': {
+        try {
+          const users = (window.S?.leagues?.[0]?.users) || (window.App?.LI?.leagueUsers) || [];
+          const names = new Set();
+          (window.S?.rosters || []).forEach(r => {
+              const u = users.find(x => x.user_id === r.owner_id);
+              if (u) names.add(u.display_name || u.username || '');
+          });
+          return Array.from(names).filter(Boolean).sort();
+        } catch (e) { return []; }
+      }
+      case 'team': {
+        // NFL team abbreviations
+        return ['ARI','ATL','BAL','BUF','CAR','CHI','CIN','CLE','DAL','DEN','DET','GB','HOU','IND','JAX','KC','LAC','LAR','LV','MIA','MIN','NE','NO','NYG','NYJ','PHI','PIT','SEA','SF','TB','TEN','WAS','FA'];
+      }
+      default: return null; // field isn't enumerated — caller falls back to free-text input
+    }
   }
 
   function runReport(config) {
@@ -601,8 +690,15 @@ function LeagueMapTab({
     color: active ? 'var(--black)' : 'var(--gold)',
   });
 
+  // Phase 8: when Analytics embeds this component, force the requested sub-view
+  // and skip the outer chrome entirely. We still use all the local helpers/state.
+  const _isEmbed = !!embedSubView;
+  const _activeSubView = _isEmbed ? embedSubView : leagueSubView;
+  const _activeViewTab = _isEmbed ? 'analyst' : leagueViewTab;
+
   return (
-    <div style={{ padding: '16px' }}>
+    <div style={{ padding: _isEmbed ? '0' : '16px' }}>
+      {!_isEmbed && <>
       <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '2px' }}>LEAGUE MAP</div>
       <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px' }}>Every team, asset, and competitive position in your league</div>
 
@@ -611,9 +707,10 @@ function LeagueMapTab({
         <button onClick={() => setLeagueViewTab('overview')} style={sortBtnStyle(leagueViewTab === 'overview')}>Overview</button>
         <button onClick={() => setLeagueViewTab('analyst')} style={sortBtnStyle(leagueViewTab === 'analyst')}>Analyst</button>
       </div>
+      </>}
 
       {/* League Overview */}
-      {leagueViewTab === 'overview' && (() => {
+      {_activeViewTab === 'overview' && (() => {
         // Assess all teams
         const allAssessments = (typeof window.assessAllTeamsFromGlobal === 'function' ? window.assessAllTeamsFromGlobal() : [])
           .filter(a => a && a.rosterId);
@@ -629,16 +726,7 @@ function LeagueMapTab({
         // Health rankings (all teams sorted)
         const ranked = [...allAssessments].sort((a, b) => b.healthScore - a.healthScore);
 
-        // Find top trade targets league-wide (highest DHQ players on rebuilding teams)
-        const tradeTargets = [];
-        allAssessments.filter(a => a.window === 'REBUILDING' || a.window === 'TRANSITIONING').forEach(a => {
-          const roster = currentLeague.rosters.find(r => r.roster_id === a.rosterId);
-          (roster?.players || []).forEach(pid => {
-            const dhq = window.App?.LI?.playerScores?.[pid] || 0;
-            if (dhq >= 5000) tradeTargets.push({ pid, dhq, owner: a.ownerName, tier: a.tier });
-          });
-        });
-        tradeTargets.sort((a, b) => b.dhq - a.dhq);
+        // Phase 8 deferred: tradeTargets computation removed along with the Top Trade Targets card.
 
         // Power balance — top 3 teams for radar
         const top3 = ranked.slice(0, 3);
@@ -737,49 +825,23 @@ function LeagueMapTab({
               </div>;
             })()}
 
-            {/* Trade Targets (players on rebuilding/transitioning teams) */}
-            {tradeTargets.length > 0 && (
-              <div>
-                <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.125rem', fontWeight: 600, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '10px' }}>TOP TRADE TARGETS</div>
-                <div style={{ fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '8px' }}>High-value players on rebuilding or transitioning teams</div>
-                <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '10px', overflow: 'hidden' }}>
-                  {tradeTargets.slice(0, 10).map((t, i) => {
-                    const p = playersData[t.pid];
-                    if (!p) return null;
-                    const meta = window.App?.LI?.playerMeta?.[t.pid];
-                    return (
-                      <div key={t.pid} onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(t.pid); }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                          <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + t.pid + '.jpg'} style={{ width: '28px', height: '28px', objectFit: 'cover' }} onError={e => e.target.style.display = 'none'} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--white)' }}>{p.full_name || (p.first_name + ' ' + p.last_name)}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.7 }}>{p.position} {'\u00B7'} {p.team || 'FA'} {'\u00B7'} Age {p.age || '?'} {'\u00B7'} {(() => { const pw = window.App?.peakWindows?.[normPos(p.position)]; if (pw && p.age) { const yrs = pw[1] - p.age; return yrs > 0 ? yrs + ' peak yrs' : 'Past peak'; } return ''; })()} {'\u00B7'} Owned by {t.owner}</div>
-                        </div>
-                        <span style={{ fontWeight: 700, fontFamily: 'Inter, sans-serif', fontSize: '0.84rem', color: t.dhq >= 7000 ? '#2ECC71' : '#3498DB' }}>{t.dhq.toLocaleString()}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* Phase 8 deferred: Top Trade Targets card removed per user feedback (2026-04-18).
+                The Overview mode is unreachable after League Map was pulled from the nav,
+                but dead code here was still evaluating tradeTargets on every render. */}
 
           </div>
         );
       })()}
 
-      {/* Analyst View: Teams / All Players / Draft Picks */}
-      {leagueViewTab === 'analyst' && <React.Fragment>
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-        <button onClick={() => setLeagueSubView('teams')} style={sortBtnStyle(leagueSubView === 'teams')}>Teams</button>
+      {/* Analyst View: Teams / All Players / Draft Picks / Custom Reports */}
+      {_activeViewTab === 'analyst' && <React.Fragment>
+      {/* Sub-view tab bar — hidden when embedded inside Analytics (Analytics provides its own tabs) */}
+      {!_isEmbed && <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
         <button onClick={() => setLeagueSubView('players')} style={sortBtnStyle(leagueSubView === 'players')}>All Players</button>
         <button onClick={() => setLeagueSubView('picks')} style={sortBtnStyle(leagueSubView === 'picks')}>Draft Picks</button>
-        <button onClick={() => setLeagueSubView('reports')} style={sortBtnStyle(leagueSubView === 'reports')}>Reports</button>
-      </div>
-      {leagueSubView === 'teams' && (<div>
+        <button onClick={() => setLeagueSubView('reports')} style={sortBtnStyle(leagueSubView === 'reports')}>Custom Reports</button>
+      </div>}
+      {_activeSubView === 'teams' && (<div>
       <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
         <button onClick={() => setLeagueSort('wins')} style={sortBtnStyle(leagueSort === 'wins')}>Wins</button>
         <button onClick={() => setLeagueSort('dhq')} style={sortBtnStyle(leagueSort === 'dhq')}>DHQ Value</button>
@@ -893,7 +955,7 @@ function LeagueMapTab({
         })}
       </div>
       </div>)}
-      {leagueSubView === 'players' && (() => {
+      {_activeSubView === 'players' && (() => {
         const posColors = window.App.POS_COLORS;
         const allPlayers = [];
         (currentLeague.rosters || []).forEach(r => {
@@ -909,6 +971,15 @@ function LeagueMapTab({
             });
         });
         let filtered = allPlayers;
+        // Phase 8 deferred: free-text search across player name + owner team
+        const q = (lpSearch || '').toLowerCase().trim();
+        if (q) {
+            filtered = filtered.filter(x => {
+                const name = (x.p.full_name || ((x.p.first_name || '') + ' ' + (x.p.last_name || '')).trim()).toLowerCase();
+                const team = (x.teamName || '').toLowerCase();
+                return name.includes(q) || team.includes(q);
+            });
+        }
         if (lpFilter) filtered = filtered.filter(x => x.pos === lpFilter);
         filtered.sort((a, b) => {
             const { key, dir } = lpSort;
@@ -921,7 +992,15 @@ function LeagueMapTab({
         });
         return (
             <div>
-                <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                {/* Phase 8 deferred: search + position chips + SavedViewBar */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <input
+                        type="text"
+                        value={lpSearch || ''}
+                        onChange={e => setLpSearch && setLpSearch(e.target.value)}
+                        placeholder="Search by player name or owner…"
+                        style={{ flex: '0 1 260px', padding: '5px 10px', fontSize: '0.76rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', color: 'var(--white)', fontFamily: 'Inter, sans-serif', outline: 'none' }}
+                    />
                     {['','QB','RB','WR','TE','DL','LB','DB','K'].map(pos => (
                         <button key={pos} onClick={() => setLpFilter(pos)} style={{
                             padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
@@ -931,22 +1010,112 @@ function LeagueMapTab({
                             borderRadius: '3px', cursor: 'pointer'
                         }}>{pos || 'All'}</button>
                     ))}
-                    <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: 'var(--silver)', alignSelf: 'center' }}>{filtered.length} players</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--silver)', alignSelf: 'center' }}>{filtered.length} players</span>
+                    {/* Rolling PPG window selector */}
+                    <span style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.65, fontFamily: 'Inter, sans-serif' }}>PPG:</span>
+                    {[{k:'season',l:'Season'},{k:'l5',l:'L5'},{k:'l3',l:'L3'}].map(opt => (
+                        <button key={opt.k} onClick={() => setPpgWindow(opt.k)} title={opt.k === 'season' ? 'Season-to-date PPG' : 'Last ' + (opt.k === 'l5' ? 5 : 3) + ' games'} style={{
+                            padding: '3px 8px', fontSize: '0.7rem', fontWeight: ppgWindow === opt.k ? 700 : 400,
+                            fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
+                            background: ppgWindow === opt.k ? 'var(--gold)' : 'rgba(255,255,255,0.04)',
+                            color: ppgWindow === opt.k ? 'var(--black)' : 'var(--silver)',
+                            border: '1px solid ' + (ppgWindow === opt.k ? 'var(--gold)' : 'rgba(255,255,255,0.08)'),
+                            borderRadius: '3px', cursor: 'pointer', letterSpacing: '0.03em'
+                        }}>{opt.l}</button>
+                    ))}
+                    {/* Column picker */}
+                    <div style={{ position: 'relative' }}>
+                        <button onClick={() => setAllPlayersColPickerOpen(o => !o)} style={{
+                            padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif',
+                            background: 'rgba(212,175,55,0.1)', color: 'var(--gold)',
+                            border: '1px solid rgba(212,175,55,0.3)', borderRadius: '3px', cursor: 'pointer',
+                        }}>⚙ Columns ({allPlayersCols.length})</button>
+                        {allPlayersColPickerOpen && (
+                            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', padding: '8px', zIndex: 20, minWidth: '180px', boxShadow: '0 6px 20px rgba(0,0,0,0.6)' }}>
+                                <div style={{ fontSize: '0.64rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '6px' }}>Visible Columns</div>
+                                {ALL_PLAYERS_COLUMNS.map(c => {
+                                    const on = allPlayersCols.includes(c.key);
+                                    return (
+                                        <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', fontSize: '0.72rem', color: 'var(--silver)', cursor: c.toggleable === false ? 'not-allowed' : 'pointer', opacity: c.toggleable === false ? 0.6 : 1 }}>
+                                            <input type="checkbox" checked={on} disabled={c.toggleable === false} onChange={() => {
+                                                if (c.toggleable === false) return;
+                                                setAllPlayersCols(prev => prev.includes(c.key) ? prev.filter(k => k !== c.key) : [...prev, c.key]);
+                                            }} />
+                                            {c.label}
+                                        </label>
+                                    );
+                                })}
+                                <div style={{ display: 'flex', gap: '4px', marginTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '6px' }}>
+                                    <button onClick={() => setAllPlayersCols(ALL_PLAYERS_COLUMNS.map(c => c.key))} style={{ flex: 1, padding: '4px', fontSize: '0.64rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '3px', color: 'var(--silver)', cursor: 'pointer', fontFamily: 'inherit' }}>All</button>
+                                    <button onClick={() => setAllPlayersCols(ALL_PLAYERS_DEFAULT_VISIBLE.slice())} style={{ flex: 1, padding: '4px', fontSize: '0.64rem', background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '3px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'inherit' }}>Reset</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    {window.WR?.SavedViews?.SavedViewBar && (
+                        <div style={{ marginLeft: 'auto' }}>
+                            {React.createElement(window.WR.SavedViews.SavedViewBar, {
+                                surface: 'all_players',
+                                leagueId: currentLeague?.id || currentLeague?.league_id,
+                                currentState: { columns: allPlayersCols, sort: lpSort, filters: { lpFilter, lpSearch: lpSearch || '' } },
+                                onApply: v => {
+                                    if (Array.isArray(v.columns) && v.columns.length) setAllPlayersCols(v.columns);
+                                    if (v.sort && v.sort.key) setLpSort({ key: v.sort.key, dir: v.sort.dir || -1 });
+                                    if (v.filters) {
+                                        if (typeof v.filters.lpFilter === 'string') setLpFilter(v.filters.lpFilter);
+                                        if (typeof v.filters.lpSearch === 'string' && setLpSearch) setLpSearch(v.filters.lpSearch);
+                                    }
+                                },
+                            })}
+                        </div>
+                    )}
                 </div>
+                {(() => {
+                    const activeCols = ALL_PLAYERS_COLUMNS.filter(c => allPlayersCols.includes(c.key));
+                    const gridTpl = ['24px', '28px'].concat(activeCols.map(c => c.width)).join(' ');
+                    const tierOf = (rid) => {
+                        const h = window.App?.LI?.teamHealth?.[rid];
+                        return h?.tier || '';
+                    };
+                    const peakYrsOf = (x) => {
+                        const pw = window.App?.peakWindows?.[x.pos];
+                        if (!pw || !x.age) return null;
+                        return Math.max(0, pw[1] - x.age);
+                    };
+                    return (
                 <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '24px 28px 1fr 36px 32px 60px 54px 42px 90px 70px', gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: gridTpl, gap: '4px', padding: '6px 10px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.78rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' }}>
                         <span>#</span><span></span>
-                        <span style={{ cursor: 'pointer' }} onClick={() => setLpSort(prev => prev.key === 'name' ? {...prev, dir: prev.dir*-1} : {key:'name',dir:1})}>Player{lpSort.key==='name'?(lpSort.dir===-1?' \u25BC':' \u25B2'):''}</span>
-                        <span>Pos</span>
-                        <span style={{ cursor: 'pointer' }} onClick={() => setLpSort(prev => prev.key === 'age' ? {...prev, dir: prev.dir*-1} : {key:'age',dir:1})}>Age{lpSort.key==='age'?(lpSort.dir===-1?' \u25BC':' \u25B2'):''}</span>
-                        <span>Peak</span>
-                        <span style={{ cursor: 'pointer' }} onClick={() => setLpSort(prev => prev.key === 'dhq' ? {...prev, dir: prev.dir*-1} : {key:'dhq',dir:-1})}>DHQ{lpSort.key==='dhq'?(lpSort.dir===-1?' \u25BC':' \u25B2'):''}</span>
-                        <span style={{ cursor: 'pointer' }} onClick={() => setLpSort(prev => prev.key === 'ppg' ? {...prev, dir: prev.dir*-1} : {key:'ppg',dir:-1})}>PPG{lpSort.key==='ppg'?(lpSort.dir===-1?' \u25BC':' \u25B2'):''}</span>
-                        <span style={{ cursor: 'pointer' }} onClick={() => setLpSort(prev => prev.key === 'team' ? {...prev, dir: prev.dir*-1} : {key:'team',dir:1})}>Owner{lpSort.key==='team'?(lpSort.dir===-1?' \u25BC':' \u25B2'):''}</span>
-                        <span>Acq</span>
+                        {activeCols.map(c => {
+                            if (c.sortable && c.sortKey) {
+                                const isActive = lpSort.key === c.sortKey;
+                                return (
+                                    <span key={c.key} style={{ cursor: 'pointer' }} onClick={() => setLpSort(prev => prev.key === c.sortKey ? { ...prev, dir: prev.dir * -1 } : { key: c.sortKey, dir: c.sortKey === 'team' ? 1 : -1 })}>
+                                        {c.label}{isActive ? (lpSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
+                                    </span>
+                                );
+                            }
+                            if (c.key === 'name') {
+                                const isActive = lpSort.key === 'name';
+                                return (
+                                    <span key={c.key} style={{ cursor: 'pointer' }} onClick={() => setLpSort(prev => prev.key === 'name' ? { ...prev, dir: prev.dir * -1 } : { key: 'name', dir: 1 })}>
+                                        {c.label}{isActive ? (lpSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
+                                    </span>
+                                );
+                            }
+                            if (c.key === 'age') {
+                                const isActive = lpSort.key === 'age';
+                                return (
+                                    <span key={c.key} style={{ cursor: 'pointer' }} onClick={() => setLpSort(prev => prev.key === 'age' ? { ...prev, dir: prev.dir * -1 } : { key: 'age', dir: 1 })}>
+                                        {c.label}{isActive ? (lpSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
+                                    </span>
+                                );
+                            }
+                            return <span key={c.key}>{c.label}</span>;
+                        })}
                     </div>
                     <div style={{ maxHeight: '600px', overflow: 'auto' }}>
-                        {filtered.slice(0, 100).map((x, idx) => {
+                        {filtered.map((x, idx) => {
                             const pw = window.App?.peakWindows?.[x.pos];
                             let peakColor = 'rgba(255,255,255,0.15)';
                             let peakPct = 0;
@@ -959,37 +1128,77 @@ function LeagueMapTab({
                                 else peakColor = '#E74C3C';
                             }
                             const acq = getAcquisitionInfo(x.pid, x.rosterId);
-                            const acqLabel = acq?.type === 'draft' ? ('Draft R' + (acq.round || '?')) : acq?.type === 'trade' ? 'Trade' : acq?.type === 'add' ? 'FA' : '\u2014';
+                            const acqMethod = acq?.method || (acq?.type === 'draft' ? 'Drafted' : acq?.type === 'trade' ? 'Traded' : acq?.type === 'add' ? 'FA' : '—');
+                            const acqDate = acq?.date || '';
+                            const acqColor = acqMethod === 'Drafted' ? '#3498DB' : acqMethod === 'Traded' ? '#F0A500' : (acqMethod === 'FA' || acqMethod === 'Waiver') ? '#2ECC71' : 'rgba(255,255,255,0.25)';
+                            const yrs = peakYrsOf(x);
+                            const tier = tierOf(x.rosterId);
+                            const yoe = x.p.years_exp != null ? x.p.years_exp : '';
+                            const renderCell = (c) => {
+                                switch (c.key) {
+                                    case 'name':
+                                        return <div key={c.key} style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontWeight: 600, color: x.isMe ? 'var(--gold)' : 'var(--white)' }}>{x.p.full_name || (x.p.first_name + ' ' + x.p.last_name).trim()}</div>;
+                                    case 'pos':
+                                        return <span key={c.key} style={{ fontSize: '0.7rem', fontWeight: 700, color: posColors[x.pos] || 'var(--silver)' }}>{x.pos}</span>;
+                                    case 'nflTeam':
+                                        return <span key={c.key} style={{ color: 'var(--silver)', fontSize: '0.7rem' }}>{x.p.team || '\u2014'}</span>;
+                                    case 'age':
+                                        return <span key={c.key} style={{ color: 'var(--silver)' }}>{x.age || '\u2014'}</span>;
+                                    case 'yoe':
+                                        return <span key={c.key} style={{ color: 'var(--silver)' }}>{yoe === '' ? '\u2014' : yoe}</span>;
+                                    case 'peak':
+                                        return (
+                                            <span key={c.key} style={{ display: 'flex', alignItems: 'center' }}>
+                                                {pw && x.age ? (
+                                                    <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', position: 'relative', overflow: 'hidden' }}>
+                                                        <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: (peakPct * 100) + '%', background: peakColor, borderRadius: '3px', transition: 'width 0.2s' }} />
+                                                    </div>
+                                                ) : <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.68rem' }}>{'\u2014'}</span>}
+                                            </span>
+                                        );
+                                    case 'peakYrs':
+                                        return <span key={c.key} style={{ color: 'var(--silver)' }}>{yrs == null ? '\u2014' : yrs}</span>;
+                                    case 'dhq':
+                                        return <span key={c.key} style={{ fontWeight: 700, fontFamily: 'Inter, sans-serif', color: x.dhq >= 7000 ? '#2ECC71' : x.dhq >= 4000 ? '#3498DB' : x.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'}</span>;
+                                    case 'ppg': {
+                                        let shown = x.ppg;
+                                        let marker = '';
+                                        if (ppgWindow !== 'season' && typeof window.App?.computeRollingPPG === 'function') {
+                                            const n = ppgWindow === 'l3' ? 3 : 5;
+                                            const rolling = window.App.computeRollingPPG(x.pid, n);
+                                            if (rolling > 0) { shown = rolling; marker = ' · L' + n; }
+                                        }
+                                        return <span key={c.key} style={{ color: 'var(--silver)' }}>{shown || '\u2014'}{marker}</span>;
+                                    }
+                                    case 'tier':
+                                        return <span key={c.key} style={{ fontSize: '0.68rem', color: tier === 'ELITE' ? '#2ECC71' : tier === 'CONTENDER' ? '#3498DB' : tier === 'REBUILDING' ? '#E74C3C' : 'var(--silver)', fontWeight: 700, letterSpacing: '0.04em' }}>{tier || '\u2014'}</span>;
+                                    case 'owner':
+                                        return <span key={c.key} style={{ fontSize: '0.74rem', color: x.isMe ? 'var(--gold)' : 'var(--silver)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.teamName}{x.isMe ? ' (You)' : ''}</span>;
+                                    case 'acq':
+                                        return <span key={c.key} title={acqDate} style={{ fontSize: '0.68rem', color: acqColor, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{acqMethod}{acqDate ? ' · ' + acqDate : ''}</span>;
+                                    default:
+                                        return <span key={c.key}></span>;
+                                }
+                            };
                             return (
                             <div key={x.pid} onClick={() => { if (window._wrSelectPlayer) window._wrSelectPlayer(x.pid); }}
-                                style={{ display: 'grid', gridTemplateColumns: '24px 28px 1fr 36px 32px 60px 54px 42px 90px 70px', gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.72rem', alignItems: 'center', background: x.isMe ? 'rgba(212,175,55,0.04)' : 'transparent', transition: 'background 0.1s' }}
+                                style={{ display: 'grid', gridTemplateColumns: gridTpl, gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', fontSize: '0.72rem', alignItems: 'center', background: x.isMe ? 'rgba(212,175,55,0.04)' : 'transparent', transition: 'background 0.1s' }}
                                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.06)'}
                                 onMouseLeave={e => e.currentTarget.style.background = x.isMe ? 'rgba(212,175,55,0.04)' : 'transparent'}>
                                 <span style={{ fontSize: '0.72rem', color: 'var(--silver)', fontFamily: 'Inter, sans-serif' }}>{idx+1}</span>
                                 <div style={{ width: '22px', height: '22px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+x.pid+'.jpg'} onError={e=>e.target.style.display='none'} style={{ width:'22px',height:'22px',borderRadius:'50%',objectFit:'cover' }} /></div>
-                                <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontWeight: 600, color: x.isMe ? 'var(--gold)' : 'var(--white)' }}>{x.p.full_name || (x.p.first_name+' '+x.p.last_name).trim()}</div>
-                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: posColors[x.pos] || 'var(--silver)' }}>{x.pos}</span>
-                                <span style={{ color: 'var(--silver)' }}>{x.age || '\u2014'}</span>
-                                <span style={{ display: 'flex', alignItems: 'center' }}>
-                                    {pw && x.age ? (
-                                        <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', position: 'relative', overflow: 'hidden' }}>
-                                            <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: (peakPct * 100) + '%', background: peakColor, borderRadius: '3px', transition: 'width 0.2s' }} />
-                                        </div>
-                                    ) : <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.68rem' }}>{'\u2014'}</span>}
-                                </span>
-                                <span style={{ fontWeight: 700, fontFamily: 'Inter, sans-serif', color: x.dhq >= 7000 ? '#2ECC71' : x.dhq >= 4000 ? '#3498DB' : x.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.3)' }}>{x.dhq > 0 ? x.dhq.toLocaleString() : '\u2014'}</span>
-                                <span style={{ color: 'var(--silver)' }}>{x.ppg || '\u2014'}</span>
-                                <span style={{ fontSize: '0.74rem', color: x.isMe ? 'var(--gold)' : 'var(--silver)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.teamName}{x.isMe ? ' (You)' : ''}</span>
-                                <span style={{ fontSize: '0.68rem', color: acq?.type === 'draft' ? '#3498DB' : acq?.type === 'trade' ? '#F0A500' : acq?.type === 'add' ? '#2ECC71' : 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{acqLabel}</span>
+                                {activeCols.map(renderCell)}
                             </div>
                             );
                         })}
                     </div>
                 </div>
+                    );
+                })()}
             </div>
         );
       })()}
-      {leagueSubView === 'picks' && (() => {
+      {_activeSubView === 'picks' && (() => {
         const tradedPicks = _sTradedPicks;
         const leagueSeason = parseInt(currentLeague.season || activeYear);
         const draftRounds = currentLeague.settings?.draft_rounds || 5;
@@ -1063,11 +1272,11 @@ function LeagueMapTab({
             </div>
         );
       })()}
-      {leagueSubView === 'reports' && (() => {
+      {_activeSubView === 'reports' && (() => {
         // ── Reports Sub-View (self-contained state) ───────────────────
         return React.createElement(ReportSubView, {
           runReport, loadSavedReports, saveReportsToStorage, DEFAULT_REPORTS,
-          getPlayerColumns, getTeamColumns, getFilterableFields, getFilterOps, sortBtnStyle,
+          getPlayerColumns, getTeamColumns, getFilterableFields, getFilterOps, getFilterOptionSet, sortBtnStyle,
         });
       })()}
       </React.Fragment>}
@@ -1275,3 +1484,7 @@ function LeagueMapTab({
     );
   }
 }
+
+// Phase 8: expose on window so AnalyticsPanel can embed sub-views
+// (All Players, Draft Picks, Custom Reports) after League Map was removed from the nav.
+window.LeagueMapTab = LeagueMapTab;

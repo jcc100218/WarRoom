@@ -41,6 +41,20 @@
         return (picks || []).reduce((sum, p) => sum + pickValueFor(state, p), 0);
     }
 
+    // Phase 7 deferred: in-draft trades should support players + FAAB alongside picks.
+    // Player DHQ is read from the LI store; FAAB converts at a conservative 0.7x
+    // ratio so $100 FAAB ≈ 70 DHQ — prevents FAAB dumps from inflating offers.
+    function playerValueFor(pid) {
+        const scores = window.App?.LI?.playerScores || {};
+        return Math.round(scores[pid] || 0);
+    }
+    function sumPlayerValue(pids) {
+        return (pids || []).reduce((sum, pid) => sum + playerValueFor(pid), 0);
+    }
+    function faabToDhq(faab) {
+        return Math.max(0, Math.round((faab || 0) * 0.7));
+    }
+
     /**
      * maybeGenerateTradeOffer — probabilistic CPU-→-user trade offer.
      * Called by command-center after each CPU pick is made.
@@ -171,8 +185,12 @@
         const myPersona = state.personas?.[state.userRosterId];
         if (!theirPersona || !myPersona) return { accepted: false, likelihood: 0, grade: null, taxes: [] };
 
-        const myGiveDHQ = sumPickValue(state, proposal.myGive);
-        const theirGiveDHQ = sumPickValue(state, proposal.theirGive);
+        const myGiveDHQ = sumPickValue(state, proposal.myGive)
+            + sumPlayerValue(proposal.myGivePlayers)
+            + faabToDhq(proposal.myGiveFaab);
+        const theirGiveDHQ = sumPickValue(state, proposal.theirGive)
+            + sumPlayerValue(proposal.theirGivePlayers)
+            + faabToDhq(proposal.theirGiveFaab);
         // From CPU's perspective: they GAIN myGiveDHQ, they GIVE theirGiveDHQ
         const cpuGain = myGiveDHQ;
         const cpuGive = theirGiveDHQ;
@@ -220,6 +238,9 @@
         evaluateUserProposal,
         pickValueFor,
         sumPickValue,
+        playerValueFor,
+        sumPlayerValue,
+        faabToDhq,
         TRADE_COOLDOWN_PICKS,
         BASE_TRADE_RATE,
     };

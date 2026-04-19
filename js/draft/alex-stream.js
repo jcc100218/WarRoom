@@ -23,7 +23,31 @@
     function AlexStreamPanel({ state, dispatch }) {
         const [inputValue, setInputValue] = React.useState('');
         const [pendingAsk, setPendingAsk] = React.useState(false);
+        const [expandedIds, setExpandedIds] = React.useState(() => new Set());
         const streamEndRef = React.useRef(null);
+
+        // Phase 7 deferred: listen for `wr:scouting-generate` events dispatched by the
+        // big-board / draft-room scouting buttons. Inject the scouting report directly
+        // into the AlexStream feed instead of opening the separate Alex chat panel.
+        React.useEffect(() => {
+            const handler = (e) => {
+                const { playerName, pos, summary, text, fullText } = e.detail || {};
+                dispatch({
+                    type: 'ALEX_EVENT_ADD',
+                    event: {
+                        type: 'scouting',
+                        badge: '🔎',
+                        color: '#9b8afb',
+                        title: playerName ? ('Scouting Report — ' + playerName + (pos ? ' (' + pos + ')' : '')) : 'Scouting Report',
+                        text: summary || text || 'Scouting report ready. Tap to expand.',
+                        fullText: fullText || text || summary || '',
+                        expandable: true,
+                    },
+                });
+            };
+            window.addEventListener('wr:scouting-generate', handler);
+            return () => window.removeEventListener('wr:scouting-generate', handler);
+        }, [dispatch]);
 
         const budget = state.alex.alexSpend.budget || 12;
         const sonnetUsed = state.alex.alexSpend.sonnet || 0;
@@ -173,45 +197,84 @@
                             Alex's commentary will<br />appear here during the draft
                         </div>
                     )}
-                    {stream.map(item => (
-                        <div key={item.id} style={{
-                            display: 'flex',
-                            gap: '6px',
-                            padding: '5px 2px',
-                            borderBottom: '1px solid rgba(255,255,255,0.025)',
-                            fontFamily: FONT_UI,
-                        }}>
-                            <span style={{
-                                color: item.color,
-                                fontSize: '0.7rem',
-                                fontWeight: 700,
-                                width: 10,
-                                textAlign: 'center',
-                                flexShrink: 0,
-                                marginTop: '1px',
-                            }}>{item.badge}</span>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{
-                                    fontSize: '0.62rem',
+                    {stream.map(item => {
+                        const isExpandable = !!item.expandable;
+                        const isExpanded = isExpandable && expandedIds.has(item.id);
+                        const toggle = () => {
+                            if (!isExpandable) return;
+                            setExpandedIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                                return next;
+                            });
+                        };
+                        const textClamp = isExpandable && !isExpanded ? {
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                        } : {};
+                        return (
+                            <div key={item.id} onClick={toggle} style={{
+                                display: 'flex',
+                                gap: '6px',
+                                padding: '5px 2px',
+                                borderBottom: '1px solid rgba(255,255,255,0.025)',
+                                fontFamily: FONT_UI,
+                                cursor: isExpandable ? 'pointer' : 'default',
+                                background: isExpanded ? 'rgba(124,107,248,0.06)' : 'transparent',
+                            }}>
+                                <span style={{
+                                    color: item.color,
+                                    fontSize: '0.7rem',
                                     fontWeight: 700,
-                                    color: 'var(--white)',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                }}>{item.title}</div>
-                                {item.text && (
+                                    width: 10,
+                                    textAlign: 'center',
+                                    flexShrink: 0,
+                                    marginTop: '1px',
+                                }}>{item.badge}</span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{
-                                        fontSize: '0.56rem',
-                                        color: 'var(--silver)',
-                                        opacity: 0.8,
-                                        marginTop: '1px',
-                                        lineHeight: 1.4,
-                                        wordBreak: 'break-word',
-                                    }}>{item.text}</div>
-                                )}
+                                        fontSize: '0.62rem',
+                                        fontWeight: 700,
+                                        color: 'var(--white)',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        display: 'flex', alignItems: 'center', gap: '4px',
+                                    }}>
+                                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</span>
+                                        {isExpandable && (
+                                            <span style={{ fontSize: '0.5rem', opacity: 0.6, color: item.color }}>{isExpanded ? '▾' : '▸'}</span>
+                                        )}
+                                    </div>
+                                    {item.text && (
+                                        <div style={{
+                                            fontSize: '0.56rem',
+                                            color: 'var(--silver)',
+                                            opacity: 0.8,
+                                            marginTop: '1px',
+                                            lineHeight: 1.4,
+                                            wordBreak: 'break-word',
+                                            whiteSpace: 'pre-wrap',
+                                            ...textClamp,
+                                        }}>{item.text}</div>
+                                    )}
+                                    {isExpanded && item.fullText && item.fullText !== item.text && (
+                                        <div style={{
+                                            fontSize: '0.56rem',
+                                            color: 'var(--silver)',
+                                            opacity: 0.85,
+                                            marginTop: '4px',
+                                            lineHeight: 1.5,
+                                            wordBreak: 'break-word',
+                                            whiteSpace: 'pre-wrap',
+                                        }}>{item.fullText}</div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                     <div ref={streamEndRef} />
                 </div>
 

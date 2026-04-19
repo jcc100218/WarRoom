@@ -23,9 +23,20 @@ function CalendarTab({ currentLeague, myRoster }) {
         const season = currentLeague?.season || new Date().getFullYear();
         const now = Date.now();
 
-        // Draft date
+        // Phase 9: Draft date — prefer metadata, fall back to drafts[].start_time
+        // so a scheduled draft shows up even when the league hasn't set metadata.draft_date.
         if (currentLeague?.draft_id || settings.draft_rounds) {
-            const draftTs = currentLeague?.metadata?.draft_date;
+            let draftTs = currentLeague?.metadata?.draft_date;
+            let draftType = currentLeague?.metadata?.draft_type;
+            if (!draftTs) {
+                const drafts = (window.S && window.S.drafts) || currentLeague?.drafts || [];
+                const sameSeason = drafts.find(d => String(d.season) === String(season) && (d.start_time || d.scheduled_time || d.start_ts));
+                const latest = sameSeason || drafts[0];
+                if (latest) {
+                    draftTs = latest.start_time || latest.scheduled_time || latest.start_ts;
+                    draftType = draftType || latest.type || latest.settings?.slot_type || 'snake';
+                }
+            }
             if (draftTs) {
                 items.push({
                     id: 'draft',
@@ -33,7 +44,18 @@ function CalendarTab({ currentLeague, myRoster }) {
                     date: new Date(Number(draftTs)),
                     icon: '\uD83C\uDFC8',
                     type: 'league',
-                    detail: settings.draft_rounds + ' rounds, ' + (currentLeague?.metadata?.draft_type || 'snake'),
+                    detail: (settings.draft_rounds ? settings.draft_rounds + ' rounds' : 'Draft') + ', ' + (draftType || 'snake'),
+                });
+            } else {
+                // Still surface a placeholder so the user knows a draft exists but the date isn't set
+                items.push({
+                    id: 'draft',
+                    title: 'Rookie Draft',
+                    date: new Date(season, 7, 15), // mid-August placeholder
+                    icon: '\uD83C\uDFC8',
+                    type: 'league',
+                    detail: (settings.draft_rounds ? settings.draft_rounds + ' rounds' : 'Draft') + ' · date TBD',
+                    tbd: true,
                 });
             }
         }

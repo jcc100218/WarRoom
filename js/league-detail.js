@@ -2382,22 +2382,23 @@
                         );
                     })}
 
-                    {/* Nav items — grouped with icons. INTEL houses Alex Insights. */}
+                    {/* Nav items — grouped to match the placement mockup: ROSTER / LEAGUE / INTEL / SETTINGS. */}
                     {[
+                        { section: 'ROSTER' },
                         { label: 'Home', tab: 'dashboard', icon: '\u2302' },
-                        { section: 'STRATEGY' },
-                        { label: 'GM Strategy', tab: 'strategy', icon: '\u2699' },
                         { label: 'My Roster', tab: 'myteam', icon: '\u25C7' },
-                        { section: 'MARKET' },
+                        { label: 'Compare', icon: '\u25CE', action: () => { setActiveTab('myteam'); setMyTeamView('compare'); } },
+                        { section: 'LEAGUE' },
                         { label: 'Trade Center', tab: 'trades', icon: '\u21C6' },
                         { label: 'Free Agency', tab: 'fa', icon: '$' },
+                        { label: 'Analytics', tab: 'analytics', icon: '\u25F0' },
                         { label: 'Draft', tab: 'draft', icon: '\u25B2' },
                         { section: 'INTEL' },
                         { label: 'Alex Insights', tab: 'alex', icon: '\uD83E\uDDE0', isNew: true },
-                        { label: 'Analytics', tab: 'analytics', icon: '\u25F0' },
                         { label: 'Trophy Room', tab: 'trophies', icon: '\u265B' },
                         { label: 'Calendar', tab: 'calendar', icon: '\u25A4' },
-                        { section: 'SYSTEM' },
+                        { section: 'SETTINGS' },
+                        { label: 'GM Strategy', tab: 'strategy', icon: '\u2699' },
                         { label: 'Settings', action: () => onOpenSettings && onOpenSettings(), icon: '\u2690' },
                     ].map((item, i) => {
                         if (item.section) {

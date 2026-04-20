@@ -1781,7 +1781,7 @@
         // tcTab values are normalized to 'dna' so saved deep-links don't break.
         const _activeTcTab = (tcTab === 'analyzer') ? 'analyzer' : 'dna';
         return (
-            <div style={{ padding: '16px' }}>
+            <div style={{ padding: 'var(--card-pad, 14px 16px)' }}>
                 <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '4px' }}>TRADE CENTER</div>
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
                     {['dna','analyzer'].map(tab => (

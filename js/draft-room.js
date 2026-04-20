@@ -267,7 +267,7 @@
         });
 
         return (
-            <div style={{ padding: '16px' }}>
+            <div style={{ padding: 'var(--card-pad, 14px 16px)' }}>
                 <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '12px' }}>DRAFT ROOM</div>
 
                 {/* Sub-view navigation */}
@@ -289,11 +289,11 @@
                             const now = countdownNow;
                             const start = draftInfo.start_time;
                             const diff = start - now;
-                            if (diff <= 0) return <div style={{ background: 'rgba(46,204,113,0.1)', border: '1px solid rgba(46,204,113,0.3)', borderRadius: '8px', padding: '14px 16px', textAlign: 'center', fontFamily: 'Rajdhani, sans-serif', fontSize: '1.6rem', color: '#2ECC71', letterSpacing: '0.04em' }}>DRAFT IS LIVE</div>;
+                            if (diff <= 0) return <div style={{ background: 'rgba(46,204,113,0.1)', border: '1px solid rgba(46,204,113,0.3)', borderRadius: '8px', padding: 'var(--card-pad, 14px 16px)', textAlign: 'center', fontFamily: 'Rajdhani, sans-serif', fontSize: '1.6rem', color: '#2ECC71', letterSpacing: '0.04em' }}>DRAFT IS LIVE</div>;
                             const days = Math.floor(diff / 86400000);
                             const hours = Math.floor((diff % 86400000) / 3600000);
                             const mins = Math.floor((diff % 3600000) / 60000);
-                            return <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '14px 16px', textAlign: 'center' }}>
+                            return <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: 'var(--card-pad, 14px 16px)', textAlign: 'center' }}>
                                 <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Draft Countdown</div>
                                 <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '2rem', color: 'var(--white)', letterSpacing: '0.04em' }}>
                                     {days > 0 ? days + 'd ' : ''}{hours}h {mins}m
@@ -305,7 +305,7 @@
                                     {draftInfo.type === 'linear' ? 'Linear' : draftInfo.type === 'snake' ? 'Snake' : draftInfo.type} · {draftInfo.settings?.rounds || 5} rounds · {draftInfo.settings?.teams || 16} teams
                                 </div>
                             </div>;
-                        })() : <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '14px 16px', textAlign: 'center' }}>
+                        })() : <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: 'var(--card-pad, 14px 16px)', textAlign: 'center' }}>
                             <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>Draft Status</div>
                             <div style={{ fontSize: '0.78rem', color: 'var(--silver)' }}>No draft scheduled yet</div>
                         </div>}
@@ -920,7 +920,7 @@
                                     </React.Fragment>
                                 );
                             })}
-                            {boardPlayers.length === 0 && <div style={{ padding: '16px', textAlign: 'center', color: 'var(--silver)', opacity: 0.5 }}>No players match this filter</div>}
+                            {boardPlayers.length === 0 && <div style={{ padding: 'var(--card-pad, 14px 16px)', textAlign: 'center', color: 'var(--silver)', opacity: 0.5 }}>No players match this filter</div>}
                         </div>}
                     </div>
                     );

@@ -417,7 +417,7 @@ function MyTeamTab({
   }
 
   return (
-    <div style={{ padding: '16px' }}>
+    <div style={{ padding: 'var(--card-pad, 14px 16px)' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '12px' }}>
         <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.3rem', color: 'var(--gold)', letterSpacing: '0.05em' }}>MY TEAM</span>
         {(() => {

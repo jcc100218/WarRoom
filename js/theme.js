@@ -32,9 +32,9 @@
                 sizeScale: 1.0,
             },
             colors: {
-                bg:         '#0A0A0A',
-                card:       '#0A0A0A',
-                cardHover:  'rgba(212,175,55,0.04)',
+                bg:         '#08080B',
+                card:       '#14141A',
+                cardHover:  'rgba(212,175,55,0.06)',
                 accent:     '#D4AF37',
                 accentDark: '#B8941E',
                 text:       '#FFFFFF',
@@ -49,7 +49,7 @@
                 borderHover:'rgba(212,175,55,0.4)',
             },
             card: {
-                background: '#0A0A0A',
+                background: '#14141A',
                 border:     '1px solid rgba(212,175,55,0.2)',
                 borderHover:'1px solid rgba(212,175,55,0.4)',
                 radius:     '10px',
@@ -140,14 +140,17 @@
 :root[data-wr-theme="${themeId}"] {
     --gold: ${c.accent || '#D4AF37'};
     --dark-gold: ${c.accentDark || '#B8941E'};
-    --black: ${c.bg || '#0A0A0A'};
-    --off-black: ${c.card || c.bg || '#1A1A1A'};
+    /* --page-bg is the backdrop; --black is now the card elevation tone above it. */
+    --page-bg: ${c.bg || '#08080B'};
+    --black: ${c.card || c.bg || '#14141A'};
+    --off-black: ${c.cardHover && c.cardHover.startsWith('#') ? c.cardHover : '#1F1F26'};
     --charcoal: ${c.cardHover || '#2A2A2A'};
     --silver: ${c.textMuted || '#D0D0D0'};
     --white: ${c.text || '#FFFFFF'};
     --win-green: ${c.positive || '#2ECC71'};
     --loss-red: ${c.negative || '#E74C3C'};
 }
+[data-wr-theme="${themeId}"] body { background: var(--page-bg) !important; }
 `;
 
         // Body background for light mode

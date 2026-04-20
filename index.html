@@ -21,8 +21,12 @@
         :root {
             --gold: #D4AF37;
             --dark-gold: #B8941E;
-            --black: #0A0A0A;
-            --off-black: #1A1A1A;
+            /* Page bg is pinned to --page-bg below. --black now represents the
+               card elevation tone, so surfaces using `background: var(--black)`
+               automatically contrast against the page backdrop. */
+            --page-bg: #08080B;
+            --black: #14141A;
+            --off-black: #1F1F26;
             --charcoal: #2A2A2A;
             --silver: #D0D0D0;
             --white: #FFFFFF;
@@ -73,7 +77,7 @@
 
         body {
         font-family: 'DM Sans', sans-serif;
-        background: var(--black);
+        background: var(--page-bg);
         color: var(--white);
         overflow-x: hidden;
         overflow-y: auto;
@@ -929,7 +933,7 @@
 <script src="https://unpkg.com/@babel/standalone@7.29.2/babel.min.js"></script>
 
 <!-- 0. Theme engine — must load before any widget/component (plain JS, no Babel needed) -->
-<script src="js/theme.js?v=20260418b"></script>
+<script src="js/theme.js?v=20260420a"></script>
 <!-- Tecmo Bowl retro font (loaded async, swap fallback) -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 

@@ -430,8 +430,9 @@
         const [leagueSelectedTeam, setLeagueSelectedTeam] = useState(null);
         const [leagueSort, setLeagueSort] = useState('health');
         const [leagueViewMode, setLeagueViewMode] = useState('roster');
-        const [myTeamView, setMyTeamView] = useState('roster');
-        const [compareTeamId, setCompareTeamId] = useState(null);
+        // Compare was promoted to its own top-level tab (js/tabs/compare.js) — it
+        // owns its local compareTeamId state. myTeamView no longer needed now that
+        // My Roster doesn't host a Compare sub-view.
         const [leagueViewTab, setLeagueViewTab] = useState('overview'); // top-level: overview | analyst
         const [leagueSubView, setLeagueSubView] = useState('teams'); // sub-tabs below the overview
         const [lpSort, setLpSort] = useState({ key: 'dhq', dir: 1 });
@@ -2387,7 +2388,7 @@
                         { section: 'ROSTER' },
                         { label: 'Home', tab: 'dashboard', icon: '\u2302' },
                         { label: 'My Roster', tab: 'myteam', icon: '\u25C7' },
-                        { label: 'Compare', icon: '\u25CE', action: () => { setActiveTab('myteam'); setMyTeamView('compare'); } },
+                        { label: 'Compare', tab: 'compare', icon: '\u25CE' },
                         { section: 'LEAGUE' },
                         { label: 'Trade Center', tab: 'trades', icon: '\u21C6' },
                         { label: 'Free Agency', tab: 'fa', icon: '$' },
@@ -2634,10 +2635,6 @@
                     setShowColPicker={setShowColPicker}
                     colPreset={colPreset}
                     setColPreset={setColPreset}
-                    myTeamView={myTeamView}
-                    setMyTeamView={setMyTeamView}
-                    compareTeamId={compareTeamId}
-                    setCompareTeamId={setCompareTeamId}
                     gmStrategy={gmStrategy}
                     setGmStrategy={setGmStrategy}
                     gmStrategyOpen={gmStrategyOpen}
@@ -2734,6 +2731,10 @@
                     stats2025Data, standings, sleeperUserId,
                     timeRecomputeTs, setActiveTab,
                 }) : <div style={{ padding: '40px', textAlign: 'center', color: 'var(--silver)' }}>Alex Insights module not loaded.</div>
+                ) : activeTab === 'compare' ? (typeof window.CompareTab === 'function' ? React.createElement(window.CompareTab, {
+                    currentLeague, myRoster, playersData, statsData, stats2025Data,
+                    standings, sleeperUserId,
+                }) : <div style={{ padding: '40px', textAlign: 'center', color: 'var(--silver)' }}>Compare module not loaded.</div>
                 ) : (
                 <DashboardPanel
                     selectedWidgets={selectedWidgets}

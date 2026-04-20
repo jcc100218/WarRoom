@@ -939,6 +939,8 @@
 <!-- 2. Shared components: UpgradeGate, GMMessage, PlayerInlineCard, TradeFinderTab -->
 <script type="text/babel" src="js/components.js"></script>
 <!-- 2b. Unified Player Card (SI-2) — window.WR.openPlayerCard — replaces CDN modal -->
+<!-- Shared visual primitives (WR.Card / Badge / Chip / ConfChip / DeltaLine / Kpi / InsightCard) -->
+<script type="text/babel" src="js/components/wr-primitives.js?v=20260420a"></script>
 <script type="text/babel" src="js/components/player-card.js?v=20260418d"></script>
 <!-- 2c. Saved List Views (SI-1) — window.WR.SavedViews — shared across list surfaces -->
 <script type="text/babel" src="js/shared/saved-views.js?v=20260418a"></script>
@@ -996,12 +998,14 @@
 <script type="text/babel" src="js/tabs/analytics.js?v=20260418c"></script>
 <script type="text/babel" src="js/tabs/trophy-room.js?v=20260418c"></script>
 <script type="text/babel" src="js/tabs/calendar.js?v=20260418a"></script>
+<!-- Alex Insights (Option A): top-level tab for behavioral analysis + AI settings -->
+<script type="text/babel" src="js/tabs/alex-insights.js?v=20260420a"></script>
 <script type="text/babel" src="js/tabs/global-view.js"></script>
 <script src="js/tutorial.js"></script>
 <!-- 6. Strategy editor: calls shared GMStrategy API, no logic duplication -->
 <script type="text/babel" src="js/tabs/strategy-editor.js?v=20260418b"></script>
 <!-- 7. League detail: coordinator shell, depends on all above -->
-<script type="text/babel" src="js/league-detail.js"></script>
+<script type="text/babel" src="js/league-detail.js?v=20260420a"></script>
 <!-- 8. App: OwnerDashboard + ReactDOM.render (loads last) -->
 <script type="text/babel" src="js/app.js?v=20260415cd8"></script>
 

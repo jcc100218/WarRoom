@@ -2382,24 +2382,23 @@
                         );
                     })}
 
-                    {/* Nav items — grouped */}
+                    {/* Nav items — grouped with icons. INTEL houses Alex Insights. */}
                     {[
-                        { label: 'Home', tab: 'dashboard' },
+                        { label: 'Home', tab: 'dashboard', icon: '\u2302' },
                         { section: 'STRATEGY' },
-                        { label: 'GM Strategy', tab: 'strategy' },
-                        { label: 'My Roster', tab: 'myteam' },
+                        { label: 'GM Strategy', tab: 'strategy', icon: '\u2699' },
+                        { label: 'My Roster', tab: 'myteam', icon: '\u25C7' },
                         { section: 'MARKET' },
-                        { label: 'Trade Center', tab: 'trades' },
-                        { label: 'Free Agency', tab: 'fa' },
-                        { label: 'Draft', tab: 'draft' },
-                        { section: 'LEAGUE' },
-                        // Phase 8: League Map removed; Analytics promoted into the LEAGUE group.
-                        // All Players / Draft Picks / Custom Reports now live as sub-tabs in Analytics.
-                        { label: 'Analytics', tab: 'analytics' },
-                        { label: 'Trophy Room', tab: 'trophies' },
-                        { label: 'Calendar', tab: 'calendar' },
+                        { label: 'Trade Center', tab: 'trades', icon: '\u21C6' },
+                        { label: 'Free Agency', tab: 'fa', icon: '$' },
+                        { label: 'Draft', tab: 'draft', icon: '\u25B2' },
+                        { section: 'INTEL' },
+                        { label: 'Alex Insights', tab: 'alex', icon: '\uD83E\uDDE0', isNew: true },
+                        { label: 'Analytics', tab: 'analytics', icon: '\u25F0' },
+                        { label: 'Trophy Room', tab: 'trophies', icon: '\u265B' },
+                        { label: 'Calendar', tab: 'calendar', icon: '\u25A4' },
                         { section: 'SYSTEM' },
-                        { label: 'Settings', action: () => onOpenSettings && onOpenSettings() },
+                        { label: 'Settings', action: () => onOpenSettings && onOpenSettings(), icon: '\u2690' },
                     ].map((item, i) => {
                         if (item.section) {
                             return (
@@ -2415,17 +2414,25 @@
                                 width: '100%', padding: '9px 16px 9px 20px', border: 'none',
                                 background: isActive ? 'rgba(212,175,55,0.12)' : 'transparent',
                                 borderLeft: isActive ? '3px solid var(--gold)' : '3px solid transparent',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '9px',
                                 transition: 'all 0.15s',
                                 color: isActive ? 'var(--gold)' : 'var(--silver)',
                                 fontSize: '0.78rem', fontFamily: 'Inter, sans-serif',
                                 fontWeight: isActive ? 700 : 400,
-                                letterSpacing: '0.03em', textAlign: 'left'
+                                letterSpacing: '0.03em', textAlign: 'left',
+                                position: 'relative',
                             }}
                             onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(212,175,55,0.06)'; }}
                             onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                         >
-                            {item.label}
+                            <span style={{ width: '16px', textAlign: 'center', fontSize: '0.88rem', flexShrink: 0, opacity: isActive ? 1 : 0.8 }}>{item.icon || '\u2022'}</span>
+                            <span style={{ flex: 1 }}>{item.label}</span>
+                            {item.isNew && <span style={{
+                                fontSize: '0.48rem', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+                                padding: '1px 5px', borderRadius: '3px',
+                                background: 'rgba(46,204,113,0.2)', color: '#2ECC71',
+                                letterSpacing: '0.08em',
+                            }}>NEW</span>}
                         </button>
                         );
                     })}
@@ -2721,7 +2728,12 @@
                     playersData={playersData}
                     gmStrategy={gmStrategy}
                     setGmStrategy={setGmStrategy}
-                /> : (
+                /> : activeTab === 'alex' ? (typeof window.AlexInsightsTab === 'function' ? React.createElement(window.AlexInsightsTab, {
+                    currentLeague, myRoster, playersData, statsData,
+                    stats2025Data, standings, sleeperUserId,
+                    timeRecomputeTs, setActiveTab,
+                }) : <div style={{ padding: '40px', textAlign: 'center', color: 'var(--silver)' }}>Alex Insights module not loaded.</div>
+                ) : (
                 <DashboardPanel
                     selectedWidgets={selectedWidgets}
                     setSelectedWidgets={setSelectedWidgets}

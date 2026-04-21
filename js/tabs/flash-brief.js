@@ -203,12 +203,16 @@ function IntelligenceBriefWidget({
         return '';
     })();
 
+    // AlexSettings focus areas — the narrative fragments are gated by whichever
+    // areas the user has enabled, so turning off "trades" or "waivers" in
+    // Alex Insights quiets those lines here too.
+    const alexFocus = (window.WR?.AlexSettings?.get?.()?.focus) || { trades: true, waivers: true, gmStyle: true };
     let briefText = tierMsg;
     if (portfolioComparison) briefText += ' ' + portfolioComparison;
-    if (elites > 0) briefText += ` You've got ${elites} elite player${elites > 1 ? 's' : ''} anchoring the roster.`;
-    if (needPos) briefText += ` Your biggest gap is at ${needPos} — I've been keeping an eye on options for you.`;
-    if (activeTrades > 0) briefText += ` ${activeTrades} trade${activeTrades > 1 ? 's have' : ' has'} gone down in the league recently. Worth watching who's moving what.`;
-    if (budget > 0) briefText += ` You've got $${faabRemaining} of $${budget} FAAB left to work with.`;
+    if (elites > 0 && alexFocus.gmStyle !== false) briefText += ` You've got ${elites} elite player${elites > 1 ? 's' : ''} anchoring the roster.`;
+    if (needPos && alexFocus.gmStyle !== false) briefText += ` Your biggest gap is at ${needPos} — I've been keeping an eye on options for you.`;
+    if (activeTrades > 0 && alexFocus.trades !== false) briefText += ` ${activeTrades} trade${activeTrades > 1 ? 's have' : ' has'} gone down in the league recently. Worth watching who's moving what.`;
+    if (budget > 0 && alexFocus.waivers !== false) briefText += ` You've got $${faabRemaining} of $${budget} FAAB left to work with.`;
 
     const alexAvatar = (() => {
         const key = localStorage.getItem('wr_alex_avatar') || 'brain';
@@ -238,10 +242,12 @@ function IntelligenceBriefWidget({
             React.createElement('div', { style: { fontSize: isCompact ? '0.78rem' : '0.85rem', color: 'var(--silver)', lineHeight: 1.75, marginBottom: isCompact ? '14px' : '20px' } },
                 briefText
             ),
-            // Action buttons
+            // Action buttons — each is gated by its relevant focus area. If
+            // the user disables "trades" in Alex Insights settings, the Trade
+            // block CTA disappears here too, and so on.
             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
                 // Waiver target
-                waiverTarget && React.createElement('button', {
+                alexFocus.waivers !== false && waiverTarget && React.createElement('button', {
                     onClick: () => setActiveTab && setActiveTab('fa'), style: btnStyle,
                     onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.15)',
                     onMouseLeave: e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)',
@@ -256,7 +262,7 @@ function IntelligenceBriefWidget({
                     ),
                 ),
                 // Key drops
-                keyDrops.length > 0 && React.createElement('button', {
+                alexFocus.waivers !== false && keyDrops.length > 0 && React.createElement('button', {
                     onClick: () => setActiveTab && setActiveTab('fa'), style: btnStyle,
                     onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.15)',
                     onMouseLeave: e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)',
@@ -274,7 +280,7 @@ function IntelligenceBriefWidget({
                     ),
                 ),
                 // Trade block
-                React.createElement('button', {
+                alexFocus.trades !== false && React.createElement('button', {
                     onClick: () => setActiveTab && setActiveTab('trades'), style: btnStyle,
                     onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.15)',
                     onMouseLeave: e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)',
@@ -286,7 +292,7 @@ function IntelligenceBriefWidget({
                     ),
                 ),
                 // Draft countdown
-                draftCountdown && React.createElement('button', {
+                alexFocus.draft !== false && draftCountdown && React.createElement('button', {
                     onClick: () => setActiveTab && setActiveTab('draft'), style: btnStyle,
                     onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.15)',
                     onMouseLeave: e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)',

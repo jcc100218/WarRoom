@@ -17,7 +17,7 @@
 (function() {
     'use strict';
 
-    function LeagueLandscapeWidget({ size, standings, transactions, rankedTeams, sleeperUserId, currentLeague, playersData, setActiveTab, getOwnerName, getPlayerName, timeAgo }) {
+    function LeagueLandscapeWidget({ size, standings, transactions, rankedTeams, sleeperUserId, currentLeague, playersData, setActiveTab, getOwnerName, getPlayerName, timeAgo, navigateWidget }) {
         const theme = window.WrTheme?.get?.() || {};
         const colors = theme.colors || {};
         const fonts = theme.fonts || {};
@@ -42,7 +42,15 @@
 
         // Click handler for sm/md
         const isClickable = size === 'sm' || size === 'md';
-        const onClick = () => { if (isClickable && setActiveTab) setActiveTab('league'); };
+        const openAnalytics = (e) => {
+            e?.stopPropagation?.();
+            if (navigateWidget) navigateWidget('analytics');
+            else if (setActiveTab) setActiveTab('analytics');
+        };
+        const onClick = () => { if (isClickable) openAnalytics(); };
+        function analyticsButton() {
+            return <button onClick={openAnalytics} title="Open League Analytics" style={{ padding: '3px 8px', background: 'rgba(212,175,55,0.08)', color: colors.accent || 'var(--gold)', border: '1px solid rgba(212,175,55,0.22)', borderRadius: '5px', cursor: 'pointer', fontSize: fs(0.56), fontFamily: fonts.ui, fontWeight: 700, whiteSpace: 'nowrap' }}>Analytics</button>;
+        }
 
         // Tier distribution
         const tierDist = React.useMemo(() => {
@@ -210,6 +218,7 @@
                         <span style={{ fontSize: '1rem' }}>🌐</span>
                         <span style={{ fontFamily: fonts.display, fontSize: fs(0.95), fontWeight: 700, color: colors.accent, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>League Landscape</span>
                         <span style={{ fontSize: fs(0.62), color: colors.textMuted, fontFamily: fonts.ui }}>{txnCount} moves</span>
+                        {analyticsButton()}
                     </div>
                     <div style={{ marginBottom: '6px', flexShrink: 0 }}>{renderTierStrip()}</div>
                     <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -231,6 +240,7 @@
                         <span style={{ fontSize: '1.1rem' }}>🌐</span>
                         <span style={{ fontFamily: fonts.display, fontSize: fs(1.0), fontWeight: 700, color: colors.accent, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>League Landscape</span>
                         <span style={{ fontSize: fs(0.66), color: colors.textMuted, fontFamily: fonts.ui }}>{txnCount} moves</span>
+                        {analyticsButton()}
                     </div>
                     <div style={{ marginBottom: '8px', flexShrink: 0 }}>{renderTierStrip()}</div>
                     <div style={{ marginBottom: '10px' }}>{renderStandings(top12, { compact: true, cols: 'all' })}</div>
@@ -265,6 +275,7 @@
                         <span style={{ fontSize: '1rem' }}>🌐</span>
                         <span style={{ fontFamily: fonts.display, fontSize: fs(0.95), fontWeight: 700, color: colors.accent, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>League Landscape</span>
                         <span style={{ fontSize: fs(0.62), color: colors.textMuted, fontFamily: fonts.ui }}>{txnCount} moves · You #{myRank || '—'}</span>
+                        {analyticsButton()}
                     </div>
                     <div style={{ marginBottom: '8px', flexShrink: 0 }}>{renderTierStrip()}</div>
                     <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)', gap: '14px', overflow: 'hidden' }}>
@@ -302,6 +313,7 @@
                         <span style={{ fontSize: '1.1rem' }}>🌐</span>
                         <span style={{ fontFamily: fonts.display, fontSize: fs(1.05), fontWeight: 700, color: colors.accent, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>League Landscape</span>
                         <span style={{ fontSize: fs(0.66), color: colors.textMuted, fontFamily: fonts.ui }}>{txnCount} moves · You #{myRank || '—'} of {total}</span>
+                        {analyticsButton()}
                     </div>
                     <div style={{ marginBottom: '10px', flexShrink: 0 }}>{renderTierStrip()}</div>
                     <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '16px', overflow: 'hidden' }}>

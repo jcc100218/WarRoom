@@ -13,7 +13,7 @@
 (function() {
     'use strict';
 
-    function MarketRadarWidget({ size, myRoster, rankedTeams, sleeperUserId, currentLeague, playersData, setActiveTab }) {
+    function MarketRadarWidget({ size, myRoster, rankedTeams, sleeperUserId, currentLeague, playersData, setActiveTab, navigateWidget }) {
         const theme = window.WrTheme?.get?.() || {};
         const colors = theme.colors || {};
         const fonts = theme.fonts || {};
@@ -117,7 +117,18 @@
         }, [tradeTargets, myRoster, playersData, myStrengthPositions]);
 
         const isClickable = size === 'sm' || size === 'md';
-        const onClick = () => { if (isClickable && setActiveTab) setActiveTab('trades'); };
+        const goTo = (target, e) => {
+            e?.stopPropagation?.();
+            if (navigateWidget) navigateWidget(target);
+            else if (setActiveTab) setActiveTab(target);
+        };
+        const openTrades = (e) => goTo('trades', e);
+        const openFreeAgency = (e) => goTo('fa', e);
+        const onClick = () => { if (isClickable) openTrades(); };
+        const openCard = (pid) => {
+            if (window.WR && typeof window.WR.openPlayerCard === 'function') window.WR.openPlayerCard(pid);
+            else if (typeof window.openPlayerModal === 'function') window.openPlayerModal(pid);
+        };
 
         // ── Avatar URL helper ──
         const avatarUrl = (id) => id ? 'https://sleepercdn.com/avatars/thumbs/' + id : null;
@@ -201,12 +212,13 @@
 
             if (oneLine) {
                 return (
-                    <div key={i} style={{
+                    <div key={i} onClick={openTrades} style={{
                         display: 'flex', alignItems: 'center', gap: '6px',
                         padding: '3px 6px',
                         background: 'rgba(255,255,255,0.02)',
                         borderRadius: '4px',
                         borderLeft: '2px solid ' + compatCol,
+                        cursor: 'pointer',
                     }}>
                         {t.avatar ? <img src={avatarUrl(t.avatar)} style={{ width: 16, height: 16, borderRadius: '50%', flexShrink: 0 }} alt="" /> : <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />}
                         <span style={{ fontSize: fs(0.62), fontWeight: 700, color: colors.text, fontFamily: fonts.ui, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 80, maxWidth: 120 }}>{t.name}</span>
@@ -221,12 +233,13 @@
             }
 
             return (
-                <div key={i} style={{
+                <div key={i} onClick={openTrades} style={{
                     padding: compact ? '4px 6px' : '6px 8px',
                     background: 'rgba(255,255,255,0.02)',
                     borderRadius: '4px',
                     borderLeft: '2px solid ' + compatCol,
                     marginBottom: '4px',
+                    cursor: 'pointer',
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {t.avatar ? <img src={avatarUrl(t.avatar)} style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0 }} alt="" /> : null}
@@ -251,7 +264,7 @@
         function renderWaiver(p, i, compact) {
             const fillsNeed = myNeedPositions.includes(p.pos);
             return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 0', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: fs(compact ? 0.62 : 0.66) }}>
+                <div key={i} onClick={() => openCard(p.pid)} title="Open player card" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 0', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: fs(compact ? 0.62 : 0.66), cursor: 'pointer' }}>
                     <span style={{ flex: 1, fontWeight: 700, color: colors.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: fonts.ui }}>{p.name}</span>
                     <span style={{ fontSize: fs(0.5), padding: '0px 4px', borderRadius: 3, background: (window.App?.POS_COLORS?.[p.pos] || colors.accent) + '22', color: window.App?.POS_COLORS?.[p.pos] || colors.accent, fontWeight: 700 }}>{p.pos}</span>
                     {fillsNeed && <span style={{ fontSize: fs(0.5), fontWeight: 700, color: colors.positive }}>NEED</span>}
@@ -282,6 +295,8 @@
                     <span style={{ fontSize: opts.large ? '1.1rem' : '1rem' }}>📡</span>
                     <span style={{ fontFamily: fonts.display, fontSize: fs(opts.large ? 1.05 : 0.95), fontWeight: 700, color: colors.purple || '#7C6BF8', letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>Market Radar</span>
                     <span style={{ fontSize: fs(0.62), color: colors.textMuted, fontFamily: fonts.ui }}>{dealCount} targets · ${faab.remaining}</span>
+                    <button onClick={openTrades} title="Open Trade Center" style={{ padding: '3px 8px', background: 'rgba(124,107,248,0.10)', color: colors.purple || '#7C6BF8', border: '1px solid rgba(124,107,248,0.28)', borderRadius: '5px', cursor: 'pointer', fontSize: fs(0.56), fontFamily: fonts.ui, fontWeight: 700, whiteSpace: 'nowrap' }}>Trades</button>
+                    <button onClick={openFreeAgency} title="Open Free Agency" style={{ padding: '3px 8px', background: 'rgba(52,152,219,0.10)', color: colors.info || '#3498DB', border: '1px solid rgba(52,152,219,0.28)', borderRadius: '5px', cursor: 'pointer', fontSize: fs(0.56), fontFamily: fonts.ui, fontWeight: 700, whiteSpace: 'nowrap' }}>FA</button>
                 </div>
             );
         }

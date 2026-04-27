@@ -8,6 +8,29 @@
 // Each module must pass the test: actionable? leads somewhere? wow?
 // Old 9-module registry preserved in comments for reference during migration.
 const T = () => window.WrTheme || {};
+const WIDGET_DESTINATIONS = {
+    league: 'analytics',
+    leagueAnalytics: 'analytics',
+    analytics: 'analytics',
+    roster: 'myteam',
+    myteam: 'myteam',
+    market: 'trades',
+    trades: 'trades',
+    waiver: 'fa',
+    waivers: 'fa',
+    fa: 'fa',
+    draft: 'draft',
+    trophies: 'trophies',
+    fieldNotes: 'alex',
+    scout: 'alex',
+    intel: 'alex',
+    alex: 'alex',
+};
+function resolveWidgetDestination(target) {
+    if (!target) return null;
+    return WIDGET_DESTINATIONS[target] || target;
+}
+
 const WIDGET_MODULES = {
     'intel-brief': {
         label: 'Intel Brief',
@@ -38,7 +61,7 @@ const WIDGET_MODULES = {
         accent: () => T().color?.('accent') || '#D4AF37',
         metrics: [],
         sizes: ['sm', 'md', 'lg', 'tall', 'xl', 'xxl'],
-        clickTarget: { sm: 'league', md: 'league' },
+        clickTarget: { sm: 'analytics', md: 'analytics' },
     },
     'market-radar': {
         label: 'Market Radar',
@@ -75,7 +98,7 @@ const WIDGET_MODULES = {
         accent: () => T().color?.('accent') || '#D4AF37',
         metrics: [],
         sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
-        clickTarget: { sm: 'league', md: 'league' },
+        clickTarget: { sm: 'analytics', md: 'analytics' },
     },
     'power-rankings': {
         label: 'Power Rankings',
@@ -84,7 +107,7 @@ const WIDGET_MODULES = {
         accent: () => T().color?.('positive') || '#2ECC71',
         metrics: [],
         sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
-        clickTarget: { sm: 'league', md: 'league' },
+        clickTarget: { sm: 'analytics', md: 'analytics' },
     },
     // SI-3: Tag-driven widgets — surface My Roster tags into Home
     'trade-block': {
@@ -112,7 +135,7 @@ const WIDGET_MODULES = {
         accent: () => T().color?.('info') || '#3498DB',
         metrics: [],
         sizes: ['sm', 'md', 'lg', 'tall'],
-        clickTarget: { sm: 'waiver', md: 'waiver' },
+        clickTarget: { sm: 'fa', md: 'fa' },
     },
     // Phase 9: My Trophies widget — surfaces user's championship count + HOF inductees
     'my-trophies': {
@@ -388,6 +411,10 @@ function DashboardPanel({
     const [editingWidget, setEditingWidget] = React.useState(null); // { widgetId, widget }
     const [dragIdx, setDragIdx] = React.useState(null);
     const [starredWidgets, setStarredWidgets] = React.useState(() => window.WrStarWidget?.getAll() || []);
+    const navigateWidget = React.useCallback((target) => {
+        const tab = resolveWidgetDestination(target);
+        if (tab && setActiveTab) setActiveTab(tab);
+    }, [setActiveTab]);
 
     React.useEffect(() => {
         const handler = () => setStarredWidgets(window.WrStarWidget?.getAll() || []);
@@ -659,6 +686,7 @@ function DashboardPanel({
             briefDraftInfo,
             playersData,
             setActiveTab,
+            navigateWidget,
         });
     }
 
@@ -670,7 +698,7 @@ function DashboardPanel({
         if (typeof window.FieldNotesWidget !== 'function') {
             return <div style={{ ...cardBase, padding: 'var(--card-pad, 14px 16px)' }}>Field notes unavailable</div>;
         }
-        return React.createElement(window.FieldNotesWidget, { size });
+        return React.createElement(window.FieldNotesWidget, { size, navigateWidget });
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -883,7 +911,7 @@ function DashboardPanel({
         // Navigate on click for SM widgets
         // v2 click targets use the module's clickTarget map; fall back to legacy
         const mod = WIDGET_MODULES[key];
-        const clickTab = mod?.clickTarget?.[size] || mod?.clickTarget?.sm || null;
+        const clickTab = resolveWidgetDestination(mod?.clickTarget?.[size] || mod?.clickTarget?.sm || null);
 
         // ── Delegate to module-specific external widgets if available ──
         const externalWidget = resolveExternalWidget(key, size, primaryMetric);
@@ -899,7 +927,7 @@ function DashboardPanel({
         if (size === 'sm') {
             return (
                 <WidgetShell key={widget.id || key + idx} widget={widget} idx={idx}>
-                    <div onClick={() => clickTab && setActiveTab?.(clickTab)} style={{ cursor: clickTab ? 'pointer' : 'default', height: '100%' }}>
+                    <div onClick={() => clickTab && navigateWidget(clickTab)} style={{ cursor: clickTab ? 'pointer' : 'default', height: '100%' }}>
                         <SmallKpiCard kpiKey={key} primaryMetric={primaryMetric} />
                     </div>
                 </WidgetShell>
@@ -947,7 +975,7 @@ function DashboardPanel({
             const RPW = window.RosterPulseWidget;
             return React.createElement(RPW, {
                 size, primaryMetric, myRoster, rankedTeams, sleeperUserId, currentLeague,
-                playersData, computeKpiValue, setActiveTab,
+                playersData, computeKpiValue, setActiveTab, navigateWidget,
             });
         }
         // League Landscape → LeagueLandscapeWidget (js/widgets/league-landscape.js)
@@ -956,6 +984,7 @@ function DashboardPanel({
             return React.createElement(LLW, {
                 size, standings, transactions, rankedTeams, sleeperUserId,
                 currentLeague, playersData, setActiveTab, getOwnerName, getPlayerName, timeAgo,
+                navigateWidget,
             });
         }
         // Market Radar → MarketRadarWidget (js/widgets/market-radar.js)
@@ -963,7 +992,7 @@ function DashboardPanel({
             const MRW = window.MarketRadarWidget;
             return React.createElement(MRW, {
                 size, myRoster, rankedTeams, sleeperUserId, currentLeague,
-                playersData, setActiveTab,
+                playersData, setActiveTab, navigateWidget,
             });
         }
         // Draft Capital → DraftCapitalWidget (js/widgets/draft-capital.js)
@@ -971,30 +1000,30 @@ function DashboardPanel({
             const DCW = window.DraftCapitalWidget;
             return React.createElement(DCW, {
                 size, myRoster, currentLeague, playersData, briefDraftInfo,
-                setActiveTab,
+                setActiveTab, navigateWidget,
             });
         }
         // Phase 3: Competitive Tiers widget (js/widgets/competitive-tiers.js)
         if (moduleKey === 'competitive-tiers' && typeof window.CompetitiveTiersWidget === 'function') {
-            return React.createElement(window.CompetitiveTiersWidget, { size, sleeperUserId, currentLeague, playersData, setActiveTab });
+            return React.createElement(window.CompetitiveTiersWidget, { size, sleeperUserId, currentLeague, playersData, setActiveTab, navigateWidget });
         }
         // Phase 3: Power Rankings widget (js/widgets/power-rankings.js)
         if (moduleKey === 'power-rankings' && typeof window.PowerRankingsWidget === 'function') {
-            return React.createElement(window.PowerRankingsWidget, { size, sleeperUserId, currentLeague, playersData, setActiveTab });
+            return React.createElement(window.PowerRankingsWidget, { size, sleeperUserId, currentLeague, playersData, setActiveTab, navigateWidget });
         }
         // SI-3: Tag-driven widgets (js/widgets/player-tags.js)
         if (moduleKey === 'trade-block' && typeof window.TradeBlockWidget === 'function') {
-            return React.createElement(window.TradeBlockWidget, { size, playersData, setActiveTab });
+            return React.createElement(window.TradeBlockWidget, { size, playersData, setActiveTab, navigateWidget });
         }
         if (moduleKey === 'cut-candidates' && typeof window.CutCandidatesWidget === 'function') {
-            return React.createElement(window.CutCandidatesWidget, { size, playersData, setActiveTab });
+            return React.createElement(window.CutCandidatesWidget, { size, playersData, setActiveTab, navigateWidget });
         }
         if (moduleKey === 'waiver-targets' && typeof window.WaiverTargetsWidget === 'function') {
-            return React.createElement(window.WaiverTargetsWidget, { size, playersData, setActiveTab });
+            return React.createElement(window.WaiverTargetsWidget, { size, playersData, setActiveTab, navigateWidget });
         }
         // Phase 9: My Trophies widget
         if (moduleKey === 'my-trophies' && typeof window.MyTrophiesWidget === 'function') {
-            return React.createElement(window.MyTrophiesWidget, { size, myRoster, currentLeague, setActiveTab });
+            return React.createElement(window.MyTrophiesWidget, { size, myRoster, currentLeague, setActiveTab, navigateWidget });
         }
         // No external widget — fall through to generic renderers
         return null;

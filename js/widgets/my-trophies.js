@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    function MyTrophiesWidget({ size, myRoster, currentLeague, setActiveTab }) {
+    function MyTrophiesWidget({ size, myRoster, currentLeague, setActiveTab, navigateWidget }) {
         // Re-render trigger when league history loads from Sleeper
         const [historyTick, setHistoryTick] = React.useState(0);
         React.useEffect(() => {
@@ -36,7 +36,7 @@
             return { stats, evald };
         }, [myRoster, currentLeague, historyTick]);
 
-        const jump = () => { if (setActiveTab) setActiveTab('trophies'); };
+        const jump = () => { if (navigateWidget) navigateWidget('trophies'); else if (setActiveTab) setActiveTab('trophies'); };
 
         const base = {
             background: 'var(--off-black)',

@@ -109,7 +109,7 @@
     }
 
     // ── Generic tag widget ────────────────────────────────────────
-    function TagWidget({ size, title, icon, tag, emptyText, tone, clickTarget, playersData, setActiveTab }) {
+    function TagWidget({ size, title, icon, tag, emptyText, tone, clickTarget, playersData, setActiveTab, navigateWidget }) {
         const pids = React.useMemo(() => pidsByTag(tag), [window._playerTags, tag]);
         const rows = React.useMemo(() => enrich(pids, playersData), [pids, playersData]);
 
@@ -121,7 +121,10 @@
             height: '100%', minHeight: 0, overflow: 'hidden',
         };
 
-        function openRoster() { if (setActiveTab) setActiveTab(clickTarget || 'myteam'); }
+        function openRoster() {
+            if (navigateWidget) navigateWidget(clickTarget || 'myteam');
+            else if (setActiveTab) setActiveTab(clickTarget || 'myteam');
+        }
         function openCard(pid) {
             if (window.WR && typeof window.WR.openPlayerCard === 'function') window.WR.openPlayerCard(pid);
             else if (typeof window.openPlayerModal === 'function') window.openPlayerModal(pid);
@@ -268,7 +271,7 @@
             tag: 'watch',
             tone: '#3498DB',
             emptyText: 'Tag "Watch" on any player to track them here.',
-            clickTarget: 'waiver',
+            clickTarget: 'fa',
         });
     }
 

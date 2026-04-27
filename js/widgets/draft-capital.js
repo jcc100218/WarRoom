@@ -12,7 +12,7 @@
 (function() {
     'use strict';
 
-    function DraftCapitalWidget({ size, myRoster, currentLeague, playersData, briefDraftInfo, setActiveTab }) {
+    function DraftCapitalWidget({ size, myRoster, currentLeague, playersData, briefDraftInfo, setActiveTab, navigateWidget }) {
         const theme = window.WrTheme?.get?.() || {};
         const colors = theme.colors || {};
         const fonts = theme.fonts || {};
@@ -66,7 +66,16 @@
 
         const valCol = totalValue >= 20000 ? colors.positive : totalValue >= 10000 ? colors.accent : colors.negative;
         const isClickable = size === 'sm' || size === 'md';
-        const onClick = () => { if (isClickable && setActiveTab) setActiveTab('draft'); };
+        const openDraft = (e) => {
+            e?.stopPropagation?.();
+            if (navigateWidget) navigateWidget('draft');
+            else if (setActiveTab) setActiveTab('draft');
+        };
+        const onClick = () => { if (isClickable) openDraft(); };
+        const openCard = (pid) => {
+            if (window.WR && typeof window.WR.openPlayerCard === 'function') window.WR.openPlayerCard(pid);
+            else if (typeof window.openPlayerModal === 'function') window.openPlayerModal(pid);
+        };
 
         // Group picks by year (used by lg/xxl)
         const picksByYear = React.useMemo(() => {
@@ -256,6 +265,7 @@
                     <span style={{ fontSize: '1rem' }}>🎯</span>
                     <span style={{ fontFamily: fonts.display, fontSize: fs(0.95), fontWeight: 700, color: colors.warn || '#F0A500', letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>Draft Capital</span>
                     {countdown && <span style={{ fontSize: fs(0.62), color: countdown.live ? colors.positive : colors.accent, fontWeight: 700, fontFamily: fonts.ui }}>{countdown.live ? '🔴 LIVE' : countdown.text}</span>}
+                    <button onClick={openDraft} title="Open Draft Command" style={{ padding: '3px 8px', background: 'rgba(240,165,0,0.10)', color: colors.warn || '#F0A500', border: '1px solid rgba(240,165,0,0.28)', borderRadius: '5px', cursor: 'pointer', fontSize: fs(0.56), fontFamily: fonts.ui, fontWeight: 700, whiteSpace: 'nowrap' }}>Draft</button>
                 </div>
             );
         }
@@ -345,7 +355,7 @@
                                 {bigBoard.length === 0 ? <div style={{ fontSize: fs(0.6), color: colors.textFaint, fontStyle: 'italic' }}>No players available</div> : bigBoard.map((p, i) => {
                                     const col = p.dhq >= 5000 ? colors.positive : p.dhq >= 2000 ? colors.accent : colors.textMuted;
                                     return (
-                                        <div key={p.pid} onClick={() => { if (typeof window.openPlayerModal === 'function' && p.pid) window.openPlayerModal(p.pid); }} style={{
+                                        <div key={p.pid} onClick={() => p.pid && openCard(p.pid)} style={{
                                             display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 0',
                                             borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer',
                                             fontSize: fs(0.6), fontFamily: fonts.ui,

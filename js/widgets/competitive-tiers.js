@@ -36,7 +36,7 @@
         return users.find(u => u.user_id === roster.owner_id) || null;
     }
 
-    function CompetitiveTiersWidget({ size, sleeperUserId, currentLeague, playersData, setActiveTab }) {
+    function CompetitiveTiersWidget({ size, sleeperUserId, currentLeague, playersData, setActiveTab, navigateWidget }) {
         const assessments = React.useMemo(() => {
             if (typeof window.assessAllTeamsFromGlobal === 'function') {
                 try { return window.assessAllTeamsFromGlobal() || []; } catch { return []; }
@@ -55,7 +55,29 @@
             display: 'flex', flexDirection: 'column', gap: '8px',
             height: '100%', minHeight: 0, overflow: 'hidden',
         };
-        function jumpToLeague() { if (setActiveTab) setActiveTab('league'); }
+        function jumpToLeague(e) {
+            e?.stopPropagation?.();
+            if (navigateWidget) navigateWidget('analytics');
+            else if (setActiveTab) setActiveTab('analytics');
+        }
+        function analyticsButton() {
+            return React.createElement('button', {
+                onClick: jumpToLeague,
+                title: 'Open League Analytics',
+                style: {
+                    padding: '3px 8px',
+                    background: 'rgba(212,175,55,0.08)',
+                    color: 'var(--gold)',
+                    border: '1px solid rgba(212,175,55,0.22)',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '0.58rem',
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                }
+            }, 'Analytics');
+        }
 
         if (!assessments.length) {
             return React.createElement('div', { style: { ...base, alignItems: 'center', justifyContent: 'center' } },
@@ -198,6 +220,7 @@
                     React.createElement('span', { style: { fontSize: '0.95rem' } }, '🏆'),
                     React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.88rem', fontWeight: 700, color: 'var(--white)', letterSpacing: '0.04em' } }, 'Competitive Tiers'),
                     myTier && React.createElement('span', { style: { marginLeft: 'auto', fontSize: '0.62rem', fontWeight: 700, color: TIER_COLORS[myTier], padding: '2px 6px', borderRadius: '3px', background: TIER_COLORS[myTier] + '22' } }, '★ ' + myTier),
+                    analyticsButton(),
                 ),
                 React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '5px', flex: 1, minHeight: 0, overflow: 'hidden' } },
                     ...TIER_ORDER.map(t => renderTierRow(t, { limit: 5, showLogos: true })),
@@ -258,6 +281,7 @@
                     React.createElement('span', { style: { fontSize: '1rem' } }, '🏆'),
                     React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '0.95rem', fontWeight: 700, color: 'var(--white)', letterSpacing: '0.04em' } }, 'Competitive Tiers'),
                     myTier && React.createElement('span', { style: { marginLeft: 'auto', fontSize: '0.62rem', fontWeight: 700, color: TIER_COLORS[myTier], padding: '2px 6px', borderRadius: '3px', background: TIER_COLORS[myTier] + '22' } }, '★ ' + myTier),
+                    analyticsButton(),
                 ),
                 // Tier rows
                 React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '5px', flexShrink: 0 } },
@@ -364,6 +388,7 @@
                     React.createElement('span', { style: { fontSize: '1.1rem' } }, '🏆'),
                     React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.05rem', fontWeight: 700, color: 'var(--white)', letterSpacing: '0.04em' } }, 'Competitive Tiers'),
                     myTier && React.createElement('span', { style: { marginLeft: 'auto', fontSize: '0.66rem', fontWeight: 700, color: TIER_COLORS[myTier], padding: '3px 8px', borderRadius: '4px', background: TIER_COLORS[myTier] + '22', border: '1px solid ' + TIER_COLORS[myTier] + '55' } }, '★ YOU · ' + myTier),
+                    analyticsButton(),
                 ),
                 // 2-col grid: tier rows (left) | matrix + summary + histogram (right)
                 React.createElement('div', { style: { flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '12px', overflow: 'hidden' } },

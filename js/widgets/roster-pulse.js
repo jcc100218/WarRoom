@@ -16,7 +16,7 @@
 (function() {
     'use strict';
 
-    function RosterPulseWidget({ size, primaryMetric, myRoster, rankedTeams, sleeperUserId, currentLeague, playersData, computeKpiValue, setActiveTab }) {
+    function RosterPulseWidget({ size, primaryMetric, myRoster, rankedTeams, sleeperUserId, currentLeague, playersData, computeKpiValue, setActiveTab, navigateWidget }) {
         const theme = window.WrTheme?.get?.() || {};
         const colors = theme.colors || {};
         const fonts = theme.fonts || {};
@@ -74,7 +74,15 @@
 
         // Click handler
         const onClick = () => {
-            if ((size === 'sm' || size === 'md') && setActiveTab) setActiveTab('myteam');
+            if (size === 'sm' || size === 'md') {
+                if (navigateWidget) navigateWidget('myteam');
+                else if (setActiveTab) setActiveTab('myteam');
+            }
+        };
+        const openMyRoster = (e) => {
+            e?.stopPropagation?.();
+            if (navigateWidget) navigateWidget('myteam');
+            else if (setActiveTab) setActiveTab('myteam');
         };
 
         // ── Position breakdown with letter grades ────────────────
@@ -196,6 +204,7 @@
                         <span style={{ fontSize: '1.1rem' }}>💊</span>
                         <span style={{ fontFamily: fonts.display, fontSize: fs(1.0), fontWeight: 700, color: colors.accent, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>Roster Pulse</span>
                         <Badge label={tier + ' · #' + (healthRank || '—')} color={tierCol} theme={theme} />
+                        <button onClick={openMyRoster} title="Open My Roster" style={{ padding: '3px 8px', background: 'rgba(212,175,55,0.08)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.22)', borderRadius: '5px', cursor: 'pointer', fontSize: fs(0.58), fontFamily: fonts.ui, fontWeight: 700, whiteSpace: 'nowrap' }}>Roster</button>
                     </div>
 
                     {/* Vital signs grid */}

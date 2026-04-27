@@ -440,11 +440,18 @@
         const [analyticsTab, setAnalyticsTab] = useState('roster');
         const [rosterFilter, setRosterFilter] = useState('All');
         const [rosterSort, setRosterSort] = useState({ key: 'dhq', dir: 1 });
-        const [visibleCols, setVisibleCols] = useState(() =>
-            WrStorage.get(WR_KEYS.ROSTER_COLS) || ['pos','age','dhq','ppg','trend','action']
-        );
+        const defaultRosterCols = ['pos','age','dhq','posRankLg','ppg','durability','peak','action','sos'];
+        const [visibleCols, setVisibleCols] = useState(() => {
+            const stored = WrStorage.get(WR_KEYS.ROSTER_COLS);
+            const legacyDefault = ['pos','age','dhq','ppg','trend','action'];
+            if (Array.isArray(stored) && stored.length) {
+                const wasLegacyDefault = stored.length === legacyDefault.length && stored.every((key, idx) => key === legacyDefault[idx]);
+                return wasLegacyDefault ? defaultRosterCols : stored;
+            }
+            return defaultRosterCols;
+        });
         const [showColPicker, setShowColPicker] = useState(false);
-        const [colPreset, setColPreset] = useState('dynasty');
+        const [colPreset, setColPreset] = useState('default');
         const [expandedPid, setExpandedPid] = useState(null);
         const [showAvatarPicker, setShowAvatarPicker] = useState(false);
         const [avatarKey, setAvatarKey] = useState(0); // force re-render when avatar changes
@@ -2221,6 +2228,16 @@
 
         // --- My Team Tab helpers ---
         function getAcquisitionInfo(pid, rosterId) {
+            const sameRoster = (a, b) => String(a) === String(b);
+            const getAddOwner = (txn, playerId) => txn?.adds ? (txn.adds[playerId] ?? txn.adds[String(playerId)]) : undefined;
+            const txnDate = (created) => {
+                const raw = Number(created || 0);
+                if (!raw) return null;
+                return new Date(raw > 1000000000000 ? raw : raw * 1000);
+            };
+            const fmtDate = (d) => d && !Number.isNaN(d.getTime())
+                ? d.toLocaleDateString('en-US', {month:'short', day:'numeric', year: '2-digit'})
+                : '\u2014';
             // Check manual override first
             try {
                 const overrides = JSON.parse(localStorage.getItem('wr_acquired_overrides') || '{}');
@@ -2246,10 +2263,11 @@
 
             // Check waiver/FA transactions (most recent first)
             for (const t of txns) {
-                if ((t.type === 'waiver' || t.type === 'free_agent') && t.adds && t.adds[pid] != null) {
+                const addOwner = getAddOwner(t, pid);
+                if ((t.type === 'waiver' || t.type === 'free_agent') && addOwner != null && sameRoster(addOwner, rosterId)) {
                     const cost = t.settings?.waiver_bid || 0;
-                    const d = t.created ? new Date(t.created * 1000) : null;
-                    const date = d ? d.toLocaleDateString('en-US', {month:'short', day:'numeric', year: '2-digit'}) : '\u2014';
+                    const d = txnDate(t.created);
+                    const date = fmtDate(d);
                     return { method: t.type === 'waiver' ? 'Waiver' : 'FA', date, cost: cost > 0 ? '$' + cost : '', season: d ? String(d.getFullYear()) : '', week: t.leg || t.week || 0 };
                 }
             }
@@ -2257,8 +2275,8 @@
             const trades = window.App?.LI?.tradeHistory || [];
             for (const t of trades) {
                 if (!t.sides) continue;
-                const side = t.sides[rosterId];
-                if (side && side.players && side.players.includes(pid)) {
+                const side = t.sides[rosterId] || t.sides[String(rosterId)];
+                if (side && side.players && side.players.some(p => String(p) === String(pid))) {
                     const season = t.season || '';
                     const week = t.week || '';
                     // Identify partner (other roster on the trade)
@@ -2277,15 +2295,16 @@
             }
             // Fallback: check raw transaction data for trades
             for (const t of txns) {
-                if (t.type === 'trade' && t.adds && t.adds[pid] === rosterId) {
-                    const d = t.created ? new Date(t.created * 1000) : null;
-                    const date = d ? d.toLocaleDateString('en-US', {month:'short', day:'numeric', year: '2-digit'}) : '\u2014';
+                const addOwner = getAddOwner(t, pid);
+                if (t.type === 'trade' && addOwner != null && sameRoster(addOwner, rosterId)) {
+                    const d = txnDate(t.created);
+                    const date = fmtDate(d);
                     return { method: 'Traded', date, cost: '', season: d ? String(d.getFullYear()) : '', week: t.leg || 0 };
                 }
             }
             // Check draft outcomes
             const drafts = window.App?.LI?.draftOutcomes || [];
-            const draftPick = drafts.find(d => d.pid === pid && d.roster_id === rosterId);
+            const draftPick = drafts.find(d => String(d.pid) === String(pid) && sameRoster(d.roster_id, rosterId));
             if (draftPick) {
                 // Format as "2024 2.03" when we know the pick slot, else "2024 R2"
                 const totalTeams = window.S?.league?.total_rosters || (window.S?.rosters?.length) || 12;
@@ -2690,6 +2709,7 @@
                     sendReconMessage={sendReconMessage}
                     timeRecomputeTs={timeRecomputeTs}
                     setTimeRecomputeTs={setTimeRecomputeTs}
+                    getAcquisitionInfo={getAcquisitionInfo}
                 /> : activeTab === 'league' ? <LeagueMapTab
                     leagueViewTab={leagueViewTab}
                     setLeagueViewTab={setLeagueViewTab}

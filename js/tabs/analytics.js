@@ -577,7 +577,7 @@ function AnalyticsPanel({
                                                 const mv = pm2[pid] || {};
                                                 lgT += dv;
                                                 if (mv.age && mv.pos) {
-                                                    const pe = (pw2[mv.pos] || [23,29])[1];
+                                                    const pe = ((window.App?.peakWindows || {})[mv.pos] || [23,29])[1];
                                                     if (mv.age + 2 > pe && dv >= 2000) lgA += dv;
                                                 }
                                             });

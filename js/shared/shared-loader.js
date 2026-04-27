@@ -22,10 +22,15 @@
         return /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])$/i.test(window.location.hostname || '');
     }
 
+    function isGitHubPagesHost() {
+        return /(^|\.)github\.io$/i.test(window.location.hostname || '');
+    }
+
     function isLocalMode() {
         const shared = params().get('shared');
         if (shared === 'remote') return false;
         if (shared === 'local') return true;
+        if (isGitHubPagesHost()) return false;
         return isLocalHost() || window.location.protocol === 'file:' || params().has('dev');
     }
 

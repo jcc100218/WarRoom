@@ -16,6 +16,27 @@
     function markdownToHtml(str) {
         return escapeHtml(str).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
     }
+
+    function resolvePlatformProvider(league) {
+        const registry = window.App?.Platforms || window.Platforms;
+        const registered = registry?.getForLeague?.(league);
+        if (registered) return registered;
+
+        const platform = league?._platform
+            || (league?._mfl ? 'mfl' : league?._espn ? 'espn' : league?._yahoo ? 'yahoo' : 'sleeper');
+        const fallbackProviders = {
+            sleeper: window.Sleeper?.provider,
+            mfl: window.MFL?.provider,
+            espn: window.ESPN?.provider,
+            yahoo: window.Yahoo?.provider,
+        };
+        const fallback = fallbackProviders[platform] || null;
+        if (fallback && registry?.register) {
+            registry.register(fallback);
+        }
+        return fallback;
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // END DRAFT TAB
     // ══════════════════════════════════════════════════════════════════════════
@@ -37,7 +58,7 @@
         // Providers know whether they support historical year chains,
         // so feature flags like `isSleeper` (used for year switching UI)
         // are now derived from provider.capabilities instead of hardcoded.
-        const _provider = window.App?.Platforms?.getForLeague?.(currentLeague);
+        const _provider = resolvePlatformProvider(currentLeague);
         const isSleeper = _provider?.id === 'sleeper';
         const [trending, setTrending] = useState({ adds: [], drops: [] });
         const [localActiveTab, setLocalActiveTab] = useState('dashboard');
@@ -1162,9 +1183,11 @@
                 // Replaces the old _isSleeper ? A : B branching. Each of the
                 // four platforms (sleeper/mfl/espn/yahoo) implements the
                 // same hydrate() contract — see shared/platform-provider.js.
-                const provider = window.App?.Platforms?.getForLeague?.(currentLeague);
+                const provider = resolvePlatformProvider(currentLeague);
                 if (!provider) {
-                    throw new Error('No platform provider registered for this league. Reload the page and try again.');
+                    const platform = currentLeague?._platform
+                        || (currentLeague?._mfl ? 'mfl' : currentLeague?._espn ? 'espn' : currentLeague?._yahoo ? 'yahoo' : 'sleeper');
+                    throw new Error('No ' + platform + ' platform provider loaded. Reload the page and try again.');
                 }
                 setLoadStage('Loading ' + provider.displayName + ' data...');
 
@@ -1512,7 +1535,7 @@
             if (year === activeYear) return;
             // Year switching requires a previous_league_id chain — check the
             // platform provider capability instead of hardcoding Sleeper.
-            const provider = window.App?.Platforms?.getForLeague?.(currentLeague);
+            const provider = resolvePlatformProvider(currentLeague);
             if (!provider?.capabilities?.hasYearChain) {
                 console.warn('[War Room] Year switching not supported for ' + (provider?.displayName || 'this platform'));
                 return;

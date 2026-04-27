@@ -1,22 +1,22 @@
 // ══════════════════════════════════════════════════════════════════
-// js/widgets/roster-pulse.js — Roster Pulse widget (v2 dashboard)
+// js/widgets/roster-pulse.js — Roster Pulse widget (v3 dashboard)
 //
-// Merges the old "Roster Health" + "Competitive" modules into one
-// vital-signs dashboard. Every size is actionable and visually rich.
+// Vital-signs view of the user's roster across all sizes.
 //
-// sm: Health score hero + tier badge + trend arrow → clicks to My Roster
-// md: Health + sparkline (all teams) + contender rank + window → clicks to My Roster
-// lg: 6-card vital signs grid + mini positional breakdown → drill-down panel
-// tall: lg + aging curve chart + roster composition + recommendations → drill-down
+// sm: Primary stat hero + tier badge → My Roster
+// md: Primary stat + sparkline + badges → My Roster
+// lg: Vital signs + position health (letter grades) — fits 2×2 no scroll
+// tall: lg + percentile bar + age curve + recommendation
+// xxl: Mini-roster panel — top player per position, age + DHQ
 //
-// Depends on: theme.js (WrTheme), core.js (assessTeamFromGlobal, LI)
+// Depends on: theme.js, core.js (assessTeamFromGlobal, LI)
 // Exposes:    window.RosterPulseWidget
 // ══════════════════════════════════════════════════════════════════
 
 (function() {
     'use strict';
 
-    function RosterPulseWidget({ size, myRoster, rankedTeams, sleeperUserId, currentLeague, playersData, computeKpiValue, setActiveTab }) {
+    function RosterPulseWidget({ size, primaryMetric, myRoster, rankedTeams, sleeperUserId, currentLeague, playersData, computeKpiValue, setActiveTab }) {
         const theme = window.WrTheme?.get?.() || {};
         const colors = theme.colors || {};
         const fonts = theme.fonts || {};
@@ -44,7 +44,7 @@
         const strengths = assess?.strengths || [];
         const window_ = assess?.window || '—';
 
-        // KPI values
+        // KPI lookup helper
         const kv = (key) => { try { return computeKpiValue(key); } catch { return { value: '—', color: colors.textMuted }; } };
         const healthKv = kv('health-score');
         const eliteKv = kv('elite-count');
@@ -53,72 +53,87 @@
         const windowKv = kv('window');
         const cliffKv = kv('aging-cliff');
 
+        // ── Primary metric selection (sm/md) ────────────────────
+        // Honors the primaryMetric prop chosen in the widget picker.
+        const primary = (() => {
+            const key = primaryMetric || 'health-score';
+            if (key === 'elite-count') return { label: 'ELITES', value: eliteKv.value, color: colors.positive, sub: 'top-tier players' };
+            if (key === 'contender-rank') return { label: 'CONTENDER', value: contenderKv.value, color: contenderKv.color || colors.accent, sub: contenderKv.sub || 'rank' };
+            // default: health-score
+            const healthCol = health >= 80 ? colors.positive : health >= 60 ? colors.accent : health >= 40 ? colors.warn : colors.negative;
+            return { label: 'HEALTH', value: health, color: healthCol, sub: tier };
+        })();
+
         // Sparkline data: all teams' health scores sorted for the mini chart
         const healthSparkData = React.useMemo(() => {
-            return allAssess
-                .map(a => a.healthScore || 0)
-                .sort((a, b) => b - a);
+            return allAssess.map(a => a.healthScore || 0).sort((a, b) => b - a);
         }, [allAssess]);
-
-        const myRankIdx = React.useMemo(() => {
-            const sorted = [...healthSparkData].sort((a, b) => b - a);
-            return sorted.indexOf(health);
-        }, [healthSparkData, health]);
-
-        // Health color
-        const healthCol = health >= 80 ? colors.positive : health >= 60 ? colors.accent : health >= 40 ? colors.warn : colors.negative;
 
         // Tier color
         const tierCol = tier === 'ELITE' ? colors.positive : tier === 'CONTENDER' ? colors.accent : tier === 'CROSSROADS' ? colors.warn : colors.negative;
 
         // Click handler
         const onClick = () => {
-            if ((size === 'sm' || size === 'md') && setActiveTab) {
-                setActiveTab('myteam');
-            }
+            if ((size === 'sm' || size === 'md') && setActiveTab) setActiveTab('myteam');
         };
 
-        const isClickable = size === 'sm' || size === 'md';
+        // ── Position breakdown with letter grades ────────────────
+        const idealRoster = window.App?.LI?.idealRoster || window.App?.PlayerValue?.IDEAL_ROSTER || { QB: 3, RB: 7, WR: 7, TE: 4, K: 2, DL: 7, LB: 6, DB: 6 };
+        const posOrder = ['QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'];
+        const posBreakdown = React.useMemo(() => {
+            const posAssess = assess?.posAssessment || {};
+            return posOrder.map(pos => {
+                const pa = posAssess[pos];
+                const status = pa?.status || 'ok';
+                const count = pa?.count || 0;
+                const ideal = idealRoster[pos] || 3;
+                const topDHQ = pa?.topDHQ || 0;
+                // Letter grade from status, refined by depth ratio
+                const ratio = count / Math.max(ideal, 1);
+                let grade;
+                if (status === 'surplus' && ratio >= 1.2) grade = 'A+';
+                else if (status === 'surplus') grade = 'A';
+                else if (status === 'ok' && ratio >= 0.95) grade = 'B+';
+                else if (status === 'ok') grade = 'B';
+                else if (status === 'thin' && ratio >= 0.6) grade = 'C+';
+                else if (status === 'thin') grade = 'C';
+                else if (status === 'deficit' && ratio >= 0.3) grade = 'D';
+                else grade = 'F';
+                const col = grade.startsWith('A') ? colors.positive
+                    : grade.startsWith('B') ? colors.accent
+                    : grade.startsWith('C') ? colors.warn
+                    : colors.negative;
+                return { pos, count, ideal, status, topDHQ, grade, col, pct: Math.min(100, ratio * 100) };
+            }).filter(p => p.ideal > 0);
+        }, [assess]);
 
-        // ── SM (1×1): Health score hero ──────────────────────────
+        // ── SM (1×1) ─────────────────────────────────────────────
         if (size === 'sm') {
             return (
                 <div onClick={onClick} style={{
                     ...cardStyle,
                     padding: 'var(--card-pad, 14px 16px)',
                     cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    textAlign: 'center',
+                    display: 'flex', flexDirection: 'column',
+                    justifyContent: 'center', alignItems: 'center', textAlign: 'center',
                 }}>
                     <div style={{
-                        fontFamily: fonts.mono,
-                        fontSize: fs(2.2),
-                        fontWeight: 700,
-                        color: healthCol,
-                        lineHeight: 1,
-                        textShadow: theme.effects?.glow ? '0 0 8px ' + healthCol : 'none',
+                        fontFamily: fonts.mono, fontSize: fs(2.0), fontWeight: 700,
+                        color: primary.color, lineHeight: 1,
+                        textShadow: theme.effects?.glow ? '0 0 8px ' + primary.color : 'none',
                     }} className="wr-data-value">
-                        {health}
+                        {primary.value}
                     </div>
                     <div style={{
-                        fontSize: fs(0.85),
-                        color: colors.textMuted,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.1em',
-                        marginTop: '4px',
-                        fontFamily: fonts.ui,
-                    }}>HEALTH</div>
+                        fontSize: fs(0.85), color: colors.textMuted,
+                        textTransform: 'uppercase', letterSpacing: '0.1em',
+                        marginTop: '4px', fontFamily: fonts.ui,
+                    }}>{primary.label}</div>
                     <div style={{
-                        marginTop: '6px',
-                        fontSize: fs(0.72),
-                        fontWeight: 700,
+                        marginTop: '6px', fontSize: fs(0.72), fontWeight: 700,
                         padding: '2px 8px',
                         borderRadius: theme.card?.radius === '0px' ? '0' : '10px',
-                        background: tierCol + '18',
-                        color: tierCol,
+                        background: tierCol + '18', color: tierCol,
                         border: '1px solid ' + tierCol + '44',
                         fontFamily: fonts.ui,
                     }}>{tier}</div>
@@ -126,30 +141,20 @@
             );
         }
 
-        // ── MD (2×1): Health + sparkline + rank + window ─────────
+        // ── MD (2×1) ─────────────────────────────────────────────
         if (size === 'md') {
             return (
                 <div onClick={onClick} style={{
-                    ...cardStyle,
-                    padding: 'var(--card-pad, 14px 16px)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    gap: '12px',
-                    alignItems: 'center',
+                    ...cardStyle, padding: 'var(--card-pad, 14px 16px)', cursor: 'pointer',
+                    display: 'flex', gap: '12px', alignItems: 'center',
                 }}>
-                    {/* Left: health hero */}
                     <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 60 }}>
                         <div style={{
-                            fontFamily: fonts.mono,
-                            fontSize: fs(2.0),
-                            fontWeight: 700,
-                            color: healthCol,
-                            lineHeight: 1,
-                        }} className="wr-data-value">{health}</div>
-                        <div style={{ fontSize: fs(0.64), color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px', fontFamily: fonts.ui }}>HEALTH</div>
+                            fontFamily: fonts.mono, fontSize: fs(2.0), fontWeight: 700,
+                            color: primary.color, lineHeight: 1,
+                        }} className="wr-data-value">{primary.value}</div>
+                        <div style={{ fontSize: fs(0.64), color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px', fontFamily: fonts.ui }}>{primary.label}</div>
                     </div>
-
-                    {/* Center: sparkline (all teams' health, yours highlighted) */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <MiniBarChart data={healthSparkData} highlight={health} colors={colors} fonts={fonts} fs={fs} height={42} />
                         <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
@@ -162,161 +167,146 @@
             );
         }
 
-        // ── LG / TALL (2×2+): Vital signs grid with league context ──
+        // ── LG / TALL / XXL: vital-signs + position health ───────
         if (size === 'lg' || size === 'tall' || size === 'xxl') {
-            // Compute league ranks for each vital
-            const leagueTotal = (currentLeague?.rosters || []).length || 1;
             const healthRank = [...allAssess].sort((a, b) => (b.healthScore || 0) - (a.healthScore || 0)).findIndex(a => a.rosterId === myRoster?.roster_id) + 1;
+            const totalTeams = allAssess.length || 1;
+            const percentile = totalTeams > 1 ? Math.round((1 - (healthRank - 1) / totalTeams) * 100) : 0;
+            const healthCol = health >= 80 ? colors.positive : health >= 60 ? colors.accent : health >= 40 ? colors.warn : colors.negative;
 
-            const vitals = [
-                { label: 'HEALTH', value: healthKv.value, color: healthKv.color || healthCol, sub: tier, rank: healthRank || '—' },
-                { label: 'ELITES', value: eliteKv.value, color: eliteKv.color || colors.positive, sub: '', rank: '' },
-                { label: 'CONTENDER', value: contenderKv.value, color: contenderKv.color || colors.accent, sub: contenderKv.sub || '', rank: '' },
-                { label: 'DYNASTY', value: dynastyKv.value, color: dynastyKv.color || colors.accent, sub: dynastyKv.sub || '', rank: '' },
-                { label: 'WINDOW', value: windowKv.value, color: windowKv.color || colors.warn, sub: '', rank: '' },
-                { label: 'AGING CLIFF', value: cliffKv.value, color: cliffKv.color || colors.negative, sub: '', rank: '' },
+            // Compact 4-vital grid for lg (no scroll); 6 for tall/xxl
+            const vitals4 = [
+                { label: 'HEALTH', value: healthKv.value, color: healthKv.color || healthCol, sub: tier + ' · #' + (healthRank || '—') },
+                { label: 'ELITES', value: eliteKv.value, color: eliteKv.color || colors.positive, sub: 'top-tier' },
+                { label: 'CONTEND.', value: contenderKv.value, color: contenderKv.color || colors.accent, sub: contenderKv.sub || 'this season' },
+                { label: 'WINDOW', value: windowKv.value, color: windowKv.color || colors.warn, sub: window_ },
             ];
-
-            // Position-level breakdown: starters owned vs ideal by position
-            const posBreakdown = React.useMemo(() => {
-                const scores = window.App?.LI?.playerScores || {};
-                const posAssess = assess?.posAssessment || {};
-                const idealRoster = window.App?.LI?.idealRoster || window.App?.PlayerValue?.IDEAL_ROSTER || { QB: 3, RB: 7, WR: 7, TE: 4, K: 2, DL: 7, LB: 6, DB: 6 };
-                const posOrder = ['QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'];
-                return posOrder.map(pos => {
-                    const pa = posAssess[pos];
-                    const status = pa?.status || 'ok';
-                    const count = pa?.count || 0;
-                    const ideal = idealRoster[pos] || 3;
-                    const topDHQ = pa?.topDHQ || 0;
-                    return { pos, count, ideal, status, topDHQ };
-                }).filter(p => p.ideal > 0);
-            }, [assess]);
+            const vitals6 = [
+                ...vitals4,
+                { label: 'DYNASTY', value: dynastyKv.value, color: dynastyKv.color || colors.accent, sub: dynastyKv.sub || '' },
+                { label: 'CLIFF', value: cliffKv.value, color: cliffKv.color || colors.negative, sub: 'aging' },
+            ];
+            const vitals = (size === 'lg') ? vitals4 : vitals6;
+            const vitalCols = (size === 'lg') ? 4 : 3;
 
             return (
-                <div style={{ ...cardStyle, padding: 'var(--card-pad, 14px 16px)', display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+                <div style={{ ...cardStyle, padding: 'var(--card-pad, 14px 16px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     {/* Header */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexShrink: 0 }}>
                         <span style={{ fontSize: '1.1rem' }}>💊</span>
                         <span style={{ fontFamily: fonts.display, fontSize: fs(1.0), fontWeight: 700, color: colors.accent, letterSpacing: '0.07em', textTransform: 'uppercase', flex: 1 }}>Roster Pulse</span>
-                        <Badge label={tier} color={tierCol} theme={theme} />
+                        <Badge label={tier + ' · #' + (healthRank || '—')} color={tierCol} theme={theme} />
                     </div>
 
-                    {/* Vital signs grid — now with league rank context */}
+                    {/* Vital signs grid */}
                     <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(3, 1fr)',
-                        gap: '8px',
-                        marginBottom: '12px',
+                        display: 'grid', gridTemplateColumns: 'repeat(' + vitalCols + ', 1fr)', gap: '6px',
+                        marginBottom: '10px', flexShrink: 0,
                     }}>
                         {vitals.map((v, i) => (
                             <div key={i} style={{
                                 background: 'rgba(255,255,255,0.02)',
                                 border: '1px solid ' + (colors.border || 'rgba(255,255,255,0.06)'),
                                 borderRadius: theme.card?.radius === '0px' ? '0' : '6px',
-                                padding: '8px 6px',
-                                textAlign: 'center',
+                                padding: '6px 4px', textAlign: 'center',
                             }}>
                                 <div style={{
-                                    fontFamily: fonts.mono,
-                                    fontSize: fs(1.1),
-                                    fontWeight: 700,
-                                    color: v.color,
-                                    lineHeight: 1.1,
+                                    fontFamily: fonts.mono, fontSize: fs(1.1), fontWeight: 700,
+                                    color: v.color, lineHeight: 1.05,
                                 }} className="wr-data-value">{v.value}</div>
                                 <div style={{
-                                    fontSize: fs(0.72),
-                                    color: colors.textMuted,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.06em',
-                                    marginTop: '3px',
-                                    fontFamily: fonts.ui,
+                                    fontSize: fs(0.6), color: colors.textMuted,
+                                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                                    marginTop: '3px', fontFamily: fonts.ui,
                                 }}>{v.label}</div>
-                                {v.sub && <div style={{ fontSize: fs(0.64), color: colors.textFaint, marginTop: '1px', fontFamily: fonts.ui }}>{v.sub}</div>}
+                                {v.sub && <div style={{ fontSize: fs(0.56), color: colors.textFaint, marginTop: '1px', fontFamily: fonts.ui, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.sub}</div>}
                             </div>
                         ))}
                     </div>
 
-                    {/* Position breakdown — starters vs ideal with colored bars */}
-                    <div style={{ marginBottom: '10px' }}>
-                        <div style={{ fontSize: fs(0.64), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', fontFamily: fonts.ui }}>Position Health</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
-                            {posBreakdown.map((p, i) => {
-                                const pct = Math.min(100, (p.count / Math.max(p.ideal, 1)) * 100);
-                                const barCol = p.status === 'surplus' ? colors.positive : p.status === 'deficit' ? colors.negative : p.status === 'thin' ? colors.warn : 'rgba(255,255,255,0.25)';
-                                return (
-                                    <div key={i} style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: fs(0.64), fontWeight: 700, color: barCol, fontFamily: fonts.ui }}>{p.pos}</div>
-                                        <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', margin: '2px 0' }}>
-                                            <div style={{ width: pct + '%', height: '100%', background: barCol, transition: '0.3s' }} />
-                                        </div>
-                                        <div style={{ fontSize: fs(0.58), color: colors.textFaint, fontFamily: fonts.mono }}>{p.count}/{p.ideal}</div>
+                    {/* Position health — letter grades */}
+                    <div style={{ marginBottom: '8px', flexShrink: 0 }}>
+                        <div style={{ fontSize: fs(0.6), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Position Health</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '4px' }}>
+                            {posBreakdown.map((p, i) => (
+                                <div key={i} style={{
+                                    background: 'rgba(255,255,255,0.02)',
+                                    border: '1px solid ' + p.col + '33',
+                                    borderRadius: '4px',
+                                    padding: '4px 2px', textAlign: 'center',
+                                }}>
+                                    <div style={{ fontSize: fs(0.58), fontWeight: 700, color: colors.textMuted, fontFamily: fonts.ui, lineHeight: 1 }}>{p.pos}</div>
+                                    <div style={{ fontFamily: fonts.mono, fontSize: fs(1.05), fontWeight: 800, color: p.col, lineHeight: 1, margin: '2px 0' }}>{p.grade}</div>
+                                    <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                                        <div style={{ width: p.pct + '%', height: '100%', background: p.col, transition: '0.3s' }} />
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Needs + Strengths side by side */}
-                    <div style={{ display: 'flex', gap: '12px', marginBottom: '8px' }}>
-                        {needs.length > 0 && (
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: fs(0.64), fontWeight: 700, color: colors.negative, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Needs</div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
-                                    {needs.slice(0, 4).map((n, i) => {
-                                        const pos = typeof n === 'string' ? n : n?.pos;
-                                        const urgency = typeof n === 'object' ? n?.urgency : null;
-                                        const col = urgency === 'deficit' ? colors.negative : colors.warn;
-                                        return <Badge key={i} label={pos + (urgency === 'deficit' ? '!' : '')} color={col} theme={theme} />;
-                                    })}
+                                    <div style={{ fontSize: fs(0.54), color: colors.textFaint, marginTop: '1px', fontFamily: fonts.mono }}>{p.count}/{p.ideal}</div>
                                 </div>
-                            </div>
-                        )}
-                        {strengths.length > 0 && (
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: fs(0.64), fontWeight: 700, color: colors.positive, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Strengths</div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
-                                    {strengths.slice(0, 4).map((s, i) => {
-                                        const pos = typeof s === 'string' ? s : s?.pos;
-                                        return <Badge key={i} label={pos || '—'} color={colors.positive} theme={theme} />;
-                                    })}
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* LG STOPS HERE (fits in 320px) */}
+
+                    {/* TALL extras: percentile + needs/strengths + recommendation */}
+                    {size === 'tall' && (
+                        <React.Fragment>
+                            {/* Percentile + sparkline */}
+                            <div style={{ marginBottom: '8px', flexShrink: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: fs(0.6), color: colors.textMuted, fontFamily: fonts.ui, marginBottom: '2px' }}>
+                                    <span style={{ fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em' }}>League Health</span>
+                                    <span>You: {percentile}th percentile · #{healthRank || '—'} of {totalTeams}</span>
                                 </div>
+                                <MiniBarChart data={healthSparkData} highlight={health} colors={colors} fonts={fonts} fs={fs} height={36} />
                             </div>
-                        )}
-                    </div>
-
-                    {/* Mini health sparkline */}
-                    <div style={{ flex: 1, minHeight: 36 }}>
-                        <MiniBarChart data={healthSparkData} highlight={health} colors={colors} fonts={fonts} fs={fs} height={32} />
-                        <div style={{ fontSize: fs(0.64), color: colors.textFaint, marginTop: '2px', fontFamily: fonts.ui }}>
-                            League health distribution · you: {health}{healthRank ? ' (#' + healthRank + ')' : ''}
-                        </div>
-                    </div>
-
-                    {/* Tall/XXL extras: actionable recommendation based on actual team state */}
-                    {(size === 'tall' || size === 'xxl') && (
-                        <div style={{
-                            marginTop: '10px',
-                            padding: '10px 12px',
-                            background: 'rgba(255,255,255,0.02)',
-                            border: '1px solid ' + (colors.border || 'rgba(255,255,255,0.06)'),
-                            borderRadius: theme.card?.radius === '0px' ? '0' : '6px',
-                        }}>
-                            <div style={{ fontSize: fs(0.64), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px', fontFamily: fonts.ui }}>Action Plan</div>
-                            <div style={{ fontSize: fs(0.78), color: colors.textMuted, lineHeight: 1.5, fontFamily: fonts.ui }}>
-                                {(() => {
-                                    const topNeed = needs[0];
-                                    const topNeedPos = topNeed ? (typeof topNeed === 'string' ? topNeed : topNeed?.pos) : null;
-                                    const topNeedUrgency = typeof topNeed === 'object' ? topNeed?.urgency : null;
-                                    const topStrength = strengths[0];
-                                    const topStrPos = topStrength ? (typeof topStrength === 'string' ? topStrength : topStrength?.pos) : null;
-                                    if (tier === 'ELITE') return 'Protect your core. ' + (topNeedPos ? 'Surgical upgrade at ' + topNeedPos + ' would lock in your window.' : 'No critical needs — stay disciplined.');
-                                    if (tier === 'CONTENDER') return (topNeedPos && topNeedUrgency === 'deficit' ? topNeedPos + ' is your biggest hole — fill it now or risk a first-round exit.' : 'Close to elite. ') + (topStrPos ? ' Your ' + topStrPos + ' depth gives you trade leverage.' : '');
-                                    if (tier === 'CROSSROADS') return 'Decision time. ' + (topNeedPos ? 'You need ' + topNeedPos + ' help badly. ' : '') + (topStrPos ? 'Sell ' + topStrPos + ' surplus for picks if you\'re rebuilding, or buy a ' + (topNeedPos || 'starter') + ' if you\'re pushing.' : 'Commit one direction or the other.');
-                                    return 'Rebuild mode. Accumulate picks and youth. ' + (topStrPos ? 'Shop your ' + topStrPos + ' depth for draft capital.' : 'Patience pays.');
-                                })()}
+                            {/* Needs + Strengths */}
+                            <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', flexShrink: 0 }}>
+                                {needs.length > 0 && (
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: fs(0.6), fontWeight: 700, color: colors.negative, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Needs</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+                                            {needs.slice(0, 4).map((n, i) => {
+                                                const pos = typeof n === 'string' ? n : n?.pos;
+                                                const urgency = typeof n === 'object' ? n?.urgency : null;
+                                                const col = urgency === 'deficit' ? colors.negative : colors.warn;
+                                                return <Badge key={i} label={pos + (urgency === 'deficit' ? '!' : '')} color={col} theme={theme} />;
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                                {strengths.length > 0 && (
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: fs(0.6), fontWeight: 700, color: colors.positive, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Strengths</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+                                            {strengths.slice(0, 4).map((s, i) => {
+                                                const pos = typeof s === 'string' ? s : s?.pos;
+                                                return <Badge key={i} label={pos || '—'} color={colors.positive} theme={theme} />;
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        </div>
+                            {/* Top players — fills the empty bottom space */}
+                            <TopPlayers
+                                myRoster={myRoster} playersData={playersData}
+                                colors={colors} fonts={fonts} fs={fs} theme={theme}
+                                limit={5}
+                            />
+                            {/* Action plan */}
+                            <ActionPlan tier={tier} needs={needs} strengths={strengths} colors={colors} fonts={fonts} fs={fs} theme={theme} />
+                        </React.Fragment>
+                    )}
+
+                    {/* XXL extras: mini-roster (top player per position) */}
+                    {size === 'xxl' && (
+                        <MiniRoster
+                            myRoster={myRoster} playersData={playersData}
+                            posOrder={posOrder} colors={colors} fonts={fonts} fs={fs} theme={theme}
+                            healthSparkData={healthSparkData} health={health}
+                            percentile={percentile} healthRank={healthRank} totalTeams={totalTeams}
+                            tier={tier} needs={needs} strengths={strengths}
+                            setActiveTab={setActiveTab}
+                        />
                     )}
                 </div>
             );
@@ -325,8 +315,165 @@
         return null;
     }
 
-    // ── Shared sub-components ─────────────────────────────────────
+    // ── Action plan recommendation ──────────────────────────────
+    function ActionPlan({ tier, needs, strengths, colors, fonts, fs, theme }) {
+        const topNeed = needs[0];
+        const topNeedPos = topNeed ? (typeof topNeed === 'string' ? topNeed : topNeed?.pos) : null;
+        const topNeedUrgency = typeof topNeed === 'object' ? topNeed?.urgency : null;
+        const topStrength = strengths[0];
+        const topStrPos = topStrength ? (typeof topStrength === 'string' ? topStrength : topStrength?.pos) : null;
 
+        let msg;
+        if (tier === 'ELITE') msg = 'Protect your core. ' + (topNeedPos ? 'Surgical upgrade at ' + topNeedPos + ' would lock in your window.' : 'No critical needs — stay disciplined.');
+        else if (tier === 'CONTENDER') msg = (topNeedPos && topNeedUrgency === 'deficit' ? topNeedPos + ' is your biggest hole — fill it now or risk a first-round exit.' : 'Close to elite. ') + (topStrPos ? ' Your ' + topStrPos + ' depth gives you trade leverage.' : '');
+        else if (tier === 'CROSSROADS') msg = 'Decision time. ' + (topNeedPos ? 'You need ' + topNeedPos + ' help badly. ' : '') + (topStrPos ? 'Sell ' + topStrPos + ' surplus for picks if you\'re rebuilding, or buy a ' + (topNeedPos || 'starter') + ' if you\'re pushing.' : 'Commit one direction or the other.');
+        else msg = 'Rebuild mode. Accumulate picks and youth. ' + (topStrPos ? 'Shop your ' + topStrPos + ' depth for draft capital.' : 'Patience pays.');
+
+        return (
+            <div style={{
+                marginTop: 'auto',
+                padding: '10px 12px',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid ' + (colors.border || 'rgba(255,255,255,0.06)'),
+                borderRadius: theme.card?.radius === '0px' ? '0' : '6px',
+                flexShrink: 0,
+            }}>
+                <div style={{ fontSize: fs(0.6), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Action Plan</div>
+                <div style={{ fontSize: fs(0.74), color: colors.textMuted, lineHeight: 1.5, fontFamily: fonts.ui }}>{msg}</div>
+            </div>
+        );
+    }
+
+    // ── Top players strip (tall) ────────────────────────────────
+    function TopPlayers({ myRoster, playersData, colors, fonts, fs, theme, limit }) {
+        const scores = window.App?.LI?.playerScores || {};
+        const normPos = window.App?.normPos || (p => p);
+        const players = (myRoster?.players || []).map(pid => {
+            const p = playersData?.[pid] || {};
+            return {
+                pid, name: p.full_name || pid,
+                pos: normPos(p.position) || '?',
+                age: p.age || (p.birth_date ? Math.floor((Date.now() - new Date(p.birth_date).getTime()) / 31557600000) : null),
+                dhq: scores[pid] || 0,
+            };
+        }).sort((a, b) => b.dhq - a.dhq).slice(0, limit || 5);
+
+        if (!players.length) return null;
+        const max = players[0]?.dhq || 1;
+
+        return (
+            <div style={{ marginBottom: '8px', flexShrink: 0 }}>
+                <div style={{ fontSize: fs(0.6), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px', fontFamily: fonts.ui }}>Top Players</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    {players.map((p, i) => {
+                        const pct = (p.dhq / max) * 100;
+                        const col = p.dhq >= 5000 ? colors.positive : p.dhq >= 2000 ? colors.accent : colors.textMuted;
+                        return (
+                            <div key={p.pid} onClick={() => { if (typeof window.openPlayerModal === 'function' && p.pid) window.openPlayerModal(p.pid); }} style={{
+                                display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
+                                padding: '2px 0',
+                            }}>
+                                <span style={{ fontSize: fs(0.6), fontWeight: 700, color: colors.textFaint, width: 12, fontFamily: fonts.mono }}>{i + 1}</span>
+                                <span style={{ fontSize: fs(0.58), fontWeight: 700, color: colors.textMuted, width: 22, fontFamily: fonts.ui }}>{p.pos}</span>
+                                <span style={{ flex: 1, minWidth: 0, fontSize: fs(0.66), fontWeight: 600, color: colors.text, fontFamily: fonts.ui, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+                                {p.age && <span style={{ fontSize: fs(0.54), color: colors.textFaint, fontFamily: fonts.mono, minWidth: 16, textAlign: 'right' }}>{p.age}</span>}
+                                <div style={{ width: 60, height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
+                                    <div style={{ width: pct + '%', height: '100%', background: col }} />
+                                </div>
+                                <span style={{ fontSize: fs(0.6), fontWeight: 700, color: col, fontFamily: fonts.mono, minWidth: 32, textAlign: 'right' }}>{p.dhq >= 1000 ? (p.dhq / 1000).toFixed(1) + 'k' : p.dhq}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
+    // ── Mini roster panel (xxl) ─────────────────────────────────
+    function MiniRoster({ myRoster, playersData, posOrder, colors, fonts, fs, theme, healthSparkData, health, percentile, healthRank, totalTeams, tier, needs, strengths, setActiveTab }) {
+        const scores = window.App?.LI?.playerScores || {};
+        const normPos = window.App?.normPos || (p => p);
+
+        const posGroups = React.useMemo(() => {
+            const groups = {};
+            posOrder.forEach(p => groups[p] = []);
+            (myRoster?.players || []).forEach(pid => {
+                const p = playersData?.[pid] || {};
+                const pos = normPos(p.position);
+                if (!groups[pos]) return;
+                groups[pos].push({
+                    pid,
+                    name: p.full_name || pid,
+                    age: p.age || (p.birth_date ? Math.floor((Date.now() - new Date(p.birth_date).getTime()) / 31557600000) : null),
+                    dhq: scores[pid] || 0,
+                    team: p.team || 'FA',
+                });
+            });
+            posOrder.forEach(p => groups[p].sort((a, b) => b.dhq - a.dhq));
+            return groups;
+        }, [myRoster, playersData]);
+
+        const onPlayerClick = (pid) => {
+            if (typeof window.openPlayerModal === 'function' && pid) window.openPlayerModal(pid);
+        };
+
+        return (
+            <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', overflow: 'hidden' }}>
+                {posOrder.map(pos => {
+                    const players = posGroups[pos] || [];
+                    if (!players.length) return (
+                        <div key={pos} style={{
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px solid ' + (colors.border || 'rgba(255,255,255,0.06)'),
+                            borderRadius: '4px', padding: '6px 8px',
+                            opacity: 0.4,
+                        }}>
+                            <div style={{ fontSize: fs(0.62), fontWeight: 700, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: fonts.ui }}>{pos}</div>
+                            <div style={{ fontSize: fs(0.6), color: colors.textFaint, marginTop: '4px', fontStyle: 'italic', fontFamily: fonts.ui }}>None</div>
+                        </div>
+                    );
+                    const top = players.slice(0, 3);
+                    return (
+                        <div key={pos} style={{
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px solid ' + (colors.border || 'rgba(255,255,255,0.06)'),
+                            borderRadius: '4px', padding: '6px 8px',
+                            display: 'flex', flexDirection: 'column', gap: '3px', minHeight: 0,
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: fs(0.62), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: fonts.ui }}>{pos}</span>
+                                <span style={{ fontSize: fs(0.54), color: colors.textFaint, fontFamily: fonts.ui }}>{players.length}</span>
+                            </div>
+                            {top.map((pl, i) => (
+                                <div key={pl.pid} onClick={() => onPlayerClick(pl.pid)} style={{
+                                    display: 'flex', alignItems: 'center', gap: '4px',
+                                    cursor: 'pointer', padding: '1px 0',
+                                    borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                                    paddingTop: i > 0 ? '3px' : '0',
+                                }}>
+                                    <span style={{
+                                        flex: 1, minWidth: 0,
+                                        fontSize: fs(0.62), fontWeight: i === 0 ? 700 : 500,
+                                        color: i === 0 ? colors.text : colors.textMuted,
+                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                        fontFamily: fonts.ui,
+                                    }}>{pl.name}</span>
+                                    {pl.age && <span style={{ fontSize: fs(0.5), color: colors.textFaint, fontFamily: fonts.mono }}>{pl.age}</span>}
+                                    <span style={{
+                                        fontSize: fs(0.54), fontWeight: 700,
+                                        color: pl.dhq >= 5000 ? colors.positive : pl.dhq >= 2000 ? colors.accent : colors.textMuted,
+                                        fontFamily: fonts.mono, minWidth: 24, textAlign: 'right',
+                                    }}>{pl.dhq >= 1000 ? (pl.dhq / 1000).toFixed(1) + 'k' : pl.dhq}</span>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    // ── Shared sub-components ─────────────────────────────────────
     function MiniBarChart({ data, highlight, colors, fonts, fs, height = 40 }) {
         if (!data || !data.length) return null;
         const max = Math.max(...data, 1);
@@ -359,7 +506,7 @@
         const t = theme || {};
         return (
             <span style={{
-                fontSize: window.WrTheme?.fontSize?.(0.72) || '0.72rem',
+                fontSize: window.WrTheme?.fontSize?.(0.7) || '0.7rem',
                 fontWeight: 700,
                 padding: '2px 6px',
                 borderRadius: t.card?.radius === '0px' ? '0' : '10px',

@@ -46,7 +46,7 @@ const WIDGET_MODULES = {
         description: 'Trade opportunities, waiver targets, FAAB',
         accent: () => T().color?.('purple') || '#7C6BF8',
         metrics: [],
-        sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
+        sizes: ['sm', 'md', 'lg', 'xl', 'xxl'],
         clickTarget: { sm: 'trades', md: 'trades' },
     },
     'draft-capital': {
@@ -64,7 +64,7 @@ const WIDGET_MODULES = {
         description: 'Intel logged from War Room Scout sessions',
         accent: () => T().color?.('info') || '#00c8b4',
         metrics: [],
-        sizes: ['slim', 'narrow', 'md', 'lg', 'tall'],
+        sizes: ['slim', 'narrow', 'lg', 'tall'],
         clickTarget: {},
     },
     // Phase 3: League intelligence surfaced to Home (ex-League Map widgets)
@@ -93,7 +93,7 @@ const WIDGET_MODULES = {
         description: 'Players you\'ve tagged to shop in trades',
         accent: () => T().color?.('warn') || '#F0A500',
         metrics: [],
-        sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
+        sizes: ['sm', 'md', 'lg', 'tall'],
         clickTarget: { sm: 'myteam', md: 'myteam' },
     },
     'cut-candidates': {
@@ -102,7 +102,7 @@ const WIDGET_MODULES = {
         description: 'Players flagged as drop candidates',
         accent: () => T().color?.('negative') || '#E74C3C',
         metrics: [],
-        sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
+        sizes: ['sm', 'md', 'lg', 'tall'],
         clickTarget: { sm: 'myteam', md: 'myteam' },
     },
     'waiver-targets': {
@@ -111,7 +111,7 @@ const WIDGET_MODULES = {
         description: 'Players you\'re watching for pickup',
         accent: () => T().color?.('info') || '#3498DB',
         metrics: [],
-        sizes: ['sm', 'md', 'lg', 'tall', 'xxl'],
+        sizes: ['sm', 'md', 'lg', 'tall'],
         clickTarget: { sm: 'waiver', md: 'waiver' },
     },
     // Phase 9: My Trophies widget — surfaces user's championship count + HOF inductees
@@ -387,7 +387,6 @@ function DashboardPanel({
     const [pickerOpen, setPickerOpen] = React.useState(false);
     const [editingWidget, setEditingWidget] = React.useState(null); // { widgetId, widget }
     const [dragIdx, setDragIdx] = React.useState(null);
-    const [drillDown, setDrillDown] = React.useState(null); // { module, widget } or null
     const [starredWidgets, setStarredWidgets] = React.useState(() => window.WrStarWidget?.getAll() || []);
 
     React.useEffect(() => {
@@ -889,16 +888,9 @@ function DashboardPanel({
         // ── Delegate to module-specific external widgets if available ──
         const externalWidget = resolveExternalWidget(key, size, primaryMetric);
         if (externalWidget !== null) {
-            // lg+ sizes: wrap with click → drill-down. sm/md: click → tab nav (handled inside widget).
-            const isLargeSize = size === 'slim' || size === 'narrow' || size === 'lg' || size === 'tall' || size === 'xl' || size === 'xxl';
-            const openDrillDown = isLargeSize ? () => setDrillDown({ module: key, widget }) : null;
             return (
                 <WidgetShell key={widget.id || key + idx} widget={widget} idx={idx}>
-                    {isLargeSize ? (
-                        <div onClick={openDrillDown} style={{ cursor: 'pointer', height: '100%' }} title="Click to expand">
-                            {externalWidget}
-                        </div>
-                    ) : externalWidget}
+                    {externalWidget}
                 </WidgetShell>
             );
         }
@@ -954,7 +946,7 @@ function DashboardPanel({
         if (moduleKey === 'roster-pulse' && typeof window.RosterPulseWidget === 'function') {
             const RPW = window.RosterPulseWidget;
             return React.createElement(RPW, {
-                size, myRoster, rankedTeams, sleeperUserId, currentLeague,
+                size, primaryMetric, myRoster, rankedTeams, sleeperUserId, currentLeague,
                 playersData, computeKpiValue, setActiveTab,
             });
         }
@@ -984,7 +976,7 @@ function DashboardPanel({
         }
         // Phase 3: Competitive Tiers widget (js/widgets/competitive-tiers.js)
         if (moduleKey === 'competitive-tiers' && typeof window.CompetitiveTiersWidget === 'function') {
-            return React.createElement(window.CompetitiveTiersWidget, { size, sleeperUserId, setActiveTab });
+            return React.createElement(window.CompetitiveTiersWidget, { size, sleeperUserId, currentLeague, playersData, setActiveTab });
         }
         // Phase 3: Power Rankings widget (js/widgets/power-rankings.js)
         if (moduleKey === 'power-rankings' && typeof window.PowerRankingsWidget === 'function') {
@@ -1002,7 +994,7 @@ function DashboardPanel({
         }
         // Phase 9: My Trophies widget
         if (moduleKey === 'my-trophies' && typeof window.MyTrophiesWidget === 'function') {
-            return React.createElement(window.MyTrophiesWidget, { size, myRoster, setActiveTab });
+            return React.createElement(window.MyTrophiesWidget, { size, myRoster, currentLeague, setActiveTab });
         }
         // No external widget — fall through to generic renderers
         return null;
@@ -1155,247 +1147,6 @@ function DashboardPanel({
                 />
             )}
 
-            {/* Drill-down panel — slides in from right on lg+ widget click */}
-            {drillDown && (
-                <DrillDownPanel
-                    module={drillDown.module}
-                    widget={drillDown.widget}
-                    onClose={() => setDrillDown(null)}
-                    theme={theme}
-                    myRoster={myRoster}
-                    rankedTeams={rankedTeams}
-                    sleeperUserId={sleeperUserId}
-                    currentLeague={currentLeague}
-                    playersData={playersData}
-                    standings={standings}
-                    transactions={transactions}
-                    computeKpiValue={computeKpiValue}
-                    setActiveTab={setActiveTab}
-                    getOwnerName={getOwnerName}
-                    getPlayerName={getPlayerName}
-                    timeAgo={timeAgo}
-                    briefDraftInfo={briefDraftInfo}
-                />
-            )}
         </React.Fragment>
-    );
-}
-
-// ══════════════════════════════════════════════════════════════════
-// DrillDownPanel — slide-in detail panel for lg+ widget clicks
-// ══════════════════════════════════════════════════════════════════
-function DrillDownPanel({ module, widget, onClose, theme, myRoster, rankedTeams, sleeperUserId, currentLeague, playersData, standings, transactions, computeKpiValue, setActiveTab, getOwnerName, getPlayerName, timeAgo, briefDraftInfo }) {
-    const colors = theme?.colors || {};
-    const fonts = theme?.fonts || {};
-    const fs = (rem) => window.WrTheme?.fontSize?.(rem) || (rem + 'rem');
-
-    // Module-specific content
-    const content = React.useMemo(() => {
-        if (module === 'roster-pulse') return RosterPulseDrillDown({ myRoster, currentLeague, playersData, computeKpiValue, colors, fonts, fs });
-        if (module === 'league-landscape') return LeagueLandscapeDrillDown({ standings, transactions, currentLeague, sleeperUserId, getOwnerName, getPlayerName, timeAgo, colors, fonts, fs });
-        if (module === 'market-radar') return MarketRadarDrillDown({ myRoster, currentLeague, playersData, colors, fonts, fs });
-        if (module === 'draft-capital') return DraftCapitalDrillDown({ myRoster, currentLeague, briefDraftInfo, colors, fonts, fs });
-        return React.createElement('div', { style: { padding: 20, color: colors.textMuted } }, 'No drill-down available for this module.');
-    }, [module]);
-
-    const mod = WIDGET_MODULES[module] || {};
-    const accentColor = typeof mod.accent === 'function' ? mod.accent() : (mod.accent || colors.accent);
-
-    return (
-        <React.Fragment>
-            {/* Backdrop */}
-            <div onClick={onClose} style={{
-                position: 'fixed', inset: 0, zIndex: 900,
-                background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-                animation: 'wrFadeIn 0.2s ease',
-            }} />
-            {/* Panel */}
-            <div style={{
-                position: 'fixed', top: 0, right: 0, bottom: 0,
-                width: 'min(600px, 55vw)',
-                background: colors.card || '#0A0A0A',
-                borderLeft: '2px solid ' + (accentColor || colors.accent),
-                boxShadow: '-12px 0 40px rgba(0,0,0,0.6)',
-                zIndex: 901,
-                display: 'flex', flexDirection: 'column',
-                animation: 'wrFadeIn 0.2s ease',
-                fontFamily: fonts.ui || 'DM Sans, sans-serif',
-            }}>
-                {/* Header */}
-                <div style={{
-                    padding: '16px 20px',
-                    borderBottom: '1px solid ' + (colors.border || 'rgba(255,255,255,0.08)'),
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    flexShrink: 0,
-                }}>
-                    <span style={{ fontSize: '1.2rem' }}>{mod.icon || '📊'}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{
-                            fontFamily: fonts.display || 'Rajdhani, sans-serif',
-                            fontSize: fs(1.1), fontWeight: 700,
-                            color: accentColor,
-                            letterSpacing: '0.06em', textTransform: 'uppercase',
-                        }}>{mod.label || 'Detail'}</div>
-                        <div style={{ fontSize: fs(0.62), color: colors.textMuted, opacity: 0.7 }}>
-                            Drill-down view
-                        </div>
-                    </div>
-                    <button onClick={onClose} style={{
-                        width: 32, height: 32,
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: theme.card?.radius === '0px' ? '0' : '6px',
-                        color: colors.textMuted, fontSize: '1rem',
-                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>×</button>
-                </div>
-                {/* Content */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
-                    {content}
-                </div>
-                {/* Footer: navigate to full tab */}
-                {mod.clickTarget?.sm && (
-                    <div style={{
-                        padding: '12px 20px',
-                        borderTop: '1px solid ' + (colors.border || 'rgba(255,255,255,0.08)'),
-                        flexShrink: 0,
-                    }}>
-                        <button onClick={() => { setActiveTab?.(mod.clickTarget.sm); onClose(); }} style={{
-                            width: '100%', padding: '10px',
-                            background: accentColor, color: '#000',
-                            border: 'none', borderRadius: theme.card?.radius || '6px',
-                            fontWeight: 700, fontSize: fs(0.72),
-                            cursor: 'pointer', letterSpacing: '0.04em', textTransform: 'uppercase',
-                            fontFamily: fonts.ui,
-                        }}>
-                            Open Full {mod.label} View →
-                        </button>
-                    </div>
-                )}
-            </div>
-        </React.Fragment>
-    );
-}
-
-// ── Module-specific drill-down renderers ──────────────────────────
-
-function RosterPulseDrillDown({ myRoster, currentLeague, playersData, computeKpiValue, colors, fonts, fs }) {
-    const scores = window.App?.LI?.playerScores || {};
-    const normPos = window.App?.normPos || (p => p);
-    const players = (myRoster?.players || []).map(pid => {
-        const p = playersData?.[pid] || {};
-        return { pid, name: p.full_name || pid, pos: normPos(p.position) || '?', dhq: scores[pid] || 0, age: p.age || (p.birth_date ? Math.floor((Date.now() - new Date(p.birth_date).getTime()) / 31557600000) : null), team: p.team || 'FA' };
-    }).sort((a, b) => b.dhq - a.dhq);
-
-    const posGroups = {};
-    players.forEach(p => { if (!posGroups[p.pos]) posGroups[p.pos] = []; posGroups[p.pos].push(p); });
-
-    return React.createElement('div', null,
-        React.createElement('div', { style: { fontSize: fs(0.56), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 } }, 'ROSTER BREAKDOWN'),
-        Object.entries(posGroups).sort((a, b) => { const o = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DL: 5, LB: 6, DB: 7 }; return (o[a[0]] ?? 9) - (o[b[0]] ?? 9); }).map(([pos, pls]) =>
-            React.createElement('div', { key: pos, style: { marginBottom: 14 } },
-                React.createElement('div', { style: { fontSize: fs(0.52), fontWeight: 700, color: window.App?.POS_COLORS?.[pos] || colors.textMuted, marginBottom: 4, fontFamily: fonts.ui } }, pos + ' (' + pls.length + ')'),
-                pls.map((p, i) =>
-                    React.createElement('div', { key: p.pid, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: fs(0.56) } },
-                        React.createElement('span', { style: { flex: 1, color: i === 0 ? colors.text : colors.textMuted, fontWeight: i === 0 ? 700 : 400, fontFamily: fonts.ui } }, p.name),
-                        p.age && React.createElement('span', { style: { fontSize: fs(0.44), color: colors.textFaint } }, p.age + 'yr'),
-                        React.createElement('span', { style: { fontSize: fs(0.48), fontWeight: 700, color: p.dhq >= 5000 ? colors.positive : p.dhq >= 2000 ? colors.accent : colors.textMuted, fontFamily: fonts.mono, minWidth: 40, textAlign: 'right' } }, p.dhq >= 1000 ? (p.dhq / 1000).toFixed(1) + 'k' : p.dhq),
-                    )
-                )
-            )
-        ),
-    );
-}
-
-function LeagueLandscapeDrillDown({ standings, transactions, currentLeague, sleeperUserId, getOwnerName, getPlayerName, timeAgo, colors, fonts, fs }) {
-    const allAssess = typeof window.assessAllTeamsFromGlobal === 'function' ? window.assessAllTeamsFromGlobal() || [] : [];
-    const ranked = [...allAssess].sort((a, b) => (b.healthScore || 0) - (a.healthScore || 0));
-
-    return React.createElement('div', null,
-        React.createElement('div', { style: { fontSize: fs(0.56), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 } }, 'FULL POWER RANKINGS'),
-        ranked.map((a, i) => {
-            const isMe = a.rosterId && (currentLeague?.rosters || []).find(r => r.roster_id === a.rosterId)?.owner_id === sleeperUserId;
-            const name = getOwnerName ? getOwnerName(a.rosterId) : ('Team ' + (i + 1));
-            const tc = a.tier === 'ELITE' ? colors.positive : a.tier === 'CONTENDER' ? colors.accent : a.tier === 'CROSSROADS' ? colors.warn : colors.negative;
-            return React.createElement('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', background: isMe ? 'rgba(212,175,55,0.04)' : 'transparent' } },
-                React.createElement('span', { style: { fontSize: fs(0.5), color: i < 3 ? colors.accent : colors.textMuted, fontWeight: 700, width: 18, textAlign: 'right', fontFamily: fonts.mono } }, i + 1),
-                React.createElement('span', { style: { flex: 1, fontSize: fs(0.58), fontWeight: isMe ? 700 : 400, color: isMe ? colors.accent : colors.text, fontFamily: fonts.ui } }, (isMe ? '★ ' : '') + (name || '').slice(0, 20)),
-                React.createElement('span', { style: { fontSize: fs(0.44), padding: '1px 5px', borderRadius: 3, background: tc + '18', color: tc, fontWeight: 700 } }, (a.tier || '—').slice(0, 5)),
-                React.createElement('span', { style: { fontSize: fs(0.5), fontWeight: 700, color: colors.textMuted, fontFamily: fonts.mono, minWidth: 24, textAlign: 'right' } }, a.healthScore || 0),
-            );
-        }),
-        transactions && transactions.length > 0 && React.createElement('div', { style: { marginTop: 20 } },
-            React.createElement('div', { style: { fontSize: fs(0.56), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 } }, 'RECENT TRANSACTIONS'),
-            transactions.slice(0, 10).map((tx, i) =>
-                React.createElement('div', { key: i, style: { padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.02)', fontSize: fs(0.52), color: colors.textMuted, fontFamily: fonts.ui } },
-                    (tx.description || tx.type || '—')
-                )
-            ),
-        ),
-    );
-}
-
-function MarketRadarDrillDown({ myRoster, currentLeague, playersData, colors, fonts, fs }) {
-    const scores = window.App?.LI?.playerScores || {};
-    const rostered = new Set();
-    (currentLeague?.rosters || []).forEach(r => (r.players || []).forEach(pid => rostered.add(pid)));
-    const waiverTargets = Object.entries(scores)
-        .filter(([pid]) => !rostered.has(pid) && scores[pid] > 1000)
-        .map(([pid, dhq]) => {
-            const p = playersData?.[pid] || {};
-            return { pid, name: p.full_name || pid, pos: (window.App?.normPos?.(p.position) || p.position || '?'), dhq, team: p.team || 'FA' };
-        })
-        .sort((a, b) => b.dhq - a.dhq)
-        .slice(0, 15);
-
-    return React.createElement('div', null,
-        React.createElement('div', { style: { fontSize: fs(0.56), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 } }, 'WAIVER WIRE — TOP 15'),
-        waiverTargets.map((p, i) =>
-            React.createElement('div', { key: p.pid, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: fs(0.56) } },
-                React.createElement('span', { style: { fontSize: fs(0.44), color: i < 3 ? colors.accent : colors.textMuted, fontWeight: 700, width: 16, textAlign: 'right', fontFamily: fonts.mono } }, i + 1),
-                React.createElement('span', { style: { flex: 1, color: colors.text, fontWeight: i < 3 ? 700 : 400, fontFamily: fonts.ui } }, p.name),
-                React.createElement('span', { style: { ...(window.WrTheme?.badgeStyle?.(window.App?.POS_COLORS?.[p.pos] || colors.info) || {}), fontSize: fs(0.4) } }, p.pos),
-                React.createElement('span', { style: { fontSize: fs(0.44), color: colors.textMuted, fontFamily: fonts.mono } }, p.team),
-                React.createElement('span', { style: { fontSize: fs(0.48), fontWeight: 700, color: p.dhq >= 5000 ? colors.positive : p.dhq >= 2000 ? colors.accent : colors.textMuted, fontFamily: fonts.mono, minWidth: 36, textAlign: 'right' } }, p.dhq >= 1000 ? (p.dhq / 1000).toFixed(1) + 'k' : p.dhq),
-            )
-        ),
-        waiverTargets.length === 0 && React.createElement('div', { style: { fontSize: fs(0.56), color: colors.textFaint, fontStyle: 'italic', padding: 20, textAlign: 'center' } }, 'Waiver wire is clean — all high-value players are rostered.'),
-    );
-}
-
-function DraftCapitalDrillDown({ myRoster, currentLeague, briefDraftInfo, colors, fonts, fs }) {
-    const tradedPicks = window.S?.tradedPicks || [];
-    const myRid = myRoster?.roster_id;
-    const season = String(currentLeague?.season || new Date().getFullYear());
-    const draftRounds = currentLeague?.settings?.draft_rounds || 5;
-    const totalTeams = currentLeague?.rosters?.length || 12;
-    const pvFn = window.App?.PlayerValue?.getPickValue;
-
-    // Full pick history: what we traded away and acquired
-    const tradeHistory = [];
-    tradedPicks.forEach(p => {
-        if (p.owner_id === myRid && p.roster_id !== myRid) {
-            // Acquired
-            const fromRoster = (currentLeague?.rosters || []).find(r => r.roster_id === p.roster_id);
-            const fromUser = fromRoster ? (window.S?.leagueUsers || []).find(u => u.user_id === fromRoster.owner_id) : null;
-            tradeHistory.push({ type: 'acquired', round: p.round, season: p.season, from: fromUser?.display_name || 'T' + p.roster_id });
-        }
-        if (p.roster_id === myRid && p.owner_id !== myRid) {
-            // Traded away
-            const toRoster = (currentLeague?.rosters || []).find(r => r.roster_id === p.owner_id);
-            const toUser = toRoster ? (window.S?.leagueUsers || []).find(u => u.user_id === toRoster.owner_id) : null;
-            tradeHistory.push({ type: 'sent', round: p.round, season: p.season, to: toUser?.display_name || 'T' + p.owner_id });
-        }
-    });
-
-    return React.createElement('div', null,
-        React.createElement('div', { style: { fontSize: fs(0.56), fontWeight: 700, color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 } }, 'PICK TRADE HISTORY'),
-        tradeHistory.length > 0 ? tradeHistory.map((h, i) =>
-            React.createElement('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: fs(0.54) } },
-                React.createElement('span', { style: { fontSize: fs(0.44), padding: '1px 5px', borderRadius: 3, background: h.type === 'acquired' ? colors.positive + '18' : colors.negative + '18', color: h.type === 'acquired' ? colors.positive : colors.negative, fontWeight: 700 } }, h.type === 'acquired' ? 'IN' : 'OUT'),
-                React.createElement('span', { style: { color: colors.text, fontFamily: fonts.ui } }, "'" + String(h.season).slice(-2) + ' R' + h.round),
-                React.createElement('span', { style: { color: colors.textMuted, fontFamily: fonts.ui } }, h.type === 'acquired' ? 'from ' + h.from : 'to ' + h.to),
-            )
-        ) : React.createElement('div', { style: { fontSize: fs(0.54), color: colors.textFaint, fontStyle: 'italic', padding: 16, textAlign: 'center' } }, 'No pick trades recorded this season.'),
     );
 }

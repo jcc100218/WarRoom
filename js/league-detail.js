@@ -452,7 +452,7 @@
             'health-score':   { label: 'Health Score',    icon: '', category: 'Roster',   tip: 'Blended score: 60% scoring power (contender) + 40% position coverage (dynasty depth). 90+=Elite, 80+=Contender, 70+=Crossroads' },
             'avg-age':        { label: 'DHQ-Wtd Age',     icon: '', category: 'Roster',   tip: 'DHQ-weighted average age. Lower = longer dynasty window' },
             'elite-count':    { label: 'Elite Players',   icon: '', category: 'Roster',   tip: 'Players who rank top 5 at their position league-wide. These are your cornerstone assets.' },
-            'aging-cliff':    { label: 'Aging Cliff %',   icon: '', category: 'Roster',   tip: '% of DHQ held by players past peak within 2 years' },
+            'aging-cliff':    { label: 'Aging Cliff %',   icon: '', category: 'Roster',   tip: '% of DHQ held by players past their value window' },
             'bench-quality':  { label: 'Bench Quality',   icon: '', category: 'Roster',   tip: 'Average DHQ of non-starter roster players' },
             'contender-rank': { label: 'Contender Rank',  icon: '', category: 'League',   tip: 'Win-now rank based on optimal starting lineup PPG vs league. How competitive are you THIS season?' },
             'dynasty-rank':   { label: 'Dynasty Rank',    icon: '', category: 'League',   tip: 'Long-term rank based on total roster DHQ value. How strong is your dynasty foundation?' },
@@ -659,7 +659,6 @@
                 case 'window': {
                     if (!myPlayers.length) return { value: '\u2014', sub: 'Window', color: 'var(--silver)' };
                     const rp = currentLeague?.roster_positions || [];
-                    const peaks = window.App.peakWindows;
                     const posWindows = {};
                     const windowStarters = myRoster?.starters || [];
                     windowStarters.forEach(pid => {
@@ -668,8 +667,10 @@
                         if (!p) return;
                         const pos = p.position;
                         const nPos = pos === 'DE' || pos === 'DT' ? 'DL' : pos === 'CB' || pos === 'S' ? 'DB' : pos === 'OLB' || pos === 'ILB' ? 'LB' : pos;
-                        const [, pHi] = peaks[nPos] || [24, 29];
-                        const yrsLeft = Math.max(0, pHi - (p.age || 25));
+                        const valueEnd = typeof window.App?.getValueWindowEnd === 'function'
+                            ? window.App.getValueWindowEnd(nPos)
+                            : ((window.App.peakWindows || {})[nPos] || [24, 29])[1];
+                        const yrsLeft = Math.max(0, valueEnd - (p.age || 25));
                         if (!posWindows[nPos]) posWindows[nPos] = [];
                         posWindows[nPos].push(yrsLeft);
                     });
@@ -688,12 +689,13 @@
                     const pastPeak = myPlayers.reduce((s, pid) => {
                         const p = playersData[pid]; if (!p) return s;
                         const pos = p.position; const age = p.age || 26;
-                        const pw = window.App.peakWindows;
-                        const peaks = Object.fromEntries(Object.entries(pw).map(([k,[,hi]]) => [k,hi]));
-                        return age > (peaks[pos] || 29) ? s + (scores[pid] || 0) : s;
+                        const valueEnd = typeof window.App?.getValueWindowEnd === 'function'
+                            ? window.App.getValueWindowEnd(pos)
+                            : ((window.App.peakWindows || {})[pos] || [24, 29])[1];
+                        return age > valueEnd ? s + (scores[pid] || 0) : s;
                     }, 0);
                     const pct = total > 0 ? Math.round(pastPeak / total * 100) : 0;
-                    return { value: pct + '%', sub: 'Past peak DHQ', color: pct <= 20 ? '#2ECC71' : pct <= 35 ? '#F0A500' : '#E74C3C' };
+                    return { value: pct + '%', sub: 'Past value DHQ', color: pct <= 20 ? '#2ECC71' : pct <= 35 ? '#F0A500' : '#E74C3C' };
                 }
                 case 'partner-wr': {
                     if (!profile || !profile.tradesWon) return { value: '\u2014', sub: 'Partner W/R', color: 'var(--silver)' };
@@ -1733,14 +1735,20 @@
                     });
                 }
                 if (myRoster?.players?.length) {
-                    const agingPlayers = myRoster.players
-                        .map(pid => ({ pid, player: playersData[pid], dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
-                        .filter(p => p.player && p.player.age >= 29 && p.dhq > 1000)
+	                    const agingPlayers = myRoster.players
+	                        .map(pid => ({ pid, player: playersData[pid], dhq: window.App?.LI?.playerScores?.[pid] || 0 }))
+	                        .filter(p => {
+                                if (!p.player || p.dhq <= 1000) return false;
+                                const valueEnd = typeof window.App?.getValueWindowEnd === 'function'
+                                    ? window.App.getValueWindowEnd(p.player.position)
+                                    : ((window.App.peakWindows || {})[p.player.position] || [24, 29])[1];
+                                return p.player.age > valueEnd;
+                            })
                         .sort((a,b) => b.dhq - a.dhq)
                         .slice(0, 3);
                     if (agingPlayers.length > 0) {
                         const names = agingPlayers.map(p => (p.player.full_name || getPlayerName(p.pid)) + ' (' + p.player.age + ')').join(', ');
-                        stories.push({ icon: '\u23F0', category: 'Aging Watch', headline: 'Your veterans with declining windows', body: names + ' \u2014 high-value assets past peak age. Consider selling high before value erodes.' });
+	                        stories.push({ icon: '\u23F0', category: 'Aging Watch', headline: 'Your veterans past the value window', body: names + ' \u2014 high-value assets past their position curve. Consider selling high before value erodes.' });
                     } else {
                         stories.push({ icon: '\uD83C\uDF31', category: 'Youth Movement', headline: 'Your roster skews young', body: 'No significant aging concerns. Your dynasty foundation is built for the long haul.' });
                     }
@@ -2410,11 +2418,10 @@
                         { label: 'Draft', tab: 'draft', icon: '\u25B2' },
                         { label: 'Analytics', tab: 'analytics', icon: '\u25F0' },
                         { section: 'DOSSIER' },
-                        { label: 'Alex Insights', tab: 'alex', icon: '\uD83E\uDDE0', isNew: true },
+                        { label: 'Film Room', tab: 'alex', icon: '\uD83E\uDDE0', isNew: true },
                         { label: 'Trophy Room', tab: 'trophies', icon: '\u265B' },
                         { label: 'Calendar', tab: 'calendar', icon: '\u25A4' },
                         { section: 'SETTINGS' },
-                        { label: 'GM Strategy', tab: 'strategy', icon: '\u2699' },
                         { label: 'Settings', action: () => onOpenSettings && onOpenSettings(), icon: '\u2690' },
                     ].map((item, i) => {
                         if (item.section) {
@@ -2735,17 +2742,14 @@
                 /> : activeTab === 'calendar' ? <CalendarTab
                     currentLeague={currentLeague}
                     myRoster={myRoster}
-                /> : activeTab === 'strategy' ? <StrategyEditorTab // eslint-disable-line no-undef
-                    currentLeague={currentLeague}
-                    myRoster={myRoster}
-                    playersData={playersData}
-                    gmStrategy={gmStrategy}
-                    setGmStrategy={setGmStrategy}
-                /> : activeTab === 'alex' ? (typeof window.AlexInsightsTab === 'function' ? React.createElement(window.AlexInsightsTab, {
+                /> : (activeTab === 'alex' || activeTab === 'strategy') ? (typeof window.AlexInsightsTab === 'function' ? React.createElement(window.AlexInsightsTab, {
                     currentLeague, myRoster, playersData, statsData,
                     stats2025Data, standings, sleeperUserId,
                     timeRecomputeTs, setActiveTab,
-                }) : <div style={{ padding: '40px', textAlign: 'center', color: 'var(--silver)' }}>Alex Insights module not loaded.</div>
+                    gmStrategy, setGmStrategy,
+                    // Old tab=strategy URLs land on the Strategy sub-view
+                    initialSubTab: activeTab === 'strategy' ? 'strategy' : null,
+                }) : <div style={{ padding: '40px', textAlign: 'center', color: 'var(--silver)' }}>Film Room module not loaded.</div>
                 ) : activeTab === 'compare' ? (typeof window.CompareTab === 'function' ? React.createElement(window.CompareTab, {
                     currentLeague, myRoster, playersData, statsData, stats2025Data,
                     standings, sleeperUserId,

@@ -87,8 +87,21 @@
         ].filter(c => c.pct != null).sort((a, b) => b.pct - a.pct);
         const best = candidates[0];
 
+        // GM Grade — composite 0-100 score across the dimensions we DO have.
+        // Trade ROI: anchor at 50, +/- 10 points per 1k DHQ swing (capped 0-100).
+        // Waiver hit% and draft hit% feed in directly. Sample-size gating keeps
+        // a single trade from yielding "A+".
+        const tradeScore = tradeCount >= 3
+            ? Math.max(0, Math.min(100, 50 + (tradeNetDhq / 1000) * 10))
+            : null;
+        const components = [tradeScore, waiverHitPct, draftHitPct].filter(v => v != null);
+        const gmScoreNum = components.length
+            ? Math.round(components.reduce((s, v) => s + v, 0) / components.length)
+            : null;
+
         return {
-            decisionAccuracy: null,  // placeholder — needs start/sit history
+            gmScore: gmScoreNum,
+            gmScoreSample: components.length, // how many dimensions fed the score
             tradeNetDhq,
             tradeCount,
             waiverHitPct,
@@ -102,6 +115,24 @@
         };
     }
 
+    function gmGradeLetter(score) {
+        if (score == null) return '\u2014';
+        if (score >= 90) return 'A+';
+        if (score >= 80) return 'A';
+        if (score >= 70) return 'B+';
+        if (score >= 60) return 'B';
+        if (score >= 50) return 'C+';
+        if (score >= 40) return 'C';
+        if (score >= 30) return 'D';
+        return 'F';
+    }
+    function gmGradeTone(score) {
+        if (score == null) return 'mute';
+        if (score >= 70) return 'win';
+        if (score >= 50) return 'gold';
+        return 'loss';
+    }
+
     // ── Insight generation ────────────────────────────────────────
     // Each heuristic returns a card-compatible object or pushes nothing.
     // All carry a `focus` tag so WR.AlexSettings.filterInsights can hide
@@ -113,6 +144,9 @@
         const myRid = myRoster?.roster_id;
         const out = [];
         const rosterCount = (currentLeague?.rosters || []).length || 12;
+        // Position peak-age windows (e.g. RB peak ≈ 24-26). Lazy-loaded by ReconAI;
+        // fall back to an empty object so default [24, 29] kicks in.
+        const peaks = (window.App && window.App.peakWindows) || {};
 
         // ── Trades ────────────────────────────────────────────────
         const allTrades = LI.tradeHistory || [];
@@ -263,30 +297,35 @@
         }
 
         // ── GM style / roster ─────────────────────────────────────
-        const peaks = window.App?.peakWindows || {};
         const myPlayers = myRoster?.players || [];
         const totalDhq = myPlayers.reduce((s, pid) => s + (LI.playerScores?.[pid] || 0), 0);
         const agingPids = myPlayers.filter(pid => {
             const p = playersData?.[pid]; if (!p) return false;
-            const pk = peaks[p.position] || [24, 29];
-            return p.age && p.age > pk[1];
+            const valueEnd = typeof window.App?.getValueWindowEnd === 'function'
+                ? window.App.getValueWindowEnd(p.position)
+                : ((window.App?.peakWindows || {})[p.position] || [24, 29])[1];
+            return p.age && p.age > valueEnd;
         });
         const agingDhq = agingPids.reduce((s, pid) => s + (LI.playerScores?.[pid] || 0), 0);
         if (totalDhq > 0 && agingDhq / totalDhq > 0.25) {
             out.push({
                 focus: 'gmStyle', severity: 'warning', confidence: 91,
-                title: Math.round((agingDhq / totalDhq) * 100) + '% of your roster DHQ is past peak',
-                body: agingPids.length + ' players are on the wrong side of their position\u2019s peak window. Sell windows are closing \u2014 cash in now or commit to a rebuild.',
+	                title: Math.round((agingDhq / totalDhq) * 100) + '% of your roster DHQ is past the value window',
+	                body: agingPids.length + ' players are beyond their position\u2019s valuable decline band. Sell windows are closing \u2014 cash in now or commit to a rebuild.',
                 ctaLabel: 'See aging assets',
             });
         }
-        // NEW: Elite concentration
-        const eliteCount = myPlayers.filter(pid => (LI.playerScores?.[pid] || 0) >= 7000).length;
+        // Elite concentration — uses the canonical "top-5 at position" rule
+        // exposed by ReconAI via window.App.countElitePlayers, falling back to
+        // a 7000+ DHQ threshold only when that helper isn't loaded.
+        const eliteCount = typeof window.App?.countElitePlayers === 'function'
+            ? window.App.countElitePlayers(myPlayers)
+            : myPlayers.filter(pid => (LI.playerScores?.[pid] || 0) >= 7000).length;
         if (myPlayers.length >= 10 && eliteCount === 0) {
             out.push({
                 focus: 'gmStyle', severity: 'warning', confidence: 85,
-                title: 'Your roster has zero elite-tier (7000+ DHQ) players',
-                body: 'Championship cores are built around 2\u20134 elites. Without one, you\u2019re capped at \u201Cgood\u201D \u2014 accumulate picks and flip mid-tier depth for a cornerstone.',
+                title: 'Your roster has zero elite-tier players',
+                body: 'Championship cores are built around 2\u20134 elites (top-5 at their position). Without one, you\u2019re capped at \u201Cgood\u201D \u2014 accumulate picks and flip mid-tier depth for a cornerstone.',
                 ctaLabel: 'Find a cornerstone target',
             });
         } else if (eliteCount >= 4) {
@@ -494,8 +533,8 @@
                 }
             }, '\uD83E\uDDE0'),
             h('div', null,
-                h('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.7rem', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em' } }, 'Alex Insights'),
-                h('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.7, marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' } }, 'Personalized pattern recognition across your managerial history')
+                h('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.7rem', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.01em' } }, 'Film Room'),
+                h('div', { style: { fontSize: '0.76rem', color: 'var(--silver)', opacity: 0.7, marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' } }, 'Set your strategy. See what Alex sees.')
             ),
             h('div', {
                 style: {
@@ -564,10 +603,12 @@
         return h(React.Fragment, null,
             h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' } },
                 h(Kpi, {
-                    label: 'Decision Accuracy',
-                    value: kpis.decisionAccuracy != null ? (kpis.decisionAccuracy + '%') : '\u2014',
-                    tone: 'mute',
-                    sub: 'Needs start/sit history',
+                    label: 'GM Grade',
+                    value: gmGradeLetter(kpis.gmScore),
+                    tone: gmGradeTone(kpis.gmScore),
+                    sub: kpis.gmScore != null
+                        ? (kpis.gmScore + '/100 \u00B7 ' + kpis.gmScoreSample + '-dim composite')
+                        : 'Need more decision history',
                 }),
                 h(Kpi, {
                     label: 'Trade Net DHQ',
@@ -906,9 +947,27 @@
     }
 
     // ── Decision History sub-tab ──────────────────────────────────
+    // Robust timestamp coercion — Sleeper/DHQ inconsistently mix seconds vs ms.
+    function _dhMs(ts) {
+        const n = Number(ts) || 0;
+        if (!n) return 0;
+        return n > 1e12 ? n : n * 1000; // > Sep 2001 in ms means it IS ms
+    }
+    function _dhDate(ts) {
+        const ms = _dhMs(ts);
+        if (!ms) return '\u2014';
+        return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    function _dhMonth(ts) {
+        const ms = _dhMs(ts);
+        if (!ms) return 'Unknown';
+        return new Date(ms).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }
+
     function HistoryView({ props }) {
         const leagueId = getLeagueId(props);
         const myRid = props?.myRoster?.roster_id || window.S?.myRosterId;
+        const [filter, setFilter] = useState('all'); // 'all' | 'trade' | 'waiver' | 'fa' | 'note'
         const [remoteLog, setRemoteLog] = useState(null);
 
         useEffect(() => {
@@ -932,13 +991,16 @@
             const id = entry.id || String(entry.ts || Math.random());
             logById.set(id, { ...entry, kind: 'field-log' });
         });
-        const log = Array.from(logById.values()).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 50);
+        const log = Array.from(logById.values()).sort((a, b) => _dhMs(b.ts) - _dhMs(a.ts)).slice(0, 50);
 
         const txns = [];
         const txnMap = window.S?.transactions || {};
         if (txnMap && typeof txnMap === 'object' && !Array.isArray(txnMap)) {
             Object.values(txnMap).forEach(arr => { if (Array.isArray(arr)) txns.push(...arr); });
         }
+        // ts stored as the raw upstream value — _dhMs() auto-detects seconds
+        // vs ms when rendering, so we don't pre-multiply (which broke dates
+        // when LI.tradeHistory's t.ts was already in milliseconds).
         const transactionEvents = txns.filter(t => {
             const addsMe = t.adds && Object.values(t.adds).some(r => String(r) === String(myRid));
             const dropsMe = t.drops && Object.values(t.drops).some(r => String(r) === String(myRid));
@@ -947,11 +1009,11 @@
                 (t.sides && Object.keys(t.sides).some(r => String(r) === String(myRid)))
             );
             return addsMe || dropsMe || tradeMe;
-        }).map(t => ({ kind: 'transaction', ts: (t.created || t.ts || 0) * 1000, transaction: t }));
+        }).map(t => ({ kind: 'transaction', ts: t.created || t.ts || 0, transaction: t }));
 
         const liTradeEvents = (window.App?.LI?.tradeHistory || [])
             .filter(t => t.sides && t.sides[myRid])
-            .map(t => ({ kind: 'transaction', ts: (t.ts || 0) * 1000, transaction: { ...t, type: 'trade', created: t.ts || 0, _fromDHQ: true } }));
+            .map(t => ({ kind: 'transaction', ts: t.ts || 0, transaction: { ...t, type: 'trade', created: t.ts || 0, _fromDHQ: true } }));
 
         const eventById = new Map();
         [...transactionEvents, ...liTradeEvents].forEach(ev => {
@@ -959,7 +1021,7 @@
             const id = t.transaction_id || t.id || (t.type + ':' + (t.created || t.ts || 0) + ':' + JSON.stringify(t.roster_ids || Object.keys(t.sides || {})));
             eventById.set(id, ev);
         });
-        const events = [...log, ...Array.from(eventById.values())].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 50);
+        const events = [...log, ...Array.from(eventById.values())].sort((a, b) => _dhMs(b.ts) - _dhMs(a.ts)).slice(0, 50);
 
         if (remoteLog === null && window.OD?.loadFieldLog && !events.length) {
             return h(window.WR.Card, { padding: '32px' },
@@ -974,34 +1036,139 @@
                     'No decisions logged yet. Your trades, waivers, and Scout field-log entries will show up here.')
             );
         }
-        return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
-            events.map((ev, i) => {
-                if (ev.kind === 'field-log') {
-                    const date = ev.ts ? new Date(ev.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '\u2014';
-                    return h(window.WR.Card, { key: 'log' + (ev.id || i), padding: '10px 14px' },
-                        h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
-                            h(window.WR.Badge, { label: ev.category || 'note', kind: ev.category || 'note' }),
-                            h('div', { style: { flex: 1, fontSize: '0.82rem', color: 'var(--white)' } }, ev.text || 'Logged decision'),
-                            h('div', { style: { fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6, fontFamily: 'JetBrains Mono, monospace' } }, date)
-                        )
-                    );
-                }
-                const t = ev.transaction || {};
-                const date = t.created ? new Date(t.created * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '\u2014';
-                const kind = t.type === 'trade' ? 'trade' : t.type === 'waiver' ? 'waiver' : 'fa';
-                const count = kind === 'trade'
-                    ? ((t.sides?.[myRid]?.players || []).length || Object.keys(t.adds || {}).filter(pid => String(t.adds[pid]) === String(myRid)).length)
-                    : Object.keys(t.adds || {}).filter(pid => String(t.adds[pid]) === String(myRid)).length;
-                return h(window.WR.Card, { key: 'tx' + i, padding: '10px 14px' },
+
+        // ── Helpers for rich row rendering ──
+        const playersData = props?.playersData || {};
+        const playerScores = window.App?.LI?.playerScores || {};
+        function pname(pid) {
+            const p = playersData[pid];
+            return (p?.full_name || ((p?.first_name || '') + ' ' + (p?.last_name || '')).trim() || pid);
+        }
+        function ppos(pid) { return playersData[pid]?.position || ''; }
+        function pdhq(pid) { return playerScores[pid] || 0; }
+        function chipText(pid) {
+            const dhq = pdhq(pid);
+            return pname(pid) + (dhq ? ' (' + (dhq >= 1000 ? (dhq / 1000).toFixed(1) + 'k' : dhq) + ')' : '');
+        }
+        function classifyKind(ev) {
+            if (ev.kind === 'field-log') return 'note';
+            const t = ev.transaction || {};
+            return t.type === 'trade' ? 'trade' : t.type === 'waiver' ? 'waiver' : 'fa';
+        }
+
+        // Filter
+        const filtered = filter === 'all' ? events : events.filter(ev => classifyKind(ev) === filter);
+
+        // Counts for the chip strip
+        const counts = events.reduce((acc, ev) => { const k = classifyKind(ev); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+
+        // Group by month
+        const groups = [];
+        let cur = null;
+        filtered.forEach(ev => {
+            const m = _dhMonth(ev.ts);
+            if (!cur || cur.month !== m) {
+                cur = { month: m, items: [] };
+                groups.push(cur);
+            }
+            cur.items.push(ev);
+        });
+
+        const filterChip = (key, label) => h('button', {
+            key, onClick: () => setFilter(key),
+            style: {
+                padding: '5px 10px', borderRadius: '999px',
+                fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer',
+                background: filter === key ? 'rgba(212,175,55,0.15)' : 'transparent',
+                border: '1px solid ' + (filter === key ? 'rgba(212,175,55,0.5)' : 'rgba(255,255,255,0.08)'),
+                color: filter === key ? 'var(--gold)' : 'var(--silver)',
+                fontFamily: 'DM Sans, sans-serif',
+            },
+        }, label, key !== 'all' && counts[key] != null ? h('span', { style: { marginLeft: '6px', opacity: 0.6, fontFamily: 'JetBrains Mono, monospace' } }, counts[key]) : null);
+
+        function renderRow(ev, i) {
+            const date = _dhDate(ev.ts);
+            const kind = classifyKind(ev);
+            if (ev.kind === 'field-log') {
+                return h(window.WR.Card, { key: 'log' + (ev.id || i), padding: '10px 14px' },
                     h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
-                        h(window.WR.Badge, { label: kind, kind }),
-                        h('div', { style: { flex: 1, fontSize: '0.82rem', color: 'var(--white)' } },
-                            count + ' player' + (count === 1 ? '' : 's') + ' ' + (kind === 'trade' ? 'swapped' : 'added')
-                        ),
-                        h('div', { style: { fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6, fontFamily: 'JetBrains Mono, monospace' } }, date)
+                        h(window.WR.Badge, { label: ev.category || 'note', kind: ev.category || 'note' }),
+                        h('div', { style: { flex: 1, minWidth: 0, fontSize: '0.82rem', color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, ev.text || 'Logged decision'),
+                        h('div', { style: { fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6, fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 } }, date),
                     )
                 );
-            })
+            }
+            const t = ev.transaction || {};
+            // For trades, gather adds (what I got) and drops (what I gave)
+            let addedPids = [];
+            let droppedPids = [];
+            if (kind === 'trade') {
+                if (t.sides && t.sides[myRid]) {
+                    addedPids = (t.sides[myRid].players || []);
+                    Object.entries(t.sides).forEach(([rid, side]) => {
+                        if (String(rid) === String(myRid)) return;
+                        droppedPids = droppedPids.concat(side.players || []);
+                    });
+                } else if (t.adds || t.drops) {
+                    addedPids = Object.keys(t.adds || {}).filter(pid => String(t.adds[pid]) === String(myRid));
+                    droppedPids = Object.keys(t.drops || {}).filter(pid => String(t.drops[pid]) === String(myRid));
+                }
+            } else {
+                addedPids = Object.keys(t.adds || {}).filter(pid => String(t.adds[pid]) === String(myRid));
+                droppedPids = Object.keys(t.drops || {}).filter(pid => String(t.drops[pid]) === String(myRid));
+            }
+
+            // Compute net DHQ for trades
+            const myIn = addedPids.reduce((s, pid) => s + pdhq(pid), 0);
+            const myOut = droppedPids.reduce((s, pid) => s + pdhq(pid), 0);
+            const netDhq = myIn - myOut;
+            const netStr = kind === 'trade' && (myIn || myOut) ? ((netDhq >= 0 ? '+' : '') + (Math.abs(netDhq) >= 1000 ? (netDhq / 1000).toFixed(1) + 'k' : Math.round(netDhq)) + ' DHQ') : null;
+            const netCol = netDhq > 0 ? '#2ECC71' : netDhq < 0 ? '#E74C3C' : 'var(--silver)';
+
+            const renderChips = (pids, prefix, color) => pids.length === 0 ? null : h('span', { style: { display: 'inline-flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' } },
+                pids.slice(0, 4).map(pid => h('span', {
+                    key: pid,
+                    style: { fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: color + '12', border: '1px solid ' + color + '33', color: color, fontWeight: 600 },
+                }, prefix, chipText(pid))),
+                pids.length > 4 ? h('span', { style: { fontSize: '0.66rem', color: 'var(--silver)', opacity: 0.6 } }, '+' + (pids.length - 4)) : null,
+            );
+
+            return h(window.WR.Card, { key: 'tx' + i, padding: '10px 14px' },
+                h('div', { style: { display: 'grid', gridTemplateColumns: '60px 1fr auto auto', gap: '10px', alignItems: 'center' } },
+                    h(window.WR.Badge, { label: kind, kind }),
+                    h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '4px', minWidth: 0 } },
+                        renderChips(addedPids, '+ ', '#2ECC71'),
+                        droppedPids.length > 0 && addedPids.length > 0 && h('span', { style: { fontSize: '0.66rem', color: 'var(--silver)', opacity: 0.5, alignSelf: 'center' } }, 'for'),
+                        renderChips(droppedPids, '\u2212 ', '#E74C3C'),
+                        addedPids.length === 0 && droppedPids.length === 0 && h('span', { style: { fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, fontStyle: 'italic' } }, 'No player changes'),
+                    ),
+                    netStr && h('span', { style: { fontSize: '0.74rem', fontWeight: 700, color: netCol, fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 } }, netStr),
+                    h('div', { style: { fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6, fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 } }, date),
+                ),
+            );
+        }
+
+        return h('div', null,
+            // Filter strip
+            h('div', { style: { display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center' } },
+                h('span', { style: { fontSize: '0.66rem', color: 'var(--silver)', opacity: 0.55, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: '4px' } }, 'Filter:'),
+                filterChip('all', 'All ' + events.length),
+                counts.trade && filterChip('trade', 'Trades'),
+                counts.waiver && filterChip('waiver', 'Waivers'),
+                counts.fa && filterChip('fa', 'Free Agency'),
+                counts.note && filterChip('note', 'Notes'),
+            ),
+            filtered.length === 0 ? h(window.WR.Card, { padding: '24px' },
+                h('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6, textAlign: 'center' } }, 'No ' + filter + ' history.')
+            ) : groups.map((g, gi) => h('div', { key: 'g' + gi, style: { marginBottom: '20px' } },
+                h('div', { style: { fontSize: '0.66rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'Rajdhani, sans-serif', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' } },
+                    g.month,
+                    h('span', { style: { color: 'var(--silver)', opacity: 0.5, fontFamily: 'JetBrains Mono, monospace', fontWeight: 400 } }, g.items.length + ' decision' + (g.items.length === 1 ? '' : 's')),
+                ),
+                h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
+                    g.items.map((ev, i) => renderRow(ev, gi * 1000 + i)),
+                ),
+            )),
         );
     }
 
@@ -1011,12 +1178,13 @@
         const updateFocus = (k, v) => update({ focus: { ...settings.focus, [k]: v } });
         const updateChannel = (k, v) => update({ channel: { ...settings.channel, [k]: v } });
 
-        const sliderRow = (label, key, min, max, step, format) => h('div', { style: { marginBottom: '16px' } },
-            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' } },
-                h('span', { style: { fontSize: '0.82rem', color: 'var(--white)', opacity: 0.88 } }, label),
+        const sliderRow = (label, hint, key, min, max, step, format) => h('div', { style: { marginBottom: '18px' } },
+            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' } },
+                h('span', { style: { fontSize: '0.82rem', color: 'var(--white)', opacity: 0.88, fontWeight: 600 } }, label),
                 h('span', { style: { fontFamily: 'JetBrains Mono, monospace', fontSize: '0.88rem', fontWeight: 700, color: 'var(--gold)' } },
                     format ? format(settings[key]) : settings[key])
             ),
+            hint && h('div', { style: { fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.55, marginBottom: '8px', lineHeight: 1.4 } }, hint),
             h('input', {
                 type: 'range', min, max, step: step || 1,
                 value: settings[key],
@@ -1046,40 +1214,72 @@
             }
         }, label);
 
-        return h('div', { style: { display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '14px' } },
-            h(window.WR.Card, { padding: '20px 22px' },
-                h('h3', { style: { fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: '0.96rem', margin: '0 0 16px' } }, 'Model tuning'),
-                sliderRow('Alert threshold \u2014 Confidence %', 'alertThreshold', 0, 100, 1),
-                sliderRow('Max alerts per week', 'maxAlertsPerWeek', 1, 20, 1),
-                sliderRow('Min projected-points delta to surface', 'minPointsDelta', 0, 10, 0.5, v => Number(v).toFixed(1)),
-                h('div', { style: { display: 'flex', gap: '8px', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.06)' } },
-                    h('button', { onClick: () => { const p = { ...DEFAULT_SETTINGS, alertThreshold: 85, maxAlertsPerWeek: 3, minPointsDelta: 4 }; setSettings(p); saveSettings(p); }, style: presetBtnStyle }, 'Conservative'),
-                    h('button', { onClick: () => { const p = { ...DEFAULT_SETTINGS }; setSettings(p); saveSettings(p); }, style: presetBtnStyle }, 'Balanced'),
-                    h('button', { onClick: () => { const p = { ...DEFAULT_SETTINGS, alertThreshold: 55, maxAlertsPerWeek: 12, minPointsDelta: 1 }; setSettings(p); saveSettings(p); }, style: presetBtnStyle }, 'Aggressive')
-                )
+        const sectionTitle = (label) => h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px', margin: '0 0 14px' } },
+            h('h3', { style: { fontFamily: 'Rajdhani, sans-serif', fontWeight: 700, fontSize: '1.02rem', margin: 0, letterSpacing: '0.01em', color: 'var(--white)' } }, label.title),
+            h('span', { style: { fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.55, fontFamily: 'JetBrains Mono, monospace' } }, label.sub),
+        );
+
+        const presetButton = (label, desc, getPatch) => h('button', {
+            onClick: () => { const p = getPatch(); setSettings(p); saveSettings(p); },
+            title: desc,
+            style: {
+                ...presetBtnStyle,
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px',
+                padding: '8px 10px', textAlign: 'left',
+            },
+        },
+            h('span', { style: { fontWeight: 700, color: 'var(--white)' } }, label),
+            h('span', { style: { fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.7, fontWeight: 400 } }, desc),
+        );
+
+        return h('div', null,
+            // Intro card
+            h('div', { style: { padding: '12px 16px', marginBottom: '14px', background: 'rgba(124,107,248,0.04)', border: '1px solid rgba(124,107,248,0.15)', borderRadius: 'var(--card-radius, 10px)' } },
+                h('div', { style: { fontSize: '0.68rem', color: '#9b8afb', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px', fontFamily: 'Rajdhani, sans-serif' } }, 'How Alex talks to you'),
+                h('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.85, lineHeight: 1.5 } },
+                    'These knobs control which behavioral insights surface in Overview, how confidently Alex needs to be before flagging something, and where you get pinged. Defaults are tuned for active dynasty managers \u2014 use the presets below if you want a different vibe.')
             ),
-            h(window.WR.Card, { padding: '20px 22px' },
-                h('h3', { style: { fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: '0.96rem', margin: '0 0 16px' } }, 'Focus areas'),
-                h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '7px' } },
-                    focusChip('startSit', 'Start / Sit'),
-                    focusChip('trades', 'Trades'),
-                    focusChip('waivers', 'Waivers'),
-                    focusChip('draft', 'Draft'),
-                    focusChip('injury', 'Injury watch'),
-                    focusChip('streaming', 'Streaming'),
-                    focusChip('gmStyle', 'GM style')
+            h('div', { style: { display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '14px' } },
+                h(window.WR.Card, { padding: '20px 22px' },
+                    sectionTitle({ title: 'Sensitivity', sub: 'When and how often Alex speaks up' }),
+                    sliderRow('Alert threshold', 'Minimum confidence Alex needs before showing an insight. Higher = quieter, only the strong signals.', 'alertThreshold', 0, 100, 1, v => v + '%'),
+                    sliderRow('Max alerts per week', 'Caps how many cards Alex shows in Overview. Lower = curated.', 'maxAlertsPerWeek', 1, 20, 1),
+                    sliderRow('Min projected-points delta', 'Smallest swing (in projected fantasy points) Alex bothers flagging on lineup or waiver moves.', 'minPointsDelta', 0, 10, 0.5, v => Number(v).toFixed(1) + ' pts'),
+                    h('div', { style: { fontSize: '0.66rem', color: 'var(--silver)', opacity: 0.55, marginTop: '4px', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Rajdhani, sans-serif', fontWeight: 700 } }, 'Quick presets'),
+                    h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' } },
+                        presetButton('Conservative', 'Only flag 85%+ confidence \u00B7 ~3 alerts/week',
+                            () => ({ ...DEFAULT_SETTINGS, alertThreshold: 85, maxAlertsPerWeek: 3, minPointsDelta: 4 })),
+                        presetButton('Balanced', 'Tuned defaults \u00B7 70% threshold \u00B7 ~6 alerts/week',
+                            () => ({ ...DEFAULT_SETTINGS })),
+                        presetButton('Aggressive', '55% threshold \u00B7 up to 12 alerts/week',
+                            () => ({ ...DEFAULT_SETTINGS, alertThreshold: 55, maxAlertsPerWeek: 12, minPointsDelta: 1 })),
+                    ),
                 ),
-                h('div', { style: { fontSize: '0.74rem', color: 'var(--silver)', opacity: 0.6, marginTop: '12px', lineHeight: 1.5 } },
-                    'Alex only surfaces insights for active focus areas. History still logs everything.'),
-                h('div', { style: { marginTop: '18px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.06)' } },
-                    h('div', { style: { fontSize: '0.82rem', color: 'var(--white)', opacity: 0.88, marginBottom: '10px' } }, 'Notification channel'),
+                h(window.WR.Card, { padding: '20px 22px' },
+                    sectionTitle({ title: 'Focus areas', sub: 'Which categories Alex monitors' }),
                     h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '7px' } },
-                        chanChip('inApp', 'In-app'),
-                        chanChip('email', 'Email (daily)'),
-                        chanChip('push', 'Push')
+                        focusChip('startSit', 'Start / Sit'),
+                        focusChip('trades', 'Trades'),
+                        focusChip('waivers', 'Waivers'),
+                        focusChip('draft', 'Draft'),
+                        focusChip('injury', 'Injury watch'),
+                        focusChip('streaming', 'Streaming'),
+                        focusChip('gmStyle', 'GM style')
+                    ),
+                    h('div', { style: { fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6, marginTop: '12px', lineHeight: 1.5 } },
+                        'Alex only surfaces insights for active areas. Decision History still logs everything regardless.'),
+                    h('div', { style: { marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' } },
+                        sectionTitle({ title: 'Notifications', sub: 'Where you get pinged' }),
+                        h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '7px' } },
+                            chanChip('inApp', 'In-app'),
+                            chanChip('email', 'Email (daily)'),
+                            chanChip('push', 'Push'),
+                        ),
+                        h('div', { style: { fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.55, marginTop: '10px', lineHeight: 1.5 } },
+                            'In-app shows up as toasts on Home + a count badge on Film Room. Email/Push are coming soon \u2014 toggle to opt in early.'),
                     )
-                )
-            )
+                ),
+            ),
         );
     }
 
@@ -1093,7 +1293,14 @@
     // ── Main component ────────────────────────────────────────────
     function AlexInsightsTab(props) {
         const [subTab, setSubTab] = useState(() => {
-            try { return localStorage.getItem('wr_alex_subtab') || 'overview'; } catch { return 'overview'; }
+            // Priority: explicit prop (used by old tab=strategy URLs) →
+            // ?film-sub=… hash arg → last-used sub → 'overview'.
+            if (props.initialSubTab) return props.initialSubTab;
+            try {
+                const m = (window.location.hash || '').match(/[?&]film-sub=([^&]+)/);
+                if (m) return m[1];
+                return localStorage.getItem('wr_alex_subtab') || 'overview';
+            } catch { return 'overview'; }
         });
         useEffect(() => { try { localStorage.setItem('wr_alex_subtab', subTab); } catch {} }, [subTab]);
 
@@ -1122,16 +1329,32 @@
                 onChange: setSubTab,
                 tabs: [
                     { k: 'overview', label: 'Overview' },
+                    { k: 'strategy', label: 'My Strategy' },
                     { k: 'patterns', label: 'Patterns' },
                     { k: 'history', label: 'Decision History' },
                     { k: 'settings', label: 'Model Settings' },
                 ]
             }),
             subTab === 'overview' && h(OverviewView, { kpis, insights, props }),
+            subTab === 'strategy' && h(StrategySubview, { props }),
             subTab === 'patterns' && h(PatternsView, { props }),
             subTab === 'history' && h(HistoryView, { props }),
             subTab === 'settings' && h(SettingsView, { settings, setSettings })
         );
+    }
+
+    // ── Strategy sub-view — embeds the existing StrategyEditorTab ──────
+    function StrategySubview({ props }) {
+        if (typeof window.StrategyEditorTab !== 'function') {
+            return h('div', { style: { padding: '40px', textAlign: 'center', color: 'var(--silver)' } }, 'Strategy editor module not loaded.');
+        }
+        return React.createElement(window.StrategyEditorTab, {
+            currentLeague: props.currentLeague,
+            myRoster: props.myRoster,
+            playersData: props.playersData,
+            gmStrategy: props.gmStrategy,
+            setGmStrategy: props.setGmStrategy,
+        });
     }
 
     window.AlexInsightsTab = AlexInsightsTab;

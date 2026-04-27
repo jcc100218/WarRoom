@@ -963,6 +963,10 @@ WRShared.loadMany([
 <script type="text/babel" src="js/shared/gm-mode.js?v=20260418a"></script>
 <!-- 2e. Alex behavioral-insight settings — window.WR.AlexSettings — shared tuning for every Alex surface -->
 <script type="text/babel" src="js/shared/alex-settings.js?v=20260420a"></script>
+<!-- 2f. Achievements catalog — window.WrAchievements — first-class legacy badge system -->
+<script src="js/shared/achievements.js?v=20260426p14"></script>
+<!-- 2g. League history loader — window.WrHistory — Sleeper chain walker for season history -->
+<script src="js/shared/league-history.js?v=20260426p20"></script>
 <!-- 3. Shared utilities: player valuation constants + projection engine -->
 <script type="text/babel" src="js/utils/sos-engine.js"></script>
 <script type="text/babel" src="js/utils/player-value.js"></script>
@@ -997,34 +1001,34 @@ WRShared.loadMany([
 <script type="text/babel" src="js/draft-room.js?v=20260426n"></script>
 <!-- 5. League detail tab components (extracted from league-detail.js) -->
 <!-- v2 widget modules (load before dashboard.js which consumes them) -->
-<script type="text/babel" src="js/widgets/roster-pulse.js?v=20260420a"></script>
-<script type="text/babel" src="js/widgets/league-landscape.js?v=20260420a"></script>
-<script type="text/babel" src="js/widgets/market-radar.js?v=20260420a"></script>
-<script type="text/babel" src="js/widgets/draft-capital.js?v=20260420a"></script>
+<script type="text/babel" src="js/widgets/roster-pulse.js?v=20260426p6"></script>
+<script type="text/babel" src="js/widgets/league-landscape.js?v=20260426p6"></script>
+<script type="text/babel" src="js/widgets/market-radar.js?v=20260426p10"></script>
+<script type="text/babel" src="js/widgets/draft-capital.js?v=20260426p10"></script>
 <!-- SI-3: Tag-driven widgets (Trade Block / Cut Candidates / Waiver Targets) -->
-<script type="text/babel" src="js/widgets/player-tags.js?v=20260420a"></script>
+<script type="text/babel" src="js/widgets/player-tags.js?v=20260426p11"></script>
 <!-- Phase 3: League intel widgets (Competitive Tiers, Power Rankings) — ex-League Map -->
-<script type="text/babel" src="js/widgets/competitive-tiers.js?v=20260420a"></script>
+<script type="text/babel" src="js/widgets/competitive-tiers.js?v=20260426p12"></script>
 <script type="text/babel" src="js/widgets/power-rankings.js?v=20260420a"></script>
 <!-- Phase 9: My Trophies widget -->
-<script type="text/babel" src="js/widgets/my-trophies.js?v=20260420a"></script>
-<script type="text/babel" src="js/tabs/dashboard.js?v=20260426p1"></script>
-<script type="text/babel" src="js/tabs/flash-brief.js?v=20260420b"></script>
+<script type="text/babel" src="js/widgets/my-trophies.js?v=20260426p14"></script>
+<script type="text/babel" src="js/tabs/dashboard.js?v=20260426p12"></script>
+<script type="text/babel" src="js/tabs/flash-brief.js?v=20260426p10"></script>
 <script type="text/babel" src="js/tabs/league-map.js?v=20260420a"></script>
 <script type="text/babel" src="js/tabs/my-team.js?v=20260420d"></script>
 <!-- Compare: extracted from My Roster's former sub-view, now a top-level ROSTER-group tab. -->
 <script type="text/babel" src="js/tabs/compare.js?v=20260420a"></script>
 <script type="text/babel" src="js/tabs/analytics.js?v=20260420b"></script>
-<script type="text/babel" src="js/tabs/trophy-room.js?v=20260420a"></script>
+<script type="text/babel" src="js/tabs/trophy-room.js?v=20260426p20"></script>
 <script type="text/babel" src="js/tabs/calendar.js?v=20260420a"></script>
 <!-- Alex Insights (Option A): top-level tab for behavioral analysis + AI settings -->
-<script type="text/babel" src="js/tabs/alex-insights.js?v=20260420f"></script>
+<script type="text/babel" src="js/tabs/alex-insights.js?v=20260426p26"></script>
 <script type="text/babel" src="js/tabs/global-view.js"></script>
 <script src="js/tutorial.js"></script>
 <!-- 6. Strategy editor: calls shared GMStrategy API, no logic duplication -->
 <script type="text/babel" src="js/tabs/strategy-editor.js?v=20260418b"></script>
 <!-- 7. League detail: coordinator shell, depends on all above -->
-    <script type="text/babel" src="js/league-detail.js?v=20260426p2"></script>
+    <script type="text/babel" src="js/league-detail.js?v=20260426p23"></script>
 <!-- 8. App: OwnerDashboard + ReactDOM.render (loads last) -->
 <script type="text/babel" src="js/app.js?v=20260426p1"></script>
 

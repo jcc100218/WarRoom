@@ -207,6 +207,8 @@ function IntelligenceBriefWidget({
     // areas the user has enabled, so turning off "trades" or "waivers" in
     // Alex Insights quiets those lines here too.
     const alexFocus = (window.WR?.AlexSettings?.get?.()?.focus) || { trades: true, waivers: true, gmStyle: true };
+
+    // Full briefing text — used at tall/xl/xxl
     let briefText = tierMsg;
     if (portfolioComparison) briefText += ' ' + portfolioComparison;
     if (elites > 0 && alexFocus.gmStyle !== false) briefText += ` You've got ${elites} elite player${elites > 1 ? 's' : ''} anchoring the roster.`;
@@ -214,175 +216,417 @@ function IntelligenceBriefWidget({
     if (activeTrades > 0 && alexFocus.trades !== false) briefText += ` ${activeTrades} trade${activeTrades > 1 ? 's have' : ' has'} gone down in the league recently. Worth watching who's moving what.`;
     if (budget > 0 && alexFocus.waivers !== false) briefText += ` You've got $${faabRemaining} of $${budget} FAAB left to work with.`;
 
+    // Three-sentence summary — fits a 160px-tall md row, no scroll
+    const threeSentence = (() => {
+        const parts = [tierMsg];
+        if (needPos && alexFocus.gmStyle !== false) parts.push(`Biggest gap: ${needPos}.`);
+        else if (elites > 0) parts.push(`${elites} elite anchor${elites > 1 ? 's' : ''}.`);
+        if (waiverTarget && alexFocus.waivers !== false) parts.push(`${waiverTarget.name} (${waiverTarget.pos}) sitting on the wire.`);
+        else if (draftCountdown) parts.push(`Draft in ${draftCountdown.days} day${draftCountdown.days !== 1 ? 's' : ''}.`);
+        else if (activeTrades > 0 && alexFocus.trades !== false) parts.push(`${activeTrades} recent trade${activeTrades > 1 ? 's' : ''} in your league.`);
+        else parts.push(`Ranked ${ordinal(myRank)} in the league.`);
+        return parts.slice(0, 3).join(' ');
+    })();
+
+    // One-sentence headline — used at lg
+    const oneSentence = tierMsg;
+
     const alexAvatar = (() => {
         const key = localStorage.getItem('wr_alex_avatar') || 'brain';
         const map = { brain:'\u{1F9E0}', target:'\u{1F3AF}', chart:'\u{1F4CA}', football:'\u{1F3C8}', bolt:'\u26A1', fire:'\u{1F525}', medal:'\u{1F396}\uFE0F', trophy:'\u{1F3C6}' };
         return map[key] || '\u{1F9E0}';
     })();
 
-    // Size-responsive styling. xl is the full-width premium layout; md/lg are
-    // compact enough to coexist with other widgets on the grid.
-    const isCompact = size === 'md';
     const cardStyle = { background: 'var(--black)', border: 'var(--card-border, 1px solid rgba(212,175,55,0.2))', borderRadius: 'var(--card-radius, 10px)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' };
-    const btnStyle = { padding: isCompact ? '8px 12px' : '12px 16px', background: 'rgba(212,175,55,0.05)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '10px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: isCompact ? '0.76rem' : '0.82rem', fontWeight: 500, textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: '10px', transition: 'all 0.15s', lineHeight: 1.5 };
 
-    return React.createElement('div', { style: cardStyle },
-        // Header
-        React.createElement('div', { style: { padding: isCompact ? '12px 16px 8px' : '20px 20px 0', borderBottom: '1px solid rgba(212,175,55,0.1)', paddingBottom: isCompact ? '10px' : '12px' } },
-            React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: isCompact ? '0.66rem' : '0.72rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' } },
-                React.createElement('span', { style: { fontSize: '0.9rem' } }, alexAvatar),
+    // ── Action list (priority-ordered, focus-gated) ─────────────────
+    const actions = [];
+    if (alexFocus.waivers !== false && waiverTarget) {
+        actions.push({
+            icon: '🎯', tab: 'fa',
+            title: p.waiver(waiverTarget.name, waiverTarget.pos, waiverTarget.dhq),
+            detail: [
+                React.createElement('span', { key: 'n', style: { color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '2px' }, onClick: e => { e.stopPropagation(); if (typeof window.openPlayerModal === 'function' && waiverTarget.pid) window.openPlayerModal(waiverTarget.pid); } }, waiverTarget.name),
+                ` · ${waiverTarget.pos} · DHQ ${waiverTarget.dhq.toLocaleString()} · Fills your ${waiverTarget.pos} gap.`,
+            ],
+        });
+    }
+    if (alexFocus.waivers !== false && keyDrops.length > 0) {
+        actions.push({
+            icon: '⚠️', tab: 'fa',
+            title: `Heads up — ${keyDrops.length > 1 ? 'some high-value players hit' : 'a high-value player hit'} the wire recently.`,
+            detail: [
+                ...keyDrops.map((d, i) => [
+                    i > 0 ? ', ' : '',
+                    React.createElement('span', { key: d.pid || i, style: { color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '2px' }, onClick: e => { e.stopPropagation(); if (typeof window.openPlayerModal === 'function' && d.pid) window.openPlayerModal(d.pid); } }, `${d.name} (${d.pos}, ${d.dhq.toLocaleString()})`),
+                ]).flat(),
+                '. Might be worth scooping up before someone else does.',
+            ],
+        });
+    }
+    if (alexFocus.trades !== false) {
+        actions.push({
+            icon: '🔄', tab: 'trades',
+            title: p.trade(Object.keys(ownerProfiles).length),
+            detail: 'Let me show you who needs what — and what you could get in return.',
+        });
+    }
+    if (alexFocus.draft !== false && draftCountdown) {
+        actions.push({
+            icon: '📋', tab: 'draft',
+            title: p.draft(draftCountdown.days, draftCountdown.date),
+            detail: `${draftCountdown.date} · I've got your scouting report ready when you are.`,
+        });
+    }
+    actions.push({
+        icon: '🏆', tab: 'league',
+        title: p.rank(myRank, tier),
+        detail: `${tier} tier · See where everyone else stands.`,
+    });
+
+    // ── Reusable action button ───────────────────────────────────────
+    const baseBtn = { background: 'rgba(212,175,55,0.05)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '10px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 500, textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: '10px', transition: 'all 0.15s', lineHeight: 1.4 };
+    function renderActionBtn(a, key, opts = {}) {
+        const compact = !!opts.compact;
+        const btnStyle = {
+            ...baseBtn,
+            padding: compact ? '6px 10px' : '12px 16px',
+            fontSize: compact ? '0.72rem' : '0.82rem',
+            ...(opts.style || {}),
+        };
+        return React.createElement('button', {
+            key,
+            onClick: () => setActiveTab && setActiveTab(a.tab), style: btnStyle,
+            onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.15)',
+            onMouseLeave: e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)',
+        },
+            React.createElement('span', { style: { fontSize: compact ? '0.85rem' : '1rem', flexShrink: 0 } }, a.icon),
+            React.createElement('div', { style: { minWidth: 0, flex: 1 } },
+                React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: compact ? '0.74rem' : '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: opts.titleClamp || 2, WebkitBoxOrient: 'vertical' } }, a.title),
+                !compact && React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)', marginTop: '2px' } },
+                    Array.isArray(a.detail) ? a.detail : a.detail
+                ),
+            ),
+        );
+    }
+
+    // ── Reusable header ─────────────────────────────────────────────
+    function header(opts = {}) {
+        const tight = !!opts.tight;
+        return React.createElement('div', { style: { padding: tight ? '8px 14px 6px' : '20px 20px 0', borderBottom: '1px solid rgba(212,175,55,0.1)', paddingBottom: tight ? '6px' : '12px', flexShrink: 0 } },
+            React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: tight ? '0.62rem' : '0.72rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: tight ? '2px' : '4px', display: 'flex', alignItems: 'center', gap: '6px' } },
+                React.createElement('span', { style: { fontSize: tight ? '0.8rem' : '0.9rem' } }, alexAvatar),
                 'INTELLIGENCE BRIEFING',
-                typeof StarBtn !== 'undefined' ? React.createElement(StarBtn, { id: 'brief_intel_main', title: 'Intelligence Briefing', content: briefText.slice(0, 120) + (briefText.length > 120 ? '…' : ''), sourceModule: 'Intelligence Brief', style: { marginLeft: 'auto' } }) : null
+                typeof StarBtn !== 'undefined' ? React.createElement(StarBtn, { id: 'brief_intel_main', title: 'Intelligence Briefing', content: briefText.slice(0, 120) + (briefText.length > 120 ? '…' : ''), sourceModule: 'Intelligence Brief', style: { marginLeft: 'auto' } }) : null,
             ),
-            React.createElement('div', { style: { fontSize: isCompact ? '1rem' : '1.2rem', fontWeight: 700, color: 'var(--white)' } }, greetingText),
-        ),
-        // Body
-        React.createElement('div', { style: { padding: isCompact ? '12px 16px' : '16px 20px', flex: 1, overflowY: 'auto' } },
-            // Alex's message
-            React.createElement('div', { style: { fontSize: isCompact ? '0.78rem' : '0.85rem', color: 'var(--silver)', lineHeight: 1.75, marginBottom: isCompact ? '14px' : '20px' } },
-                briefText
+            React.createElement('div', { style: { fontSize: tight ? '0.92rem' : '1.2rem', fontWeight: 700, color: 'var(--white)' } }, greetingText),
+        );
+    }
+
+    // ── md (2×1, 160px tall) — 3 sentences, no scroll ────────────────
+    if (size === 'md') {
+        return React.createElement('div', { style: cardStyle },
+            header({ tight: true }),
+            React.createElement('div', { style: { padding: '10px 14px', flex: 1, display: 'flex', alignItems: 'center', overflow: 'hidden' } },
+                React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' } }, threeSentence),
             ),
-            // Action buttons — each is gated by its relevant focus area. If
-            // the user disables "trades" in Alex Insights settings, the Trade
-            // block CTA disappears here too, and so on.
+        );
+    }
+
+    // ── lg (2×2, 320px tall) — 1 sentence + 3 actions, no scroll ─────
+    if (size === 'lg') {
+        const top3 = actions.slice(0, 3);
+        return React.createElement('div', { style: cardStyle },
+            header({ tight: true }),
+            React.createElement('div', { style: { padding: '10px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' } },
+                React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', flexShrink: 0 } }, oneSentence),
+                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '5px', flex: 1, minHeight: 0 } },
+                    ...top3.map((a, i) => renderActionBtn(a, 'lg-' + i, { compact: true, titleClamp: 1 })),
+                ),
+            ),
+        );
+    }
+
+    // ── tall (2×4, 640px tall) — full vertical layout ────────────────
+    if (size === 'tall') {
+        return React.createElement('div', { style: cardStyle },
+            header(),
+            React.createElement('div', { style: { padding: '16px 20px', flex: 1, overflowY: 'auto' } },
+                React.createElement('div', { style: { fontSize: '0.85rem', color: 'var(--silver)', lineHeight: 1.75, marginBottom: '20px' } }, briefText),
+                React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
+                    ...actions.map((a, i) => renderActionBtn(a, 'tall-' + i)),
+                ),
+            ),
+        );
+    }
+
+    // ── xl (4×2, 320×640) — split columns, no scroll ─────────────────
+    if (size === 'xl') {
+        const top4 = actions.slice(0, 4);
+        return React.createElement('div', { style: cardStyle },
+            header({ tight: true }),
+            React.createElement('div', { style: { padding: '10px 14px', flex: 1, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '14px', overflow: 'hidden' } },
+                React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.65, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 9, WebkitBoxOrient: 'vertical' } }, briefText),
+                React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', minHeight: 0 } },
+                    ...top4.map((a, i) => renderActionBtn(a, 'xl-' + i, { compact: true, titleClamp: 2 })),
+                ),
+            ),
+        );
+    }
+
+    // ── xxl (4×4, ~640×640) — full real-estate dashboard ─────────────
+    if (size === 'xxl') {
+        const posAssess = myAssess?.posAssessment || {};
+        const idealRoster = window.App?.LI?.idealRoster || window.App?.PlayerValue?.IDEAL_ROSTER || { QB: 3, RB: 7, WR: 7, TE: 4, K: 2, DL: 7, LB: 6, DB: 6 };
+        const posOrder = ['QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'];
+        const posBars = posOrder.map(pos => {
+            const pa = posAssess[pos];
+            const count = pa?.count || 0;
+            const ideal = idealRoster[pos] || 3;
+            const status = pa?.status || 'ok';
+            const grade = status === 'surplus' ? 'A' : status === 'ok' ? 'B' : status === 'thin' ? 'C' : 'D';
+            const col = status === 'surplus' ? '#2ECC71' : status === 'ok' ? '#D4AF37' : status === 'thin' ? '#F0A500' : '#E74C3C';
+            return { pos, count, ideal, grade, col, pct: Math.min(100, (count / Math.max(ideal, 1)) * 100) };
+        });
+
+        const myDHQ = (myRoster?.players || []).reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0);
+        const kpis = [
+            { label: 'HEALTH', value: hs, col: hs >= 80 ? '#2ECC71' : hs >= 60 ? '#D4AF37' : hs >= 40 ? '#F0A500' : '#E74C3C' },
+            { label: 'RANK', value: '#' + (myRank || '—'), col: '#D4AF37' },
+            { label: 'TIER', value: tier, col: tier === 'ELITE' ? '#2ECC71' : tier === 'CONTENDER' ? '#D4AF37' : tier === 'CROSSROADS' ? '#F0A500' : '#E74C3C' },
+            { label: 'ELITES', value: elites, col: '#2ECC71' },
+            { label: 'DHQ', value: myDHQ >= 1000 ? Math.round(myDHQ / 1000) + 'k' : myDHQ, col: '#D4AF37' },
+            { label: 'FAAB', value: budget > 0 ? '$' + faabRemaining : '—', col: '#7C6BF8' },
+        ];
+
+        return React.createElement('div', { style: cardStyle },
+            header(),
+            React.createElement('div', { style: { padding: '14px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' } },
+                React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '6px', flexShrink: 0 } },
+                    ...kpis.map((k, i) => React.createElement('div', {
+                        key: i,
+                        style: { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', padding: '8px 6px', textAlign: 'center' },
+                    },
+                        React.createElement('div', { style: { fontFamily: 'JetBrains Mono, monospace', fontSize: '1.1rem', fontWeight: 700, color: k.col, lineHeight: 1.1 } }, String(k.value)),
+                        React.createElement('div', { style: { fontSize: '0.6rem', color: 'var(--silver)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '3px' } }, k.label),
+                    )),
+                ),
+                React.createElement('div', { style: { flexShrink: 0 } },
+                    React.createElement('div', { style: { fontSize: '0.62rem', fontWeight: 700, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' } }, 'Position Health'),
+                    React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '6px' } },
+                        ...posBars.map((pb, i) => React.createElement('div', { key: i, style: { textAlign: 'center' } },
+                            React.createElement('div', { style: { fontSize: '0.6rem', fontWeight: 700, color: 'var(--silver)' } }, pb.pos),
+                            React.createElement('div', { style: { fontFamily: 'JetBrains Mono, monospace', fontSize: '1rem', fontWeight: 700, color: pb.col, lineHeight: 1, margin: '2px 0' } }, pb.grade),
+                            React.createElement('div', { style: { height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' } },
+                                React.createElement('div', { style: { width: pb.pct + '%', height: '100%', background: pb.col } }),
+                            ),
+                            React.createElement('div', { style: { fontSize: '0.55rem', color: 'var(--silver)', opacity: 0.6, marginTop: '2px', fontFamily: 'JetBrains Mono, monospace' } }, pb.count + '/' + pb.ideal),
+                        )),
+                    ),
+                ),
+                React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)', gap: '16px', flex: 1, minHeight: 0, overflow: 'hidden' } },
+                    React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 } },
+                        React.createElement('div', { style: { fontSize: '0.62rem', fontWeight: 700, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'Alex\u2019s Read'),
+                        React.createElement('div', { style: { fontSize: '0.85rem', color: 'var(--silver)', lineHeight: 1.7, overflowY: 'auto' } }, briefText),
+                    ),
+                    React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 } },
+                        React.createElement('div', { style: { fontSize: '0.62rem', fontWeight: 700, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em' } }, 'Action Items'),
+                        ...actions.slice(0, 5).map((a, i) => renderActionBtn(a, 'xxl-' + i, { compact: true, titleClamp: 2 })),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    // Default: tall layout
+    return React.createElement('div', { style: cardStyle },
+        header(),
+        React.createElement('div', { style: { padding: '16px 20px', flex: 1, overflowY: 'auto' } },
+            React.createElement('div', { style: { fontSize: '0.85rem', color: 'var(--silver)', lineHeight: 1.75, marginBottom: '20px' } }, briefText),
             React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
-                // Waiver target
-                alexFocus.waivers !== false && waiverTarget && React.createElement('button', {
-                    onClick: () => setActiveTab && setActiveTab('fa'), style: btnStyle,
-                    onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.15)',
-                    onMouseLeave: e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)',
-                },
-                    React.createElement('span', { style: { fontSize: '1rem' } }, '🎯'),
-                    React.createElement('div', null,
-                        React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: isCompact ? '0.78rem' : '0.85rem' } }, p.waiver(waiverTarget.name, waiverTarget.pos, waiverTarget.dhq)),
-                        React.createElement('div', { style: { fontSize: isCompact ? '0.7rem' : '0.75rem', color: 'var(--silver)', marginTop: '2px' } },
-                            React.createElement('span', { style: { color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '2px' }, onClick: e => { e.stopPropagation(); if (typeof window.openPlayerModal === 'function' && waiverTarget.pid) window.openPlayerModal(waiverTarget.pid); } }, waiverTarget.name),
-                            ` · ${waiverTarget.pos} · DHQ ${waiverTarget.dhq.toLocaleString()} · Fills your ${waiverTarget.pos} gap.`
-                        ),
-                    ),
-                ),
-                // Key drops
-                alexFocus.waivers !== false && keyDrops.length > 0 && React.createElement('button', {
-                    onClick: () => setActiveTab && setActiveTab('fa'), style: btnStyle,
-                    onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.15)',
-                    onMouseLeave: e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)',
-                },
-                    React.createElement('span', { style: { fontSize: '1rem' } }, '⚠️'),
-                    React.createElement('div', null,
-                        React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: isCompact ? '0.78rem' : '0.85rem' } }, `Heads up — ${keyDrops.length > 1 ? 'some high-value players hit' : 'a high-value player hit'} the wire recently.`),
-                        React.createElement('div', { style: { fontSize: isCompact ? '0.7rem' : '0.75rem', color: 'var(--silver)', marginTop: '2px' } },
-                            ...keyDrops.map((d, i) => [
-                                i > 0 ? ', ' : '',
-                                React.createElement('span', { key: d.pid || i, style: { color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '2px' }, onClick: e => { e.stopPropagation(); if (typeof window.openPlayerModal === 'function' && d.pid) window.openPlayerModal(d.pid); } }, `${d.name} (${d.pos}, ${d.dhq.toLocaleString()})`)
-                            ]).flat(),
-                            '. Might be worth scooping up before someone else does.'
-                        ),
-                    ),
-                ),
-                // Trade block
-                alexFocus.trades !== false && React.createElement('button', {
-                    onClick: () => setActiveTab && setActiveTab('trades'), style: btnStyle,
-                    onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.15)',
-                    onMouseLeave: e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)',
-                },
-                    React.createElement('span', { style: { fontSize: '1rem' } }, '🔄'),
-                    React.createElement('div', null,
-                        React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: isCompact ? '0.78rem' : '0.85rem' } }, p.trade(Object.keys(ownerProfiles).length)),
-                        React.createElement('div', { style: { fontSize: isCompact ? '0.7rem' : '0.75rem', color: 'var(--silver)', marginTop: '2px' } }, 'Let me show you who needs what — and what you could get in return.'),
-                    ),
-                ),
-                // Draft countdown
-                alexFocus.draft !== false && draftCountdown && React.createElement('button', {
-                    onClick: () => setActiveTab && setActiveTab('draft'), style: btnStyle,
-                    onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.15)',
-                    onMouseLeave: e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)',
-                },
-                    React.createElement('span', { style: { fontSize: '1rem' } }, '📋'),
-                    React.createElement('div', null,
-                        React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: isCompact ? '0.78rem' : '0.85rem' } }, p.draft(draftCountdown.days, draftCountdown.date)),
-                        React.createElement('div', { style: { fontSize: isCompact ? '0.7rem' : '0.75rem', color: 'var(--silver)', marginTop: '2px' } }, `${draftCountdown.date} · I've got your scouting report ready when you are.`),
-                    ),
-                ),
-                // Power ranking
-                React.createElement('button', {
-                    onClick: () => setActiveTab && setActiveTab('league'), style: btnStyle,
-                    onMouseEnter: e => e.currentTarget.style.background = 'rgba(212,175,55,0.15)',
-                    onMouseLeave: e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)',
-                },
-                    React.createElement('span', { style: { fontSize: '1rem' } }, '🏆'),
-                    React.createElement('div', null,
-                        React.createElement('div', { style: { fontWeight: 600, color: 'var(--white)', fontSize: isCompact ? '0.78rem' : '0.85rem' } }, p.rank(myRank, tier)),
-                        React.createElement('div', { style: { fontSize: isCompact ? '0.7rem' : '0.75rem', color: 'var(--silver)', marginTop: '2px' } }, `${tier} tier · See where everyone else stands.`),
-                    ),
-                ),
+                ...actions.map((a, i) => renderActionBtn(a, 'def-' + i)),
             ),
         ),
     );
 }
 
 // ══════════════════════════════════════════════════════════════════
-// FieldNotesWidget — Scout session log feed
+// FieldNotesWidget — Scout/War Room session log feed (v2)
+// Groups entries by type (icon-derived) so users see a clear breakdown.
+// All sizes are no-scroll: smaller sizes show counts/last entry, larger
+// sizes show grouped sections with cap on entries per group.
 // ══════════════════════════════════════════════════════════════════
 function FieldNotesWidget({ size = 'lg' }) {
     const [fieldEntries, setFieldEntries] = useState([]);
     useEffect(() => {
-        if (window.OD?.loadFieldLog) {
-            window.OD.loadFieldLog(null, 15).then(data => {
-                if (data && data.length) { setFieldEntries(data); return; }
-                try {
-                    const raw = localStorage.getItem('scout_field_log_v1');
-                    if (raw) { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) setFieldEntries(parsed.slice(0, 15)); }
-                } catch {}
-            }).catch(() => {
-                try {
-                    const raw = localStorage.getItem('scout_field_log_v1');
-                    if (raw) { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) setFieldEntries(parsed.slice(0, 15)); }
-                } catch {}
-            });
-        } else {
+        const fallback = () => {
             try {
                 const raw = localStorage.getItem('scout_field_log_v1');
-                if (raw) { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) setFieldEntries(parsed.slice(0, 15)); }
+                if (raw) { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) setFieldEntries(parsed.slice(0, 30)); }
             } catch {}
+        };
+        if (window.OD?.loadFieldLog) {
+            window.OD.loadFieldLog(null, 30).then(data => {
+                if (data && data.length) setFieldEntries(data);
+                else fallback();
+            }).catch(fallback);
+        } else {
+            fallback();
         }
     }, []);
 
-    const isCompact = size === 'md';
+    // Group entries by their `category` field (set when the action is logged).
+    // Fall back to source-based grouping when category is missing.
+    const CATEGORY_META = {
+        roster:    { label: 'Roster moves',  color: '#2ECC71' },
+        trade:     { label: 'Trade activity', color: '#7C6BF8' },
+        waiver:    { label: 'Waiver moves',  color: '#00c8b4' },
+        draft:     { label: 'Draft prep',     color: '#F0A500' },
+        research:  { label: 'Research',       color: '#D4AF37' },
+        league:    { label: 'League intel',   color: '#5DADE2' },
+        scout:     { label: 'Scout sessions', color: '#00c8b4' },
+        warroom:   { label: 'War Room',       color: '#D4AF37' },
+    };
+    const classify = (e) => {
+        const cat = (e.category || '').toLowerCase();
+        if (cat && CATEGORY_META[cat]) return { key: cat, ...CATEGORY_META[cat] };
+        // Fallback by source
+        const fallback = e.source === 'warroom' ? 'warroom' : 'scout';
+        return { key: fallback, ...CATEGORY_META[fallback] };
+    };
+
+    // Group entries by type, sorted by recency within
+    const groups = useMemo(() => {
+        const out = {};
+        (fieldEntries || []).forEach(e => {
+            const r = classify(e);
+            if (!out[r.key]) out[r.key] = { key: r.key, label: r.label, color: r.color, entries: [] };
+            out[r.key].entries.push(e);
+        });
+        Object.values(out).forEach(g => g.entries.sort((a, b) => (b.ts || 0) - (a.ts || 0)));
+        return Object.values(out).sort((a, b) => b.entries.length - a.entries.length);
+    }, [fieldEntries]);
+
+    const totalCount = fieldEntries.length;
+    const monoFont = "'Courier Prime', 'Courier New', monospace";
     const cardStyle = { background: 'var(--black)', border: 'var(--card-border, 1px solid rgba(212,175,55,0.2))', borderRadius: 'var(--card-radius, 10px)', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' };
 
-    return React.createElement('div', { style: cardStyle },
-        React.createElement('div', { style: { padding: isCompact ? '12px 16px 8px' : '20px 20px 0', borderBottom: '1px solid rgba(212,175,55,0.1)', paddingBottom: isCompact ? '10px' : '12px' } },
-            React.createElement('div', { style: { fontFamily: "'Courier Prime', 'Courier New', monospace", fontSize: isCompact ? '1rem' : '1.2rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '2px', fontWeight: 700 } }, 'FIELD NOTES'),
-            React.createElement('div', { style: { fontSize: isCompact ? '0.72rem' : '0.78rem', color: 'var(--silver)', fontFamily: "'Courier Prime', 'Courier New', monospace" } }, 'Intel logged from Scout sessions'),
-        ),
-        React.createElement('div', { style: { padding: isCompact ? '12px 16px' : '16px 20px', flex: 1, overflowY: 'auto' } },
-            !fieldEntries.length
-                ? React.createElement('div', { style: { textAlign: 'center', padding: '40px 0', color: 'var(--silver)', opacity: 0.5 } },
-                    React.createElement('div', { style: { fontSize: '2rem', marginBottom: '8px' } }, '📋'),
-                    React.createElement('div', { style: { fontSize: '0.9rem', fontFamily: "'Courier Prime', 'Courier New', monospace", fontWeight: 700 } }, 'No field notes yet.'),
-                    React.createElement('div', { style: { fontSize: '0.78rem', marginTop: '6px', lineHeight: 1.5, fontFamily: "'Courier Prime', 'Courier New', monospace" } }, 'Actions from War Room Scout will appear here.'),
-                )
-                : fieldEntries.map((entry, i) => React.createElement('div', {
-                    key: entry.id || i,
-                    style: { padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontFamily: "'Courier Prime', 'Courier New', monospace" }
-                },
-                    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' } },
-                        React.createElement('span', { style: { fontSize: '0.82rem' } }, entry.icon || '📋'),
-                        React.createElement('span', { style: { fontSize: '0.72rem', color: 'var(--gold)', fontWeight: 600 } },
-                            new Date(entry.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
-                            new Date(entry.ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-                        ),
-                        React.createElement('span', { style: {
-                            fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                            padding: '1px 5px', borderRadius: '3px', marginLeft: 'auto',
-                            background: entry.source === 'warroom' ? 'rgba(212,175,55,0.15)' : 'rgba(0,200,180,0.15)',
-                            color: entry.source === 'warroom' ? 'var(--gold)' : '#00c8b4',
-                        } }, entry.source === 'warroom' ? 'WAR ROOM' : 'SCOUT'),
+    function fmtTime(ts) {
+        if (!ts) return '';
+        const d = new Date(ts);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function renderEntry(e, i) {
+        return React.createElement('div', { key: e.id || i, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', fontSize: '0.7rem', fontFamily: monoFont, borderBottom: '1px solid rgba(255,255,255,0.03)' } },
+            React.createElement('span', { style: { fontSize: '0.78rem' } }, e.icon || '📋'),
+            React.createElement('span', { style: { flex: 1, color: 'var(--silver)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, e.text || ''),
+            React.createElement('span', { style: { fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)' } }, fmtTime(e.ts)),
+        );
+    }
+
+    function emptyState(opts = {}) {
+        return React.createElement('div', { style: { textAlign: 'center', padding: opts.tight ? '12px 0' : '40px 0', color: 'var(--silver)', opacity: 0.5, fontFamily: monoFont } },
+            React.createElement('div', { style: { fontSize: opts.tight ? '1.4rem' : '2rem', marginBottom: '6px' } }, '📋'),
+            React.createElement('div', { style: { fontSize: '0.78rem', fontWeight: 700 } }, 'No field notes yet'),
+            !opts.tight && React.createElement('div', { style: { fontSize: '0.7rem', marginTop: '4px' } }, 'Actions from Scout will appear here.'),
+        );
+    }
+
+    // ── SLIM (1×2, ~80×160): big number + proportional category bars ──
+    if (size === 'slim') {
+        const maxCount = Math.max(...groups.map(g => g.entries.length), 1);
+        return React.createElement('div', { style: cardStyle },
+            React.createElement('div', { style: { padding: '8px 8px 4px', textAlign: 'center', flexShrink: 0, borderBottom: '1px solid rgba(212,175,55,0.08)' } },
+                React.createElement('div', { style: { fontFamily: monoFont, fontSize: '0.58rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700, marginBottom: '1px' } }, 'NOTES'),
+                React.createElement('div', { style: { fontSize: '1.5rem', fontWeight: 700, color: 'var(--white)', fontFamily: monoFont, lineHeight: 1 } }, totalCount),
+            ),
+            React.createElement('div', { style: { flex: 1, padding: '6px 6px', display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' } },
+                groups.length === 0
+                    ? React.createElement('div', { style: { textAlign: 'center', color: 'var(--silver)', opacity: 0.5, fontSize: '0.6rem', fontFamily: monoFont, padding: '8px 0' } }, 'No notes yet')
+                    : groups.slice(0, 5).map(g => {
+                        const pct = (g.entries.length / maxCount) * 100;
+                        return React.createElement('div', { key: g.key, style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
+                            React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.56rem', fontFamily: monoFont } },
+                                React.createElement('span', { style: { color: g.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, g.label.split(' ')[0]),
+                                React.createElement('span', { style: { color: 'var(--white)', fontWeight: 700 } }, g.entries.length),
+                            ),
+                            React.createElement('div', { style: { height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' } },
+                                React.createElement('div', { style: { width: pct + '%', height: '100%', background: g.color, transition: '0.3s' } }),
+                            ),
+                        );
+                    }),
+            ),
+        );
+    }
+
+    // ── NARROW (1×4): vertical type counts + a few latest entries ──
+    if (size === 'narrow') {
+        const latest = fieldEntries.slice(0, 5);
+        return React.createElement('div', { style: cardStyle },
+            React.createElement('div', { style: { padding: '8px 8px 6px', borderBottom: '1px solid rgba(212,175,55,0.1)', flexShrink: 0 } },
+                React.createElement('div', { style: { fontFamily: monoFont, fontSize: '0.64rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 700 } }, 'FIELD NOTES'),
+                React.createElement('div', { style: { fontSize: '0.62rem', color: 'var(--silver)', marginTop: '1px', fontFamily: monoFont } }, totalCount + ' total'),
+            ),
+            React.createElement('div', { style: { flex: 1, padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden' } },
+                groups.length === 0 ? emptyState({ tight: true }) : React.createElement(React.Fragment, null,
+                    React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px' } },
+                        ...groups.slice(0, 6).map(g => React.createElement('div', { key: g.key, style: { display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.6rem', fontFamily: monoFont } },
+                            React.createElement('div', { style: { width: 4, height: 4, borderRadius: 2, background: g.color, flexShrink: 0 } }),
+                            React.createElement('span', { style: { color: 'var(--silver)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, g.label),
+                            React.createElement('span', { style: { fontWeight: 700, color: 'var(--white)' } }, g.entries.length),
+                        )),
                     ),
-                    React.createElement('div', { style: { fontSize: '0.78rem', color: 'var(--silver)', lineHeight: 1.4 } }, entry.text || ''),
-                ))
-        ),
-    );
+                    React.createElement('div', { style: { borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px', flex: 1, minHeight: 0, overflow: 'hidden' } },
+                        React.createElement('div', { style: { fontSize: '0.56rem', color: 'var(--gold)', letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 700, marginBottom: '3px', fontFamily: monoFont } }, 'Recent'),
+                        ...latest.map((e, i) => React.createElement('div', { key: i, style: { fontSize: '0.6rem', color: 'var(--silver)', fontFamily: monoFont, padding: '1px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, (e.icon || '·') + ' ' + (e.text || ''))),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    // ── LG (2×2): grouped sections — top 2 groups, top 3 each ──
+    if (size === 'lg') {
+        return React.createElement('div', { style: cardStyle },
+            React.createElement('div', { style: { padding: '12px 16px 8px', borderBottom: '1px solid rgba(212,175,55,0.1)', flexShrink: 0 } },
+                React.createElement('div', { style: { fontFamily: monoFont, fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 } }, 'FIELD NOTES'),
+                React.createElement('div', { style: { fontSize: '0.7rem', color: 'var(--silver)', fontFamily: monoFont, marginTop: '2px' } }, totalCount + ' entries · ' + groups.length + ' types'),
+            ),
+            React.createElement('div', { style: { padding: '8px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden' } },
+                groups.length === 0 ? emptyState() :
+                    groups.slice(0, 3).map(g => React.createElement('div', { key: g.key, style: { borderLeft: '2px solid ' + g.color, paddingLeft: '8px' } },
+                        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' } },
+                            React.createElement('span', { style: { fontSize: '0.62rem', fontWeight: 700, color: g.color, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: monoFont } }, g.label),
+                            React.createElement('span', { style: { fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)', fontFamily: monoFont } }, g.entries.length),
+                        ),
+                        ...g.entries.slice(0, 2).map((e, i) => renderEntry(e, i)),
+                    )),
+            ),
+        );
+    }
+
+    // ── TALL (2×4): all groups, more entries each, no scroll ──
+    if (size === 'tall') {
+        return React.createElement('div', { style: cardStyle },
+            React.createElement('div', { style: { padding: '14px 18px 10px', borderBottom: '1px solid rgba(212,175,55,0.1)', flexShrink: 0 } },
+                React.createElement('div', { style: { fontFamily: monoFont, fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 } }, 'FIELD NOTES'),
+                React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)', fontFamily: monoFont, marginTop: '2px' } }, 'Intel grouped by type · ' + totalCount + ' entries'),
+            ),
+            React.createElement('div', { style: { padding: '10px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' } },
+                groups.length === 0 ? emptyState() :
+                    groups.slice(0, 5).map(g => React.createElement('div', { key: g.key, style: { borderLeft: '2px solid ' + g.color, paddingLeft: '8px' } },
+                        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' } },
+                            React.createElement('span', { style: { fontSize: '0.66rem', fontWeight: 700, color: g.color, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: monoFont } }, g.label),
+                            React.createElement('span', { style: { fontSize: '0.62rem', color: 'rgba(255,255,255,0.4)', fontFamily: monoFont } }, g.entries.length),
+                        ),
+                        ...g.entries.slice(0, 3).map((e, i) => renderEntry(e, i)),
+                    )),
+            ),
+        );
+    }
+
+    return null;
 }
 
 // Expose globally so dashboard.js can render them as widgets

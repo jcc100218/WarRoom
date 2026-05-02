@@ -22,6 +22,7 @@ const FILES = [
   'tier.js',
   'pick-value-model.js',
   'dhq-providers.js',
+  'dhq-core.js',
   'dhq-engine.js',
   'team-assess.js',
   'analytics-engine.js',

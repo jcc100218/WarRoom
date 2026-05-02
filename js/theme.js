@@ -83,29 +83,29 @@
                 sizeScale: 1.0,
             },
             colors: {
-                bg:         '#F2F2F2',
+                bg:         '#F6F4EF',
                 card:       '#FFFFFF',
-                cardHover:  'rgba(212,175,55,0.06)',
-                accent:     '#B8941E',       // slightly darker gold for contrast on white
-                accentDark: '#8B6914',
-                text:       '#1A1A1A',
-                textMuted:  '#555555',
-                textFaint:  'rgba(0,0,0,0.3)',
-                positive:   '#1B9E4B',       // darker green for light bg contrast
-                negative:   '#D32F2F',
-                info:       '#1976D2',
-                warn:       '#E68900',
-                purple:     '#6C4DC4',
-                border:     'rgba(0,0,0,0.12)',
-                borderHover:'rgba(0,0,0,0.25)',
+                cardHover:  '#ECE7DC',
+                accent:     '#8C6410',
+                accentDark: '#64480C',
+                text:       '#15130F',
+                textMuted:  '#4E4638',
+                textFaint:  'rgba(21,19,15,0.58)',
+                positive:   '#0E7A3A',
+                negative:   '#B42318',
+                info:       '#075E9E',
+                warn:       '#A15C00',
+                purple:     '#5B3EA6',
+                border:     'rgba(90,74,42,0.22)',
+                borderHover:'rgba(90,74,42,0.38)',
             },
             card: {
                 background: '#FFFFFF',
-                border:     '1px solid rgba(0,0,0,0.1)',
-                borderHover:'1px solid rgba(0,0,0,0.2)',
+                border:     '1px solid rgba(90,74,42,0.18)',
+                borderHover:'1px solid rgba(90,74,42,0.34)',
                 radius:     '10px',
-                shadow:     '0 1px 4px rgba(0,0,0,0.08)',
-                shadowHover:'0 4px 12px rgba(0,0,0,0.12)',
+                shadow:     '0 1px 4px rgba(35,28,18,0.08)',
+                shadowHover:'0 6px 16px rgba(35,28,18,0.14)',
             },
             badge: {
                 radius:     '10px',
@@ -177,6 +177,18 @@
 [data-wr-theme="${themeId}"] body { background: ${c.bg} !important; }
 [data-wr-theme="${themeId}"] .wr-sidebar { background: ${c.card || c.bg} !important; border-color: ${c.border} !important; }
 [data-wr-theme="${themeId}"] .wr-main-content { background: ${c.bg} !important; }
+[data-wr-theme="${themeId}"] .header {
+    background: ${c.card} !important;
+    border-bottom-color: ${c.borderHover} !important;
+    box-shadow: ${t.card.shadow} !important;
+}
+[data-wr-theme="${themeId}"] .wr-module-strip,
+[data-wr-theme="${themeId}"] .wr-module-nav,
+[data-wr-theme="${themeId}"] .wr-module-toolbar,
+[data-wr-theme="${themeId}"] .wr-glass {
+    background: ${c.card} !important;
+    border-color: ${c.border} !important;
+}
 
 /* Phase 10: Light-mode font cascade fix.
    Many components use hardcoded hex backgrounds/colors inline that don't pick
@@ -202,7 +214,11 @@
 [data-wr-theme="${themeId}"] [style*="color: #FFFFFF"],
 [data-wr-theme="${themeId}"] [style*="color:#FFFFFF"],
 [data-wr-theme="${themeId}"] [style*="color: white"],
-[data-wr-theme="${themeId}"] [style*="color:white"] {
+[data-wr-theme="${themeId}"] [style*="color:white"],
+[data-wr-theme="${themeId}"] [style*="color: #d7d7dc"],
+[data-wr-theme="${themeId}"] [style*="color:#d7d7dc"],
+[data-wr-theme="${themeId}"] [style*="color: #d8d8de"],
+[data-wr-theme="${themeId}"] [style*="color:#d8d8de"] {
     color: ${c.text} !important;
 }
 
@@ -212,7 +228,9 @@
 [data-wr-theme="${themeId}"] [style*="color: #d0d0d0"],
 [data-wr-theme="${themeId}"] [style*="color:#d0d0d0"],
 [data-wr-theme="${themeId}"] [style*="color: #7d8291"],
-[data-wr-theme="${themeId}"] [style*="color:#7d8291"] {
+[data-wr-theme="${themeId}"] [style*="color:#7d8291"],
+[data-wr-theme="${themeId}"] [style*="color: rgba(255,255,255"],
+[data-wr-theme="${themeId}"] [style*="color:rgba(255,255,255"] {
     color: ${c.textMuted} !important;
 }
 `;

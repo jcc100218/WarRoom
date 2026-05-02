@@ -1420,6 +1420,53 @@
     /* ── Section Header (global) ─────────────────────────── */
     .wr-section-hdr { font-family: var(--font-body);font-size:1rem;color:var(--gold);letter-spacing:0.08em;margin-bottom:8px }
 
+    /* ── App shell rhythm ─────────────────────────────────── */
+    .wr-main-content { min-height:100vh; background:var(--page-bg); transition:margin-left .18s ease; }
+    .wr-content-frame { width:100%; max-width:1760px; box-sizing:border-box; margin:0 auto; padding:14px clamp(12px, 1.2vw, 20px) 48px; }
+    .wr-content-frame > * { max-width:100%; }
+    .wr-sidebar { color:var(--silver); }
+    .wr-sidebar-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .wr-sidebar-icon { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; color:currentColor; }
+    .wr-sidebar-toggle { border:1px solid rgba(212,175,55,0.18); background:rgba(255,255,255,0.035); color:var(--gold); border-radius:7px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:background .15s,border-color .15s,color .15s; }
+    .wr-sidebar-toggle:hover { border-color:rgba(212,175,55,0.42); background:rgba(212,175,55,0.08); }
+    .wr-sidebar.is-collapsed .wr-sidebar-label,
+    .wr-sidebar.is-collapsed .wr-sidebar-wordmark,
+    .wr-sidebar.is-collapsed .wr-sidebar-search,
+    .wr-sidebar.is-collapsed .wr-sidebar-extra,
+    .wr-sidebar.is-collapsed .wr-sidebar-new-badge { display:none !important; }
+    .wr-sidebar.is-collapsed .wr-sidebar-brand { justify-content:center !important; padding-left:0 !important; padding-right:0 !important; }
+    .wr-sidebar.is-collapsed .wr-sidebar-toggle { width:34px !important; height:30px !important; margin:0 auto 12px !important; }
+    .wr-sidebar:not(.is-collapsed) .wr-sidebar-icon { display:none; }
+    .wr-sidebar.is-collapsed .wr-sidebar-nav-btn { justify-content:center !important; padding-left:0 !important; padding-right:0 !important; }
+    .wr-sidebar.is-collapsed .wr-sidebar-divider { margin-left:18px !important; margin-right:18px !important; }
+    .gm-office-shell { width:100%; display:flex; flex-direction:column; gap:14px; }
+    .gm-office-kpi-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin-bottom:22px; }
+    .gm-office-section-head { display:flex; align-items:baseline; gap:10px; margin:0 0 12px; flex-wrap:wrap; }
+    .gm-office-section-head h2 { margin:0; font-family:var(--font-title); font-size:1.25rem; font-weight:700; letter-spacing:0; }
+    .gm-office-section-head .gm-office-section-meta { font-size:0.7rem; color:var(--silver); opacity:0.6; font-family:var(--font-mono); }
+    .gm-office-section-head .gm-office-spacer { flex:1; }
+    .gm-office-insight-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
+    @media(max-width:1100px){
+        .gm-office-kpi-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+        .gm-office-insight-grid { grid-template-columns:1fr; }
+    }
+    @media(max-width:640px){
+        .gm-office-kpi-grid { grid-template-columns:1fr; }
+        .gm-office-section-head { align-items:flex-start; flex-direction:column; }
+        .gm-office-section-head .gm-office-spacer { display:none; }
+    }
+    @media(max-width:767px){
+        .wr-content-frame { width:100%; padding:10px 10px 36px; }
+        .wr-main-content { margin-left:0 !important; }
+        .wr-sidebar { width:176px !important; }
+        .wr-sidebar.is-collapsed .wr-sidebar-label,
+        .wr-sidebar.is-collapsed .wr-sidebar-wordmark,
+        .wr-sidebar.is-collapsed .wr-sidebar-search,
+        .wr-sidebar.is-collapsed .wr-sidebar-extra { display:initial !important; }
+        .wr-sidebar.is-collapsed .wr-sidebar-icon { display:none !important; }
+        .wr-sidebar.is-collapsed .wr-sidebar-nav-btn { justify-content:flex-start !important; padding-left:20px !important; padding-right:16px !important; }
+    }
+
     /* ── Micro-animations ────────────────────────────────── */
     @keyframes wrFadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
     .wr-fade-in { animation:wrFadeIn 0.25s ease both }
@@ -1465,10 +1512,10 @@
     .wr-timeline-node{width:10px;height:10px;border-radius:50%;background:#D4AF37;box-shadow:0 0 6px rgba(212,175,55,0.4);position:absolute;left:-6px;top:8px}
 
     /* Roster row action indicators */
-    .wr-row-sell{background:rgba(231,76,60,0.03) !important;border-left:3px solid rgba(231,76,60,0.4)}
-    .wr-row-sell-high{background:rgba(251,191,36,0.03) !important;border-left:3px solid rgba(251,191,36,0.4)}
-    .wr-row-buy{background:rgba(46,204,113,0.03) !important;border-left:3px solid rgba(46,204,113,0.4)}
-    .wr-row-core{background:rgba(212,175,55,0.03) !important;border-left:3px solid rgba(212,175,55,0.4)}
+    .wr-row-sell{background:rgba(231,76,60,0.035) !important;box-shadow:inset 0 0 0 1px rgba(231,76,60,0.16)}
+    .wr-row-sell-high{background:rgba(251,191,36,0.035) !important;box-shadow:inset 0 0 0 1px rgba(251,191,36,0.16)}
+    .wr-row-buy{background:rgba(46,204,113,0.035) !important;box-shadow:inset 0 0 0 1px rgba(46,204,113,0.14)}
+    .wr-row-core{background:rgba(212,175,55,0.035) !important;box-shadow:inset 0 0 0 1px rgba(212,175,55,0.15)}
     .wr-row-sell:hover,.wr-row-sell-high:hover,.wr-row-buy:hover,.wr-row-core:hover{filter:brightness(1.3)}
 
     /* Player headshot status ring */
@@ -1554,7 +1601,7 @@ WRShared.loadMany(WR_SHARED_FILES);
 <script src="https://unpkg.com/@babel/standalone@7.29.2/babel.min.js"></script>
 
 <!-- 0. Theme engine — must load before any widget/component (plain JS, no Babel needed) -->
-<script src="js/theme.js?v=20260427font1"></script>
+<script src="js/theme.js?v=20260502ui2"></script>
 <!-- Tecmo Bowl retro font (loaded async, swap fallback) -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
@@ -1623,22 +1670,22 @@ WRShared.loadMany(WR_SHARED_FILES);
 <!-- Phase 9: My Trophies widget -->
 <script type="text/babel" src="js/widgets/my-trophies.js?v=20260427font1"></script>
 <script type="text/babel" src="js/tabs/dashboard.js?v=20260426p12"></script>
-<script type="text/babel" src="js/tabs/flash-brief.js?v=20260427font1"></script>
+<script type="text/babel" src="js/tabs/flash-brief.js?v=20260502office1"></script>
 <script type="text/babel" src="js/tabs/league-map.js?v=20260427nav2"></script>
-<script type="text/babel" src="js/tabs/my-team.js?v=20260427nav2"></script>
+<script type="text/babel" src="js/tabs/my-team.js?v=20260502ui2"></script>
 <!-- Compare: extracted from My Roster's former sub-view, now a top-level ROSTER-group tab. -->
 <script type="text/babel" src="js/tabs/compare.js?v=20260427nav2"></script>
 <script type="text/babel" src="js/tabs/analytics.js?v=20260427nav3"></script>
 <script type="text/babel" src="js/tabs/trophy-room.js?v=20260427font1"></script>
 <script type="text/babel" src="js/tabs/calendar.js?v=20260420a"></script>
 <!-- Alex Insights (Option A): top-level tab for behavioral analysis + AI settings -->
-<script type="text/babel" src="js/tabs/alex-insights.js?v=20260427nav2"></script>
+<script type="text/babel" src="js/tabs/alex-insights.js?v=20260502office1"></script>
 <script type="text/babel" src="js/tabs/global-view.js?v=20260427font1"></script>
 <script src="js/tutorial.js?v=20260427font1"></script>
 <!-- 6. Strategy editor: calls shared GMStrategy API, no logic duplication -->
-<script type="text/babel" src="js/tabs/strategy-editor.js?v=20260418b"></script>
+<script type="text/babel" src="js/tabs/strategy-editor.js?v=20260502office1"></script>
 <!-- 7. League detail: coordinator shell, depends on all above -->
-    <script type="text/babel" src="js/league-detail.js?v=20260427font1"></script>
+    <script type="text/babel" src="js/league-detail.js?v=20260502office1"></script>
 <!-- 8. App: OwnerDashboard + ReactDOM.render (loads last) -->
 <script type="text/babel" src="js/app.js?v=20260427font1"></script>
 

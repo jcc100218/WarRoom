@@ -408,6 +408,33 @@ function MyTeamTab({
     oldestStarter ? { label: 'Oldest starter ' + oldestStarter.pos + ' ' + oldestStarter.age, color: '#F0A500' } : null,
     bestPosition ? { label: bestPosition.pos + ' depth ' + bestPosition.count, color: bestPosition.color } : null,
   ].filter(Boolean);
+  const rosterTagMeta = {
+    trade: { bg: 'rgba(240,165,0,0.13)', col: '#F0A500', lbl: 'Trade' },
+    cut: { bg: 'rgba(231,76,60,0.13)', col: '#E74C3C', lbl: 'Cut' },
+    untouchable: { bg: 'rgba(46,204,113,0.13)', col: '#2ECC71', lbl: 'Core' },
+    watch: { bg: 'rgba(52,152,219,0.13)', col: '#3498DB', lbl: 'Watch' },
+  };
+  const slotTagMeta = {
+    starter: { bg: 'rgba(212,175,55,0.12)', col: 'var(--gold)', lbl: 'STR' },
+    bench: { bg: 'rgba(255,255,255,0.055)', col: 'var(--silver)', lbl: 'BN' },
+    taxi: { bg: 'rgba(52,152,219,0.12)', col: '#3498DB', lbl: 'TAX' },
+    ir: { bg: 'rgba(231,76,60,0.12)', col: '#E74C3C', lbl: 'IR' },
+  };
+  const inlineTag = (cfg, key) => cfg ? (
+    <span key={key} style={{
+      fontSize: '0.58rem',
+      padding: '2px 5px',
+      borderRadius: '4px',
+      fontWeight: 800,
+      background: cfg.bg,
+      color: cfg.col,
+      border: '1px solid ' + cfg.col + '33',
+      flexShrink: 0,
+      lineHeight: 1,
+      letterSpacing: '0.035em',
+      textTransform: 'uppercase',
+    }}>{cfg.lbl}</span>
+  ) : null;
   const leagueSize = (currentLeague.rosters || []).length;
   const totalTeams = leagueSize || 12;
   const rankTone = (rank) => rank > 0 && rank <= 3 ? '#2ECC71' : rank > 0 && rank <= Math.ceil(totalTeams / 2) ? 'var(--gold)' : '#E74C3C';
@@ -504,7 +531,7 @@ function MyTeamTab({
     group,
     columns: Object.entries(ROSTER_COLUMNS).filter(([, col]) => col.group === group),
   })).filter(g => g.columns.length > 0);
-  const playerColWidth = 260;
+  const playerColWidth = 292;
   const visibleDataWidth = visibleCols.reduce((sum, key) => sum + parseInt(ROSTER_COLUMNS[key]?.width || '0', 10), 0);
   const tableMinWidth = playerColWidth + visibleDataWidth;
   const setCustomColumns = (updater) => {
@@ -654,7 +681,7 @@ function MyTeamTab({
   return (
     <div style={{ padding: 'var(--card-pad, 14px 16px)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
       <section style={{ background: 'linear-gradient(180deg, rgba(31,31,38,0.96), rgba(16,16,22,0.98))', border: '1px solid rgba(212,175,55,0.18)', borderRadius: '10px', padding: '16px', boxShadow: '0 14px 36px rgba(0,0,0,0.28)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 0.95fr) minmax(360px, 1.45fr)', gap: '14px', alignItems: 'stretch', marginBottom: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 0.85fr) minmax(420px, 1.15fr)', gap: '14px', alignItems: 'stretch', marginBottom: '12px' }}>
           <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div>
               <div style={{ fontSize: '0.66rem', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.16em', fontWeight: 800 }}>My Roster</div>
@@ -685,17 +712,17 @@ function MyTeamTab({
             </div>
           </div>
 
-          <div style={{ minWidth: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 0.78fr)', gap: '10px' }}>
-            <div style={{ background: 'rgba(0,0,0,0.22)', border: '1px solid rgba(212,175,55,0.13)', borderRadius: '8px', padding: '12px 14px', minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '7px' }}>
+          <div style={{ minWidth: 0, display: 'grid', gridTemplateColumns: 'minmax(260px, 0.82fr) minmax(280px, 1fr)', gap: '10px' }}>
+            <div style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(212,175,55,0.13)', borderRadius: '8px', padding: '10px 12px', minWidth: 0 }} title={alexLine}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 {typeof AlexAvatar !== 'undefined' && <AlexAvatar size={24} />}
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontFamily: 'Rajdhani, sans-serif', color: 'var(--gold)', fontWeight: 700, letterSpacing: '0.04em', lineHeight: 1 }}>Alex Ingram</div>
-                  <div style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.55, textTransform: 'uppercase', letterSpacing: '0.09em' }}>Roster read</div>
+                  <div style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.55, textTransform: 'uppercase', letterSpacing: '0.09em' }}>Signals</div>
                 </div>
               </div>
-              <div style={{ fontSize: '0.86rem', color: '#d7d7dc', lineHeight: 1.42 }}>{alexLine}</div>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {boardInsightChips.slice(0, 3).map(chip => <span key={chip.label} style={{ fontSize: '0.66rem', color: chip.color, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.035)', borderRadius: '999px', padding: '3px 8px', fontWeight: 800 }}>{chip.label}</span>)}
                 {needs.slice(0, 3).map(n => <span key={n.pos} style={{ fontSize: '0.68rem', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.22)', background: 'rgba(212,175,55,0.07)', borderRadius: '999px', padding: '3px 8px', fontWeight: 700 }}>{n.pos} need</span>)}
                 {sellCount > 0 && <span style={{ fontSize: '0.68rem', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.24)', background: 'rgba(231,76,60,0.08)', borderRadius: '999px', padding: '3px 8px', fontWeight: 700 }}>{sellCount} sell flags</span>}
                 {stashCount > 0 && <span style={{ fontSize: '0.68rem', color: '#2ECC71', border: '1px solid rgba(46,204,113,0.22)', background: 'rgba(46,204,113,0.07)', borderRadius: '999px', padding: '3px 8px', fontWeight: 700 }}>{stashCount} build assets</span>}
@@ -755,12 +782,6 @@ function MyTeamTab({
           {GROUP_MODES.map(opt => (
             <button key={opt.key} className={rosterGroupMode === opt.key ? 'is-active' : ''} onClick={() => setRosterGroupMode(opt.key)}>{opt.label}</button>
           ))}
-          </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginLeft: 'auto', fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.72 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '4px', height: '13px', borderRadius: '2px', background: 'var(--gold)' }} />Starter</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '4px', height: '13px', borderRadius: '2px', background: '#3498DB' }} />Taxi</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '4px', height: '13px', borderRadius: '2px', background: '#E74C3C' }} />IR</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '4px', height: '13px', borderRadius: '2px', background: 'rgba(255,255,255,0.16)' }} />Bench</span>
           </div>
         </div>
 
@@ -929,12 +950,13 @@ function MyTeamTab({
                 onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'rgba(212,175,55,0.06)'; }}
                 onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = rowBg; }}>
                 {/* Frozen player info */}
-                <div style={{ width: playerColWidth + 'px', flexShrink: 0, height: rowHeight + 'px', display: 'flex', alignItems: 'center', gap: '8px', padding: '0 10px 0 8px', borderRight: '1px solid rgba(212,175,55,0.12)', borderLeft: '4px solid ' + statusCol(r.section), position: 'sticky', left: 0, zIndex: 3, background: 'inherit', boxShadow: '10px 0 18px rgba(0,0,0,0.18)' }}>
+                <div style={{ width: playerColWidth + 'px', flexShrink: 0, height: rowHeight + 'px', display: 'flex', alignItems: 'center', gap: '8px', padding: '0 10px', borderRight: '1px solid rgba(212,175,55,0.12)', position: 'sticky', left: 0, zIndex: 3, background: 'inherit', boxShadow: '10px 0 18px rgba(0,0,0,0.18)' }}>
                   <div style={{ width: avatarSize + 'px', height: avatarSize + 'px', flexShrink: 0 }}><img src={'https://sleepercdn.com/content/nfl/players/thumb/'+r.pid+'.jpg'} alt="" onError={e=>e.target.style.display='none'} style={{ width: avatarSize + 'px', height: avatarSize + 'px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
                   <div style={{ overflow: 'hidden', flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <span style={{ fontWeight: 700, color: 'var(--white)', fontSize: playerNameSize, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getPlayerName(r.pid)}</span>
-                      {(() => { const pt = window._playerTags?.[r.pid]; if (!pt) return null; const cfg = { trade: { bg: 'rgba(240,165,0,0.15)', col: '#F0A500', lbl: 'TB' }, cut: { bg: 'rgba(231,76,60,0.15)', col: '#E74C3C', lbl: 'CUT' }, untouchable: { bg: 'rgba(46,204,113,0.15)', col: '#2ECC71', lbl: 'UT' }, watch: { bg: 'rgba(52,152,219,0.15)', col: '#3498DB', lbl: 'W' } }[pt]; return cfg ? <span style={{ fontSize: '0.58rem', padding: '1px 4px', borderRadius: '3px', fontWeight: 700, background: cfg.bg, color: cfg.col, flexShrink: 0, lineHeight: 1 }}>{cfg.lbl}</span> : null; })()}
+                      {inlineTag(slotTagMeta[r.section], 'slot-' + r.pid)}
+                      {inlineTag(rosterTagMeta[window._playerTags?.[r.pid]], 'tag-' + r.pid)}
                       {dropCandidatePids.has(r.pid) && !dismissedDrops.has(r.pid) && <span onClick={e => { e.stopPropagation(); dismissDrop(r.pid); }} title="Drop candidate (click to dismiss)" style={{ fontSize: '0.56rem', padding: '1px 4px', borderRadius: '3px', fontWeight: 700, background: 'rgba(231,76,60,0.2)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.4)', flexShrink: 0, cursor: 'pointer', lineHeight: 1 }}>DROP?</span>}
                     </div>
                     <div style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.62, marginTop: '1px' }}>{r.p.team || 'FA'}{r.injury ? ' \u00B7 '+r.injury : ''}</div>

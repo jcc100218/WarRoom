@@ -21,9 +21,8 @@ const MAIN_TABS = [
   'alex',
   'trophies',
   'calendar',
-  'strategy',
 ];
-const ROUTED_TABS = [...MAIN_TABS, 'league'];
+const ROUTED_TABS = [...MAIN_TABS, 'strategy', 'league'];
 const WIDGET_SIZES = ['sm', 'slim', 'narrow', 'md', 'lg', 'tall', 'xl', 'xxl'];
 
 let passed = 0;
@@ -155,6 +154,12 @@ test('every main sidebar tab remains directly addressable', () => {
   }
 });
 
+test('GM strategy remains routed through GM office, not a sidebar button', () => {
+  sourceHas(leagueDetailSrc, "activeTab === 'strategy'", 'strategy route must still render');
+  sourceHas(leagueDetailSrc, "{ label: 'GM\\'s Office', tab: 'alex', iconKey: 'office' }", 'GM office sidebar entry missing');
+  ok(!leagueDetailSrc.includes("{ label: 'GM Strategy', tab: 'strategy'"), 'GM Strategy should not be a sidebar entry');
+});
+
 group('live platform gate');
 
 test('live loader keeps non-Sleeper connector files sandbox-only', () => {
@@ -185,7 +190,7 @@ test('league shell clamps horizontal overflow at 390px and 430px', () => {
   sourceMatches(leagueDetailSrc, /@media\(max-width:767px\)/, 'mobile media query missing');
   sourceHas(leagueDetailSrc, 'html,body,#root{max-width:100%;overflow-x:hidden}', 'root overflow clamp missing');
   sourceHas(leagueDetailSrc, '.wr-main-content{margin-left:0 !important;width:100% !important;max-width:100vw;overflow-x:hidden;box-sizing:border-box}', 'main content mobile clamp missing');
-  sourceHas(leagueDetailSrc, '.wr-sidebar{left:-160px !important;transform:none !important}', 'sidebar off-canvas rule missing');
+  sourceHas(leagueDetailSrc, '.wr-sidebar{left:-220px !important;transform:none !important}', 'sidebar off-canvas rule missing');
   sourceHas(leagueDetailSrc, '.wr-sidebar.open{left:0 !important}', 'sidebar open rule missing');
   for (const width of MOBILE_WIDTHS) {
     ok(width <= 767, `${width}px should exercise the mobile shell rules`);
@@ -193,7 +198,7 @@ test('league shell clamps horizontal overflow at 390px and 430px', () => {
 });
 
 test('main content no longer carries fixed desktop width on mobile', () => {
-  sourceHas(leagueDetailSrc, '<div className="wr-main-content" style={{ marginLeft: \'160px\' }}>', 'desktop margin source changed unexpectedly');
+  sourceHas(leagueDetailSrc, '<div className="wr-main-content" style={{ marginLeft: sidebarWidth + \'px\', width: \'calc(100% - \' + sidebarWidth + \'px)\' }}>', 'desktop content width source changed unexpectedly');
   sourceHas(leagueDetailSrc, 'margin-left:0 !important;width:100% !important;max-width:100vw', 'mobile margin override missing');
 });
 

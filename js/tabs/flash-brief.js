@@ -543,7 +543,7 @@ function FieldNotesWidget({ size = 'lg', navigateWidget }) {
     // ── SLIM (1×2, ~80×160): big number + proportional category bars ──
     if (size === 'slim') {
         const maxCount = Math.max(...groups.map(g => g.entries.length), 1);
-        return React.createElement('div', { onClick: openNotes, title: 'Open Film Room', style: noteCardStyle },
+        return React.createElement('div', { onClick: openNotes, title: 'Open GM\'s Office', style: noteCardStyle },
             React.createElement('div', { style: { padding: '8px 8px 4px', textAlign: 'center', flexShrink: 0, borderBottom: '1px solid rgba(212,175,55,0.08)' } },
                 React.createElement('div', { style: { fontFamily: monoFont, fontSize: '0.58rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700, marginBottom: '1px' } }, 'NOTES'),
                 React.createElement('div', { style: { fontSize: '1.5rem', fontWeight: 700, color: 'var(--white)', fontFamily: monoFont, lineHeight: 1 } }, totalCount),
@@ -570,7 +570,7 @@ function FieldNotesWidget({ size = 'lg', navigateWidget }) {
     // ── NARROW (1×4): vertical type counts + a few latest entries ──
     if (size === 'narrow') {
         const latest = fieldEntries.slice(0, 5);
-        return React.createElement('div', { onClick: openNotes, title: 'Open Film Room', style: noteCardStyle },
+        return React.createElement('div', { onClick: openNotes, title: 'Open GM\'s Office', style: noteCardStyle },
             React.createElement('div', { style: { padding: '8px 8px 6px', borderBottom: '1px solid rgba(212,175,55,0.1)', flexShrink: 0 } },
                 React.createElement('div', { style: { fontFamily: monoFont, fontSize: '0.64rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 700 } }, 'FIELD NOTES'),
                 React.createElement('div', { style: { fontSize: '0.62rem', color: 'var(--silver)', marginTop: '1px', fontFamily: monoFont } }, totalCount + ' total'),
@@ -595,7 +595,7 @@ function FieldNotesWidget({ size = 'lg', navigateWidget }) {
 
     // ── LG (2×2): grouped sections — top 2 groups, top 3 each ──
     if (size === 'lg') {
-        return React.createElement('div', { onClick: openNotes, title: 'Open Film Room', style: noteCardStyle },
+        return React.createElement('div', { onClick: openNotes, title: 'Open GM\'s Office', style: noteCardStyle },
             React.createElement('div', { style: { padding: '12px 16px 8px', borderBottom: '1px solid rgba(212,175,55,0.1)', flexShrink: 0 } },
                 React.createElement('div', { style: { fontFamily: monoFont, fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 } }, 'FIELD NOTES'),
                 React.createElement('div', { style: { fontSize: '0.7rem', color: 'var(--silver)', fontFamily: monoFont, marginTop: '2px' } }, totalCount + ' entries · ' + groups.length + ' types'),
@@ -615,7 +615,7 @@ function FieldNotesWidget({ size = 'lg', navigateWidget }) {
 
     // ── TALL (2×4): all groups, more entries each, no scroll ──
     if (size === 'tall') {
-        return React.createElement('div', { onClick: openNotes, title: 'Open Film Room', style: noteCardStyle },
+        return React.createElement('div', { onClick: openNotes, title: 'Open GM\'s Office', style: noteCardStyle },
             React.createElement('div', { style: { padding: '14px 18px 10px', borderBottom: '1px solid rgba(212,175,55,0.1)', flexShrink: 0 } },
                 React.createElement('div', { style: { fontFamily: monoFont, fontSize: '1.1rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 } }, 'FIELD NOTES'),
                 React.createElement('div', { style: { fontSize: '0.72rem', color: 'var(--silver)', fontFamily: monoFont, marginTop: '2px' } }, 'Intel grouped by type · ' + totalCount + ' entries'),

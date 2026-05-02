@@ -928,6 +928,12 @@
         // showAlerts removed — alerts now live on Brief tab
         const [briefDraftInfo, setBriefDraftInfo] = useState(null);
         const [sidebarOpen, setSidebarOpen] = useState(false);
+        const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+            try { return localStorage.getItem('wr_sidebar_collapsed') === '1'; } catch (_) { return false; }
+        });
+        useEffect(() => {
+            try { localStorage.setItem('wr_sidebar_collapsed', sidebarCollapsed ? '1' : '0'); } catch (_) {}
+        }, [sidebarCollapsed]);
         const [gmStrategyOpen, setGmStrategyOpen] = useState(false);
         // Expose for cross-module access (draft-room "Edit GM Strategy" button)
         window._wrSetActiveTab = setActiveTab;
@@ -1046,11 +1052,11 @@
             setReconPanelOpen(true);
             setReconMessages([{
               role: 'assistant',
-              // Phase 10/1: strategy is now driven by GM Mode (header badge + GM Strategy tab),
+              // Phase 10/1: strategy is now driven by GM Mode (header badge + GM's Office),
               // not a per-chat prompt. Welcome copy references the persistent badge instead.
               content: 'Hey! I\'m **Alex Ingram** — your AI General Manager. I\'ll be sitting in the war room with you, analyzing your roster, scouting trade targets, and helping you build a dynasty.\n\nA few things to get us started:\n\n' +
                 '\u2022 **Ask me anything** — trades, waivers, draft strategy, player analysis\n' +
-                '\u2022 **Your GM Mode** (top of every page) already tells me whether we\'re rebuilding, competing, or winning now — change it anytime in GM Strategy\n\n' +
+                '\u2022 **Your GM Mode** (top of every page) already tells me whether we\'re rebuilding, competing, or winning now — change it anytime in GM\'s Office\n\n' +
                 'Let\'s get to work. What\'s on your mind? \u2014 Alex',
               onboardChoices: [
                 { label: 'What should I do?', value: 'advice' },
@@ -1089,7 +1095,7 @@
 
         // Auto-trigger GM onboarding when panel opens with unconfigured strategy
         // Phase 10/1: auto-triggered in-chat GM strategy onboarding removed.
-        // Strategy is now configured via the persistent GM Mode badge + GM Strategy tab.
+        // Strategy is now configured via the persistent GM Mode badge + GM's Office.
         // Leaving startGmOnboarding() callable via the dead 'strategy' welcome-choice branch
         // as a safety net in case any legacy link still passes value='strategy'.
 
@@ -2326,6 +2332,34 @@
             return { method: 'Original', date: '\u2014', cost: '', season: '', week: 0 };
         }
 
+        const sidebarWidth = sidebarCollapsed ? 72 : 176;
+        const iconPaths = {
+            home: ['M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-8.5Z'],
+            roster: ['M12 3l7 3.5v5.2c0 4.5-3 7.5-7 8.3-4-.8-7-3.8-7-8.3V6.5L12 3Z', 'M8.7 12.2l2.1 2.1 4.5-4.7'],
+            compare: ['M7 7h10M7 17h10', 'M9 4 6 7l3 3', 'M15 14l3 3-3 3'],
+            trade: ['M7 7h11m0 0-3-3m3 3-3 3', 'M17 17H6m0 0 3 3m-3-3 3-3'],
+            fa: ['M12 3v18', 'M7 7.5c0-1.8 2-3 5-3 2.8 0 4.8 1.2 4.8 3.4 0 2.4-2.2 3.2-4.8 3.2S7.2 12 7.2 14.4 9.4 18 12.3 18c2.3 0 4.2-.8 5.1-2.2'],
+            draft: ['M12 3l8 16H4L12 3Z', 'M12 8v5'],
+            analytics: ['M5 19V9', 'M12 19V5', 'M19 19v-7'],
+            film: ['M4 7h16v10H4z', 'M8 7l2-3h4l2 3', 'M10 11l4 2-4 2v-4Z'],
+            office: ['M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8Z', 'M9 8V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3', 'M4 12h16', 'M10 14h4'],
+            trophy: ['M8 4h8v4a4 4 0 0 1-8 0V4Z', 'M6 5H4v2a3 3 0 0 0 4 2', 'M18 5h2v2a3 3 0 0 1-4 2', 'M12 12v5', 'M8 21h8', 'M9 17h6'],
+            calendar: ['M5 5h14v15H5z', 'M8 3v4', 'M16 3v4', 'M5 9h14'],
+            strategy: ['M12 3l7 7-7 11-7-11 7-7Z', 'M12 8v5l3 2'],
+            settings: ['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z', 'M12 3v2', 'M12 19v2', 'M3 12h2', 'M19 12h2', 'M5.6 5.6 7 7', 'M17 17l1.4 1.4', 'M18.4 5.6 17 7', 'M7 17l-1.4 1.4'],
+            refresh: ['M21 12a9 9 0 0 1-14.8 6.9', 'M3 12A9 9 0 0 1 17.8 5.1', 'M17 3v4h4', 'M7 21v-4H3'],
+        };
+        const renderNavIcon = (key) => React.createElement('svg', {
+            className: 'wr-sidebar-icon',
+            viewBox: '0 0 24 24',
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: 1.8,
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': 'true',
+        }, ...(iconPaths[key] || iconPaths.home).map((d, idx) => React.createElement('path', { key: idx, d })));
+
         const _seasonCtxValue = { ...seasonCtxData, selectPlayer };
 
         return (
@@ -2373,23 +2407,23 @@
                     background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px',
                     padding: '6px 10px', cursor: 'pointer', color: 'var(--gold)', fontSize: '1.2rem', lineHeight: 1
                 }} className="wr-hamburger">{sidebarOpen ? '\u2715' : '\u2630'}</button>
-                <style>{`@media(max-width:767px){html,body,#root{max-width:100%;overflow-x:hidden}.wr-hamburger{display:block !important}.wr-sidebar{left:-160px !important;transform:none !important}.wr-sidebar.open{left:0 !important}.wr-main-content{margin-left:0 !important;width:100% !important;max-width:100vw;overflow-x:hidden;box-sizing:border-box}}`}</style>
+                <style>{`@media(max-width:767px){html,body,#root{max-width:100%;overflow-x:hidden}.wr-hamburger{display:block !important}.wr-sidebar{left:-220px !important;transform:none !important}.wr-sidebar.open{left:0 !important}.wr-main-content{margin-left:0 !important;width:100% !important;max-width:100vw;overflow-x:hidden;box-sizing:border-box}}`}</style>
 
                 {/* Mobile overlay */}
                 {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ display: 'none', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 99 }} className="wr-sidebar-overlay" />}
                 <style>{`@media(max-width:767px){.wr-sidebar-overlay{display:block !important}}`}</style>
 
                 {/* Left Navigation */}
-                <div className={'wr-sidebar' + (sidebarOpen ? ' open' : '')} style={{
-                    position: 'fixed', left: 0, top: 0, bottom: 0, width: '160px',
+                <div className={'wr-sidebar' + (sidebarOpen ? ' open' : '') + (sidebarCollapsed ? ' is-collapsed' : '')} style={{
+                    position: 'fixed', left: 0, top: 0, bottom: 0, width: sidebarWidth + 'px',
                     background: 'var(--black)', borderRight: '1px solid rgba(212,175,55,0.2)',
                     display: 'flex', flexDirection: 'column',
-                    padding: '16px 0', zIndex: 100, transition: 'transform 0.2s ease'
+                    padding: '16px 0', zIndex: 100, transition: 'width 0.18s ease, transform 0.2s ease'
                 }}>
                     {/* Logo — click to go home */}
-                    <div onClick={onBack} style={{ padding: '0 16px', marginBottom: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }} title="Back to Dynasty HQ home">
+                    <div className="wr-sidebar-brand" onClick={onBack} style={{ padding: '0 14px', marginBottom: sidebarCollapsed ? '10px' : '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }} title="Back to Dynasty HQ home">
                       <img src="icon-192.png" alt="Dynasty HQ" style={{ width: '28px', height: '28px', borderRadius: '6px' }} onError={e => { e.target.style.display = 'none'; }} />
-                      <div>
+                      <div className="wr-sidebar-wordmark">
                         <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', lineHeight: 1.1 }}>DYNASTY HQ</div>
                         <div style={{ fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5, fontFamily: 'var(--font-body)', letterSpacing: '0.04em' }}>WAR ROOM</div>
                       </div>
@@ -2401,10 +2435,23 @@
                       })()}
                     </div>
 
+                    <button
+                        className="wr-sidebar-toggle"
+                        onClick={() => setSidebarCollapsed(prev => !prev)}
+                        title={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
+                        aria-label={sidebarCollapsed ? 'Expand menu' : 'Collapse menu'}
+                        style={{ width: sidebarCollapsed ? '34px' : 'calc(100% - 24px)', height: '30px', margin: '0 12px 12px' }}
+                    >
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            {sidebarCollapsed ? <path d="M9 6l6 6-6 6" /> : <path d="M15 6l-6 6 6 6" />}
+                        </svg>
+                        {!sidebarCollapsed && <span style={{ marginLeft: '8px', fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Hide Menu</span>}
+                    </button>
+
                     {/* Alerts removed — rolled into Brief */}
 
                     {/* Sidebar Search */}
-                    {React.createElement(function SidebarSearch() {
+                    {!sidebarCollapsed && React.createElement(function SidebarSearch() {
                         const [q, setQ] = React.useState('');
                         const [results, setResults] = React.useState([]);
                         const inputRef = React.useRef(null);
@@ -2419,7 +2466,7 @@
                                 if (name.toLowerCase().includes(lower)) matches.push({ type: 'player', pid, name, pos: p.position || '?', team: p.team || 'FA' });
                             });
                             // Search tabs
-                            [{ label: 'Home', tab: 'dashboard' }, { label: 'My Roster', tab: 'myteam' }, { label: 'Trade Center', tab: 'trades' }, { label: 'Free Agency', tab: 'fa' }, { label: 'Draft Command', tab: 'draft' }, { label: 'Trophy Room', tab: 'trophies' }, { label: 'Analytics', tab: 'analytics' }, { label: 'GM Strategy', tab: 'strategy' }].forEach(t => {
+                            [{ label: 'Home', tab: 'dashboard' }, { label: 'My Roster', tab: 'myteam' }, { label: 'Trade Center', tab: 'trades' }, { label: 'Free Agency', tab: 'fa' }, { label: 'Draft Command', tab: 'draft' }, { label: 'Analytics', tab: 'analytics' }, { label: 'GM\'s Office', tab: 'alex' }, { label: 'Trophy Room', tab: 'trophies' }].forEach(t => {
                                 if (t.label.toLowerCase().includes(lower)) matches.push({ type: 'tab', label: t.label, tab: t.tab });
                             });
                             setResults(matches.slice(0, 8));
@@ -2461,21 +2508,20 @@
                     {/* Nav items — grouped: FRONT OFFICE / LEAGUE / DOSSIER / SETTINGS. */}
                     {[
                         { section: 'FRONT OFFICE' },
-                        { label: 'Home', tab: 'dashboard', icon: '\u2302' },
-                        { label: 'My Roster', tab: 'myteam', icon: '\u25C7' },
-                        { label: 'Compare', tab: 'compare', icon: '\u25CE' },
+                        { label: 'Home', tab: 'dashboard', iconKey: 'home' },
+                        { label: 'My Roster', tab: 'myteam', iconKey: 'roster' },
+                        { label: 'Compare', tab: 'compare', iconKey: 'compare' },
                         { section: 'LEAGUE' },
-                        { label: 'Trade Center', tab: 'trades', icon: '\u21C6' },
-                        { label: 'Free Agency', tab: 'fa', icon: '$' },
-                        { label: 'Draft', tab: 'draft', icon: '\u25B2' },
-                        { label: 'Analytics', tab: 'analytics', icon: '\u25F0' },
+                        { label: 'Trade Center', tab: 'trades', iconKey: 'trade' },
+                        { label: 'Free Agency', tab: 'fa', iconKey: 'fa' },
+                        { label: 'Draft', tab: 'draft', iconKey: 'draft' },
+                        { label: 'Analytics', tab: 'analytics', iconKey: 'analytics' },
                         { section: 'DOSSIER' },
-                        { label: 'Film Room', tab: 'alex', icon: '\uD83E\uDDE0' },
-                        { label: 'Trophy Room', tab: 'trophies', icon: '\u265B' },
-                        { label: 'Calendar', tab: 'calendar', icon: '\u25A4' },
+                        { label: 'GM\'s Office', tab: 'alex', iconKey: 'office' },
+                        { label: 'Trophy Room', tab: 'trophies', iconKey: 'trophy' },
+                        { label: 'Calendar', tab: 'calendar', iconKey: 'calendar' },
                         { section: 'SETTINGS' },
-                        { label: 'GM Strategy', tab: 'strategy', icon: '\u25C8' },
-                        { label: 'Settings', action: () => onOpenSettings && onOpenSettings(), icon: '\u2690' },
+                        { label: 'Settings', action: () => onOpenSettings && onOpenSettings(), iconKey: 'settings' },
                     ].map((item, i) => {
                         if (item.section) {
                             // Hairline divider only — section labels removed for a
@@ -2484,17 +2530,18 @@
                             // top rule since there's nothing above it in the nav.
                             if (i === 0) return null;
                             return (
-                                <div key={i} style={{ height: '1px', margin: '8px 16px', background: 'rgba(255,255,255,0.06)' }} aria-hidden="true" />
+                                <div key={i} className="wr-sidebar-divider" style={{ height: '1px', margin: '8px 16px', background: 'rgba(255,255,255,0.06)' }} aria-hidden="true" />
                             );
                         }
-                        const isActive = item.tab && activeTab === item.tab;
+                        const isActive = item.tab && (activeTab === item.tab || (item.tab === 'alex' && activeTab === 'strategy'));
                         return (
                         <button key={i} onClick={() => { setSidebarOpen(false); item.tab ? setActiveTab(item.tab) : item.action ? item.action() : window.location.href = item.url; }}
+                            className="wr-sidebar-nav-btn"
                             style={{
-                                width: '100%', padding: '9px 16px 9px 20px', border: 'none',
+                                width: '100%', padding: sidebarCollapsed ? '10px 0' : '9px 16px 9px 20px', border: 'none',
                                 background: isActive ? 'rgba(212,175,55,0.12)' : 'transparent',
                                 borderLeft: isActive ? '3px solid var(--gold)' : '3px solid transparent',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '9px',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: '9px',
                                 transition: 'all 0.15s',
                                 color: isActive ? 'var(--gold)' : 'var(--silver)',
                                 fontSize: '0.78rem', fontFamily: 'var(--font-body)',
@@ -2505,9 +2552,9 @@
                             onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(212,175,55,0.06)'; }}
                             onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                         >
-                            <span style={{ width: '16px', textAlign: 'center', fontSize: '0.88rem', flexShrink: 0, opacity: isActive ? 1 : 0.8 }}>{item.icon || '\u2022'}</span>
-                            <span style={{ flex: 1 }}>{item.label}</span>
-                            {item.isNew && <span style={{
+                            {sidebarCollapsed && renderNavIcon(item.iconKey)}
+                            {!sidebarCollapsed && <span className="wr-sidebar-label" style={{ flex: 1 }}>{item.label}</span>}
+                            {item.isNew && <span className="wr-sidebar-new-badge" style={{
                                 fontSize: '0.48rem', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
                                 padding: '1px 5px', borderRadius: '3px',
                                 background: 'rgba(46,204,113,0.2)', color: '#2ECC71',
@@ -2521,13 +2568,13 @@
                     <div style={{ flex: 1 }}></div>
 
                     {/* Sync Status */}
-                    <div style={{ fontSize: '0.76rem', color: window.App?.LI_LOADED ? '#2ECC71' : 'var(--silver)', textAlign: 'center', fontFamily: 'var(--font-body)', opacity: 0.7, marginBottom: '4px' }}>
+                    <div className="wr-sidebar-extra" style={{ fontSize: '0.76rem', color: window.App?.LI_LOADED ? '#2ECC71' : 'var(--silver)', textAlign: 'center', fontFamily: 'var(--font-body)', opacity: 0.7, marginBottom: '4px' }}>
                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: window.App?.LI_LOADED ? '#2ECC71' : 'var(--silver)', margin: '0 auto 2px' }}></div>
                         {window.App?.LI_LOADED ? 'Synced' : 'Loading'}
                     </div>
 
                     {/* Legend / Guide */}
-                    {React.createElement(LegendPanel)}
+                    {!sidebarCollapsed && React.createElement(LegendPanel)}
 
                     {/* Refresh Button */}
                     <button onClick={async () => {
@@ -2551,12 +2598,12 @@
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     title="Reload DHQ values, league history, and AI data"
                     >
-                        Refresh Data
+                        {sidebarCollapsed ? renderNavIcon('refresh') : 'Refresh Data'}
                     </button>
                 </div>
 
                 {/* Main content shifted right */}
-                <div className="wr-main-content" style={{ marginLeft: '160px' }}>
+                <div className="wr-main-content" style={{ marginLeft: sidebarWidth + 'px', width: 'calc(100% - ' + sidebarWidth + 'px)' }}>
                 {/* Header — collapsed into a single left-aligned strip.
                     Removed: redundant "{year} SEASON" subtitle (year picker below handles this)
                     and the duplicate league-name/team-count in the time context bar. */}
@@ -2570,7 +2617,7 @@
                             return React.createElement('button', {
                                 key: 'gm-badge-' + gm.id,
                                 onClick: () => setActiveTab && setActiveTab('strategy'),
-                                title: 'GM Mode — click to edit strategy',
+                                title: 'GM Mode — edit in GM\'s Office',
                                 style: {
                                     padding: '4px 10px 4px 8px', display: 'inline-flex', alignItems: 'center', gap: '6px',
                                     fontSize: '0.66rem', fontFamily: 'var(--font-body)', fontWeight: 700,
@@ -2676,6 +2723,7 @@
                 </div>}
 
                 {/* Tab Content Routing — Brief tab folded into Dashboard as widgets */}
+                <div className="wr-content-frame">
                 {activeTab === 'trades' ? (
                     <TradeCalcTab
                         playersData={playersData}
@@ -2801,9 +2849,9 @@
                     stats2025Data, standings, sleeperUserId,
                     timeRecomputeTs, setActiveTab,
                     gmStrategy, setGmStrategy,
-                    // Old tab=strategy URLs land on the Strategy sub-view
+                    // Old tab=strategy URLs land on the Strategy sub-view inside GM's Office.
                     initialSubTab: activeTab === 'strategy' ? 'strategy' : null,
-                }) : <div style={{ padding: '40px', textAlign: 'center', color: 'var(--silver)' }}>Film Room module not loaded.</div>
+                }) : <div style={{ padding: '40px', textAlign: 'center', color: 'var(--silver)' }}>GM's Office module not loaded.</div>
                 ) : activeTab === 'compare' ? (typeof window.CompareTab === 'function' ? React.createElement(window.CompareTab, {
                     currentLeague, myRoster, playersData, statsData, stats2025Data,
                     standings, sleeperUserId,
@@ -2830,6 +2878,7 @@
                     briefDraftInfo={briefDraftInfo}
                 />
                 )}
+                </div>
                 </div>{/* end marginLeft wrapper */}
 
             {selectedPlayerPid && typeof window.openFWPlayerModal !== 'function' && <PlayerInlineCard

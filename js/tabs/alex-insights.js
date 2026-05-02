@@ -525,8 +525,8 @@
     function Hero({ active }) {
         return h('div', { className: 'wr-module-strip' },
             h('div', { className: 'wr-module-context' },
-                h('span', null, 'Film'),
-                h('strong', null, 'Alex Intel'),
+                h('span', null, 'Office'),
+                h('strong', null, 'GM\'s Office'),
                 h('em', null, 'Strategy, alerts, weekly reads, and recommendation history.')
             ),
             h('div', {
@@ -584,7 +584,7 @@
         const cacheAge = aiState?.ts ? Math.round((Date.now() - aiState.ts) / 60000) : null;
 
         return h(React.Fragment, null,
-            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' } },
+            h('div', { className: 'gm-office-kpi-grid' },
                 h(Kpi, {
                     label: 'GM Grade',
                     value: gmGradeLetter(kpis.gmScore),
@@ -612,12 +612,12 @@
                     sub: kpis.bestPct != null ? (kpis.bestPct + '% positive rate') : 'Need more data',
                 })
             ),
-            h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '10px', margin: '0 0 12px', flexWrap: 'wrap' } },
-                h('h2', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.25rem', fontWeight: 700, margin: 0, letterSpacing: 0 } }, 'Behavioral Analysis'),
-                h('span', { style: { fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.6, fontFamily: 'JetBrains Mono, monospace' } },
+            h('div', { className: 'gm-office-section-head' },
+                h('h2', null, 'Behavioral Analysis'),
+                h('span', { className: 'gm-office-section-meta' },
                     '\u2014 ' + merged.length + ' insight' + (merged.length === 1 ? '' : 's') + (aiInsights.length ? ' (' + aiInsights.length + ' AI)' : '')),
                 // Spacer pushes the AI controls to the right
-                h('div', { style: { flex: 1 } }),
+                h('div', { className: 'gm-office-spacer' }),
                 h('button', {
                     onClick: doGenerate,
                     disabled: aiLoading,
@@ -651,7 +651,7 @@
                     h('div', { style: { fontSize: '0.86rem', color: 'var(--silver)', opacity: 0.7, lineHeight: 1.55, textAlign: 'center' } },
                         'No behavioral patterns detected yet. Alex needs a bit of trade / waiver / draft history before it can speak confidently.')
                 )
-                : h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' } },
+                : h('div', { className: 'gm-office-insight-grid' },
                     merged.map((ins, i) => h('div', { key: i, style: { position: 'relative' } },
                         h(InsightCard, ins),
                         ins.isAi && h('div', { style: { position: 'absolute', top: 10, right: 10, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.12em', padding: '2px 6px', borderRadius: '4px', background: 'rgba(124,107,248,0.2)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.4)' } }, '\u2728 AI')
@@ -1259,7 +1259,7 @@
                             chanChip('push', 'Push'),
                         ),
                         h('div', { style: { fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.55, marginTop: '10px', lineHeight: 1.5 } },
-                            'In-app shows up as toasts on Home + a count badge on Film Room. Email/Push are coming soon \u2014 toggle to opt in early.'),
+                            'In-app shows up as toasts on Home + a count badge on GM\'s Office. Email/Push are coming soon \u2014 toggle to opt in early.'),
                     )
                 ),
             ),
@@ -1305,7 +1305,7 @@
             return rawInsights.slice(0, 6);
         }, [rawInsights, settings]);
 
-        return h('div', { style: { padding: '24px 28px 60px', maxWidth: '1360px', margin: '0 auto' } },
+        return h('div', { className: 'gm-office-shell wr-fade-in' },
             h(Hero, { active: !!(window.App?.LI_LOADED) }),
             h(SubTabs, {
                 value: subTab,

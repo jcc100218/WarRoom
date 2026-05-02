@@ -228,7 +228,7 @@ function StrategyEditorTab({ currentLeague, myRoster, playersData, gmStrategy, s
     const currentAggression = AGGRESSION.find(a => a.value === draft.aggression);
 
     return (
-        <div style={{ padding: '20px 24px', maxWidth: 780, margin: '0 auto' }}>
+        <div style={{ padding: '20px 0 60px', width: '100%', maxWidth: 'none', margin: 0 }}>
 
             {/* ── Header ── */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>

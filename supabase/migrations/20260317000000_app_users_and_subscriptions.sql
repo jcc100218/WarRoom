@@ -1,4 +1,4 @@
--- Fantasy Wars: core user account + subscription tables
+-- Dynasty HQ: core user account + subscription tables
 
 -- ── app_users ─────────────────────────────────────────────────
 create table if not exists public.app_users (

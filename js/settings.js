@@ -419,7 +419,7 @@
                     <div style={sectionStyle}>
                         <div style={sectionTitle}>ABOUT</div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.65 }}>
-                            Fantasy War Room v2.0 &middot; Powered by DHQ Engine &middot; Part of the Fantasy Wars platform
+                            Dynasty HQ War Room v2.0 &middot; Powered by DHQ Engine
                         </div>
                     </div>
                     </>)}

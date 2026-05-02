@@ -12,6 +12,7 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
     const [importStatus, setImportStatus] = useState(''); // '' | 'parsing' | 'done' | 'error'
     const [recapStatus, setRecapStatus] = useState(''); // '' | 'generating' | 'done'
     const [recapText, setRecapText] = useState('');
+    const leagueId = currentLeague?.id || currentLeague?.league_id || '';
 
     // ── Export as image ──
     async function exportAsImage(elementId, filename) {
@@ -37,17 +38,23 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
     }
 
     // Load chronicles from localStorage
-    const CHRONICLES_KEY = 'wr_chronicles_' + (currentLeague?.id || '');
+    const CHRONICLES_KEY = 'wr_chronicles_' + leagueId;
     const [chronicles, setChronicles] = useState(() => {
         try { return JSON.parse(localStorage.getItem(CHRONICLES_KEY) || 'null'); } catch { return null; }
     });
+    useEffect(() => {
+        try { setChronicles(JSON.parse(localStorage.getItem(CHRONICLES_KEY) || 'null')); } catch { setChronicles(null); }
+    }, [CHRONICLES_KEY]);
 
     // Phase 9: Hall of Fame entries — per-league, stored in WrStorage. Schema:
     // { id, scope: 'team'|'league', teamRosterId?, name, category, year, note }
-    const HOF_KEY = 'wr_hof_' + (currentLeague?.id || '');
+    const HOF_KEY = 'wr_hof_' + leagueId;
     const [hof, setHof] = useState(() => {
         try { return JSON.parse(localStorage.getItem(HOF_KEY) || '[]'); } catch { return []; }
     });
+    useEffect(() => {
+        try { setHof(JSON.parse(localStorage.getItem(HOF_KEY) || '[]')); } catch { setHof([]); }
+    }, [HOF_KEY]);
     const [hofDraft, setHofDraft] = useState({ scope: 'team', name: '', category: '', year: new Date().getFullYear(), note: '' });
     function saveHof(next) {
         setHof(next);
@@ -122,29 +129,37 @@ function TrophyRoomTab({ currentLeague, playersData, myRoster, sleeperUserId }) 
     // Re-render when league history loads/refreshes from Sleeper
     const [historyTick, setHistoryTick] = useState(0);
     useEffect(() => {
-        const onLoaded = () => setHistoryTick(t => t + 1);
+        const onLoaded = (event) => {
+            const loadedLeagueId = event?.detail?.leagueId;
+            if (!loadedLeagueId || String(loadedLeagueId) === String(leagueId)) setHistoryTick(t => t + 1);
+        };
         window.addEventListener('wr_history_loaded', onLoaded);
         // Trigger background fetch if history isn't cached
         if (window.WrHistory && currentLeague) {
             window.WrHistory.loadIfMissing(currentLeague).catch(() => {});
         }
         return () => window.removeEventListener('wr_history_loaded', onLoaded);
-    }, [currentLeague?.id]);
+    }, [leagueId]);
 
     const ownerHistory = useMemo(() => {
-        if (typeof buildOwnerHistory !== 'function') return {};
-        try { return buildOwnerHistory(); } catch (e) { return {}; }
-    }, [currentLeague?.id, historyTick]);
+        try {
+            if (window.WrHistory?.getOwnerHistory) return window.WrHistory.getOwnerHistory(leagueId);
+            if (typeof buildOwnerHistory === 'function') return buildOwnerHistory(leagueId);
+        } catch (e) {}
+        return {};
+    }, [leagueId, historyTick]);
 
     // Prefer WrHistory's championships over App.LI.championships — the latter
     // uses raw historical roster_ids (which collide with current rosters when
     // owners have left and slots have been re-assigned). WrHistory translates
     // to current rosterIds AND captures the historical owner name explicitly.
     const championships = useMemo(() => {
-        const lid = currentLeague?.id || currentLeague?.league_id;
-        const cached = window.WrHistory?.getCached?.(lid);
-        return cached?.championships || window.App?.LI?.championships || {};
-    }, [currentLeague?.id, historyTick]);
+        const cached = window.WrHistory?.getCached?.(leagueId);
+        const appChamps = String(window.App?.LI?.championshipLeagueId || '') === String(leagueId)
+            ? window.App?.LI?.championships
+            : null;
+        return cached?.championships || appChamps || {};
+    }, [leagueId, historyTick]);
     const owners = useMemo(() => Object.values(ownerHistory).sort((a, b) => b.championships - a.championships || b.playoffAppearances - a.playoffAppearances || b.wins - a.wins), [ownerHistory]);
 
     // ── Styles ──

@@ -98,8 +98,12 @@ function extractSpanMap(source, name) {
 }
 
 const appSrc = read('js/app.js');
+const indexHtml = read('index.html');
+const onboardingSrc = read('onboarding.html');
 const leagueDetailSrc = read('js/league-detail.js');
 const dashboardSrc = read('js/tabs/dashboard.js');
+const leagueHistorySrc = read('js/shared/league-history.js');
+const trophyRoomSrc = read('js/tabs/trophy-room.js');
 
 console.log('\nWar Room regression tests');
 
@@ -149,6 +153,29 @@ test('every main sidebar tab remains directly addressable', () => {
   for (const tab of MAIN_TABS) {
     sourceHas(leagueDetailSrc, `tab: '${tab}'`, `${tab} nav entry missing`);
   }
+});
+
+group('live platform gate');
+
+test('live loader keeps non-Sleeper connector files sandbox-only', () => {
+  sourceHas(indexHtml, 'const WR_PLATFORM_SANDBOX_ACCESS', 'sandbox platform flag missing from loader');
+  sourceHas(indexHtml, "'sleeper-api.js',", 'Sleeper connector must remain in live loader');
+  sourceHas(indexHtml, "if (WR_PLATFORM_SANDBOX_ACCESS) WR_SHARED_FILES.splice(6, 0, 'espn-api.js', 'mfl-api.js', 'yahoo-api.js');", 'beta connectors must be gated behind sandbox flag');
+  ok(!/WRShared\.loadMany\(\[[\s\S]*'espn-api\.js'/.test(indexHtml), 'ESPN connector should not be in unconditional live loadMany list');
+});
+
+test('War Room app filters beta-platform leagues out of live route data', () => {
+  sourceHas(appSrc, 'const PLATFORM_SANDBOX_ACCESS = WR_HOST.includes(\'sandbox\')', 'app sandbox platform flag missing');
+  sourceHas(appSrc, 'const visibleEspnLeagues = PLATFORM_SANDBOX_ACCESS ? espnLeagues : [];', 'ESPN leagues must be hidden on live');
+  sourceHas(appSrc, 'const visibleMflLeagues = PLATFORM_SANDBOX_ACCESS ? mflLeagues : [];', 'MFL leagues must be hidden on live');
+  sourceHas(appSrc, 'const resumeLeague = [...sleeperLeagues, ...visibleEspnLeagues, ...visibleMflLeagues].find(l => l.id === lastLeagueId);', 'resume must use filtered platform leagues');
+});
+
+test('onboarding only persists allowed platforms for the current environment', () => {
+  sourceHas(onboardingSrc, 'window.FW_PLATFORM_SANDBOX_ACCESS = betaPlatforms;', 'onboarding sandbox flag missing');
+  sourceHas(onboardingSrc, '.live-platforms .sandbox-platform { display: none; }', 'live onboarding should hide beta platform cards');
+  sourceHas(onboardingSrc, 'if (!platformAccessAllowed(id)) return;', 'platform toggle must block live beta selection');
+  sourceHas(onboardingSrc, 'patchProfile({ platforms: Array.from(selectedPlatforms).filter(platformAccessAllowed) });', 'saved onboarding platforms must be filtered');
 });
 
 group('mobile overflow');
@@ -208,6 +235,20 @@ test('dashboard widget shell defines every supported size for rows and columns',
     ok(Number.isFinite(sizeSpan[size]), `${size} missing from sizeSpan`);
     ok(Number.isFinite(rowSpan[size]), `${size} missing from rowSpan`);
   }
+});
+
+group('league-scoped history');
+
+test('history globals are replaced per active league instead of merged across leagues', () => {
+  sourceHas(leagueHistorySrc, 'window.App.LI.championshipLeagueId = key;', 'active championship league id missing');
+  sourceHas(leagueHistorySrc, 'window.App.LI.championships = Object.assign({}, cache.championships || {});', 'championships must replace active league snapshot');
+  ok(!leagueHistorySrc.includes('Object.assign({}, window.App.LI.championships || {}, cache.championships || {})'), 'championships should not merge prior league data');
+});
+
+test('trophy room reads owner history and championships by current league id', () => {
+  sourceHas(trophyRoomSrc, 'const leagueId = currentLeague?.id || currentLeague?.league_id || \'\';', 'trophy room league id source missing');
+  sourceHas(trophyRoomSrc, 'window.WrHistory.getOwnerHistory(leagueId)', 'owner history must be league-scoped');
+  sourceHas(trophyRoomSrc, 'String(window.App?.LI?.championshipLeagueId || \'\') === String(leagueId)', 'fallback championships must be active-league guarded');
 });
 
 group('compiled preview');

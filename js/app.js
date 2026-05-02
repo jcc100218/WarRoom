@@ -4,6 +4,22 @@
 // ══════════════════════════════════════════════════════════════════
     const WR_KEYS  = window.App.WR_KEYS;
     const WrStorage = window.App.WrStorage;
+    const WR_HOST = window.location.hostname || '';
+    const PLATFORM_SANDBOX_ACCESS = WR_HOST.includes('sandbox') || ['localhost', '127.0.0.1'].includes(WR_HOST);
+    const MFL_SANDBOX_ACCESS = PLATFORM_SANDBOX_ACCESS;
+    function platformAccessAllowed(platform) {
+        platform = platform || 'sleeper';
+        return platform === 'sleeper' || PLATFORM_SANDBOX_ACCESS;
+    }
+    function platformBetaMessage(platform) {
+        const labels = { espn: 'ESPN', mfl: 'MFL', yahoo: 'Yahoo' };
+        return (labels[platform] || 'This platform') + ' is currently available only in the sandbox beta.';
+    }
+    window.App.PLATFORM_SANDBOX_ACCESS = PLATFORM_SANDBOX_ACCESS;
+    window.App.MFL_SANDBOX_ACCESS = MFL_SANDBOX_ACCESS;
+    window.PLATFORM_SANDBOX_ACCESS = PLATFORM_SANDBOX_ACCESS;
+    window.MFL_SANDBOX_ACCESS = MFL_SANDBOX_ACCESS;
+    window.platformAccessAllowed = platformAccessAllowed;
 
     // ── Notes from the Front — Field Log feed from Scout sessions ──
     var FL_CAT_COLORS = { trade:'#D4AF37', roster:'#2ECC71', draft:'#3498DB', waivers:'#9B59B6', research:'#E67E22', note:'#808080' };
@@ -231,6 +247,8 @@
         const [mflError, setMflError] = useState(null);
         const [mflFranchises, setMflFranchises] = useState(null);
         const [mflPendingResult, setMflPendingResult] = useState(null);
+        const visibleEspnLeagues = PLATFORM_SANDBOX_ACCESS ? espnLeagues : [];
+        const visibleMflLeagues = PLATFORM_SANDBOX_ACCESS ? mflLeagues : [];
         const [espnError, setEspnError] = useState(null);
         // Display name state
         const [customDisplayName, setCustomDisplayName] = useState(() => {
@@ -358,7 +376,7 @@
                 const hashRoute = parseHash(window.location.hash);
                 const nextState = state || (hashRoute.leagueId ? { view: 'league', leagueId: hashRoute.leagueId, tab: hashRoute.tab } : null);
                 if (nextState && nextState.view === 'league' && nextState.leagueId) {
-                    const allLeagues = [...sleeperLeagues, ...espnLeagues, ...mflLeagues];
+                    const allLeagues = [...sleeperLeagues, ...visibleEspnLeagues, ...visibleMflLeagues];
                     const league = allLeagues.find(l => String(l.id) === String(nextState.leagueId));
                     if (league) {
                         setActiveLeagueId(league.id);
@@ -391,7 +409,7 @@
                 if (!loading) initialRouteAppliedRef.current = true;
                 return;
             }
-            const allLeagues = [...sleeperLeagues, ...espnLeagues, ...mflLeagues];
+            const allLeagues = [...sleeperLeagues, ...visibleEspnLeagues, ...visibleMflLeagues];
             if (!allLeagues.length) return;
             const league = allLeagues.find(l => String(l.id) === String(route.leagueId));
             if (!league) {
@@ -433,7 +451,7 @@
                     // Populate rosters from all leagues into window.S for assessments
                     const allRosters = [];
                     const allUsers = [];
-                    const allLeaguesList = [...sleeperLeagues, ...espnLeagues, ...mflLeagues];
+                    const allLeaguesList = [...sleeperLeagues, ...visibleEspnLeagues, ...visibleMflLeagues];
                     allLeaguesList.forEach(l => {
                         (l.rosters || []).forEach(r => { if (!allRosters.find(x => x.roster_id === r.roster_id)) allRosters.push(r); });
                         (l.users || []).forEach(u => { if (!allUsers.find(x => x.user_id === u.user_id)) allUsers.push(u); });
@@ -470,7 +488,7 @@
             return (
                 <ErrorBoundary>
                     <_EmpireDash
-                        allLeagues={[...sleeperLeagues, ...espnLeagues, ...mflLeagues]}
+                        allLeagues={[...sleeperLeagues, ...visibleEspnLeagues, ...visibleMflLeagues]}
                         playersData={empirePlayers}
                         sleeperUserId={sleeperUser?.user_id}
                         onEnterLeague={(league) => {
@@ -656,6 +674,7 @@
         }
 
         async function handleESPNConnect(leagueId, espnS2, swid) {
+            if (!platformAccessAllowed('espn')) { setEspnError(platformBetaMessage('espn')); return; }
             if (!leagueId) { setEspnError('Enter your ESPN league ID'); return; }
             const numericId = leagueId.replace(/\D/g, '');
             if (!numericId) { setEspnError('League ID must be a number from your ESPN URL'); return; }
@@ -692,6 +711,7 @@
         }
 
         async function handleMFLConnect(leagueId, year, apiKey) {
+            if (!platformAccessAllowed('mfl')) { setMflError(platformBetaMessage('mfl')); return; }
             if (!leagueId) { setMflError('Enter your MFL League ID'); return; }
             if (!window.MFL) { setMflError('MFL connector not loaded — refresh and try again'); return; }
             setMflConnecting(true);
@@ -721,6 +741,7 @@
         }
 
         function finalizeMFLConnect(franchiseId) {
+            if (!platformAccessAllowed('mfl')) return;
             const result = mflPendingResult;
             if (!result) return;
             const league = {
@@ -746,9 +767,8 @@
             handleSelectLeague(league);
         }
 
-        // Search ALL connected leagues (Sleeper + ESPN + MFL), not just
-        // Sleeper — resume-on-reload now works for every platform.
-        const resumeLeague = [...sleeperLeagues, ...espnLeagues, ...mflLeagues].find(l => l.id === lastLeagueId);
+        // Search connected leagues across active production platforms.
+        const resumeLeague = [...sleeperLeagues, ...visibleEspnLeagues, ...visibleMflLeagues].find(l => l.id === lastLeagueId);
 
         return (
             <div className="app-container">
@@ -815,22 +835,22 @@
 
                     {/* ──── ESPN ──── HIDDEN — infrastructure preserved, UI removed */}
 
-                    {/* ──── MFL ──── */}
-                    <div className="product-card" style={{ borderColor: 'rgba(46,125,50,0.3)', background: 'linear-gradient(135deg, rgba(46,125,50,0.04), transparent)' }}>
+                    {/* ──── MFL — sandbox beta only ──── */}
+                    {platformAccessAllowed('mfl') && <div className="product-card" style={{ borderColor: 'rgba(46,125,50,0.3)', background: 'linear-gradient(135deg, rgba(46,125,50,0.04), transparent)' }}>
                         <div className="product-card-header">
                             <div className="product-card-icon" style={{ background: 'linear-gradient(135deg, #2e7d32, #1b5e20)', boxShadow: '0 3px 12px rgba(46,125,50,0.25)' }}>
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--white)" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
                             </div>
                             <div>
                                 <div className="product-card-title">MFL</div>
-                                <div className="product-card-subtitle">{mflLeagues.length > 0 ? mflLeagues.length + ' league' + (mflLeagues.length !== 1 ? 's' : '') + ' synced' : 'MyFantasyLeague connector'}</div>
+                                <div className="product-card-subtitle">{visibleMflLeagues.length > 0 ? visibleMflLeagues.length + ' league' + (visibleMflLeagues.length !== 1 ? 's' : '') + ' synced' : 'MyFantasyLeague connector'}</div>
                             </div>
                         </div>
                         <div className="product-card-body">
                             {/* Connected leagues */}
-                            {mflLeagues.length > 0 && (
+                            {visibleMflLeagues.length > 0 && (
                                 <div style={{ marginBottom: '8px' }}>
-                                    {mflLeagues.map(l => (
+                                    {visibleMflLeagues.map(l => (
                                         <button key={l.id} className="hub-cta gold" style={{ marginBottom: '4px', width: '100%' }} onClick={() => handleSelectLeague(l)}>
                                             ENTER {l.name?.toUpperCase()}
                                         </button>
@@ -874,7 +894,7 @@
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </div>}
 
                     {/* ──── YAHOO ──── HIDDEN — infrastructure preserved, UI removed */}
 

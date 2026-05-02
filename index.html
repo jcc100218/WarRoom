@@ -5,14 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Fantasy War Room</title>
+    <title>Dynasty HQ War Room</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Fantasy War Room">
+    <meta name="apple-mobile-web-app-title" content="Dynasty HQ">
     <meta name="theme-color" content="#D4AF37">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1511,16 +1511,15 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.101.1/dist/umd/supabase.min.js"></script>
 <script src="js/shared/shared-loader.js?v=20260427d"></script>
 <script>
-WRShared.loadMany([
+const WR_PLATFORM_SANDBOX_ACCESS = (window.location.hostname || '').includes('sandbox')
+  || ['localhost', '127.0.0.1'].includes(window.location.hostname || '');
+const WR_SHARED_FILES = [
   'constants.js',
   'utils.js',
   'storage.js',
   'event-bus.js',
   'platform-provider.js',
   'sleeper-api.js',
-  'espn-api.js',
-  'mfl-api.js',
-  'yahoo-api.js',
   'supabase-client.js',
   'tier.js',
   'pick-value-model.js',
@@ -1536,7 +1535,9 @@ WRShared.loadMany([
   'gm-engine.js',
   'player-modal.js',
   'rookie-data.js',
-]);
+];
+if (WR_PLATFORM_SANDBOX_ACCESS) WR_SHARED_FILES.splice(6, 0, 'espn-api.js', 'mfl-api.js', 'yahoo-api.js');
+WRShared.loadMany(WR_SHARED_FILES);
 </script>
 <!-- Preserve shared/tier.js canAccess before core.js hoists its own canAccess over window.canAccess -->
 <script>window._sharedCanAccess = window.canAccess;</script>
@@ -1661,7 +1662,7 @@ WRShared.loadMany([
   <div style="display:flex;align-items:center;gap:10px">
     <img src="icon-192.png" style="width:36px;height:36px;border-radius:8px" alt=""/>
     <div style="flex:1">
-      <div style="font-size:14px;font-weight:700;color:var(--white)">Install War Room</div>
+      <div style="font-size:14px;font-weight:700;color:var(--white)">Install Dynasty HQ</div>
       <div style="font-size:13px;color:var(--silver)">Add to your home screen for quick access</div>
     </div>
     <button id="pwa-install-btn" style="padding:6px 14px;background:var(--gold);color:var(--black);border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Install</button>

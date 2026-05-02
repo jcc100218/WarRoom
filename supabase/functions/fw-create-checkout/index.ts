@@ -10,9 +10,9 @@
  * Required secrets:
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  *   STRIPE_SECRET_KEY
- *   STRIPE_PRICE_WAR_ROOM         (Fantasy War Room — price_1TCSAPBzhLLVa13Q3A2l8DP2)
+ *   STRIPE_PRICE_WAR_ROOM         (Dynasty HQ War Room — price_1TCSAPBzhLLVa13Q3A2l8DP2)
  *   STRIPE_PRICE_DYNASTY_HQ       (Dynasty HQ      — price_1TCSJZBzhLLVa13Qitxwr8sh)
- *   STRIPE_PRICE_FANTASY_WARS_PRO (Pro Bundle       — price_1TCSNSBzhLLVa13QnT3hsQLC)
+ *   STRIPE_PRICE_FANTASY_WARS_PRO (legacy env name for Pro Bundle — price_1TCSNSBzhLLVa13QnT3hsQLC)
  *
  * To set Price IDs:
  *   supabase secrets set STRIPE_PRICE_WAR_ROOM=price_...

@@ -1,5 +1,5 @@
 /**
- * fw-signin — Fantasy Wars email sign-in
+ * fw-signin — Dynasty HQ email sign-in
  *
  * POST /functions/v1/fw-signin
  * Body: { email, password }

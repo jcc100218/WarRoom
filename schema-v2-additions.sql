@@ -1,11 +1,11 @@
 -- ============================================================
--- Fantasy Wars — Schema V2 Additions
+-- Dynasty HQ — Schema V2 Additions
 -- Run this in Supabase SQL Editor AFTER the original schema.sql
 -- Adds: email auth, subscriptions, product access
 -- ============================================================
 
 -- ── APP USERS (email-based, parallel to legacy sleeper users) ─
--- This is the new primary user table for Fantasy Wars sign-ups.
+-- This is the new primary user table for Dynasty HQ sign-ups.
 -- Legacy Sleeper-username users continue to use the existing
 -- `users` table and are unaffected.
 create table if not exists public.app_users (
@@ -40,7 +40,7 @@ create table if not exists public.products (
 
 insert into public.products (slug, name, description)
 values
-    ('war_room',  'Fantasy War Room', 'Fantasy football command center — trades, FA, AI analysis, draft boards'),
+    ('war_room',  'Dynasty HQ War Room', 'Dynasty fantasy football command center — trades, FA, AI analysis, draft boards'),
     ('dynast_hq', 'Dynast HQ',        'Dynasty-specific tools — long-term roster building, prospect tracking, dynasty rankings')
 on conflict (slug) do nothing;
 

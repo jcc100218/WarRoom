@@ -1,5 +1,5 @@
 /**
- * fw-signup — Fantasy Wars email registration
+ * fw-signup — Dynasty HQ email registration
  *
  * POST /functions/v1/fw-signup
  * Body: { email, password, displayName?, productSlug? }

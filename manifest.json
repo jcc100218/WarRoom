@@ -1,7 +1,7 @@
 {
-  "name": "Fantasy Wars — War Room",
-  "short_name": "War Room",
-  "description": "Fantasy football war room — AI-powered draft board, projections, roster management, and league analytics",
+  "name": "Dynasty HQ — War Room",
+  "short_name": "Dynasty HQ",
+  "description": "Dynasty fantasy football command center — AI-powered draft board, projections, roster management, and league analytics",
   "start_url": "./index.html",
   "scope": "./",
   "id": "warroom",

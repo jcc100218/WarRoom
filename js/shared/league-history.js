@@ -25,6 +25,8 @@
     const CACHE_TTL = 6 * 60 * 60 * 1000;
     const CHAIN_MAX = 15;
     const CACHE_KEY = (lid) => 'wr_history_' + lid;
+    const memoryCache = {};
+    let activeLeagueId = null;
 
     function fetchJson(url) {
         return fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null);
@@ -326,14 +328,14 @@
         return cache;
     }
 
-    function populateGlobals(cache, leagueId) {
+    function ownerHistoryByRoster(cache) {
         // Trophy Room reads via global function. Active owners are keyed by
         // their current rosterId (so champion lookups via roster_id work).
         // Former owners (no longer in the league) are keyed by a synthetic
         // 'former:<ownerId>' so they still appear in iterations like the
         // All-Time Standings without colliding with current rosters.
         const byKey = {};
-        Object.values(cache.ownerHistory || {}).forEach(oh => {
+        Object.values(cache?.ownerHistory || {}).forEach(oh => {
             if (oh.currentRosterId != null) {
                 byKey[oh.currentRosterId] = { ...oh, isFormer: false };
             } else {
@@ -344,15 +346,45 @@
                 };
             }
         });
-        window.buildOwnerHistory = function () { return byKey; };
+        return byKey;
+    }
+
+    function readCache(leagueId) {
+        if (!leagueId) return null;
+        const key = String(leagueId);
+        if (memoryCache[key]) return memoryCache[key];
+        try {
+            const raw = localStorage.getItem(CACHE_KEY(key));
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (parsed) memoryCache[key] = parsed;
+            return parsed;
+        } catch { return null; }
+    }
+
+    function isFresh(cache) {
+        return !!(cache && Date.now() - cache.fetchedAt < CACHE_TTL);
+    }
+
+    function populateGlobals(cache, leagueId) {
+        if (!cache || !leagueId) return;
+        const key = String(leagueId);
+        memoryCache[key] = cache;
+        activeLeagueId = key;
+        window.buildOwnerHistory = function (requestedLeagueId) {
+            const lookupId = requestedLeagueId != null ? String(requestedLeagueId) : activeLeagueId;
+            return ownerHistoryByRoster(readCache(lookupId));
+        };
 
         // Achievements reads dhq_hist_<leagueId>
         try { localStorage.setItem('dhq_hist_' + leagueId, JSON.stringify(cache.flatHist || [])); } catch { /* swallow */ }
 
-        // App.LI.championships — merge so we don't overwrite any existing entries
+        // App.LI.championships is the active league snapshot. Do not merge
+        // across leagues; identical season keys otherwise leak old champions.
         window.App = window.App || {};
         window.App.LI = window.App.LI || {};
-        window.App.LI.championships = Object.assign({}, window.App.LI.championships || {}, cache.championships || {});
+        window.App.LI.championshipLeagueId = key;
+        window.App.LI.championships = Object.assign({}, cache.championships || {});
 
         // Notify listeners (React widgets re-render via useState handler)
         try { window.dispatchEvent(new CustomEvent('wr_history_loaded', { detail: { leagueId, seasons: cache.seasonsLoaded } })); } catch {}
@@ -361,32 +393,29 @@
     function loadIfMissing(currentLeague) {
         const lid = currentLeague?.id || currentLeague?.league_id;
         if (!lid) return Promise.resolve(null);
-        // Already loaded into globals?
-        try {
-            const oh = typeof window.buildOwnerHistory === 'function' ? window.buildOwnerHistory() : null;
-            if (oh && Object.keys(oh).length > 0) {
-                // Even if globals are populated, refresh in background if stale
-                const raw = localStorage.getItem(CACHE_KEY(lid));
-                if (raw) {
-                    const cached = JSON.parse(raw);
-                    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) return Promise.resolve(null);
-                }
-            }
-        } catch {}
+        const cached = readCache(lid);
+        if (isFresh(cached)) {
+            populateGlobals(cached, lid);
+            return Promise.resolve(cached);
+        }
         return build(currentLeague);
     }
 
     function getCached(leagueId) {
-        try {
-            const raw = localStorage.getItem(CACHE_KEY(leagueId));
-            return raw ? JSON.parse(raw) : null;
-        } catch { return null; }
+        return readCache(leagueId);
     }
 
     window.WrHistory = {
         load: build,
         loadIfMissing,
         getCached,
+        getOwnerHistory: function (leagueId) {
+            return ownerHistoryByRoster(readCache(leagueId));
+        },
+        getChampionships: function (leagueId) {
+            const c = readCache(leagueId);
+            return c?.championships || {};
+        },
         getAllTimeTeam: function (leagueId) {
             const c = getCached(leagueId);
             return c?.allTimeTeam || {};

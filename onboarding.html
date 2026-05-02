@@ -3,9 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fantasy Wars — Get Started</title>
+  <title>Dynasty HQ — Get Started</title>
   <link rel="icon" href="icon-192.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      const host = window.location.hostname || '';
+      const betaPlatforms = host.includes('sandbox') || ['localhost', '127.0.0.1'].includes(host);
+      document.documentElement.classList.add(betaPlatforms ? 'sandbox-platforms' : 'live-platforms');
+      window.FW_PLATFORM_SANDBOX_ACCESS = betaPlatforms;
+    })();
+  </script>
 
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -367,6 +375,7 @@
       color: var(--black);
       font-weight: 700;
     }
+    .live-platforms .sandbox-platform { display: none; }
     .platform-icon { font-size: 1.45rem; margin-bottom: 0.4rem; line-height: 1; }
     .platform-name { font-size: 0.76rem; font-weight: 600; color: var(--silver); letter-spacing: 0.03em; }
     .platform-status { font-size: 0.62rem; color: var(--muted); margin-top: 0.2rem; }
@@ -464,8 +473,8 @@
   <!-- Progress header -->
   <header class="progress-header">
     <a class="logo-area" href="landing.html">
-      <img src="icon-192.png" alt="Fantasy Wars">
-      <span>Fantasy Wars</span>
+      <img src="icon-192.png" alt="Dynasty HQ">
+      <span>Dynasty HQ</span>
     </a>
     <div class="step-dots" id="stepDots">
       <div class="step-dot active" data-step="1"></div>
@@ -508,14 +517,14 @@
           <div class="plan-name">Standard</div>
           <div class="plan-price">$9.99 <span>/ month</span></div>
           <ul class="plan-features">
-            <li><span class="pf-check">✦</span> Fantasy War Room <em style="color:var(--muted);font-size:0.7rem;">or Dynasty HQ</em></li>
-            <li><span class="pf-check">✦</span> All tools in your chosen product</li>
+            <li><span class="pf-check">✦</span> Dynasty HQ War Room</li>
+            <li><span class="pf-check">✦</span> Full War Room desktop suite</li>
             <li><span class="pf-check">✦</span> AI — 20 queries / month included</li>
             <li><span class="pf-check">✦</span> BYO AI key (Claude, Genesis, ChatGPT, Grok)</li>
             <li><span class="pf-check">✦</span> No contract · cancel anytime</li>
           </ul>
 
-          <!-- Product sub-selector (shown after selecting Standard) -->
+          <!-- Legacy product sub-selector, kept hidden while Dynasty HQ War Room is the live paid product. -->
           <div id="standardProductPicker" style="display:none; margin-top:0.75rem; border-top:1px solid rgba(255,255,255,0.08); padding-top:0.75rem;">
             <p style="font-size:0.68rem;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.5rem;">Choose Your Product</p>
             <div style="display:flex;gap:0.5rem;">
@@ -565,7 +574,7 @@
 
       <div class="payment-box">
         <div class="payment-icon" id="payIcon">⚔️</div>
-        <div class="payment-title" id="payTitle">Fantasy War Room — Standard</div>
+        <div class="payment-title" id="payTitle">Dynasty HQ War Room — Standard</div>
         <div class="payment-sub" id="paySub">
           Full access to all War Room tools — Team Comparison, Behavioral Trade Calculator, Draft War Room, Free Agency Tracker, Calendar, Trophy Case, and Direct Messaging. AI included (20 queries/mo).
         </div>
@@ -667,7 +676,7 @@
     <div class="step-panel" id="step3">
       <p class="step-eyebrow">Step 3 of 4</p>
       <h1 class="step-heading">Your<br><span style="color:var(--gold)">Battlegrounds</span></h1>
-      <p class="step-sub">Which fantasy platforms do you play on? We'll prioritize pulling in your leagues from these sites.</p>
+      <p class="step-sub">Connect Sleeper so we can pull in your leagues and historical data.</p>
 
       <div class="platform-grid">
 
@@ -695,63 +704,58 @@
         </div>
         -->
 
-        <div class="platform-card" id="plat-draftkings" onclick="togglePlatform('draftkings')">
+        <div class="platform-card sandbox-platform" id="plat-draftkings" onclick="togglePlatform('draftkings')">
           <div class="platform-check"></div>
           <div class="platform-icon">👑</div>
           <div class="platform-name">DraftKings</div>
           <div class="platform-status">Coming soon</div>
         </div>
 
-        <div class="platform-card" id="plat-mfl" onclick="togglePlatform('mfl')">
-          <div class="platform-check"></div>
-          <div class="platform-icon">🗺️</div>
-          <div class="platform-name">MFL</div>
-          <div class="platform-status">Coming soon</div>
-        </div>
+        <!-- MFL hidden from production onboarding while the connector stays in sandbox beta. -->
 
-        <div class="platform-card" id="plat-fantrax" onclick="togglePlatform('fantrax')">
+        <div class="platform-card sandbox-platform" id="plat-fantrax" onclick="togglePlatform('fantrax')">
           <div class="platform-check"></div>
           <div class="platform-icon">🦅</div>
           <div class="platform-name">Fantrax</div>
           <div class="platform-status">Coming soon</div>
         </div>
 
-        <div class="platform-card" id="plat-nfl" onclick="togglePlatform('nfl')">
+        <div class="platform-card sandbox-platform" id="plat-nfl" onclick="togglePlatform('nfl')">
           <div class="platform-check"></div>
           <div class="platform-icon">🏟️</div>
           <div class="platform-name">NFL.com</div>
           <div class="platform-status">Coming soon</div>
         </div>
 
-        <div class="platform-card" id="plat-cbs" onclick="togglePlatform('cbs')">
+        <div class="platform-card sandbox-platform" id="plat-cbs" onclick="togglePlatform('cbs')">
           <div class="platform-check"></div>
           <div class="platform-icon">📺</div>
           <div class="platform-name">CBS Fantasy</div>
           <div class="platform-status">Coming soon</div>
         </div>
 
-        <div class="platform-card" id="plat-underdog" onclick="togglePlatform('underdog')">
+        <div class="platform-card sandbox-platform" id="plat-underdog" onclick="togglePlatform('underdog')">
           <div class="platform-check"></div>
           <div class="platform-icon">🐕</div>
           <div class="platform-name">Underdog</div>
           <div class="platform-status">Coming soon</div>
         </div>
 
-        <div class="platform-card" id="plat-prizepicks" onclick="togglePlatform('prizepicks')">
+        <div class="platform-card sandbox-platform" id="plat-prizepicks" onclick="togglePlatform('prizepicks')">
           <div class="platform-check"></div>
           <div class="platform-icon">🎯</div>
           <div class="platform-name">PrizePicks</div>
           <div class="platform-status">Coming soon</div>
         </div>
 
-        <div class="platform-card" id="plat-fanduel" onclick="togglePlatform('fanduel')">
+        <div class="platform-card sandbox-platform" id="plat-fanduel" onclick="togglePlatform('fanduel')">
           <div class="platform-check"></div>
           <div class="platform-icon">🎲</div>
           <div class="platform-name">FanDuel</div>
           <div class="platform-status">Coming soon</div>
         </div>
 
-        <div class="platform-card" id="plat-fleaflicker" onclick="togglePlatform('fleaflicker')">
+        <div class="platform-card sandbox-platform" id="plat-fleaflicker" onclick="togglePlatform('fleaflicker')">
           <div class="platform-check"></div>
           <div class="platform-icon">🦟</div>
           <div class="platform-name">Fleaflicker</div>
@@ -832,9 +836,13 @@
     let selectedPlan = null;
     let selectedStandardProduct = 'war_room'; // default for Standard tier
     const selectedPlatforms = new Set(['sleeper']);
+    const PLATFORM_SANDBOX_ACCESS = !!window.FW_PLATFORM_SANDBOX_ACCESS;
     const PROFILE_KEY  = 'od_profile_v1';
     const SESSION_KEY  = 'fw_session_v1';   // new email-based auth (landing.html)
     const LEGACY_KEY   = 'od_auth_v1';      // old Sleeper-username auth (login.html)
+    function platformAccessAllowed(id) {
+      return id === 'sleeper' || PLATFORM_SANDBOX_ACCESS;
+    }
 
     // ── Boot ───────────────────────────────────────────────
     (function init() {
@@ -872,12 +880,13 @@
           selectedPlan = saved.tier;
           const card = document.getElementById('plan-' + saved.tier);
           if (card) card.classList.add('selected');
-          if (saved.tier === 'standard') document.getElementById('standardProductPicker').style.display = 'block';
+          if (saved.tier === 'standard') document.getElementById('standardProductPicker').style.display = 'none';
           document.getElementById('step1Btn').disabled = false;
         }
         if (saved && saved.platforms) {
           saved.platforms.forEach(p => {
             if (p === 'sleeper') return;
+            if (!platformAccessAllowed(p)) return;
             selectedPlatforms.add(p);
             const card = document.getElementById('plat-' + p);
             if (card) card.classList.add('selected');
@@ -914,10 +923,10 @@
       const isPro = selectedPlan === 'pro';
       document.getElementById('payIcon').textContent   = isPro ? '🏆' : '⚔️';
       document.getElementById('payTitle').textContent  = isPro
-        ? 'Pro Bundle — Fantasy War Room + Dynasty HQ'
-        : 'Standard — Fantasy War Room';
+        ? 'Dynasty HQ Pro'
+        : 'Standard — Dynasty HQ War Room';
       document.getElementById('paySub').textContent    = isPro
-        ? 'Both products unlocked. All tools. 200 AI queries/mo. BYO AI key supported. No contract.'
+        ? 'Scout and War Room unlocked. All tools. 200 AI queries/mo. BYO AI key supported. No contract.'
         : 'All War Room tools unlocked. 20 AI queries/mo. BYO AI key supported. No contract.';
       document.getElementById('payPrice').innerHTML    = isPro
         ? '$14.95 <span>/ month</span>'
@@ -944,9 +953,9 @@
       btn.disabled = false;
       btn.textContent = plan === 'scout' ? 'Start Free →' : 'Continue →';
 
-      // Show/hide product sub-picker for Standard
+      // Standard now maps directly to Dynasty HQ War Room.
       const picker = document.getElementById('standardProductPicker');
-      picker.style.display = plan === 'standard' ? 'block' : 'none';
+      picker.style.display = 'none';
     }
 
     function selectStandardProduct(product) {
@@ -1092,6 +1101,7 @@
 
     // ── Platform selection ─────────────────────────────────
     function togglePlatform(id) {
+      if (!platformAccessAllowed(id)) return;
       const card = document.getElementById('plat-' + id);
       if (!card || card.classList.contains('locked')) return;
 
@@ -1107,7 +1117,7 @@
     }
 
     function goStep4() {
-      patchProfile({ platforms: Array.from(selectedPlatforms) });
+      patchProfile({ platforms: Array.from(selectedPlatforms).filter(platformAccessAllowed) });
       // Pre-fill Sleeper username if already saved
       const saved = getProfile();
       if (saved.sleeperUsername) {
@@ -1178,11 +1188,12 @@
 
       const tierLabels = {
         standard: 'Standard — $9.99/mo',
-        pro:      'Pro Bundle — $14.95/mo',
+        pro:      'Dynasty HQ Pro — $14.95/mo',
       };
       const tierLabel = tierLabels[profile.tier] || profile.tier || 'Standard';
 
       const platformList = (profile.platforms || ['sleeper'])
+        .filter(platformAccessAllowed)
         .map(p => p.charAt(0).toUpperCase() + p.slice(1))
         .join(', ');
 

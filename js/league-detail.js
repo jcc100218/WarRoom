@@ -293,7 +293,7 @@
                             React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1.4rem', color: 'var(--gold)', letterSpacing: '0.06em' } }, 'WAR ROOM GUIDE'),
                             React.createElement('button', { onClick: () => setExpanded(false), style: { background: 'none', border: 'none', color: 'var(--silver)', cursor: 'pointer', fontSize: '1.2rem' } }, '\u2715')
                         ),
-                        React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.4, marginBottom: '20px' } }, 'Fantasy Wars analyzes your dynasty league to give you an edge in every decision \u2014 trades, drafts, waivers, and roster construction. Here\u2019s what every tool and metric means.'),
+                        React.createElement('div', { style: { fontSize: '0.82rem', color: 'var(--silver)', lineHeight: 1.4, marginBottom: '20px' } }, 'Dynasty HQ analyzes your dynasty league to give you an edge in every decision \u2014 trades, drafts, waivers, and roster construction. Here\u2019s what every tool and metric means.'),
                         ...fullItems.map(section => React.createElement('div', { key: section.cat, style: { marginBottom: '20px' } },
                             React.createElement('div', { style: { fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', borderBottom: '1px solid rgba(212,175,55,0.2)', paddingBottom: '4px', marginBottom: '10px' } }, section.cat),
                             ...section.items.map(item => React.createElement('div', { key: item.term, style: { marginBottom: '12px' } },
@@ -2387,10 +2387,10 @@
                     padding: '16px 0', zIndex: 100, transition: 'transform 0.2s ease'
                 }}>
                     {/* Logo — click to go home */}
-                    <div onClick={onBack} style={{ padding: '0 16px', marginBottom: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }} title="Back to Fantasy Wars home">
-                      <img src="icon-192.png" alt="Fantasy Wars" style={{ width: '28px', height: '28px', borderRadius: '6px' }} onError={e => { e.target.style.display = 'none'; }} />
+                    <div onClick={onBack} style={{ padding: '0 16px', marginBottom: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }} title="Back to Dynasty HQ home">
+                      <img src="icon-192.png" alt="Dynasty HQ" style={{ width: '28px', height: '28px', borderRadius: '6px' }} onError={e => { e.target.style.display = 'none'; }} />
                       <div>
-                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', lineHeight: 1.1 }}>FANTASY WARS</div>
+                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.06em', lineHeight: 1.1 }}>DYNASTY HQ</div>
                         <div style={{ fontSize: '0.6rem', color: 'var(--silver)', opacity: 0.5, fontFamily: 'var(--font-body)', letterSpacing: '0.04em' }}>WAR ROOM</div>
                       </div>
                       {(() => {
@@ -2419,7 +2419,7 @@
                                 if (name.toLowerCase().includes(lower)) matches.push({ type: 'player', pid, name, pos: p.position || '?', team: p.team || 'FA' });
                             });
                             // Search tabs
-                            [{ label: 'Home', tab: 'dashboard' }, { label: 'My Roster', tab: 'myteam' }, { label: 'Trade Center', tab: 'trades' }, { label: 'Free Agency', tab: 'fa' }, { label: 'Draft Command', tab: 'draft' }, { label: 'Trophy Room', tab: 'trophies' }, { label: 'Analytics', tab: 'analytics' }].forEach(t => {
+                            [{ label: 'Home', tab: 'dashboard' }, { label: 'My Roster', tab: 'myteam' }, { label: 'Trade Center', tab: 'trades' }, { label: 'Free Agency', tab: 'fa' }, { label: 'Draft Command', tab: 'draft' }, { label: 'Trophy Room', tab: 'trophies' }, { label: 'Analytics', tab: 'analytics' }, { label: 'GM Strategy', tab: 'strategy' }].forEach(t => {
                                 if (t.label.toLowerCase().includes(lower)) matches.push({ type: 'tab', label: t.label, tab: t.tab });
                             });
                             setResults(matches.slice(0, 8));
@@ -2474,6 +2474,7 @@
                         { label: 'Trophy Room', tab: 'trophies', icon: '\u265B' },
                         { label: 'Calendar', tab: 'calendar', icon: '\u25A4' },
                         { section: 'SETTINGS' },
+                        { label: 'GM Strategy', tab: 'strategy', icon: '\u25C8' },
                         { label: 'Settings', action: () => onOpenSettings && onOpenSettings(), icon: '\u2690' },
                     ].map((item, i) => {
                         if (item.section) {

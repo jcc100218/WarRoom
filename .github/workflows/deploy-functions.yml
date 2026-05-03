@@ -21,11 +21,21 @@ jobs:
         with:
           version: latest
 
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type check Edge Functions
+        run: |
+          for fn in supabase/functions/*/index.ts; do
+            deno check "$fn"
+          done
+
       - name: Apply database migrations
         # Applies migration via Supabase Management API.
         # continue-on-error keeps function deploys running even if migration
         # was already applied or the token lacks SQL execution scope.
-        # To apply manually: Supabase Dashboard → SQL Editor → paste supabase/migrations/*.sql
+        # To apply manually: Supabase Dashboard → SQL Editor → paste the listed SQL files.
         continue-on-error: true
         run: |
           python3 - <<'PYEOF'
@@ -34,45 +44,79 @@ jobs:
           if not token:
               print('SUPABASE_ACCESS_TOKEN not set — skipping migration', file=sys.stderr)
               sys.exit(0)
-          sql = open('supabase/migrations/20260317000000_app_users_and_subscriptions.sql').read()
-          req = urllib.request.Request(
-              'https://api.supabase.com/v1/projects/sxshiqyxhhifvtfqawbq/database/query',
-              data=json.dumps({'query': sql}).encode(),
-              headers={
-                  'Authorization': f'Bearer {token}',
-                  'Content-Type':  'application/json',
-              },
-              method='POST',
-          )
-          try:
-              with urllib.request.urlopen(req) as r:
-                  print('Migration OK:', r.read().decode()[:200])
-          except urllib.error.HTTPError as e:
-              body = e.read().decode()
-              print('Migration response:', e.code, body, file=sys.stderr)
-              sys.exit(1)
+          migration_paths = [
+              'supabase/migrations/20260317000000_app_users_and_subscriptions.sql',
+              'supabase/migrations/20260503000000_ai_usage_controls.sql',
+              'supabase/migrations/20260503010000_tutorial_state.sql',
+              'supabase/migrations/20260503020000_ai_margin_rollups.sql',
+          ]
+          for path in migration_paths:
+              if not os.path.exists(path):
+                  print('Migration missing:', path, file=sys.stderr)
+                  sys.exit(1)
+              sql = open(path).read()
+              req = urllib.request.Request(
+                  'https://api.supabase.com/v1/projects/sxshiqyxhhifvtfqawbq/database/query',
+                  data=json.dumps({'query': sql}).encode(),
+                  headers={
+                      'Authorization': f'Bearer {token}',
+                      'Content-Type':  'application/json',
+                  },
+                  method='POST',
+              )
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      print('Migration OK:', path, r.read().decode()[:200])
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode()
+                  print('Migration response:', path, e.code, body, file=sys.stderr)
+                  sys.exit(1)
           PYEOF
 
       - name: Deploy get-session-token function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
         run: supabase functions deploy get-session-token --project-ref sxshiqyxhhifvtfqawbq
 
       - name: Deploy set-password function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
         run: supabase functions deploy set-password --project-ref sxshiqyxhhifvtfqawbq
 
       - name: Deploy ai-analyze function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
         run: supabase functions deploy ai-analyze --project-ref sxshiqyxhhifvtfqawbq
 
       - name: Deploy fw-signup function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
         run: supabase functions deploy fw-signup --project-ref sxshiqyxhhifvtfqawbq
 
       - name: Deploy fw-signin function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
         run: supabase functions deploy fw-signin --project-ref sxshiqyxhhifvtfqawbq
 
+      - name: Deploy fw-profile function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: supabase functions deploy fw-profile --project-ref sxshiqyxhhifvtfqawbq
+
       - name: Deploy fw-create-checkout function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
         run: supabase functions deploy fw-create-checkout --project-ref sxshiqyxhhifvtfqawbq
 
       - name: Deploy fw-stripe-webhook function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
         run: supabase functions deploy fw-stripe-webhook --project-ref sxshiqyxhhifvtfqawbq
 
+      - name: Deploy fw-request-password-reset function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: supabase functions deploy fw-request-password-reset --project-ref sxshiqyxhhifvtfqawbq
+
+      - name: Deploy fw-confirm-password-reset function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: supabase functions deploy fw-confirm-password-reset --project-ref sxshiqyxhhifvtfqawbq
+
       - name: Deploy admin-list-users function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
         run: supabase functions deploy admin-list-users --project-ref sxshiqyxhhifvtfqawbq
+
+      - name: Deploy admin-analytics-report function
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: supabase functions deploy admin-analytics-report --project-ref sxshiqyxhhifvtfqawbq

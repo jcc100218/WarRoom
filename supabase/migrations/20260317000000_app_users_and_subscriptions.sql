@@ -18,6 +18,7 @@ alter table public.app_users
   add column if not exists avatar_url text,
   add column if not exists email_verified boolean not null default false,
   add column if not exists stripe_customer_id text,
+  add column if not exists tutorial_state jsonb not null default '{}'::jsonb,
   add column if not exists platform_usernames jsonb not null default '{}'::jsonb,
   add column if not exists updated_at timestamptz not null default now();
 

@@ -29,6 +29,7 @@ const FILES = [
   'team-assess.js',
   'analytics-engine.js',
   'dhq-ai.js',
+  'assistant-tutorial.js',
   'ai-dispatch.js',
   'strategy.js',
   'trade-engine.js',

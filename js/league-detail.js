@@ -1047,7 +1047,13 @@
           if (LeagueStorage.get(welcomeKey)) return;
           LeagueStorage.set(welcomeKey, '1');
           // Small delay so the app finishes rendering first
-          const t = setTimeout(() => {
+          const t = setTimeout(async () => {
+            if (window.App?.AssistantTutorial?.isActive?.()) return;
+            if (window.WR_TUTORIAL_CONFIG && window.App?.AssistantTutorial?.shouldShow) {
+              try {
+                if (await window.App.AssistantTutorial.shouldShow(window.WR_TUTORIAL_CONFIG)) return;
+              } catch (e) { window.wrLog?.('welcome.tutorialCheck', e); }
+            }
             setWelcomeMode(true);
             setReconPanelOpen(true);
             setReconMessages([{

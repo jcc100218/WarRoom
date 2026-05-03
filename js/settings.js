@@ -60,6 +60,11 @@
                 })}
             </div>
         </div>
+        <div style={sectionStyle}>
+            <div style={sectionTitle}>GM BRIEFING</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '0.75rem', lineHeight: 1.45 }}>Replay the first-launch War Room briefing any time you want to re-orient the room.</div>
+            <button onClick={() => { if (window.replayWRTutorial) window.replayWRTutorial(); }} style={{ width: '100%', padding: '0.65rem 0.85rem', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.35)', borderRadius: '6px', color: 'var(--gold)', fontFamily: 'var(--font-body)', fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>Replay GM Briefing</button>
+        </div>
         </>);
     }
 

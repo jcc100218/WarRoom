@@ -425,6 +425,10 @@
             <div class="ops-list" id="analytics-modules"></div>
           </div>
           <div class="ops-block">
+            <h3>AI Margin</h3>
+            <div class="ops-list" id="analytics-ai-margin"></div>
+          </div>
+          <div class="ops-block">
             <h3>Error Correlation</h3>
             <div class="ops-list" id="analytics-errors"></div>
           </div>
@@ -639,6 +643,7 @@
   function renderAnalytics(data) {
     const report = data.report || {};
     const totals = report.totals || {};
+    const aiMargin = report.aiMargin || {};
     document.getElementById('analytics-loading').style.display = 'none';
     document.getElementById('analytics-content').style.display = 'block';
     document.getElementById('analytics-window-label').textContent =
@@ -649,6 +654,8 @@
       ['Sessions', totals.sessions],
       ['Known Users', totals.knownUsers],
       ['Anonymous', totals.anonymousSessions],
+      ['AI Cost', formatUsd(aiMargin.totalCostUsd)],
+      ['AI Calls', aiMargin.calls],
       ['Client Errors', totals.clientErrors],
       ['Sentry Linked', totals.sentryLinkedErrors],
     ].map(([label, value]) => `<div class="ops-card"><span>${label}</span><strong>${formatNum(value)}</strong></div>`).join('');
@@ -665,6 +672,21 @@
       label: row.module,
       value: `${formatNum(row.sessions)} sessions`,
     }));
+    const aiRows = [
+      { label: 'Total cost', value: formatUsd(aiMargin.totalCostUsd) },
+      { label: 'Avg cost', value: formatUsd(aiMargin.avgCostUsd) },
+      { label: 'P95 latency', value: `${formatNum(aiMargin.p95LatencyMs)} ms` },
+      { label: 'Error rate', value: `${formatNum(aiMargin.errorRatePct)}%` },
+      { label: 'Fallback rate', value: `${formatNum(aiMargin.fallbackRatePct)}%` },
+      { label: 'Downgrade rate', value: `${formatNum(aiMargin.downgradeRatePct)}%` },
+      { label: 'AI errors', value: formatNum(aiMargin.errors) },
+      { label: 'Quota denials', value: formatNum(aiMargin.quotaDenials) },
+      ...(aiMargin.byModel || []).slice(0, 4).map(row => ({
+        label: `${row.provider || 'provider'} · ${row.model || 'model'}`,
+        value: `${formatNum(row.calls)} calls · ${formatUsd(row.costUsd)}`,
+      })),
+    ];
+    renderOpsRows('analytics-ai-margin', aiRows, row => row);
     renderOpsRows('analytics-errors', report.errors || [], row => ({
       label: `${row.source} · ${row.errorName}`,
       value: `${formatNum(row.events)} events`,
@@ -714,7 +736,13 @@
     return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   }
   function formatNum(n) {
+    if (typeof n === 'string' && n.startsWith('$')) return n;
     return Number(n || 0).toLocaleString();
+  }
+  function formatUsd(n) {
+    const value = Number(n || 0);
+    if (!Number.isFinite(value)) return '$0.00';
+    return '$' + value.toFixed(value >= 1 ? 2 : 4);
   }
 </script>
 </body>

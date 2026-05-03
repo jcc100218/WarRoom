@@ -29,6 +29,7 @@ deploy — no War Room deploy needed.
 | `dhq-ai.js` | AI integration (Claude/Gemini) | `App.askAlex()` |
 | `ai-dispatch.js` | AI message queue and routing | `App.AI.*` |
 | `analytics-engine.js` | League-wide analytics | `App.Analytics.*` |
+| `assistant-tutorial.js` | Shared first-launch GM briefing tutorial | `App.AssistantTutorial.*` |
 | `team-assess.js` | Roster/team strength assessment | `assessTeamFromGlobal()`, `assessAllTeamsFromGlobal()` |
 | `player-modal.js` | Reusable player detail modal | `App.showPlayerModal()` |
 | `sleeper-api.js` | Sleeper Fantasy API wrapper | `window.Sleeper.*` |

@@ -8,6 +8,7 @@
 // SET SECRET:
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 //   supabase secrets set GOOGLE_AI_KEY=AIza...
+//   supabase secrets set OPENAI_API_KEY=sk-...
 // ============================================================
 
 import Anthropic from 'npm:@anthropic-ai/sdk';
@@ -158,15 +159,22 @@ async function resolveAISession(req: Request): Promise<AISession | null> {
 }
 
 // ── AI model routing and cost telemetry ───────────────────────
-type AIProvider = 'anthropic' | 'gemini';
+type AIProvider = 'anthropic' | 'gemini' | 'openai';
+type AIWorkloadTier = 'fast' | 'standard' | 'premium' | 'deep';
 interface AIRoute {
     provider: AIProvider;
     model: string;
+    tier: AIWorkloadTier;
 }
+
+const AI_POLICY_VERSION = '2026-05-03.vendor-router.v1';
 
 const AI_MODELS = {
     GEMINI_FAST: 'gemini-2.5-flash-lite',
     GEMINI_BALANCED: 'gemini-2.5-flash',
+    OPENAI_FAST: 'gpt-5.4-nano',
+    OPENAI_STANDARD: 'gpt-5.4-mini',
+    OPENAI_PREMIUM: 'gpt-5.5',
     CLAUDE_REASONING: 'claude-sonnet-4-6',
     CLAUDE_DEEP: 'claude-opus-4-7',
 } as const;
@@ -174,11 +182,46 @@ const AI_MODELS = {
 const MODEL_COSTS: Record<string, { input: number; output: number; cachedInput?: number }> = {
     'gemini-2.5-flash-lite': { input: 0.10, output: 0.40 },
     'gemini-2.5-flash': { input: 0.30, output: 2.50 },
+    'gpt-5.4-nano': { input: 0.20, output: 1.25, cachedInput: 0.02 },
+    'gpt-5.4-mini': { input: 0.75, output: 4.50, cachedInput: 0.075 },
+    'gpt-5.5': { input: 5.00, output: 30.00, cachedInput: 0.50 },
     'claude-sonnet-4-6': { input: 3.00, output: 15.00, cachedInput: 0.30 },
     'claude-opus-4-7': { input: 5.00, output: 25.00, cachedInput: 0.50 },
 };
 
-type AIModelTier = 'gemini' | 'sonnet' | 'opus';
+const AI_TIER_MODELS: Record<AIWorkloadTier, Partial<Record<AIProvider, string>>> = {
+    fast: {
+        gemini: AI_MODELS.GEMINI_FAST,
+        openai: AI_MODELS.OPENAI_FAST,
+    },
+    standard: {
+        gemini: AI_MODELS.GEMINI_BALANCED,
+        openai: AI_MODELS.OPENAI_STANDARD,
+    },
+    premium: {
+        anthropic: AI_MODELS.CLAUDE_REASONING,
+        openai: AI_MODELS.OPENAI_PREMIUM,
+    },
+    deep: {
+        anthropic: AI_MODELS.CLAUDE_DEEP,
+    },
+};
+
+const DEFAULT_PROVIDER_BY_TIER: Record<AIWorkloadTier, AIProvider> = {
+    fast: 'gemini',
+    standard: 'gemini',
+    premium: 'anthropic',
+    deep: 'anthropic',
+};
+
+const PROVIDER_OVERRIDE_ENV: Record<AIWorkloadTier, string> = {
+    fast: 'AI_FAST_PROVIDER',
+    standard: 'AI_STANDARD_PROVIDER',
+    premium: 'AI_PREMIUM_PROVIDER',
+    deep: 'AI_DEEP_PROVIDER',
+};
+
+type AIModelTier = AIWorkloadTier;
 
 interface AIPlanLimits {
     dailyRequests: number;
@@ -193,13 +236,16 @@ interface AIPlanLimits {
 }
 
 const MODEL_TIERS: Record<string, AIModelTier> = {
-    'gemini-2.5-flash-lite': 'gemini',
-    'gemini-2.5-flash': 'gemini',
-    'claude-sonnet-4-6': 'sonnet',
-    'claude-opus-4-7': 'opus',
+    'gemini-2.5-flash-lite': 'fast',
+    'gemini-2.5-flash': 'standard',
+    'gpt-5.4-nano': 'fast',
+    'gpt-5.4-mini': 'standard',
+    'gpt-5.5': 'premium',
+    'claude-sonnet-4-6': 'premium',
+    'claude-opus-4-7': 'deep',
 };
 
-const MODEL_TIER_RANK: Record<AIModelTier, number> = { gemini: 1, sonnet: 2, opus: 3 };
+const MODEL_TIER_RANK: Record<AIModelTier, number> = { fast: 1, standard: 2, premium: 3, deep: 4 };
 
 const AI_LIMITS: Record<AIPlanName, AIPlanLimits> = {
     free: {
@@ -210,7 +256,7 @@ const AI_LIMITS: Record<AIPlanName, AIPlanLimits> = {
         maxOutputTokens: 700,
         mockDraftMaxOutputTokens: 0,
         maxInputChars: 20000,
-        maxModelTier: 'gemini',
+        maxModelTier: 'standard',
         allowWebSearch: false,
     },
     scout: {
@@ -221,7 +267,7 @@ const AI_LIMITS: Record<AIPlanName, AIPlanLimits> = {
         maxOutputTokens: 700,
         mockDraftMaxOutputTokens: 0,
         maxInputChars: 20000,
-        maxModelTier: 'gemini',
+        maxModelTier: 'standard',
         allowWebSearch: false,
     },
     warroom: {
@@ -232,7 +278,7 @@ const AI_LIMITS: Record<AIPlanName, AIPlanLimits> = {
         maxOutputTokens: 2200,
         mockDraftMaxOutputTokens: 6000,
         maxInputChars: 55000,
-        maxModelTier: 'sonnet',
+        maxModelTier: 'premium',
         allowWebSearch: false,
     },
     pro: {
@@ -243,7 +289,7 @@ const AI_LIMITS: Record<AIPlanName, AIPlanLimits> = {
         maxOutputTokens: 4200,
         mockDraftMaxOutputTokens: 10000,
         maxInputChars: 90000,
-        maxModelTier: 'sonnet',
+        maxModelTier: 'premium',
         allowWebSearch: true,
     },
     commissioner: {
@@ -254,7 +300,7 @@ const AI_LIMITS: Record<AIPlanName, AIPlanLimits> = {
         maxOutputTokens: 8000,
         mockDraftMaxOutputTokens: 16000,
         maxInputChars: 140000,
-        maxModelTier: 'opus',
+        maxModelTier: 'deep',
         allowWebSearch: true,
     },
     legacy: {
@@ -265,7 +311,7 @@ const AI_LIMITS: Record<AIPlanName, AIPlanLimits> = {
         maxOutputTokens: 2200,
         mockDraftMaxOutputTokens: 6000,
         maxInputChars: 55000,
-        maxModelTier: 'sonnet',
+        maxModelTier: 'premium',
         allowWebSearch: false,
     },
 };
@@ -287,47 +333,79 @@ function isAIEnabled(): boolean {
 }
 
 function allowExpensiveFallback(): boolean {
-    return envFlag('AI_ALLOW_EXPENSIVE_FALLBACK', !Deno.env.get('GOOGLE_AI_KEY'));
+    return envFlag('AI_ALLOW_EXPENSIVE_FALLBACK', !Deno.env.get('GOOGLE_AI_KEY') && !Deno.env.get('OPENAI_API_KEY'));
 }
 
-const AI_ROUTES: Record<string, AIRoute> = {
+function providerSecretName(provider: AIProvider): string {
+    if (provider === 'gemini') return 'GOOGLE_AI_KEY';
+    if (provider === 'openai') return 'OPENAI_API_KEY';
+    return 'ANTHROPIC_API_KEY';
+}
+
+function isProviderConfigured(provider: AIProvider): boolean {
+    return !!Deno.env.get(providerSecretName(provider));
+}
+
+function normalizeProvider(value: string | null | undefined): AIProvider | null {
+    const provider = String(value || '').trim().toLowerCase();
+    if (provider === 'gemini' || provider === 'openai' || provider === 'anthropic') return provider;
+    return null;
+}
+
+function routeForProviderTier(tier: AIWorkloadTier, provider: AIProvider): AIRoute | null {
+    const model = AI_TIER_MODELS[tier]?.[provider];
+    return model ? { provider, model, tier } : null;
+}
+
+function preferredProviderForTier(tier: AIWorkloadTier): AIProvider {
+    return normalizeProvider(Deno.env.get(PROVIDER_OVERRIDE_ENV[tier])) || DEFAULT_PROVIDER_BY_TIER[tier];
+}
+
+function routeForTier(tier: AIWorkloadTier, provider?: AIProvider): AIRoute {
+    const preferred = provider || preferredProviderForTier(tier);
+    return routeForProviderTier(tier, preferred)
+        || routeForProviderTier(tier, DEFAULT_PROVIDER_BY_TIER[tier])
+        || routeForProviderTier('standard', 'gemini')!;
+}
+
+const AI_ROUTES: Record<string, AIWorkloadTier> = {
     // Frequent Alex surfaces should be self-sufficient and inexpensive.
-    chat:       { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED },
-    fa_chat:    { provider: 'gemini', model: AI_MODELS.GEMINI_FAST },
-    fa_targets: { provider: 'gemini', model: AI_MODELS.GEMINI_FAST },
-    league:     { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED },
-    team:       { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED },
-    partners:   { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED },
-    // Keep long structured generation on Claude for reliability.
-    mock_draft: { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING },
-    rookies:    { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING },
+    chat:       'standard',
+    fa_chat:    'fast',
+    fa_targets: 'fast',
+    league:     'standard',
+    team:       'standard',
+    partners:   'standard',
+    // Keep long structured generation on premium models for reliability.
+    mock_draft: 'premium',
+    rookies:    'premium',
     // ReconAI / Scout generic chat routes.
-    'trade-chat':        { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING },
-    'trade-scout':       { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING },
-    'draft-scout':       { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING },
-    'pick-analysis':     { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING },
-    'player-scout':      { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING },
-    'waiver-chat':       { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED },
-    'waiver-agent':      { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED },
-    'draft-chat':        { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED },
-    'strategy-analysis': { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED },
-    'home-chat':         { provider: 'gemini', model: AI_MODELS.GEMINI_FAST },
-    'memory-summary':    { provider: 'gemini', model: AI_MODELS.GEMINI_FAST },
-    'power-posts':       { provider: 'gemini', model: AI_MODELS.GEMINI_FAST },
-    'recon-chat':        { provider: 'gemini', model: AI_MODELS.GEMINI_FAST },
-    general:             { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED },
-    'deep-analysis':     { provider: 'anthropic', model: AI_MODELS.CLAUDE_DEEP },
-    'league-report':     { provider: 'anthropic', model: AI_MODELS.CLAUDE_DEEP },
-    'rule-simulator':    { provider: 'anthropic', model: AI_MODELS.CLAUDE_DEEP },
-    'trade-audit':       { provider: 'anthropic', model: AI_MODELS.CLAUDE_DEEP },
+    'trade-chat':        'premium',
+    'trade-scout':       'premium',
+    'draft-scout':       'premium',
+    'pick-analysis':     'premium',
+    'player-scout':      'premium',
+    'waiver-chat':       'standard',
+    'waiver-agent':      'standard',
+    'draft-chat':        'standard',
+    'strategy-analysis': 'standard',
+    'home-chat':         'fast',
+    'memory-summary':    'fast',
+    'power-posts':       'fast',
+    'recon-chat':        'fast',
+    general:             'standard',
+    'deep-analysis':     'deep',
+    'league-report':     'deep',
+    'rule-simulator':    'deep',
+    'trade-audit':       'deep',
 };
 
 function routeForType(type: string): AIRoute {
-    return { ...(AI_ROUTES[type] || { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED }) };
+    return routeForTier(AI_ROUTES[type] || 'standard');
 }
 
 function modelTier(model: string): AIModelTier {
-    return MODEL_TIERS[model] || 'gemini';
+    return MODEL_TIERS[model] || 'standard';
 }
 
 function allowsModelTier(limit: AIPlanLimits, tier: AIModelTier): boolean {
@@ -338,10 +416,56 @@ function downgradeRouteForEntitlement(route: AIRoute, limits: AIPlanLimits): { r
     if (allowsModelTier(limits, modelTier(route.model))) {
         return { route, downgraded: false };
     }
-    if (allowsModelTier(limits, 'sonnet')) {
-        return { route: { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING }, downgraded: true };
+    if (allowsModelTier(limits, 'premium')) return { route: routeForTier('premium'), downgraded: true };
+    if (allowsModelTier(limits, 'standard')) return { route: routeForTier('standard'), downgraded: true };
+    return { route: routeForTier('fast'), downgraded: true };
+}
+
+function resolveConfiguredRoute(
+    route: AIRoute,
+    limits: AIPlanLimits,
+    useWebSearch: boolean,
+    blockedProvider: AIProvider | null = null,
+): { route: AIRoute | null; providerFallback: boolean; providerFallbackReason: string | null } {
+    if (useWebSearch) {
+        const webRoute = routeForProviderTier('premium', 'anthropic');
+        if (webRoute && blockedProvider !== 'anthropic' && allowsModelTier(limits, webRoute.tier) && isProviderConfigured(webRoute.provider)) {
+            return {
+                route: webRoute,
+                providerFallback: route.provider !== webRoute.provider || route.model !== webRoute.model,
+                providerFallbackReason: route.provider === webRoute.provider ? null : 'web_search_requires_anthropic',
+            };
+        }
+        return { route: null, providerFallback: false, providerFallbackReason: 'web_search_provider_unavailable' };
     }
-    return { route: { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED }, downgraded: true };
+
+    if (blockedProvider !== route.provider && isProviderConfigured(route.provider)) {
+        return { route, providerFallback: false, providerFallbackReason: null };
+    }
+
+    const candidates: AIRoute[] = [];
+    (['openai', 'gemini', 'anthropic'] as AIProvider[]).forEach(provider => {
+        const candidate = routeForProviderTier(route.tier, provider);
+        if (candidate) candidates.push(candidate);
+    });
+
+    if (allowExpensiveFallback() && allowsModelTier(limits, 'premium')) {
+        (['openai', 'anthropic'] as AIProvider[]).forEach(provider => {
+            const candidate = routeForProviderTier('premium', provider);
+            if (candidate) candidates.push(candidate);
+        });
+    }
+
+    const fallback = candidates.find(candidate =>
+        candidate.provider !== route.provider
+        && candidate.provider !== blockedProvider
+        && isProviderConfigured(candidate.provider)
+        && allowsModelTier(limits, candidate.tier)
+    );
+
+    return fallback
+        ? { route: fallback, providerFallback: true, providerFallbackReason: blockedProvider ? `${blockedProvider}_provider_error` : `${route.provider}_unconfigured` }
+        : { route: null, providerFallback: false, providerFallbackReason: 'no_configured_provider' };
 }
 
 function estimateCostUsd(model: string, inputTokens: number, outputTokens: number, cachedInputTokens = 0): number {
@@ -356,6 +480,125 @@ function estimateCostUsd(model: string, inputTokens: number, outputTokens: numbe
 
 function estimatePromptTokens(text: string): number {
     return Math.ceil(String(text || '').length / 4);
+}
+
+function isProviderAvailabilityError(error: any): boolean {
+    const message = String(error?.message || error || '').toLowerCase();
+    return /429|rate|timeout|temporar|unavailable|overload|quota|502|503|529/.test(message);
+}
+
+async function callAIProvider(args: {
+    route: AIRoute;
+    systemPrompt: string;
+    userPrompt: string;
+    maxTokens: number;
+    useWebSearch: boolean;
+}): Promise<{
+    analysis: string;
+    stopReason: string;
+    inputTokens: number;
+    outputTokens: number;
+    cachedInputTokens: number;
+}> {
+    const { route, systemPrompt, userPrompt, maxTokens, useWebSearch } = args;
+
+    if (route.provider === 'gemini') {
+        const googleKey = Deno.env.get('GOOGLE_AI_KEY');
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${googleKey}`,
+            },
+            body: JSON.stringify({
+                model: route.model,
+                max_tokens: maxTokens,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt },
+                ],
+            }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error((err as any).error?.message || `Gemini API error ${res.status}`);
+        }
+        const data = await res.json();
+        const usage = (data as any).usage || {};
+        let inputTokens = usage.prompt_tokens || usage.input_tokens || 0;
+        const outputTokens = usage.completion_tokens || usage.output_tokens || 0;
+        if (!inputTokens && !outputTokens && usage.total_tokens) inputTokens = usage.total_tokens;
+        return {
+            analysis: (data as any).choices?.[0]?.message?.content || '',
+            stopReason: '',
+            inputTokens,
+            outputTokens,
+            cachedInputTokens: 0,
+        };
+    }
+
+    if (route.provider === 'openai') {
+        const apiKey = Deno.env.get('OPENAI_API_KEY');
+        const res = await fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: route.model,
+                instructions: systemPrompt,
+                input: [{ role: 'user', content: userPrompt }],
+                max_output_tokens: maxTokens,
+            }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error((err as any).error?.message || `OpenAI API error ${res.status}`);
+        }
+        const data = await res.json();
+        const usage = (data as any).usage || {};
+        return {
+            analysis: (data as any).output_text || ((data as any).output || [])
+                .flatMap((item: any) => item?.content || [])
+                .filter((part: any) => part?.type === 'output_text' || part?.type === 'text')
+                .map((part: any) => part?.text || '')
+                .join(''),
+            stopReason: (data as any).status === 'incomplete' ? 'max_tokens' : '',
+            inputTokens: usage.input_tokens || usage.prompt_tokens || 0,
+            outputTokens: usage.output_tokens || usage.completion_tokens || 0,
+            cachedInputTokens: usage.input_tokens_details?.cached_tokens || usage.cached_input_tokens || 0,
+        };
+    }
+
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
+
+    const anthropic = new Anthropic({ apiKey });
+    const anthropicRequest: any = {
+        model: route.model,
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+    };
+    if (useWebSearch) {
+        anthropicRequest.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
+    }
+    const message = await anthropic.messages.create(
+        anthropicRequest,
+        useWebSearch ? { headers: { 'anthropic-beta': 'web-search-2025-03-05' } } : undefined,
+    );
+    const usage = (message as any).usage || {};
+    return {
+        analysis: ((message.content || []) as any[])
+            .filter(part => part.type === 'text')
+            .map(part => part.text || '')
+            .join(''),
+        stopReason: (message as any).stop_reason || '',
+        inputTokens: usage.input_tokens || 0,
+        outputTokens: usage.output_tokens || 0,
+        cachedInputTokens: usage.cache_read_input_tokens || 0,
+    };
 }
 
 function clampTextToChars(text: string, maxChars: number): { text: string; truncated: boolean } {
@@ -459,6 +702,7 @@ async function recordAIAccounting(args: {
     estimatedCostUsd: number;
     latencyMs: number;
     providerFallback: boolean;
+    providerFallbackReason: string | null;
     routeDowngraded: boolean;
     promptTruncated: boolean;
     webSearchDisabled: boolean;
@@ -509,6 +753,8 @@ async function recordAIAccounting(args: {
         metadata: {
             originalType: args.originalType,
             callType: args.routeType,
+            aiPolicyVersion: AI_POLICY_VERSION,
+            routeTier: args.route.tier,
             provider: args.route.provider,
             model: args.route.model,
             inputTokens: args.inputTokens,
@@ -518,6 +764,7 @@ async function recordAIAccounting(args: {
             totalTokensUsed,
             estimatedCostUsd: args.estimatedCostUsd,
             providerFallback: args.providerFallback,
+            providerFallbackReason: args.providerFallbackReason,
             useWebSearch: !!args.genericContext?.useWebSearch,
             routeDowngraded: args.routeDowngraded,
             promptTruncated: args.promptTruncated,
@@ -529,6 +776,119 @@ async function recordAIAccounting(args: {
     }).catch(() => {});
 
     return { totalTokensUsed, usageCounters };
+}
+
+async function recordAIUsageDenied(args: {
+    req: Request;
+    aiSession: AISession;
+    planLimits: AIPlanLimits;
+    routeType: string;
+    originalType: string;
+    route: AIRoute;
+    reason: string;
+    usage?: Record<string, any> | null;
+}) {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) return;
+
+    const claims = decodeAuthPayload(args.req.headers.get('Authorization'));
+    const userId = args.aiSession.userId || (isUuid(claims?.sub) ? claims?.sub : null);
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    await supabase.from('analytics_events').insert({
+        event_id: crypto.randomUUID(),
+        username: args.aiSession.username,
+        user_id: userId,
+        league_id: null,
+        session_id: `edge_${args.aiSession.identifier}_${Date.now()}`,
+        platform: 'warroom',
+        module: 'ai',
+        widget: args.routeType,
+        event_name: 'ai_call_denied',
+        entity_type: 'ai_call',
+        entity_id: args.routeType,
+        metadata: {
+            originalType: args.originalType,
+            callType: args.routeType,
+            aiPolicyVersion: AI_POLICY_VERSION,
+            routeTier: args.route.tier,
+            provider: args.route.provider,
+            model: args.route.model,
+            reason: args.reason,
+            plan: args.aiSession.plan,
+            dailyRequestLimit: args.planLimits.dailyRequests,
+            monthlyRequestLimit: args.planLimits.monthlyRequests,
+            usage: args.usage || null,
+        },
+    }).catch(() => {});
+}
+
+async function recordAIUsageFailed(args: {
+    req: Request;
+    aiSession: AISession;
+    planLimits: AIPlanLimits;
+    reservedCostUsd: number;
+    routeType: string;
+    originalType: string;
+    route: AIRoute;
+    reason: string;
+    latencyMs: number;
+    providerFallback: boolean;
+    providerFallbackReason: string | null;
+    routeDowngraded: boolean;
+    promptTruncated: boolean;
+    webSearchDisabled: boolean;
+}) {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) return;
+
+    const claims = decodeAuthPayload(args.req.headers.get('Authorization'));
+    const userId = args.aiSession.userId || (isUuid(claims?.sub) ? claims?.sub : null);
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    await supabase.rpc('record_ai_usage_result', {
+        p_identifier: args.aiSession.identifier,
+        p_user_id: userId,
+        p_username: args.aiSession.username,
+        p_tier: args.aiSession.plan,
+        p_tokens: 0,
+        p_estimated_cost_usd: 0,
+        p_reserved_cost_usd: args.reservedCostUsd,
+    }).catch(() => ({ data: null }));
+
+    await supabase.from('analytics_events').insert({
+        event_id: crypto.randomUUID(),
+        username: args.aiSession.username,
+        user_id: userId,
+        league_id: null,
+        session_id: `edge_${args.aiSession.identifier}_${Date.now()}`,
+        platform: 'warroom',
+        module: 'ai',
+        widget: args.routeType,
+        event_name: 'ai_call_failed',
+        duration_ms: args.latencyMs,
+        entity_type: 'ai_call',
+        entity_id: args.routeType,
+        metadata: {
+            originalType: args.originalType,
+            callType: args.routeType,
+            aiPolicyVersion: AI_POLICY_VERSION,
+            routeTier: args.route.tier,
+            provider: args.route.provider,
+            model: args.route.model,
+            reason: args.reason,
+            providerFallback: args.providerFallback,
+            providerFallbackReason: args.providerFallbackReason,
+            routeDowngraded: args.routeDowngraded,
+            promptTruncated: args.promptTruncated,
+            webSearchDisabled: args.webSearchDisabled,
+            plan: args.aiSession.plan,
+            dailyRequestLimit: args.planLimits.dailyRequests,
+            monthlyRequestLimit: args.planLimits.monthlyRequests,
+        },
+    }).catch(() => {});
 }
 
 async function reserveAIUsage(args: {
@@ -1369,7 +1729,7 @@ Deno.serve(async (req) => {
 
         let route = routeForType(routeType);
         if (['deep-analysis', 'league-report', 'rule-simulator', 'trade-audit'].includes(routeType)) {
-            route.model = AI_MODELS.CLAUDE_DEEP;
+            route = routeForTier('deep');
         }
         const downgradedRoute = downgradeRouteForEntitlement(route, planLimits);
         route = downgradedRoute.route;
@@ -1378,29 +1738,21 @@ Deno.serve(async (req) => {
             useWebSearch = false;
             webSearchDisabled = true;
         }
-        if (useWebSearch && route.provider !== 'anthropic') {
-            route = { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING };
-        }
         const promptBudget = Math.max(1000, Math.min(planLimits.maxInputChars, envNumber('AI_MAX_INPUT_CHARS', planLimits.maxInputChars)) - systemPrompt.length);
         const promptClamp = clampTextToChars(userPrompt, promptBudget);
         userPrompt = promptClamp.text;
-        let providerFallback = false;
-        if (route.provider === 'gemini' && !Deno.env.get('GOOGLE_AI_KEY')) {
-            if (!allowExpensiveFallback() || !allowsModelTier(planLimits, 'sonnet')) {
-                return new Response(
-                    JSON.stringify({ error: 'AI provider unavailable. Gemini is not configured.' }),
-                    { status: 503, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
-                );
-            }
-            providerFallback = true;
-            route = { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING };
-        }
-        if (route.provider === 'anthropic' && !Deno.env.get('ANTHROPIC_API_KEY')) {
+
+        const configuredRoute = resolveConfiguredRoute(route, planLimits, useWebSearch);
+        if (!configuredRoute.route) {
             return new Response(
-                JSON.stringify({ error: providerFallback ? 'GOOGLE_AI_KEY and ANTHROPIC_API_KEY are not configured' : 'ANTHROPIC_API_KEY not configured' }),
-                { status: 500, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
+                JSON.stringify({ error: 'AI provider unavailable for this route.' }),
+                { status: 503, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
             );
         }
+        route = configuredRoute.route;
+        let providerFallback = configuredRoute.providerFallback;
+        let providerFallbackReason = configuredRoute.providerFallbackReason;
+
         const estimatedInputTokens = estimatePromptTokens(systemPrompt + '\n' + userPrompt);
         const estimatedRequestCostUsd = estimateCostUsd(route.model, estimatedInputTokens, maxTokens, 0);
         const usageReservation = await reserveAIUsage({
@@ -1409,6 +1761,16 @@ Deno.serve(async (req) => {
             estimatedRequestCostUsd,
         });
         if (!usageReservation.allowed) {
+            await recordAIUsageDenied({
+                req,
+                aiSession,
+                planLimits,
+                routeType,
+                originalType: type,
+                route,
+                reason: String(usageReservation.reason || 'usage_control_error'),
+                usage: usageReservation,
+            });
             return new Response(
                 JSON.stringify({
                     error: aiLimitMessage(String(usageReservation.reason || '')),
@@ -1423,80 +1785,63 @@ Deno.serve(async (req) => {
         let outputTokens = 0;
         let cachedInputTokens = 0;
         const startedAt = Date.now();
+        const reservedCostUsd = Number(usageReservation.reservedCostUsd || estimatedRequestCostUsd || 0);
+        let failureRecorded = false;
+        const recordProviderFailure = async (providerError: any) => {
+            if (failureRecorded) return;
+            failureRecorded = true;
+            await recordAIUsageFailed({
+                req,
+                aiSession,
+                planLimits,
+                reservedCostUsd,
+                routeType,
+                originalType: type,
+                route,
+                reason: String(providerError?.message || providerError || 'provider_error').slice(0, 300),
+                latencyMs: Date.now() - startedAt,
+                providerFallback,
+                providerFallbackReason,
+                routeDowngraded: downgradedRoute.downgraded,
+                promptTruncated: promptClamp.truncated,
+                webSearchDisabled,
+            });
+        };
 
-        if (route.provider === 'gemini') {
-            const googleKey = Deno.env.get('GOOGLE_AI_KEY');
-            if (googleKey) {
-                const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${googleKey}`,
-                    },
-                    body: JSON.stringify({
-                        model: route.model,
-                        max_tokens: maxTokens,
-                        messages: [
-                            { role: 'system', content: systemPrompt },
-                            { role: 'user', content: userPrompt },
-                        ],
-                    }),
-                });
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    throw new Error((err as any).error?.message || `Gemini API error ${res.status}`);
-                }
-                const data = await res.json();
-                analysis = (data as any).choices?.[0]?.message?.content || '';
-                const usage = (data as any).usage || {};
-                inputTokens = usage.prompt_tokens || usage.input_tokens || 0;
-                outputTokens = usage.completion_tokens || usage.output_tokens || 0;
-                if (!inputTokens && !outputTokens && usage.total_tokens) inputTokens = usage.total_tokens;
-            } else {
-                if (!allowExpensiveFallback() || !allowsModelTier(planLimits, 'sonnet')) {
-                    return new Response(
-                        JSON.stringify({ error: 'AI provider unavailable. Gemini is not configured.' }),
-                        { status: 503, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
-                    );
-                }
-                providerFallback = true;
-                route = { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING };
+        try {
+            const providerResult = await callAIProvider({ route, systemPrompt, userPrompt, maxTokens, useWebSearch });
+            analysis = providerResult.analysis;
+            stopReason = providerResult.stopReason;
+            inputTokens = providerResult.inputTokens;
+            outputTokens = providerResult.outputTokens;
+            cachedInputTokens = providerResult.cachedInputTokens;
+        } catch (providerError) {
+            if (useWebSearch || !isProviderAvailabilityError(providerError)) {
+                await recordProviderFailure(providerError);
+                throw providerError;
             }
-        }
-
-        if (route.provider === 'anthropic') {
-            const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-            if (!apiKey) {
-                return new Response(
-                    JSON.stringify({ error: providerFallback ? 'GOOGLE_AI_KEY and ANTHROPIC_API_KEY are not configured' : 'ANTHROPIC_API_KEY not configured' }),
-                    { status: 500, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
-                );
+            const failedProvider = route.provider;
+            const fallback = resolveConfiguredRoute(route, planLimits, false, failedProvider);
+            if (!fallback.route || fallback.route.provider === route.provider) {
+                await recordProviderFailure(providerError);
+                throw providerError;
             }
 
-            const anthropic = new Anthropic({ apiKey });
-            const anthropicRequest: any = {
-                model: route.model,
-                max_tokens: maxTokens,
-                system: systemPrompt,
-                messages: [{ role: 'user', content: userPrompt }],
-            };
-            if (useWebSearch) {
-                anthropicRequest.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
-            }
-            const message = await anthropic.messages.create(
-                anthropicRequest,
-                useWebSearch ? { headers: { 'anthropic-beta': 'web-search-2025-03-05' } } : undefined,
-            );
+            route = fallback.route;
+            providerFallback = true;
+            providerFallbackReason = fallback.providerFallbackReason || `${failedProvider}_provider_error`;
 
-            analysis = ((message.content || []) as any[])
-                .filter(part => part.type === 'text')
-                .map(part => part.text || '')
-                .join('');
-            stopReason = (message as any).stop_reason || '';
-            const usage = (message as any).usage || {};
-            inputTokens = usage.input_tokens || 0;
-            outputTokens = usage.output_tokens || 0;
-            cachedInputTokens = usage.cache_read_input_tokens || 0;
+            try {
+                const providerResult = await callAIProvider({ route, systemPrompt, userPrompt, maxTokens, useWebSearch: false });
+                analysis = providerResult.analysis;
+                stopReason = providerResult.stopReason;
+                inputTokens = providerResult.inputTokens;
+                outputTokens = providerResult.outputTokens;
+                cachedInputTokens = providerResult.cachedInputTokens;
+            } catch (fallbackError) {
+                await recordProviderFailure(fallbackError);
+                throw fallbackError;
+            }
         }
 
         const latencyMs = Date.now() - startedAt;
@@ -1509,7 +1854,7 @@ Deno.serve(async (req) => {
             req,
             aiSession,
             planLimits,
-            reservedCostUsd: Number(usageReservation.reservedCostUsd || estimatedRequestCostUsd || 0),
+            reservedCostUsd,
             routeType,
             originalType: type,
             context,
@@ -1522,6 +1867,7 @@ Deno.serve(async (req) => {
             estimatedCostUsd,
             latencyMs,
             providerFallback,
+            providerFallbackReason,
             routeDowngraded: downgradedRoute.downgraded,
             promptTruncated: promptClamp.truncated,
             webSearchDisabled,
@@ -1559,6 +1905,8 @@ Deno.serve(async (req) => {
                 provider: route.provider,
                 model: route.model,
                 usage: {
+                    aiPolicyVersion: AI_POLICY_VERSION,
+                    routeTier: route.tier,
                     inputTokens,
                     outputTokens,
                     cachedInputTokens,
@@ -1567,6 +1915,7 @@ Deno.serve(async (req) => {
                     estimatedCostUsd,
                     latencyMs,
                     providerFallback,
+                    providerFallbackReason,
                     routeDowngraded: downgradedRoute.downgraded,
                     promptTruncated: promptClamp.truncated,
                     webSearchDisabled,

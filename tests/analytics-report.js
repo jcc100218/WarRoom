@@ -10,7 +10,10 @@ const RECON_ROOT = path.resolve(ROOT, '..', 'reconai');
 const fn = read(ROOT, 'supabase/functions/admin-analytics-report/index.ts');
 const admin = read(ROOT, 'admin.html');
 const landing = read(ROOT, 'landing.html');
-const rollup = read(RECON_ROOT, 'supabase/migrations/016_analytics_rollups.sql');
+const rollup = [
+  read(RECON_ROOT, 'supabase/migrations/016_analytics_rollups.sql'),
+  read(ROOT, 'supabase/migrations/20260503020000_ai_margin_rollups.sql'),
+].join('\n');
 const bugCapture = read(RECON_ROOT, 'shared/bug-capture.js');
 const analyticsClient = read(RECON_ROOT, 'shared/supabase-client.js');
 
@@ -65,8 +68,10 @@ test('admin page renders the launch analytics report', () => {
     'analytics-funnel',
     'analytics-dropoffs',
     'analytics-modules',
+    'analytics-ai-margin',
     'analytics-errors',
     'renderAnalytics',
+    'formatUsd',
   ].forEach(fragment => ok(admin.includes(fragment), `missing ${fragment}`));
 });
 
@@ -103,6 +108,10 @@ test('database rollup stays service-role only', () => {
     'revoke all on function public.admin_analytics_report',
     'grant execute on function public.admin_analytics_report',
     "'dropoffs'",
+    "'aiMargin'",
+    "'errorRatePct'",
+    "'ai_call_denied'",
+    "'ai_call_failed'",
     "'errors'",
   ].forEach(fragment => ok(rollup.includes(fragment), `missing ${fragment}`));
 });

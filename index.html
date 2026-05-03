@@ -1575,7 +1575,7 @@
     <div id="root"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.101.1/dist/umd/supabase.min.js"></script>
-<script src="js/shared/shared-loader.js?v=20260502b"></script>
+<script src="js/shared/shared-loader.js?v=20260503tutorial1"></script>
 <script>
 window.DYNASTY_HQ_APP = 'warroom';
 const WR_PLATFORM_SANDBOX_ACCESS = (window.location.hostname || '').includes('sandbox')
@@ -1598,6 +1598,7 @@ const WR_SHARED_FILES = [
   'team-assess.js',
   'analytics-engine.js',
   'dhq-ai.js',
+  'assistant-tutorial.js',
   'ai-dispatch.js',
   'strategy.js',
   'trade-engine.js',
@@ -1702,7 +1703,7 @@ WRShared.loadMany(WR_SHARED_FILES);
 <!-- Alex Insights (Option A): top-level tab for behavioral analysis + AI settings -->
 <script type="text/babel" src="js/tabs/alex-insights.js?v=20260502office4"></script>
 <script type="text/babel" src="js/tabs/global-view.js?v=20260427font1"></script>
-<script src="js/tutorial.js?v=20260427font1"></script>
+<script src="js/tutorial.js?v=20260503tutorial1"></script>
 <!-- 6. Strategy editor: calls shared GMStrategy API, no logic duplication -->
 <script type="text/babel" src="js/tabs/strategy-editor.js?v=20260502office1"></script>
 <!-- 7. League detail: coordinator shell, depends on all above -->

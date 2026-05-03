@@ -49,16 +49,16 @@ Deno.serve(async (req) => {
   try {
     // ── Verify JWT and extract user ───────────────────────────
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const session = await requireActiveAppSession(admin, req);
-    if (!session) return json(req, { error: 'Invalid session token.' }, 401);
-    const userId = session.userId;
-    const userEmail = session.email || undefined;
+    const appSession = await requireActiveAppSession(admin, req);
+    if (!appSession) return json(req, { error: 'Invalid session token.' }, 401);
+    const userId = appSession.userId;
+    const userEmail = appSession.email || undefined;
 
     const { productSlug: rawProductSlug = 'war_room', successUrl, cancelUrl } = await req.json();
     const productSlug = normalizeProductSlug(rawProductSlug);
 
     const priceId = PRICE_MAP[productSlug];
-    const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
+    const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' as any });
     const rateLimit = await checkRateLimit(admin, 'fw-create-checkout:user', userId, { limit: 10, windowSeconds: 3600, lockoutSeconds: 900 });
     const ipLimit = await checkRateLimit(admin, 'fw-create-checkout:ip', clientIp(req), { limit: 30, windowSeconds: 3600, lockoutSeconds: 900 });
     if (!rateLimit.allowed || !ipLimit.allowed) {
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Create Checkout Session ───────────────────────────────
-    const session = await stripe.checkout.sessions.create({
+    const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode:     'subscription',
       line_items: [{
@@ -110,8 +110,8 @@ Deno.serve(async (req) => {
       allow_promotion_codes: true,
     });
 
-    await auditEvent(admin, req, 'checkout_create', 'success', { userId, email: userEmail }, { productSlug, stripeSessionId: session.id });
-    return json(req, { checkoutUrl: session.url });
+    await auditEvent(admin, req, 'checkout_create', 'success', { userId, email: userEmail }, { productSlug, stripeSessionId: checkoutSession.id });
+    return json(req, { checkoutUrl: checkoutSession.url });
 
   } catch (err) {
     console.error('fw-create-checkout error:', err);

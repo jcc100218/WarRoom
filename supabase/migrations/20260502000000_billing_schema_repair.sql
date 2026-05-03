@@ -1,18 +1,5 @@
--- Dynasty HQ: core user account, product, and subscription tables.
---
--- This migration is intentionally idempotent and additive. Early local
--- versions created only a thin app_users/subscriptions shape, while billing
--- Edge Functions expect Stripe customer/subscription columns and a
--- user_id+product_slug upsert target.
-
--- ── app_users ─────────────────────────────────────────────────
-create table if not exists public.app_users (
-  id            uuid        primary key default gen_random_uuid(),
-  email         text        not null unique,
-  password_hash text        not null,
-  display_name  text,
-  created_at    timestamptz not null default now()
-);
+-- Repair billing schema for projects that already ran the early thin
+-- app_users/subscriptions migration before Stripe columns were added.
 
 alter table public.app_users
   add column if not exists avatar_url text,
@@ -33,16 +20,6 @@ begin
   end if;
 end $$;
 
-create index if not exists app_users_email_idx
-  on public.app_users (email);
-
-create index if not exists app_users_stripe_customer_id_idx
-  on public.app_users (stripe_customer_id);
-
-create index if not exists app_users_platform_usernames_idx
-  on public.app_users using gin (platform_usernames);
-
--- ── products ──────────────────────────────────────────────────
 create table if not exists public.products (
   id          uuid        primary key default gen_random_uuid(),
   slug        text        not null unique,
@@ -59,16 +36,6 @@ values
 on conflict (slug) do update
 set name = excluded.name,
     description = excluded.description;
-
--- ── subscriptions ─────────────────────────────────────────────
-create table if not exists public.subscriptions (
-  id           uuid        primary key default gen_random_uuid(),
-  user_id      uuid        not null references public.app_users (id) on delete cascade,
-  product_slug text        not null,
-  tier         text        not null default 'free',
-  status       text        not null default 'active',
-  created_at   timestamptz not null default now()
-);
 
 alter table public.subscriptions
   add column if not exists stripe_subscription_id text,
@@ -138,11 +105,11 @@ begin
   end if;
 end $$;
 
-create index if not exists subscriptions_user_id_idx
-  on public.subscriptions (user_id);
+create index if not exists app_users_stripe_customer_id_idx
+  on public.app_users (stripe_customer_id);
 
-create index if not exists subscriptions_status_idx
-  on public.subscriptions (status);
+create index if not exists app_users_platform_usernames_idx
+  on public.app_users using gin (platform_usernames);
 
 create index if not exists subscriptions_stripe_subscription_id_idx
   on public.subscriptions (stripe_subscription_id);
@@ -150,7 +117,6 @@ create index if not exists subscriptions_stripe_subscription_id_idx
 create index if not exists subscriptions_user_product_idx
   on public.subscriptions (user_id, product_slug);
 
--- ── updated_at trigger ────────────────────────────────────────
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
 begin
@@ -169,7 +135,6 @@ create trigger trg_subscriptions_updated_at
   before update on public.subscriptions
   for each row execute function public.set_updated_at();
 
--- ── RLS ───────────────────────────────────────────────────────
 alter table public.app_users enable row level security;
 alter table public.products enable row level security;
 alter table public.subscriptions enable row level security;

@@ -35,8 +35,15 @@ function wait(ms) {
 function findOpenPort(start) {
   return new Promise((resolve, reject) => {
     const tryPort = port => {
+      if (port >= 65536) {
+        reject(new Error(`no open port found starting at ${start}`));
+        return;
+      }
       const server = net.createServer();
-      server.once('error', () => tryPort(port + 1));
+      server.once('error', err => {
+        if (err && ['EACCES', 'EPERM'].includes(err.code)) reject(err);
+        else tryPort(port + 1);
+      });
       server.once('listening', () => {
         server.close(() => resolve(port));
       });
@@ -103,7 +110,16 @@ async function main() {
     return;
   }
 
-  const port = await findOpenPort(PORT_START);
+  let port;
+  try {
+    port = await findOpenPort(PORT_START);
+  } catch (err) {
+    if (err && ['EACCES', 'EPERM'].includes(err.code)) {
+      console.log(`SKIP browser QA - local port binding is not permitted here (${err.code}).`);
+      return;
+    }
+    throw err;
+  }
   const server = await startStaticServer(port);
   const browser = await chromium.launch({ executablePath: CHROME, headless: true });
   const failures = [];

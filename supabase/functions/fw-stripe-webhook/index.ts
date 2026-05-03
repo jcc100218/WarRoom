@@ -88,7 +88,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
   const userId       = subscription.metadata.user_id;
-  const productSlug  = subscription.metadata.product_slug ?? 'war_room';
+  const productSlug  = normalizeProductSlug(subscription.metadata.product_slug ?? 'war_room');
 
   if (!userId) {
     console.error('No user_id in subscription metadata');
@@ -163,4 +163,19 @@ function mapStripeStatus(stripeStatus: string): string {
     default:
       return 'active';
   }
+}
+
+function normalizeProductSlug(value: unknown): string {
+  const raw = String(value || 'war_room').trim().toLowerCase();
+  const aliases: Record<string, string> = {
+    'war-room': 'war_room',
+    warroom: 'war_room',
+    'dynasty-hq': 'dynast_hq',
+    dynasty_hq: 'dynast_hq',
+    scout: 'dynast_hq',
+    'recon-ai': 'dynast_hq',
+    recon_ai: 'dynast_hq',
+    pro: 'bundle',
+  };
+  return aliases[raw] || raw;
 }

@@ -439,6 +439,9 @@
         }
         componentDidCatch(error, info) {
             console.error('[War Room] Render crash:', error, info.componentStack);
+            window.DHQBugCapture?.captureError?.(error, { source: 'react_error_boundary', app: 'warroom' }, {
+                componentStack: info?.componentStack || '',
+            });
         }
         render() {
             if (this.state.hasError) {

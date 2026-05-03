@@ -10,6 +10,7 @@ const TARGET = path.join(ROOT, 'reconai-shared');
 
 const FILES = [
   'app-config.js',
+  'bug-capture.js',
   'constants.js',
   'utils.js',
   'storage.js',

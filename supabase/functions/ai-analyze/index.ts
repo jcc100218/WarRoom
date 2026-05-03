@@ -12,11 +12,13 @@
 
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+    corsHeaders,
+    hasAdminRole,
+    handleOptions,
+    requireActiveAppSession,
+    requireSleeperSession,
+} from '../_shared/security.ts';
 
 // ── Rate limiting ─────────────────────────────────────────────
 // 10 AI requests per user per minute to protect Anthropic API costs.
@@ -55,6 +57,106 @@ async function checkRateLimit(identifier: string): Promise<{ allowed: boolean; r
     }
 }
 
+type AIPlanName = 'free' | 'scout' | 'warroom' | 'pro' | 'commissioner' | 'legacy';
+
+interface AISession {
+    identifier: string;
+    username: string | null;
+    userId: string | null;
+    email: string | null;
+    plan: AIPlanName;
+    products: string[];
+    source: 'app' | 'sleeper';
+}
+
+function normalizeAIPlan(value: unknown): AIPlanName {
+    const plan = String(value || 'free').toLowerCase();
+    if (plan === 'commissioner') return 'commissioner';
+    if (plan === 'pro' || plan === 'power' || plan === 'bundle') return 'pro';
+    if (plan === 'warroom' || plan === 'war_room' || plan === 'standard') return 'warroom';
+    if (plan === 'scout' || plan === 'dynast_hq' || plan === 'reconai') return 'scout';
+    if (plan === 'legacy') return 'legacy';
+    return 'free';
+}
+
+async function loadAppAIPlan(
+    supabase: any,
+    userId: string,
+    payload: Record<string, any>,
+): Promise<{ plan: AIPlanName; products: string[] }> {
+    const metadata = payload?.app_metadata || {};
+    const fallbackPlan = normalizeAIPlan(metadata.tier);
+    const fallbackProducts = Array.isArray(metadata.products) ? metadata.products.map(String) : [];
+
+    const isAdmin = await hasAdminRole(supabase, userId).catch(() => false);
+    if (isAdmin) {
+        return { plan: 'commissioner', products: fallbackProducts };
+    }
+
+    const { data: subs } = await supabase
+        .from('subscriptions')
+        .select('product_slug, tier, status')
+        .eq('user_id', userId)
+        .in('status', ['active', 'trialing'])
+        .catch(() => ({ data: null }));
+
+    const activePaid = (subs || []).filter((s: any) => s?.tier === 'pro');
+    const paidProducts = activePaid.map((s: any) => String(s.product_slug || ''));
+    const products = paidProducts.length
+        ? [...new Set(paidProducts.flatMap((slug: string) => slug === 'bundle' ? ['war_room', 'dynast_hq'] : [slug]))]
+        : fallbackProducts;
+
+    if (paidProducts.includes('bundle') || (products.includes('war_room') && products.includes('dynast_hq'))) {
+        return { plan: 'pro', products };
+    }
+    if (paidProducts.includes('war_room')) {
+        return { plan: 'warroom', products };
+    }
+    if (paidProducts.includes('dynast_hq')) {
+        return { plan: 'scout', products };
+    }
+    if (fallbackPlan !== 'free') {
+        return { plan: fallbackPlan, products };
+    }
+    return { plan: 'free', products };
+}
+
+async function resolveAISession(req: Request): Promise<AISession | null> {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (supabaseUrl && serviceRoleKey) {
+        const supabase = createClient(supabaseUrl, serviceRoleKey);
+        const appSession = await requireActiveAppSession(supabase, req);
+        if (appSession) {
+            const entitlement = await loadAppAIPlan(supabase, appSession.userId, appSession.payload);
+            return {
+                identifier: `app:${appSession.userId}`,
+                username: null,
+                userId: appSession.userId,
+                email: appSession.email,
+                plan: entitlement.plan,
+                products: entitlement.products,
+                source: 'app',
+            };
+        }
+    }
+
+    const sleeperSession = await requireSleeperSession(req);
+    if (sleeperSession) {
+        return {
+            identifier: `sleeper:${sleeperSession.username.toLowerCase()}`,
+            username: sleeperSession.username,
+            userId: null,
+            email: null,
+            plan: 'legacy',
+            products: ['legacy_sleeper'],
+            source: 'sleeper',
+        };
+    }
+
+    return null;
+}
+
 // ── AI model routing and cost telemetry ───────────────────────
 type AIProvider = 'anthropic' | 'gemini';
 interface AIRoute {
@@ -75,6 +177,118 @@ const MODEL_COSTS: Record<string, { input: number; output: number; cachedInput?:
     'claude-sonnet-4-6': { input: 3.00, output: 15.00, cachedInput: 0.30 },
     'claude-opus-4-7': { input: 5.00, output: 25.00, cachedInput: 0.50 },
 };
+
+type AIModelTier = 'gemini' | 'sonnet' | 'opus';
+
+interface AIPlanLimits {
+    dailyRequests: number;
+    monthlyRequests: number;
+    dailyCostUsd: number;
+    monthlyCostUsd: number;
+    maxOutputTokens: number;
+    mockDraftMaxOutputTokens: number;
+    maxInputChars: number;
+    maxModelTier: AIModelTier;
+    allowWebSearch: boolean;
+}
+
+const MODEL_TIERS: Record<string, AIModelTier> = {
+    'gemini-2.5-flash-lite': 'gemini',
+    'gemini-2.5-flash': 'gemini',
+    'claude-sonnet-4-6': 'sonnet',
+    'claude-opus-4-7': 'opus',
+};
+
+const MODEL_TIER_RANK: Record<AIModelTier, number> = { gemini: 1, sonnet: 2, opus: 3 };
+
+const AI_LIMITS: Record<AIPlanName, AIPlanLimits> = {
+    free: {
+        dailyRequests: 1,
+        monthlyRequests: 31,
+        dailyCostUsd: 0.10,
+        monthlyCostUsd: 1.00,
+        maxOutputTokens: 700,
+        mockDraftMaxOutputTokens: 0,
+        maxInputChars: 20000,
+        maxModelTier: 'gemini',
+        allowWebSearch: false,
+    },
+    scout: {
+        dailyRequests: 1,
+        monthlyRequests: 31,
+        dailyCostUsd: 0.10,
+        monthlyCostUsd: 1.00,
+        maxOutputTokens: 700,
+        mockDraftMaxOutputTokens: 0,
+        maxInputChars: 20000,
+        maxModelTier: 'gemini',
+        allowWebSearch: false,
+    },
+    warroom: {
+        dailyRequests: 5,
+        monthlyRequests: 20,
+        dailyCostUsd: 0.75,
+        monthlyCostUsd: 6.00,
+        maxOutputTokens: 2200,
+        mockDraftMaxOutputTokens: 6000,
+        maxInputChars: 55000,
+        maxModelTier: 'sonnet',
+        allowWebSearch: false,
+    },
+    pro: {
+        dailyRequests: 25,
+        monthlyRequests: 200,
+        dailyCostUsd: 3.00,
+        monthlyCostUsd: 35.00,
+        maxOutputTokens: 4200,
+        mockDraftMaxOutputTokens: 10000,
+        maxInputChars: 90000,
+        maxModelTier: 'sonnet',
+        allowWebSearch: true,
+    },
+    commissioner: {
+        dailyRequests: 60,
+        monthlyRequests: 600,
+        dailyCostUsd: 10.00,
+        monthlyCostUsd: 150.00,
+        maxOutputTokens: 8000,
+        mockDraftMaxOutputTokens: 16000,
+        maxInputChars: 140000,
+        maxModelTier: 'opus',
+        allowWebSearch: true,
+    },
+    legacy: {
+        dailyRequests: 10,
+        monthlyRequests: 100,
+        dailyCostUsd: 1.00,
+        monthlyCostUsd: 12.00,
+        maxOutputTokens: 2200,
+        mockDraftMaxOutputTokens: 6000,
+        maxInputChars: 55000,
+        maxModelTier: 'sonnet',
+        allowWebSearch: false,
+    },
+};
+
+function envFlag(name: string, defaultValue = false): boolean {
+    const raw = Deno.env.get(name);
+    if (raw == null || raw === '') return defaultValue;
+    return ['1', 'true', 'yes', 'on'].includes(raw.toLowerCase());
+}
+
+function envNumber(name: string, defaultValue: number): number {
+    const raw = Number(Deno.env.get(name));
+    return Number.isFinite(raw) ? raw : defaultValue;
+}
+
+function isAIEnabled(): boolean {
+    if (envFlag('AI_KILL_SWITCH', false)) return false;
+    return envFlag('AI_ENABLED', true);
+}
+
+function allowExpensiveFallback(): boolean {
+    return envFlag('AI_ALLOW_EXPENSIVE_FALLBACK', !Deno.env.get('GOOGLE_AI_KEY'));
+}
 
 const AI_ROUTES: Record<string, AIRoute> = {
     // Frequent Alex surfaces should be self-sufficient and inexpensive.
@@ -112,6 +326,24 @@ function routeForType(type: string): AIRoute {
     return { ...(AI_ROUTES[type] || { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED }) };
 }
 
+function modelTier(model: string): AIModelTier {
+    return MODEL_TIERS[model] || 'gemini';
+}
+
+function allowsModelTier(limit: AIPlanLimits, tier: AIModelTier): boolean {
+    return MODEL_TIER_RANK[tier] <= MODEL_TIER_RANK[limit.maxModelTier];
+}
+
+function downgradeRouteForEntitlement(route: AIRoute, limits: AIPlanLimits): { route: AIRoute; downgraded: boolean } {
+    if (allowsModelTier(limits, modelTier(route.model))) {
+        return { route, downgraded: false };
+    }
+    if (allowsModelTier(limits, 'sonnet')) {
+        return { route: { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING }, downgraded: true };
+    }
+    return { route: { provider: 'gemini', model: AI_MODELS.GEMINI_BALANCED }, downgraded: true };
+}
+
 function estimateCostUsd(model: string, inputTokens: number, outputTokens: number, cachedInputTokens = 0): number {
     const costs = MODEL_COSTS[model];
     if (!costs) return 0;
@@ -120,6 +352,17 @@ function estimateCostUsd(model: string, inputTokens: number, outputTokens: numbe
     const cachedCost = (cachedInputTokens / 1_000_000) * (costs.cachedInput ?? costs.input);
     const outputCost = (outputTokens / 1_000_000) * costs.output;
     return Number((inputCost + cachedCost + outputCost).toFixed(6));
+}
+
+function estimatePromptTokens(text: string): number {
+    return Math.ceil(String(text || '').length / 4);
+}
+
+function clampTextToChars(text: string, maxChars: number): { text: string; truncated: boolean } {
+    const value = String(text || '');
+    if (value.length <= maxChars) return { text: value, truncated: false };
+    const suffix = '\n\n[Context truncated to fit launch AI limits.]';
+    return { text: value.slice(0, Math.max(0, maxChars - suffix.length)) + suffix, truncated: true };
 }
 
 const STRUCTURED_TYPES = new Set(['league', 'team', 'partners', 'fa_targets', 'rookies', 'fa_chat', 'mock_draft', 'chat']);
@@ -201,6 +444,9 @@ function isUuid(value: unknown): boolean {
 
 async function recordAIAccounting(args: {
     req: Request;
+    aiSession: AISession;
+    planLimits: AIPlanLimits;
+    reservedCostUsd: number;
     routeType: string;
     originalType: string;
     context: any;
@@ -213,31 +459,46 @@ async function recordAIAccounting(args: {
     estimatedCostUsd: number;
     latencyMs: number;
     providerFallback: boolean;
+    routeDowngraded: boolean;
+    promptTruncated: boolean;
+    webSearchDisabled: boolean;
 }) {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !serviceRoleKey) return { totalTokensUsed: null };
+    if (!supabaseUrl || !serviceRoleKey) return { totalTokensUsed: null, usageCounters: null };
 
     const claims = decodeAuthPayload(args.req.headers.get('Authorization'));
-    const username = extractUsernameFromJWT(args.req.headers.get('Authorization'));
+    const userId = args.aiSession.userId || (isUuid(claims?.sub) ? claims?.sub : null);
     const parsed = parseContextPayload(args.context);
     const supabase = createClient(supabaseUrl, serviceRoleKey);
     let totalTokensUsed: number | null = null;
+    let usageCounters: Record<string, any> | null = null;
 
-    if (args.tokensUsed > 0 && username && username !== 'anonymous') {
+    if (args.tokensUsed > 0 && args.aiSession.username) {
         const { data } = await supabase.rpc('add_ai_tokens_used', {
-            p_username: username,
+            p_username: args.aiSession.username,
             p_tokens: args.tokensUsed,
         }).catch(() => ({ data: null }));
         if (typeof data === 'number') totalTokensUsed = data;
     }
 
+    const { data: usageData } = await supabase.rpc('record_ai_usage_result', {
+        p_identifier: args.aiSession.identifier,
+        p_user_id: userId,
+        p_username: args.aiSession.username,
+        p_tier: args.aiSession.plan,
+        p_tokens: args.tokensUsed,
+        p_estimated_cost_usd: args.estimatedCostUsd,
+        p_reserved_cost_usd: args.reservedCostUsd,
+    }).catch(() => ({ data: null }));
+    if (usageData && typeof usageData === 'object') usageCounters = usageData as Record<string, any>;
+
     await supabase.from('analytics_events').insert({
         event_id: crypto.randomUUID(),
-        username: username === 'anonymous' ? null : username,
-        user_id: isUuid(claims?.sub) ? claims?.sub : null,
+        username: args.aiSession.username,
+        user_id: userId,
         league_id: args.genericContext?.leagueId || parsed?.leagueId || parsed?.currentLeagueId || null,
-        session_id: args.genericContext?.sessionId || parsed?.sessionId || parsed?.session_id || `edge_${username}_${Date.now()}`,
+        session_id: args.genericContext?.sessionId || parsed?.sessionId || parsed?.session_id || `edge_${args.aiSession.identifier}_${Date.now()}`,
         platform: args.genericContext ? 'reconai' : 'warroom',
         module: 'ai',
         widget: args.routeType,
@@ -258,10 +519,64 @@ async function recordAIAccounting(args: {
             estimatedCostUsd: args.estimatedCostUsd,
             providerFallback: args.providerFallback,
             useWebSearch: !!args.genericContext?.useWebSearch,
+            routeDowngraded: args.routeDowngraded,
+            promptTruncated: args.promptTruncated,
+            webSearchDisabled: args.webSearchDisabled,
+            plan: args.aiSession.plan,
+            dailyRequestLimit: args.planLimits.dailyRequests,
+            monthlyRequestLimit: args.planLimits.monthlyRequests,
         },
     }).catch(() => {});
 
-    return { totalTokensUsed };
+    return { totalTokensUsed, usageCounters };
+}
+
+async function reserveAIUsage(args: {
+    aiSession: AISession;
+    limits: AIPlanLimits;
+    estimatedRequestCostUsd: number;
+}): Promise<Record<string, any>> {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+        throw new Error('AI usage controls unavailable.');
+    }
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const { data, error } = await supabase.rpc('reserve_ai_usage', {
+        p_identifier: args.aiSession.identifier,
+        p_user_id: args.aiSession.userId,
+        p_username: args.aiSession.username,
+        p_tier: args.aiSession.plan,
+        p_daily_request_limit: args.limits.dailyRequests,
+        p_monthly_request_limit: args.limits.monthlyRequests,
+        p_daily_cost_limit: args.limits.dailyCostUsd,
+        p_monthly_cost_limit: args.limits.monthlyCostUsd,
+        p_estimated_request_cost_usd: args.estimatedRequestCostUsd,
+        p_global_daily_cost_limit: envNumber('AI_GLOBAL_DAILY_COST_LIMIT_USD', 50),
+        p_global_monthly_cost_limit: envNumber('AI_GLOBAL_MONTHLY_COST_LIMIT_USD', 1000),
+    });
+    if (error) {
+        console.error('[ai-analyze] reserve_ai_usage failed:', error);
+        throw new Error('AI usage controls unavailable.');
+    }
+    return (data && typeof data === 'object') ? data as Record<string, any> : { allowed: false, reason: 'usage_control_error' };
+}
+
+function aiLimitMessage(reason: string): string {
+    switch (reason) {
+        case 'daily_requests':
+            return 'Daily AI limit reached. Try again tomorrow or upgrade your plan.';
+        case 'monthly_requests':
+            return 'Monthly AI limit reached. Your included AI resets next month.';
+        case 'daily_cost':
+        case 'monthly_cost':
+            return 'AI budget limit reached for this plan. Try a shorter request or use your own AI key.';
+        case 'global_daily_cost':
+        case 'global_monthly_cost':
+            return 'AI is temporarily capped while we protect launch capacity. Try again later.';
+        default:
+            return 'AI usage limit reached.';
+    }
 }
 
 // ── League Format Detection ──────────────────────────────────────────────────
@@ -949,24 +1264,39 @@ Keep the response focused and actionable. Use **bold headers** to organize if th
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response(null, { headers: corsHeaders });
-    }
+    const options = handleOptions(req);
+    if (options) return options;
+
+    const responseHeaders = corsHeaders(req);
 
     try {
+        const aiSession = await resolveAISession(req);
+        if (!aiSession) {
+            return new Response(
+                JSON.stringify({ error: 'Valid session token required.' }),
+                { status: 401, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+        if (!isAIEnabled()) {
+            return new Response(
+                JSON.stringify({ error: 'AI is temporarily disabled by launch controls.' }),
+                { status: 503, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+        const planLimits = AI_LIMITS[aiSession.plan] || AI_LIMITS.free;
+
         const body = await req.json();
         const { type, context } = body;
 
         if (!type || !context) {
             return new Response(
                 JSON.stringify({ error: 'Missing required fields: type, context' }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                { status: 400, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
             );
         }
 
         // ── Rate limit check ──────────────────────────────────────────────
-        const identifier = extractUsernameFromJWT(req.headers.get('Authorization'));
-        const rateCheck  = await checkRateLimit(identifier);
+        const rateCheck  = await checkRateLimit(aiSession.identifier);
         if (!rateCheck.allowed) {
             const retryAfterSec = Math.ceil((rateCheck.retryAfterMs ?? RATE_LIMIT_WINDOW) / 1000);
             return new Response(
@@ -974,7 +1304,7 @@ Deno.serve(async (req) => {
                 {
                     status: 429,
                     headers: {
-                        ...corsHeaders,
+                        ...responseHeaders,
                         'Content-Type': 'application/json',
                         'Retry-After': String(retryAfterSec),
                     },
@@ -1009,7 +1339,7 @@ Deno.serve(async (req) => {
                 } else {
                     return new Response(
                         JSON.stringify({ error: `Unknown analysis type: ${type}` }),
-                        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                        { status: 400, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
                     );
                 }
         }
@@ -1021,7 +1351,18 @@ Deno.serve(async (req) => {
         }
 
         const isMockDraft = type === 'mock_draft' && !genericContext;
-        const maxTokens = maxTokensOverride || (isMockDraft ? 16000 : 8192);
+        const requestedMaxTokens = maxTokensOverride || (isMockDraft ? 16000 : 8192);
+        const routeOutputCap = isMockDraft
+            ? planLimits.mockDraftMaxOutputTokens
+            : planLimits.maxOutputTokens;
+        if (routeOutputCap <= 0) {
+            return new Response(
+                JSON.stringify({ error: 'This AI feature is not included on your current plan.' }),
+                { status: 403, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+        const globalOutputCap = envNumber('AI_MAX_OUTPUT_TOKENS', 8000);
+        const maxTokens = Math.max(100, Math.min(requestedMaxTokens, routeOutputCap, globalOutputCap));
         const systemPrompt = genericContext?.system || (isMockDraft
             ? 'You are a dynasty fantasy football draft simulator. Output ONLY a raw JSON array. No markdown, no code fences, no backticks, no prose before or after. Start your response with [ and end with ]. Never repeat a player. Track all prior picks carefully so each player is selected at most once.'
             : buildSystemPrompt(context));
@@ -1030,10 +1371,52 @@ Deno.serve(async (req) => {
         if (['deep-analysis', 'league-report', 'rule-simulator', 'trade-audit'].includes(routeType)) {
             route.model = AI_MODELS.CLAUDE_DEEP;
         }
+        const downgradedRoute = downgradeRouteForEntitlement(route, planLimits);
+        route = downgradedRoute.route;
+        let webSearchDisabled = false;
+        if (useWebSearch && (!planLimits.allowWebSearch || !envFlag('AI_ALLOW_WEB_SEARCH', false))) {
+            useWebSearch = false;
+            webSearchDisabled = true;
+        }
         if (useWebSearch && route.provider !== 'anthropic') {
             route = { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING };
         }
+        const promptBudget = Math.max(1000, Math.min(planLimits.maxInputChars, envNumber('AI_MAX_INPUT_CHARS', planLimits.maxInputChars)) - systemPrompt.length);
+        const promptClamp = clampTextToChars(userPrompt, promptBudget);
+        userPrompt = promptClamp.text;
         let providerFallback = false;
+        if (route.provider === 'gemini' && !Deno.env.get('GOOGLE_AI_KEY')) {
+            if (!allowExpensiveFallback() || !allowsModelTier(planLimits, 'sonnet')) {
+                return new Response(
+                    JSON.stringify({ error: 'AI provider unavailable. Gemini is not configured.' }),
+                    { status: 503, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
+                );
+            }
+            providerFallback = true;
+            route = { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING };
+        }
+        if (route.provider === 'anthropic' && !Deno.env.get('ANTHROPIC_API_KEY')) {
+            return new Response(
+                JSON.stringify({ error: providerFallback ? 'GOOGLE_AI_KEY and ANTHROPIC_API_KEY are not configured' : 'ANTHROPIC_API_KEY not configured' }),
+                { status: 500, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+        const estimatedInputTokens = estimatePromptTokens(systemPrompt + '\n' + userPrompt);
+        const estimatedRequestCostUsd = estimateCostUsd(route.model, estimatedInputTokens, maxTokens, 0);
+        const usageReservation = await reserveAIUsage({
+            aiSession,
+            limits: planLimits,
+            estimatedRequestCostUsd,
+        });
+        if (!usageReservation.allowed) {
+            return new Response(
+                JSON.stringify({
+                    error: aiLimitMessage(String(usageReservation.reason || '')),
+                    usage: usageReservation,
+                }),
+                { status: 429, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
         let analysis = '';
         let stopReason = '';
         let inputTokens = 0;
@@ -1070,6 +1453,12 @@ Deno.serve(async (req) => {
                 outputTokens = usage.completion_tokens || usage.output_tokens || 0;
                 if (!inputTokens && !outputTokens && usage.total_tokens) inputTokens = usage.total_tokens;
             } else {
+                if (!allowExpensiveFallback() || !allowsModelTier(planLimits, 'sonnet')) {
+                    return new Response(
+                        JSON.stringify({ error: 'AI provider unavailable. Gemini is not configured.' }),
+                        { status: 503, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
+                    );
+                }
                 providerFallback = true;
                 route = { provider: 'anthropic', model: AI_MODELS.CLAUDE_REASONING };
             }
@@ -1080,7 +1469,7 @@ Deno.serve(async (req) => {
             if (!apiKey) {
                 return new Response(
                     JSON.stringify({ error: providerFallback ? 'GOOGLE_AI_KEY and ANTHROPIC_API_KEY are not configured' : 'ANTHROPIC_API_KEY not configured' }),
-                    { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    { status: 500, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
                 );
             }
 
@@ -1111,10 +1500,16 @@ Deno.serve(async (req) => {
         }
 
         const latencyMs = Date.now() - startedAt;
-        const tokensUsed = inputTokens + outputTokens;
-        const estimatedCostUsd = estimateCostUsd(route.model, inputTokens, outputTokens, cachedInputTokens);
+        const measuredTokensUsed = inputTokens + outputTokens;
+        const tokensUsed = measuredTokensUsed || (estimatedInputTokens + maxTokens);
+        const estimatedCostUsd = measuredTokensUsed
+            ? estimateCostUsd(route.model, inputTokens, outputTokens, cachedInputTokens)
+            : estimatedRequestCostUsd;
         const accounting = await recordAIAccounting({
             req,
+            aiSession,
+            planLimits,
+            reservedCostUsd: Number(usageReservation.reservedCostUsd || estimatedRequestCostUsd || 0),
             routeType,
             originalType: type,
             context,
@@ -1127,6 +1522,9 @@ Deno.serve(async (req) => {
             estimatedCostUsd,
             latencyMs,
             providerFallback,
+            routeDowngraded: downgradedRoute.downgraded,
+            promptTruncated: promptClamp.truncated,
+            webSearchDisabled,
         });
 
         // For mock_draft, parse the JSON picks array from the AI response
@@ -1136,7 +1534,7 @@ Deno.serve(async (req) => {
             if (stopReason === 'max_tokens') {
                 return new Response(
                     JSON.stringify({ error: 'Draft simulation response was too long and got cut off. Try reducing the number of rounds or owners.' }),
-                    { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    { status: 422, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
                 );
             }
             // Strip markdown code fences if the AI wrapped the response despite instructions
@@ -1169,15 +1567,25 @@ Deno.serve(async (req) => {
                     estimatedCostUsd,
                     latencyMs,
                     providerFallback,
+                    routeDowngraded: downgradedRoute.downgraded,
+                    promptTruncated: promptClamp.truncated,
+                    webSearchDisabled,
+                    plan: aiSession.plan,
+                    dailyRequests: accounting.usageCounters?.dailyRequests ?? usageReservation.dailyRequests ?? null,
+                    dailyRequestLimit: usageReservation.dailyRequestLimit ?? planLimits.dailyRequests,
+                    monthlyRequests: accounting.usageCounters?.monthlyRequests ?? usageReservation.monthlyRequests ?? null,
+                    monthlyRequestLimit: usageReservation.monthlyRequestLimit ?? planLimits.monthlyRequests,
+                    dailyCostUsd: accounting.usageCounters?.dailyCostUsd ?? usageReservation.dailyCostUsd ?? null,
+                    monthlyCostUsd: accounting.usageCounters?.monthlyCostUsd ?? usageReservation.monthlyCostUsd ?? null,
                 },
             }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
         );
     } catch (error: any) {
         console.error('[ai-analyze] error:', error);
         return new Response(
             JSON.stringify({ error: error.message || 'Internal server error' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { status: 500, headers: { ...responseHeaders, 'Content-Type': 'application/json' } }
         );
     }
 });

@@ -14,59 +14,47 @@
 
 import bcrypt from 'npm:bcryptjs';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+    auditEvent,
+    checkRateLimit,
+    clientIp,
+    handleOptions,
+    json,
+    requireSleeperSession,
+} from '../_shared/security.ts';
 
 const BCRYPT_ROUNDS = 12;
 
 Deno.serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response(null, { headers: corsHeaders });
-    }
-
-    const json = (body: object, status = 200) =>
-        new Response(JSON.stringify(body), {
-            status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+    const options = handleOptions(req);
+    if (options) return options;
 
     try {
-        // ── Require a valid Authorization header ───────────────────────────
-        const authHeader = req.headers.get('Authorization') || '';
-        const callerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
-        if (!callerToken) {
-            return json({ error: 'Authorization header required' }, 401);
-        }
-
-        // Decode JWT (not verifying signature — trust Supabase's gateway for that)
-        let callerUsername: string | null = null;
-        try {
-            const [, payload] = callerToken.split('.');
-            const decoded = JSON.parse(atob(payload));
-            callerUsername = decoded?.app_metadata?.sleeper_username ?? null;
-        } catch {
-            return json({ error: 'Invalid token' }, 401);
-        }
-        if (!callerUsername) {
-            return json({ error: 'Token missing sleeper_username claim' }, 401);
-        }
+        // ── Require a signed Sleeper session token ─────────────────────────
+        const session = await requireSleeperSession(req);
+        const callerUsername = session?.username || null;
+        if (!callerUsername) return json(req, { error: 'Invalid token' }, 401);
 
         const { username, password, displayName } = await req.json();
 
         if (!username || !password) {
-            return json({ error: 'username and password are required' }, 400);
+            return json(req, { error: 'username and password are required' }, 400);
         }
         if (password.length < 8) {
-            return json({ error: 'Password must be at least 8 characters' }, 400);
+            return json(req, { error: 'Password must be at least 8 characters' }, 400);
         }
 
         const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
         const supabaseUrl = Deno.env.get('SUPABASE_URL');
         if (!serviceKey || !supabaseUrl) {
-            return json({ error: 'Supabase service credentials not available' }, 500);
+            return json(req, { error: 'Supabase service credentials not available' }, 500);
+        }
+        const admin = createClient(supabaseUrl, serviceKey);
+        const ipLimit = await checkRateLimit(admin, 'set-password:ip', clientIp(req), { limit: 20, windowSeconds: 3600, lockoutSeconds: 1800 });
+        const callerLimit = await checkRateLimit(admin, 'set-password:caller', callerUsername, { limit: 10, windowSeconds: 3600, lockoutSeconds: 1800 });
+        if (!ipLimit.allowed || !callerLimit.allowed) {
+            await auditEvent(admin, req, 'set_password_rate_limited', 'blocked', { username: callerUsername }, {});
+            return json(req, { error: 'Too many password setup attempts. Try again later.' }, 429);
         }
 
         // ── Verify target Sleeper username exists ──────────────────────────
@@ -77,17 +65,17 @@ Deno.serve(async (req) => {
             );
             const sleeperUser = resp.ok ? await resp.json() : null;
             if (!sleeperUser?.user_id) {
-                return json({ error: 'Target Sleeper username not found' }, 404);
+                await auditEvent(admin, req, 'set_password', 'failure', { username: callerUsername }, { targetUsername: username, reason: 'target_not_found' });
+                return json(req, { error: 'Target Sleeper username not found' }, 404);
             }
         } catch {
-            return json({ error: 'Could not verify target Sleeper username' }, 503);
+            return json(req, { error: 'Could not verify target Sleeper username' }, 503);
         }
 
         // ── Hash password with bcrypt ──────────────────────────────────────
         const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
         // ── Upsert user row using service role (bypasses RLS) ─────────────
-        const admin = createClient(supabaseUrl, serviceKey);
         const { error } = await admin.from('users').upsert(
             {
                 sleeper_username: username,
@@ -99,10 +87,11 @@ Deno.serve(async (req) => {
         );
         if (error) throw error;
 
-        return json({ success: true });
+        await auditEvent(admin, req, 'set_password', 'success', { username: callerUsername }, { targetUsername: username });
+        return json(req, { success: true });
 
     } catch (err: any) {
         console.error('[set-password] error:', err);
-        return json({ error: err.message || 'Internal server error' }, 500);
+        return json(req, { error: err.message || 'Internal server error' }, 500);
     }
 });

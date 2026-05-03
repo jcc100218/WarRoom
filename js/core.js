@@ -94,6 +94,10 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
     // Replace the body here to route to an error reporting service in the future.
     function wrLog(context, err) {
         if (typeof console !== 'undefined') console.warn('[WarRoom]', context, err);
+        window.DHQBugCapture?.captureError?.(
+            err instanceof Error ? err : new Error(String(err || context || 'War Room log')),
+            { source: 'wrLog', context: String(context || 'unknown') }
+        );
     }
     window.wrLog = wrLog; // expose for cross-module access
 

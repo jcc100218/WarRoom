@@ -222,7 +222,7 @@ test('AI margin rollup and Deno deploy check are wired', () => {
   ok(marginMigration.includes("ai_call_denied"), 'missing quota denial rollup');
   ok(marginMigration.includes("ai_call_failed"), 'missing failure rollup');
   ok(deployWorkflow.includes('for fn in supabase/functions/*/index.ts'), 'deploy workflow should type-check all Edge Functions');
-  ok(deployWorkflow.includes('deno check "$fn"'), 'deploy workflow should run deno check for each Edge Function');
+  ok(deployWorkflow.includes('deno check --node-modules-dir=auto "$fn"'), 'deploy workflow should run deno check for each Edge Function with npm support');
 });
 
 test('staging AI scale model covers 1,000-user and 100,000-user paths', () => {

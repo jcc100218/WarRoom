@@ -28,7 +28,7 @@ jobs:
       - name: Type check Edge Functions
         run: |
           for fn in supabase/functions/*/index.ts; do
-            deno check "$fn"
+            deno check --node-modules-dir=auto "$fn"
           done
 
       - name: Apply database migrations

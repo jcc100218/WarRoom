@@ -87,7 +87,7 @@ test('app account tutorial state remains server-mediated', () => {
 test('Supabase deploy workflow ships tutorial state backend', () => {
   hasEvery(deployWorkflow, [
     '20260503010000_tutorial_state.sql',
-    'deno check "$fn"',
+    'deno check --node-modules-dir=auto "$fn"',
     'supabase functions deploy fw-profile',
     'SUPABASE_ACCESS_TOKEN !=',
   ], 'deploy workflow');

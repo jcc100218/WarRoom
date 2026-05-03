@@ -90,6 +90,7 @@ export async function requireActiveAppSession(
   req: Request,
 ): Promise<{ userId: string; email: string | null; sessionVersion: number; payload: Record<string, any> } | null> {
   const payload = await verifyJwtPayload(req, ['JWT_SECRET', 'SUPABASE_JWT_SECRET']);
+  if (!payload) return null;
   const metadata = payload?.app_metadata || {};
   const userId = metadata.user_id || payload?.sub || null;
   const tokenSessionVersion = Number(metadata.session_version || 0);
@@ -112,6 +113,7 @@ export async function requireActiveAppSession(
 
 export async function requireSleeperSession(req: Request): Promise<{ username: string; payload: Record<string, any> } | null> {
   const payload = await verifyJwtPayload(req, ['SUPABASE_JWT_SECRET', 'JWT_SECRET']);
+  if (!payload) return null;
   const username = payload?.app_metadata?.sleeper_username || null;
   if (!username) return null;
   return { username: String(username), payload };

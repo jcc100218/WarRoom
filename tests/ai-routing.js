@@ -104,6 +104,16 @@ function assertRouteTier(callType, tier) {
   ok(pattern.test(source), `route ${callType} should use ${tier} tier`);
 }
 
+function analyticsMetadataBlock(marker) {
+  const markerStart = source.indexOf(marker);
+  ok(markerStart >= 0, `missing analytics marker ${marker}`);
+  const metadataStart = source.indexOf('metadata:', markerStart);
+  ok(metadataStart >= 0, `missing metadata block for ${marker}`);
+  const insertEnd = source.indexOf('\n    }));', metadataStart);
+  ok(insertEnd >= 0, `missing analytics insert terminator for ${marker}`);
+  return source.slice(metadataStart, insertEnd);
+}
+
 console.log('\nWar Room AI routing regression tests');
 
 group('model IDs');
@@ -189,9 +199,7 @@ test('server AI reserves and records DB-backed usage', () => {
 
 test('AI analytics do not record raw prompt text', () => {
   ["event_name: 'ai_call_completed'", "event_name: 'ai_call_failed'"].forEach(marker => {
-    const start = source.indexOf(marker);
-    const end = source.indexOf('}).catch(() => {});', start);
-    const analyticsBlock = source.slice(start, end);
+    const analyticsBlock = analyticsMetadataBlock(marker);
     ['userPrompt', 'systemPrompt', 'messages', 'context:'].forEach(fragment => {
       ok(!analyticsBlock.includes(fragment), `analytics metadata should not include raw ${fragment}`);
     });

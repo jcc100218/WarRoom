@@ -94,12 +94,11 @@ async function loadAppAIPlan(
         return { plan: 'commissioner', products: fallbackProducts };
     }
 
-    const { data: subs } = await supabase
+    const subs = await safeSupabaseData(supabase
         .from('subscriptions')
         .select('product_slug, tier, status')
         .eq('user_id', userId)
-        .in('status', ['active', 'trialing'])
-        .catch(() => ({ data: null }));
+        .in('status', ['active', 'trialing']));
 
     const activePaid = (subs || []).filter((s: any) => s?.tier === 'pro');
     const paidProducts = activePaid.map((s: any) => String(s.product_slug || ''));
@@ -685,6 +684,23 @@ function isUuid(value: unknown): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 }
 
+async function safeSupabaseData(query: any): Promise<any> {
+    try {
+        const { data } = await query;
+        return data ?? null;
+    } catch {
+        return null;
+    }
+}
+
+async function safeSupabaseWrite(query: any): Promise<void> {
+    try {
+        await query;
+    } catch {
+        // Analytics and post-response accounting must not break the user flow.
+    }
+}
+
 async function recordAIAccounting(args: {
     req: Request;
     aiSession: AISession;
@@ -719,14 +735,14 @@ async function recordAIAccounting(args: {
     let usageCounters: Record<string, any> | null = null;
 
     if (args.tokensUsed > 0 && args.aiSession.username) {
-        const { data } = await supabase.rpc('add_ai_tokens_used', {
+        const data = await safeSupabaseData(supabase.rpc('add_ai_tokens_used', {
             p_username: args.aiSession.username,
             p_tokens: args.tokensUsed,
-        }).catch(() => ({ data: null }));
+        }));
         if (typeof data === 'number') totalTokensUsed = data;
     }
 
-    const { data: usageData } = await supabase.rpc('record_ai_usage_result', {
+    const usageData = await safeSupabaseData(supabase.rpc('record_ai_usage_result', {
         p_identifier: args.aiSession.identifier,
         p_user_id: userId,
         p_username: args.aiSession.username,
@@ -734,10 +750,10 @@ async function recordAIAccounting(args: {
         p_tokens: args.tokensUsed,
         p_estimated_cost_usd: args.estimatedCostUsd,
         p_reserved_cost_usd: args.reservedCostUsd,
-    }).catch(() => ({ data: null }));
+    }));
     if (usageData && typeof usageData === 'object') usageCounters = usageData as Record<string, any>;
 
-    await supabase.from('analytics_events').insert({
+    await safeSupabaseWrite(supabase.from('analytics_events').insert({
         event_id: crypto.randomUUID(),
         username: args.aiSession.username,
         user_id: userId,
@@ -773,7 +789,7 @@ async function recordAIAccounting(args: {
             dailyRequestLimit: args.planLimits.dailyRequests,
             monthlyRequestLimit: args.planLimits.monthlyRequests,
         },
-    }).catch(() => {});
+    }));
 
     return { totalTokensUsed, usageCounters };
 }
@@ -796,7 +812,7 @@ async function recordAIUsageDenied(args: {
     const userId = args.aiSession.userId || (isUuid(claims?.sub) ? claims?.sub : null);
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    await supabase.from('analytics_events').insert({
+    await safeSupabaseWrite(supabase.from('analytics_events').insert({
         event_id: crypto.randomUUID(),
         username: args.aiSession.username,
         user_id: userId,
@@ -821,7 +837,7 @@ async function recordAIUsageDenied(args: {
             monthlyRequestLimit: args.planLimits.monthlyRequests,
             usage: args.usage || null,
         },
-    }).catch(() => {});
+    }));
 }
 
 async function recordAIUsageFailed(args: {
@@ -848,7 +864,7 @@ async function recordAIUsageFailed(args: {
     const userId = args.aiSession.userId || (isUuid(claims?.sub) ? claims?.sub : null);
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    await supabase.rpc('record_ai_usage_result', {
+    await safeSupabaseData(supabase.rpc('record_ai_usage_result', {
         p_identifier: args.aiSession.identifier,
         p_user_id: userId,
         p_username: args.aiSession.username,
@@ -856,9 +872,9 @@ async function recordAIUsageFailed(args: {
         p_tokens: 0,
         p_estimated_cost_usd: 0,
         p_reserved_cost_usd: args.reservedCostUsd,
-    }).catch(() => ({ data: null }));
+    }));
 
-    await supabase.from('analytics_events').insert({
+    await safeSupabaseWrite(supabase.from('analytics_events').insert({
         event_id: crypto.randomUUID(),
         username: args.aiSession.username,
         user_id: userId,
@@ -888,7 +904,7 @@ async function recordAIUsageFailed(args: {
             dailyRequestLimit: args.planLimits.dailyRequests,
             monthlyRequestLimit: args.planLimits.monthlyRequests,
         },
-    }).catch(() => {});
+    }));
 }
 
 async function reserveAIUsage(args: {

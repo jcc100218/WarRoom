@@ -38,40 +38,57 @@ jobs:
             deno check --node-modules-dir=auto "$fn"
           done
 
-      - name: Apply database migrations
-        # Applies migration via Supabase Management API.
-        # To apply manually: Supabase Dashboard → SQL Editor → paste the listed SQL files.
+      - name: Verify database migrations are recorded
         run: |
           python3 - <<'PYEOF'
           import json, urllib.request, os, sys
           token = os.environ.get('SUPABASE_ACCESS_TOKEN', '')
-          migration_paths = [
-              'supabase/migrations/20260317000000_app_users_and_subscriptions.sql',
-              'supabase/migrations/20260503000000_ai_usage_controls.sql',
-              'supabase/migrations/20260503010000_tutorial_state.sql',
-              'supabase/migrations/20260503020000_ai_margin_rollups.sql',
-          ]
-          for path in migration_paths:
+          expected = {
+              '20260317000000': 'supabase/migrations/20260317000000_app_users_and_subscriptions.sql',
+              '20260503000000': 'supabase/migrations/20260503000000_ai_usage_controls.sql',
+              '20260503010000': 'supabase/migrations/20260503010000_tutorial_state.sql',
+              '20260503020000': 'supabase/migrations/20260503020000_ai_margin_rollups.sql',
+          }
+
+          for path in expected.values():
               if not os.path.exists(path):
                   print('Migration missing:', path, file=sys.stderr)
                   sys.exit(1)
-              sql = open(path).read()
-              req = urllib.request.Request(
-                  'https://api.supabase.com/v1/projects/sxshiqyxhhifvtfqawbq/database/query',
-                  data=json.dumps({'query': sql}).encode(),
-                  headers={
-                      'Authorization': f'Bearer {token}',
-                      'Content-Type':  'application/json',
-                  },
-                  method='POST',
-              )
-              try:
-                  with urllib.request.urlopen(req) as r:
-                      print('Migration OK:', path, r.read().decode()[:200])
-              except urllib.error.HTTPError as e:
-                  body = e.read().decode()
-                  print('Migration response:', path, e.code, body, file=sys.stderr)
-                  sys.exit(1)
+
+          quoted_versions = ', '.join(f"'{version}'" for version in expected)
+          query = f'select version from supabase_migrations.schema_migrations where version in ({quoted_versions})'
+          req = urllib.request.Request(
+              'https://api.supabase.com/v1/projects/sxshiqyxhhifvtfqawbq/database/query',
+              data=json.dumps({'query': query}).encode(),
+              headers={
+                  'Authorization': f'Bearer {token}',
+                  'Content-Type':  'application/json',
+                  'Accept': 'application/json',
+                  'User-Agent': 'ReconAI-WarRoom-GitHub-Actions',
+              },
+              method='POST',
+          )
+          try:
+              with urllib.request.urlopen(req) as r:
+                  body = r.read().decode()
+          except urllib.error.HTTPError as e:
+              body = e.read().decode()
+              print('Migration verification response:', e.code, body, file=sys.stderr)
+              sys.exit(1)
+
+          try:
+              payload = json.loads(body)
+          except json.JSONDecodeError:
+              print('Migration verification returned non-JSON:', body[:300], file=sys.stderr)
+              sys.exit(1)
+
+          found = {str(row.get('version')) for row in payload if isinstance(row, dict)}
+          missing = sorted(set(expected) - found)
+          if missing:
+              print('Migrations not recorded:', ', '.join(missing), file=sys.stderr)
+              sys.exit(1)
+
+          print('Recorded migrations:', ', '.join(sorted(found & set(expected))))
           PYEOF
 
       - name: Deploy get-session-token function

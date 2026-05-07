@@ -394,6 +394,8 @@ async function testSubscriptionGating(context, baseUrl, failures) {
     })(),
     afterUpgrade: (() => {
       window.getTier = () => 'paid';
+      window.App = window.App || {};
+      window.App._productTier = 'warroom';
       localStorage.setItem('od_profile_v1', JSON.stringify({ tier: 'warroom', onboardingComplete: true }));
       return window.canAccess('analytics-full');
     })(),

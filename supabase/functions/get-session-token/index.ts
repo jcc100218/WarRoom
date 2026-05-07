@@ -5,9 +5,8 @@
 // in app_metadata so RLS policies can enforce per-user access.
 //
 // Auth strategies:
-//   • Gifted users  → password verified server-side with bcrypt
-//                     (legacy SHA-256 hashes are migrated on first use)
-//   • Regular users → Sleeper username verified via Sleeper API
+//   • Password-backed legacy/gifted users only. Username-only Sleeper lookup
+//     is not identity proof and must not mint database/RLS tokens.
 //
 // DEPLOY:
 //   supabase functions deploy get-session-token
@@ -83,53 +82,39 @@ Deno.serve(async (req) => {
         const hasStoredPassword = userRow?.password_hash;
         let isGifted = userRow?.is_gifted ?? false;
 
-        // ── Gifted user — verify password ─────────────────────────────────
-        if (hasStoredPassword) {
-            if (!password) {
-                await auditEvent(admin, req, 'get_session_token', 'failure', { username: normalizedUsername }, { reason: 'password_required' });
-                return json(req, { error: 'Password required for this account', isGifted: true }, 401);
+        if (!hasStoredPassword) {
+            await auditEvent(admin, req, 'get_session_token', 'blocked', { username: normalizedUsername }, { reason: 'passwordless_sleeper_disabled' });
+            return json(req, {
+                error: 'Passwordless Sleeper username sessions are disabled. Sign in with your Dynasty HQ account or use a password-backed gifted account.',
+                code: 'passwordless_sleeper_disabled',
+            }, 401);
+        }
+
+        if (!password) {
+            await auditEvent(admin, req, 'get_session_token', 'failure', { username: normalizedUsername }, { reason: 'password_required' });
+            return json(req, { error: 'Password required for this account', isGifted: true }, 401);
+        }
+
+        let passwordMatch = false;
+
+        if (isLegacySHA256(userRow.password_hash)) {
+            // Legacy hash — compare with SHA-256, then silently upgrade to bcrypt
+            const inputSha = await sha256Hex(password);
+            if (inputSha === userRow.password_hash) {
+                passwordMatch = true;
+                const newHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+                await admin
+                    .from('users')
+                    .update({ password_hash: newHash })
+                    .eq('sleeper_username', normalizedUsername);
             }
-
-            let passwordMatch = false;
-
-            if (isLegacySHA256(userRow.password_hash)) {
-                // Legacy hash — compare with SHA-256, then silently upgrade to bcrypt
-                const inputSha = await sha256Hex(password);
-                if (inputSha === userRow.password_hash) {
-                    passwordMatch = true;
-                    // Migrate to bcrypt
-                    const newHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-                    await admin
-                        .from('users')
-                        .update({ password_hash: newHash })
-                        .eq('sleeper_username', normalizedUsername);
-                }
-            } else {
-                // bcrypt hash
-                passwordMatch = await bcrypt.compare(password, userRow.password_hash);
-            }
-
-            if (!passwordMatch) {
-                await auditEvent(admin, req, 'get_session_token', 'failure', { username: normalizedUsername }, { reason: 'bad_password' });
-                return json(req, { error: 'Incorrect password', isGifted: true }, 401);
-            }
-
         } else {
-            // ── Regular Sleeper user — verify via Sleeper API ───────────────
-            try {
-                const resp = await fetch(
-                    `https://api.sleeper.app/v1/user/${encodeURIComponent(normalizedUsername)}`,
-                    { signal: AbortSignal.timeout(5000) }
-                );
-                const sleeperUser = resp.ok ? await resp.json() : null;
-                if (!sleeperUser?.user_id) {
-                    await auditEvent(admin, req, 'get_session_token', 'failure', { username: normalizedUsername }, { reason: 'sleeper_not_found' });
-                    return json(req, { error: 'Sleeper username not found' }, 401);
-                }
-            } catch {
-                return json(req, { error: 'Could not verify Sleeper username — check your connection' }, 503);
-            }
-            isGifted = false;
+            passwordMatch = await bcrypt.compare(password, userRow.password_hash);
+        }
+
+        if (!passwordMatch) {
+            await auditEvent(admin, req, 'get_session_token', 'failure', { username: normalizedUsername }, { reason: 'bad_password' });
+            return json(req, { error: 'Incorrect password', isGifted: true }, 401);
         }
 
         // ── Issue JWT ──────────────────────────────────────────────────────

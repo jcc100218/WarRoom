@@ -147,14 +147,8 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
         const sharedTier = typeof window.getTier === 'function' ? window.getTier() : null;
 
         if (sharedTier === 'paid') {
-            // Shared confirms paid — resolve the specific War Room level from profile
-            try {
-                const p = JSON.parse(localStorage.getItem(window.STORAGE_KEYS?.OD_PROFILE || 'od_profile_v1') || '{}');
-                if (p.tier === 'commissioner') return 'commissioner';
-                if (p.tier === 'pro' || p.tier === 'power') return 'pro';
-                if (p.tier === 'warroom') return 'warroom';
-                if (p.tier === 'scout' || p.tier === 'reconai') return 'scout';
-            } catch(e) { wrLog('getUserTier.parse', e); }
+            const productTier = window.App?._productTier;
+            if (['commissioner', 'pro', 'warroom', 'scout'].includes(productTier)) return productTier;
             // Dev mode returns 'paid' from shared — give full local access
             if (new URLSearchParams(window.location.search).has('dev') || ['localhost', '127.0.0.1'].includes(window.location.hostname)) return 'pro';
             return 'scout'; // paid but unrecognized profile tier → minimum paid level
@@ -163,15 +157,9 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
         // Trial users get free-tier access in War Room (no trial concept here)
         if (sharedTier === 'trial') return 'free';
 
-        // Fallback: shared/tier.js not loaded — use local logic directly
+        // Fallback: shared/tier.js not loaded. Do not trust persisted local
+        // storage for paid access; users can edit it in the browser.
         if (sharedTier === null) {
-            try {
-                const p = JSON.parse(localStorage.getItem('od_profile_v1') || '{}');
-                if (p.tier === 'commissioner') return 'commissioner';
-                if (p.tier === 'pro' || p.tier === 'power') return 'pro';
-                if (p.tier === 'warroom') return 'warroom';
-                if (p.tier === 'scout' || p.tier === 'reconai') return 'scout';
-            } catch(e) { wrLog('getUserTier.parse', e); }
             if (new URLSearchParams(window.location.search).has('dev') || ['localhost', '127.0.0.1'].includes(window.location.hostname)) return 'pro';
         }
 

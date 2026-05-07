@@ -56,6 +56,12 @@ Deno.serve(async (req) => {
 
     const { productSlug: rawProductSlug = 'war_room', successUrl, cancelUrl } = await req.json();
     const productSlug = normalizeProductSlug(rawProductSlug);
+    const safeSuccessUrl = validateCheckoutUrl(successUrl, `${SUPABASE_URL}/checkout-success?session_id={CHECKOUT_SESSION_ID}`);
+    const safeCancelUrl = validateCheckoutUrl(cancelUrl, `${SUPABASE_URL}/landing.html`);
+    if (!safeSuccessUrl || !safeCancelUrl) {
+      await auditEvent(admin, req, 'checkout_create', 'failure', { userId, email: userEmail }, { reason: 'invalid_redirect_url', productSlug });
+      return json(req, { error: 'Checkout redirect URL is not allowed.' }, 400);
+    }
 
     const priceId = PRICE_MAP[productSlug];
     const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' as any });
@@ -99,8 +105,8 @@ Deno.serve(async (req) => {
         price:    priceId,
         quantity: 1,
       }],
-      success_url: successUrl ?? `${SUPABASE_URL}/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  cancelUrl  ?? `${SUPABASE_URL}/landing.html`,
+      success_url: safeSuccessUrl,
+      cancel_url:  safeCancelUrl,
       subscription_data: {
         metadata: {
           user_id:      userId,
@@ -118,6 +124,23 @@ Deno.serve(async (req) => {
     return json(req, { error: 'Failed to create checkout session.' }, 500);
   }
 });
+
+function allowedCheckoutOrigins(): string[] {
+  return (Deno.env.get('APP_ALLOWED_ORIGINS') || 'http://localhost:3001,http://localhost:3002,http://127.0.0.1:3001,http://127.0.0.1:3002,https://jcc100218.github.io,https://warroom.skjjcruz.com')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function validateCheckoutUrl(value: unknown, fallback: string): string | null {
+  if (value == null || value === '') return fallback;
+  try {
+    const parsed = new URL(String(value));
+    return allowedCheckoutOrigins().includes(parsed.origin) ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 function normalizeProductSlug(value: unknown): string {
   const raw = String(value || 'war_room').trim().toLowerCase();

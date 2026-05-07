@@ -18,6 +18,8 @@ const setPassword = read('supabase/functions/set-password/index.ts');
 const resetRequest = read('supabase/functions/fw-request-password-reset/index.ts');
 const resetConfirm = read('supabase/functions/fw-confirm-password-reset/index.ts');
 const resetPage = read('reset-password.html');
+const deployFunctionsWorkflow = read('.github/workflows/deploy-functions.yml');
+const pagesWorkflow = read('.github/workflows/deploy.yml');
 
 let passed = 0;
 let failed = 0;
@@ -122,7 +124,12 @@ test('legacy session and set-password endpoints enforce rate limits and audit ou
     ok(!source.includes("'Access-Control-Allow-Origin': '*'"), `${label} must not use wildcard CORS`);
   });
   ok(getSession.includes("Deno.env.get('SUPABASE_JWT_SECRET') || Deno.env.get('JWT_SECRET')"), 'get-session-token must support JWT_SECRET fallback');
+  ok(getSession.includes('passwordless_sleeper_disabled'), 'get-session-token must reject passwordless Sleeper username sessions');
+  ok(!getSession.includes('https://api.sleeper.app/v1/user'), 'get-session-token must not mint JWTs from a username-only Sleeper lookup');
+  ok(setPassword.includes('requireActiveAppSession'), 'set-password must allow app-session gift creation only through an active app session');
   ok(setPassword.includes('requireSleeperSession'), 'set-password must verify signed Sleeper session token');
+  ok(setPassword.includes('target_mismatch'), 'set-password must block legacy callers from changing another Sleeper account');
+  ok(setPassword.includes('target_already_password_backed'), 'set-password must not overwrite an existing password-backed account');
 });
 
 test('checkout endpoint enforces CORS helper, rate limits, and audit outcomes', () => {
@@ -132,8 +139,21 @@ test('checkout endpoint enforces CORS helper, rate limits, and audit outcomes', 
     'checkRateLimit',
     'auditEvent',
     'checkout_create',
+    'validateCheckoutUrl',
+    'allowedCheckoutOrigins',
+    'invalid_redirect_url',
   ], 'fw-create-checkout');
   ok(!checkout.includes("'Access-Control-Allow-Origin':  '*'"), 'checkout must not use wildcard CORS');
+});
+
+test('signup validates product slugs and fails if initial subscription cannot be provisioned', () => {
+  hasEvery(signup, [
+    'const VALID_PRODUCT_SLUGS',
+    'VALID_PRODUCT_SLUGS.has(productSlug)',
+    'subscriptionErr',
+    'subscription_insert_failed',
+    "await admin.from('app_users').delete().eq('id', newUser.id)",
+  ], 'fw-signup product provisioning');
 });
 
 test('AI endpoint uses shared CORS helper instead of wildcard CORS', () => {
@@ -155,6 +175,22 @@ test('admin list uses admin role table instead of static bearer secret', () => {
     'auditEvent',
   ], 'admin-list-users');
   ok(!adminList.includes('ADMIN_SECRET'), 'admin-list-users should not use static ADMIN_SECRET');
+});
+
+group('deploy');
+
+test('GitHub Actions deploy only production functions from main', () => {
+  ok(!deployFunctionsWorkflow.includes('claude/*'), 'function deploy workflow must not run from claude/* branches');
+  ok(deployFunctionsWorkflow.includes('branches: ["main"]'), 'function deploy workflow should be restricted to main');
+});
+
+test('GitHub Pages publishes a sanitized artifact instead of the repository root', () => {
+  hasEvery(pagesWorkflow, [
+    'mkdir -p pages-artifact',
+    'rm -rf pages-artifact/**/.git pages-artifact/**/node_modules pages-artifact/**/supabase pages-artifact/**/tests',
+    'path: "pages-artifact"',
+  ], 'pages artifact scope');
+  ok(!pagesWorkflow.includes('path: "."'), 'Pages upload must not publish the repository root');
 });
 
 group('password reset');

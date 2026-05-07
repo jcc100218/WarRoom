@@ -24,6 +24,7 @@ import {
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const JWT_SECRET           = Deno.env.get('JWT_SECRET')!;
+const VALID_PRODUCT_SLUGS  = new Set(['war_room', 'dynast_hq', 'bundle']);
 
 Deno.serve(async (req) => {
   const options = handleOptions(req);
@@ -43,6 +44,9 @@ Deno.serve(async (req) => {
     }
     if (password.length < 8) {
       return json(req, { error: 'Password must be at least 8 characters.' }, 400);
+    }
+    if (!VALID_PRODUCT_SLUGS.has(productSlug)) {
+      return json(req, { error: 'Unknown product.' }, 400);
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
@@ -84,12 +88,18 @@ Deno.serve(async (req) => {
     }
 
     // ── Provision free subscription for chosen product ────────
-    await admin.from('subscriptions').insert({
+    const { error: subscriptionErr } = await admin.from('subscriptions').insert({
       user_id:      newUser.id,
       product_slug: productSlug,
       tier:         'free',
       status:       'active',
     });
+    if (subscriptionErr) {
+      console.error('Subscription insert error:', subscriptionErr);
+      await admin.from('app_users').delete().eq('id', newUser.id);
+      await auditEvent(admin, req, 'fw_signup', 'failure', { userId: newUser.id, email: normalizedEmail }, { reason: 'subscription_insert_failed', productSlug });
+      return json(req, { error: 'Could not provision product access.' }, 500);
+    }
 
     // ── Issue JWT ─────────────────────────────────────────────
     const token = await mintJWT(newUser.id, newUser.email, 'free', [productSlug], newUser.session_version || 1);

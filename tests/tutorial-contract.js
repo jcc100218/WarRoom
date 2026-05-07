@@ -74,9 +74,11 @@ test('app account tutorial state remains server-mediated', () => {
   ok(baseMigration.includes("add column if not exists tutorial_state jsonb not null default '{}'::jsonb"), 'base app_users migration tutorial_state missing');
   hasEvery(profileFn, [
     'requireActiveAppSession',
-    "select('id, email, display_name, tutorial_state')",
-    ".update({ tutorial_state:",
+    "select('id, email, display_name, tutorial_state, platform_usernames')",
+    'update.tutorial_state = tutorialState',
+    'update.platform_usernames = platformUsernames',
     'sanitizeTutorialState',
+    'sanitizePlatformUsernames',
     'auditEvent',
     'handleOptions',
   ], 'fw-profile');

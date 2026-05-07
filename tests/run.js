@@ -155,6 +155,22 @@ const buildEmpirePortfolioModel                                = ctx.buildEmpire
 const getUserTier = ctx.getUserTier;
 const canAccess   = ctx.canAccess;
 
+function resetTierState() {
+  ls.clear();
+  ctx.App._productTier = null;
+  delete ctx.getTier;
+  ctx.window.getTier = undefined;
+  ctx.location.search = '';
+  ctx.location.hostname = 'test.warroom';
+}
+
+function setServerProductTier(productTier) {
+  ls.clear();
+  ctx.getTier = () => 'paid';
+  ctx.window.getTier = ctx.getTier;
+  ctx.App._productTier = productTier;
+}
+
 // ══════════════════════════════════════════════════════════════════
 // 1. normPos
 // ══════════════════════════════════════════════════════════════════
@@ -244,51 +260,51 @@ test('16-game season: 320 pts → 20 PPG',
 // ══════════════════════════════════════════════════════════════════
 group('getUserTier');
 test('no profile → free',
-  () => { ls.clear(); eq(getUserTier(), 'free'); });
-test('tier = warroom → warroom',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'warroom' })); eq(getUserTier(), 'warroom'); ls.clear(); });
-test('tier = commissioner → commissioner',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'commissioner' })); eq(getUserTier(), 'commissioner'); ls.clear(); });
-test('tier = power → pro',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'power' })); eq(getUserTier(), 'pro'); ls.clear(); });
-test('tier = pro → pro',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'pro' })); eq(getUserTier(), 'pro'); ls.clear(); });
-test('tier = scout → scout',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'scout' })); eq(getUserTier(), 'scout'); ls.clear(); });
-test('tier = reconai → scout (legacy rename)',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'reconai' })); eq(getUserTier(), 'scout'); ls.clear(); });
+  () => { resetTierState(); eq(getUserTier(), 'free'); });
+test('localStorage tier does not grant War Room access',
+  () => { resetTierState(); ls.setItem('od_profile_v1', JSON.stringify({ tier: 'warroom' })); eq(getUserTier(), 'free'); resetTierState(); });
+test('server product tier = warroom → warroom',
+  () => { resetTierState(); setServerProductTier('warroom'); eq(getUserTier(), 'warroom'); resetTierState(); });
+test('server product tier = commissioner → commissioner',
+  () => { resetTierState(); setServerProductTier('commissioner'); eq(getUserTier(), 'commissioner'); resetTierState(); });
+test('server product tier = pro → pro',
+  () => { resetTierState(); setServerProductTier('pro'); eq(getUserTier(), 'pro'); resetTierState(); });
+test('server product tier = scout → scout',
+  () => { resetTierState(); setServerProductTier('scout'); eq(getUserTier(), 'scout'); resetTierState(); });
+test('server paid with unknown product tier → scout minimum',
+  () => { resetTierState(); ctx.getTier = () => 'paid'; ctx.window.getTier = ctx.getTier; eq(getUserTier(), 'scout'); resetTierState(); });
 test('malformed JSON profile → free',
-  () => { ls.setItem('od_profile_v1', '{bad json{{'); eq(getUserTier(), 'free'); ls.clear(); });
+  () => { resetTierState(); ls.setItem('od_profile_v1', '{bad json{{'); eq(getUserTier(), 'free'); resetTierState(); });
 
 group('canAccess');
 test('free: my-roster-basic accessible',
-  () => { ls.clear(); ok(canAccess('my-roster-basic')); });
+  () => { resetTierState(); ok(canAccess('my-roster-basic')); });
 test('free: draft-rankings accessible',
-  () => { ls.clear(); ok(canAccess('draft-rankings')); });
+  () => { resetTierState(); ok(canAccess('draft-rankings')); });
 test('free: ai-unlimited blocked',
-  () => { ls.clear(); ok(!canAccess('ai-unlimited')); });
+  () => { resetTierState(); ok(!canAccess('ai-unlimited')); });
 test('free: trade-finder blocked',
-  () => { ls.clear(); ok(!canAccess('trade-finder')); });
+  () => { resetTierState(); ok(!canAccess('trade-finder')); });
 test('free: owner-dna blocked',
-  () => { ls.clear(); ok(!canAccess('owner-dna')); });
+  () => { resetTierState(); ok(!canAccess('owner-dna')); });
 test('scout: ai-unlimited accessible',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'scout' })); ok(canAccess('ai-unlimited')); ls.clear(); });
+  () => { resetTierState(); setServerProductTier('scout'); ok(canAccess('ai-unlimited')); resetTierState(); });
 test('scout: waiver-targets accessible',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'scout' })); ok(canAccess('waiver-targets')); ls.clear(); });
+  () => { resetTierState(); setServerProductTier('scout'); ok(canAccess('waiver-targets')); resetTierState(); });
 test('scout: trade-finder blocked',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'scout' })); ok(!canAccess('trade-finder')); ls.clear(); });
+  () => { resetTierState(); setServerProductTier('scout'); ok(!canAccess('trade-finder')); resetTierState(); });
 test('scout: owner-dna blocked',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'scout' })); ok(!canAccess('owner-dna')); ls.clear(); });
+  () => { resetTierState(); setServerProductTier('scout'); ok(!canAccess('owner-dna')); resetTierState(); });
 test('warroom: trade-finder accessible',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'warroom' })); ok(canAccess('trade-finder')); ls.clear(); });
+  () => { resetTierState(); setServerProductTier('warroom'); ok(canAccess('trade-finder')); resetTierState(); });
 test('warroom: owner-dna accessible',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'warroom' })); ok(canAccess('owner-dna')); ls.clear(); });
+  () => { resetTierState(); setServerProductTier('warroom'); ok(canAccess('owner-dna')); resetTierState(); });
 test('warroom: projections accessible',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'warroom' })); ok(canAccess('projections')); ls.clear(); });
+  () => { resetTierState(); setServerProductTier('warroom'); ok(canAccess('projections')); resetTierState(); });
 test('warroom: analytics-full accessible',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'warroom' })); ok(canAccess('analytics-full')); ls.clear(); });
+  () => { resetTierState(); setServerProductTier('warroom'); ok(canAccess('analytics-full')); resetTierState(); });
 test('warroom: intelligence-full accessible',
-  () => { ls.setItem('od_profile_v1', JSON.stringify({ tier: 'warroom' })); ok(canAccess('intelligence-full')); ls.clear(); });
+  () => { resetTierState(); setServerProductTier('warroom'); ok(canAccess('intelligence-full')); resetTierState(); });
 
 // ══════════════════════════════════════════════════════════════════
 // 5. getPickValue

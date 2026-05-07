@@ -684,8 +684,8 @@
             try {
                 const year = parseInt(selectedYear);
                 // Persist credentials for Scout deep-link
-                if (espnS2) localStorage.setItem('espn_s2', espnS2);
-                if (swid)   localStorage.setItem('espn_swid', swid);
+                if (espnS2) { sessionStorage.setItem('espn_s2', espnS2); localStorage.removeItem('espn_s2'); }
+                if (swid)   { sessionStorage.setItem('espn_swid', swid); localStorage.removeItem('espn_swid'); }
                 const result = await window.ESPN.connectLeague(numericId, year, espnS2 || null, swid || null);
                 const league = {
                     id:              result.league.league_id,
@@ -730,7 +730,7 @@
                 // Store credentials
                 localStorage.setItem('mfl_league_id', leagueId);
                 localStorage.setItem('mfl_year', String(year));
-                if (apiKey) localStorage.setItem('mfl_api_key', apiKey);
+                if (apiKey) { sessionStorage.setItem('mfl_api_key', apiKey); localStorage.removeItem('mfl_api_key'); }
                 setMflPendingResult(result);
                 setMflFranchises(franchiseArr);
             } catch (e) {

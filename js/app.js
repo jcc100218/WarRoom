@@ -876,6 +876,18 @@
                             {!mflFranchises && (
                                 <div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--silver)', marginBottom: '8px' }}>Enter your MFL League ID and year to connect.</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: '6px', marginBottom: '10px' }}>
+                                        {[
+                                            ['Public', 'league XML'],
+                                            ['Private', 'API key'],
+                                            ['Team', 'franchise pick'],
+                                        ].map(([label, detail]) => (
+                                            <div key={label} style={{ border: '1px solid rgba(46,125,50,0.18)', background: 'rgba(46,125,50,0.06)', borderRadius: '6px', padding: '7px 8px', minWidth: 0 }}>
+                                                <strong style={{ display: 'block', color: '#81C784', fontSize: '0.7rem', fontFamily: 'var(--font-body)' }}>{label}</strong>
+                                                <span style={{ display: 'block', color: 'var(--silver)', fontSize: '0.62rem', opacity: 0.72, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detail}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                     <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
                                         <input id="wr-mfl-id" placeholder="League ID" style={{ flex: 1, padding: '8px 10px', background: 'var(--charcoal)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '6px', color: 'var(--white)', fontSize: '0.82rem', fontFamily: 'var(--font-body)' }} />
                                         <input id="wr-mfl-year" placeholder="Year" defaultValue="2026" style={{ width: '70px', padding: '8px 10px', background: 'var(--charcoal)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '6px', color: 'var(--white)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', textAlign: 'center' }} />

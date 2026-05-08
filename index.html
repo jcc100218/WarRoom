@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://jcc100218.github.io https://browser.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://sxshiqyxhhifvtfqawbq.supabase.co https://api.sleeper.app https://api.myfantasyleague.com https://*.myfantasyleague.com https://lm-api-reads.fantasy.espn.com https://fantasysports.yahooapis.com https://*.sentry.io; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; object-src 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://jcc100218.github.io https://browser.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://sxshiqyxhhifvtfqawbq.supabase.co https://api.sleeper.app https://api.myfantasyleague.com https://*.myfantasyleague.com https://lm-api-reads.fantasy.espn.com https://fantasysports.yahooapis.com https://api.fantasycalc.com https://*.sentry.io; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; object-src 'none';">
 
     <title>Dynasty HQ War Room</title>
     <link rel="manifest" href="manifest.json">
@@ -1219,6 +1219,7 @@
 	    .draft-hq-action-card p { margin: 4px 0 9px; color: var(--silver); opacity: 0.7; font-size: 0.72rem; line-height: 1.4; }
 	    .draft-hq-action-card button, .draft-rec-actions button, .draft-setup-start, .draft-setup-secondary button { border: 1px solid rgba(212,175,55,0.28); background: rgba(212,175,55,0.1); color: var(--gold); border-radius: 6px; font-family: var(--font-body); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 10px; cursor: pointer; }
 	    .draft-hq-action-card button:hover, .draft-rec-actions button:hover, .draft-setup-secondary button:hover { border-color: rgba(212,175,55,0.55); background: rgba(212,175,55,0.16); }
+	    .draft-hq-action-card button:disabled { cursor: not-allowed; opacity: 0.45; border-color: rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: var(--silver); }
 	    .draft-hq-grid { display: grid; grid-template-columns: minmax(270px, 0.82fr) minmax(470px, 1.35fr) minmax(290px, 0.86fr); gap: 12px; align-items: start; }
 	    .draft-hq-panel { padding: 12px; }
 	    .draft-hq-panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid rgba(212,175,55,0.1); padding-bottom: 8px; margin-bottom: 10px; }
@@ -1441,8 +1442,8 @@
     .wr-section-hdr { font-family: var(--font-body);font-size:1rem;color:var(--gold);letter-spacing:0.08em;margin-bottom:8px }
 
     /* ── App shell rhythm ─────────────────────────────────── */
-    .wr-main-content { min-height:100vh; background:var(--page-bg); transition:margin-left .18s ease; }
-    .wr-content-frame { width:100%; max-width:1760px; box-sizing:border-box; margin:0 auto; padding:14px clamp(12px, 1.2vw, 20px) 48px; }
+    .wr-main-content { min-height:100vh; min-width:0; max-width:100vw; overflow-x:hidden; box-sizing:border-box; background:var(--page-bg); transition:margin-left .18s ease; }
+    .wr-content-frame { width:100%; min-width:0; max-width:1760px; overflow-x:hidden; box-sizing:border-box; margin:0 auto; padding:14px clamp(12px, 1.2vw, 20px) 48px; }
     .wr-content-frame > * { max-width:100%; }
     .wr-sidebar { color:var(--silver); }
     .wr-sidebar-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

@@ -137,7 +137,7 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
     // ──────────────────────────────────────────────────────────────────────────
 
     // ===== PRODUCT TIER SYSTEM =====
-    // Tiers: free → scout → warroom ($9.99) → pro ($12.99) → commissioner ($14.99)
+    // Tiers: free → scout → warroom ($9.99) → pro ($14.95) → commissioner ($14.99)
     //
     // Delegates to shared/tier.js (window.getTier) for canonical paid/free detection,
     // then resolves War Room's granular level from the profile tier field.
@@ -488,6 +488,99 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
     window.App.WR_KEYS  = WR_KEYS;
     window.App.WrStorage = WrStorage;
     window.App.fetchAllPlayers = fetchAllPlayers;
+
+    window.App.getRosterDataState = function getRosterDataState(opts = {}) {
+        const roster = opts.roster || opts.myRoster || (typeof window.myR === 'function' ? window.myR() : null);
+        const rosters = opts.rosters || opts.currentLeague?.rosters || window.S?.rosters || [];
+        const league = opts.currentLeague || window.S?.leagues?.[0] || {};
+        const collectIds = (r) => r ? [...(r.players || []), ...(r.reserve || []), ...(r.taxi || [])].filter(Boolean).map(String) : [];
+        const rosterIds = collectIds(roster);
+        const leaguePlayerCount = (rosters || []).reduce((sum, r) => sum + collectIds(r).length, 0);
+        const rosterSlots = (league.roster_positions || []).filter(pos => pos && pos !== 'BN' && pos !== 'TAXI' && pos !== 'IR').length;
+        const minUsableRoster = Math.max(1, Math.min(6, rosterSlots || 6));
+        let reason = '';
+
+        if (!roster) reason = 'missing-roster';
+        else if (!Array.isArray(rosters) || !rosters.length) reason = 'missing-league-rosters';
+        else if (leaguePlayerCount === 0) reason = 'league-rosters-empty';
+        else if (rosterIds.length === 0) reason = 'my-roster-empty';
+        else if (rosterIds.length < minUsableRoster) reason = 'my-roster-partial';
+
+        const messages = {
+            'missing-roster': 'Your team roster could not be matched in this league.',
+            'missing-league-rosters': 'League roster data has not loaded yet.',
+            'league-rosters-empty': 'League rosters loaded with zero player IDs.',
+            'my-roster-empty': 'Your roster loaded with zero player IDs.',
+            'my-roster-partial': 'Your roster looks partially loaded.',
+        };
+
+        return {
+            isUsable: !reason,
+            reason,
+            rosterCount: rosterIds.length,
+            leaguePlayerCount,
+            minUsableRoster,
+            message: reason ? messages[reason] : 'Roster data ready.',
+            detail: reason ? 'Refresh league data or re-sync the platform before acting on roster, trade, waiver, draft, or analytics recommendations.' : '',
+        };
+    };
+    window.App.renderRosterDataBlocker = function renderRosterDataBlocker(state, opts = {}) {
+        const ReactRef = window.React || (typeof React !== 'undefined' ? React : null);
+        if (!ReactRef) return null;
+        const compact = !!opts.compact;
+        const title = opts.title || 'Roster sync incomplete';
+        const message = opts.message || state?.message || 'Roster data is not ready.';
+        const detail = opts.detail || state?.detail || 'Refresh league data before acting on recommendations.';
+        const style = {
+            background: opts.background || 'rgba(10,10,10,0.92)',
+            border: opts.border || '1px solid rgba(240,165,0,0.35)',
+            borderRadius: opts.radius || '8px',
+            padding: compact ? '12px' : '18px',
+            color: 'var(--silver)',
+            height: opts.fill ? '100%' : undefined,
+            minHeight: opts.minHeight || (compact ? '100%' : undefined),
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: compact ? 'center' : 'flex-start',
+            gap: compact ? '6px' : '10px',
+            textAlign: compact ? 'center' : 'left',
+            overflow: 'hidden',
+            ...(opts.style || {}),
+        };
+        return ReactRef.createElement('div', { className: opts.className || 'wr-roster-data-blocker', style },
+            ReactRef.createElement('div', {
+                style: {
+                    color: '#F0A500',
+                    fontFamily: 'Rajdhani, sans-serif',
+                    fontSize: compact ? '0.85rem' : '1.1rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                },
+            }, title),
+            ReactRef.createElement('div', { style: { color: 'var(--white)', fontWeight: 700, fontSize: compact ? '0.78rem' : '0.92rem', lineHeight: 1.35 } }, message),
+            !compact && ReactRef.createElement('div', { style: { fontSize: '0.78rem', lineHeight: 1.55, opacity: 0.78 } }, detail),
+            opts.actionLabel && ReactRef.createElement('button', {
+                type: 'button',
+                onClick: opts.onAction || (() => window.location.reload()),
+                style: {
+                    alignSelf: compact ? 'center' : 'flex-start',
+                    marginTop: compact ? '2px' : '4px',
+                    padding: compact ? '5px 8px' : '7px 12px',
+                    border: '1px solid rgba(240,165,0,0.45)',
+                    background: 'rgba(240,165,0,0.12)',
+                    color: '#F0A500',
+                    borderRadius: '5px',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: compact ? '0.62rem' : '0.72rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    cursor: 'pointer',
+                },
+            }, opts.actionLabel)
+        );
+    };
 
     // ── Normalize traded picks: owner_id can be roster_id OR user_id ─
     // Sleeper's /traded_picks API is ambiguous — detect which type and

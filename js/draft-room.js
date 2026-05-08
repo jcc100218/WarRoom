@@ -39,6 +39,7 @@
         });
 
         const normPos = window.App.normPos;
+        const rosterState = window.App?.getRosterDataState?.({ roster: myRoster, currentLeague, rosters: currentLeague?.rosters }) || { isUsable: true };
         const [rookieMarket, setRookieMarket] = useState({ rows: {}, ladders: {}, scaleFactor: 1 });
 
         useEffect(() => {
@@ -273,6 +274,7 @@
 
         // Compute fit scores for rookies based on roster needs
         const computeFitScore = useCallback((rookie) => {
+            if (!rosterState.isUsable) return { score: 0, label: 'Sync' };
             if (!assess || !assess.needs || !assess.needs.length) return { score: 50, label: 'N/A' };
             const pos = normPos(rookie.p.position);
             const needEntry = assess.needs.find(n => n.pos === pos);
@@ -283,7 +285,7 @@
             const raw = Math.min(99, 10 + urgencyBonus + priorityBonus);
             const label = raw >= 80 ? 'Elite' : raw >= 60 ? 'Strong' : raw >= 40 ? 'Moderate' : 'Low';
             return { score: raw, label };
-        }, [assess]);
+        }, [rosterState.isUsable, assess]);
 
         // Determine active view: global viewMode overrides to 'command' when set
         const activeView = viewMode === 'command' ? 'command' : draftView;
@@ -404,16 +406,18 @@
 
         // Strategy recommendation — must be declared before recommendations (which depends on it)
         const strategyRec = useMemo(() => {
+            if (!rosterState.isUsable) return { type: 'sync', label: 'Sync roster', reason: 'Roster targeting is paused until player IDs finish loading.' };
             if (!assess || !assess.needs || !assess.needs.length) return { type: 'bpa', label: 'Go BPA', reason: 'No clear positional needs detected.' };
             const critical = assess.needs.filter(n => n.urgency === 'deficit');
             if (critical.length > 0) {
                 return { type: 'target', label: 'Target ' + critical[0].pos, reason: critical[0].pos + ' is a critical need (' + critical.length + ' deficit position' + (critical.length > 1 ? 's' : '') + ').' };
             }
             return { type: 'bpa', label: 'Go BPA', reason: 'Needs are thin but not critical. Take the best player available.' };
-        }, [assess]);
+        }, [rosterState.isUsable, assess]);
 
         // Best recommendations for next pick
         const recommendations = useMemo(() => {
+            if (!rosterState.isUsable) return [];
             const targetPos = (strategyRec?.type === 'target' && strategyRec?.label) ? strategyRec.label.replace('Target ', '') : null;
 
             return topProspects
@@ -443,7 +447,7 @@
                     return b.score - a.score;
                 })
                 .slice(0, 8);
-        }, [topProspects, draftedPids, strategyRec, nextPickOverall, picksBeforeNext, assess, leagueSize]);
+        }, [rosterState.isUsable, topProspects, draftedPids, strategyRec, nextPickOverall, picksBeforeNext, assess, leagueSize]);
 
         const likelyGoneBeforePick = useMemo(() => {
             if (!nextPickOverall) return [];
@@ -474,11 +478,13 @@
         }, [topProspects]);
 
         const needLabels = useMemo(() => {
+            if (!rosterState.isUsable) return [];
             return (assess?.needs || []).slice(0, 5).map(n => typeof n === 'string' ? { pos: n, urgency: 'thin' } : n);
-        }, [assess]);
+        }, [rosterState.isUsable, assess]);
 
         const requestFullDraftReport = useCallback(() => {
             if (typeof setReconPanelOpen !== 'function' || typeof sendReconMessage !== 'function') return;
+            if (!rosterState.isUsable) { alert(rosterState.message); return; }
             setReconPanelOpen(true);
             const needs = needLabels.map(n => n.pos + (n.urgency === 'deficit' ? ' critical' : '')).join(', ') || 'balanced';
             const picks = myPicks.filter(p => p.year === leagueSeason).map(fmtPick).join(', ') || 'unknown';
@@ -487,7 +493,7 @@
                 `League size: ${leagueSize}\nMy needs: ${needs}\nMy picks: ${picks}\n\n` +
                 `Cover: position tiers, best fits at my slots, players worth moving up for, trade-down pockets, and avoid zones. Use specific prospect names.`
             );
-        }, [setReconPanelOpen, sendReconMessage, needLabels, myPicks, leagueSeason, leagueSize, fmtPick]);
+        }, [setReconPanelOpen, sendReconMessage, rosterState.isUsable, rosterState.message, needLabels, myPicks, leagueSeason, leagueSize, fmtPick]);
 
         const requestClassOverview = useCallback(() => {
             if (typeof setReconPanelOpen !== 'function' || typeof sendReconMessage !== 'function') return;
@@ -554,7 +560,7 @@
                                 <div className="draft-hq-action-card">
                                     <strong>Scouting Report</strong>
                                     <p>Generate a slot-aware draft plan using your current picks, roster needs, and class shape.</p>
-                                    <button type="button" onClick={requestFullDraftReport}>Generate Report</button>
+                                    <button type="button" disabled={!rosterState.isUsable} title={!rosterState.isUsable ? rosterState.message : 'Generate draft scouting report'} onClick={requestFullDraftReport}>{rosterState.isUsable ? 'Generate Report' : 'Sync Required'}</button>
                                 </div>
                                 <div className="draft-hq-action-card">
                                     <strong>Class Overview</strong>
@@ -568,6 +574,14 @@
                                 </div>
                             </aside>
                         </div>
+
+                        {!rosterState.isUsable && window.App?.renderRosterDataBlocker?.(rosterState, {
+                            title: 'Draft roster targeting paused',
+                            message: 'Pick inventory is still visible, but fit scores and need-based targets are hidden until roster IDs finish loading.',
+                            detail: rosterState.detail,
+                            actionLabel: 'Refresh Data',
+                            style: { marginBottom: '14px', minHeight: '170px' },
+                        })}
 
                         <div className="draft-hq-grid">
                             <section className="draft-hq-panel">

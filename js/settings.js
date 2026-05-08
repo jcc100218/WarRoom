@@ -169,26 +169,22 @@
         const currentTier = React.useMemo(() => {
             try {
                 const p = JSON.parse(localStorage.getItem('od_profile_v1') || '{}');
-                return p.tier || 'free';
+                const appTier = typeof window.getUserTier === 'function' ? window.getUserTier() : null;
+                return appTier || p.tier || 'free';
             } catch { return 'free'; }
         }, []);
 
-        const tierLabel = { free: 'War Room Free', pro: 'Dynasty HQ Pro', power: 'Dynasty HQ Power' };
-        const tierColor = { free: 'var(--silver)', pro: 'var(--gold)', power: '#A855F7' };
-        const tierBg    = { free: 'rgba(192,192,192,0.12)', pro: 'rgba(212,175,55,0.12)', power: 'rgba(168,85,247,0.12)' };
+        const tierLabel = { free: 'War Room Free', trial: 'War Room Trial', scout: 'Scout', warroom: 'War Room', pro: 'Dynasty HQ Pro', power: 'Dynasty HQ Power', paid: 'Paid' };
+        const tierColor = { free: 'var(--silver)', trial: 'var(--silver)', scout: 'var(--silver)', warroom: 'var(--gold)', pro: 'var(--gold)', power: '#A855F7', paid: 'var(--gold)' };
+        const tierBg    = { free: 'rgba(192,192,192,0.12)', trial: 'rgba(192,192,192,0.12)', scout: 'rgba(192,192,192,0.12)', warroom: 'rgba(212,175,55,0.12)', pro: 'rgba(212,175,55,0.12)', power: 'rgba(168,85,247,0.12)', paid: 'rgba(212,175,55,0.12)' };
 
         function goToManagePlan() {
             window.location.href = 'onboarding.html?manage=true';
         }
 
         function handleCancelPlan() {
-            if (!confirm('Cancel your subscription? You will be moved to the War Room Free plan.')) return;
-            try {
-                const profile = JSON.parse(localStorage.getItem('od_profile_v1') || '{}');
-                localStorage.setItem('od_profile_v1', JSON.stringify({ ...profile, tier: 'free' }));
-                alert('Subscription cancelled. You are now on the War Room Free plan.');
-                onClose();
-            } catch { alert('Failed to cancel. Please try again.'); }
+            if (!confirm('Open plan management to cancel or change your plan?')) return;
+            goToManagePlan();
         }
 
         function handleDisplayNameSave() {
@@ -267,7 +263,7 @@
 
         return (
             <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={onClose}>
-                <div style={{ background: 'linear-gradient(135deg, var(--off-black) 0%, var(--charcoal) 100%)', border: '3px solid var(--gold)', borderRadius: '12px', padding: '1.5rem', maxWidth: '440px', width: '100%', boxShadow: '0 8px 32px rgba(0,0,0,0.8)', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ background: 'linear-gradient(135deg, var(--off-black) 0%, var(--charcoal) 100%)', border: '3px solid var(--gold)', borderRadius: '12px', padding: '1.5rem', maxWidth: 'min(720px, calc(100vw - 48px))', width: '100%', boxShadow: '0 8px 32px rgba(0,0,0,0.8)', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
                     <h2 style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.05rem', color: 'var(--gold)', marginBottom: '0.55rem', textAlign: 'center', letterSpacing: '0.12em' }}>SETTINGS</h2>
 
                     <div style={{ fontSize: '0.85rem', color: 'var(--silver)', marginBottom: '1rem' }}>
@@ -397,7 +393,13 @@
                         <div style={{ marginTop: '0.6rem', fontSize: '0.66rem', color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Manage your Dynasty HQ subscription</div>
                     </div>
 
-                    {/* Phase 10: AI Status card removed per user feedback (2026-04-18) — users are not allowed to use their own AI. */}
+                    <div style={sectionStyle}>
+                        <div style={sectionTitle}>BYO AI KEY</div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--silver)', lineHeight: 1.55, marginBottom: '0.75rem' }}>
+                            Session-only BYO keys are supported during onboarding and in the AI controls. They are not stored in localStorage and they bypass included query limits only for that session.
+                        </div>
+                        <button onClick={() => { window.location.href = 'onboarding.html?manage=true#byo'; }} style={{ ...btnOutline, width: '100%', flex: 'none', fontSize: '0.75rem' }}>Review AI Setup</button>
+                    </div>
                     </>)}
 
                     {/* ══ DATA TAB ══ */}

@@ -256,7 +256,8 @@ function DashboardWidgetPicker({ onAdd, onClose, editWidget }) {
                     <div style={{ padding: '16px 20px' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                             {Object.entries(WIDGET_MODULES).map(([key, m]) => (
-                                <div key={key}
+                                <button key={key}
+                                    type="button"
                                     onMouseEnter={() => setHoverModule(key)}
                                     onMouseLeave={() => setHoverModule(null)}
                                     onClick={() => { setSelectedModule(key); setSelectedMetric(m.metrics?.[0]?.key || null); setStep('size'); }}
@@ -264,12 +265,12 @@ function DashboardWidgetPicker({ onAdd, onClose, editWidget }) {
                                         background: hoverModule === key ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.03)',
                                         border: '1px solid ' + (hoverModule === key ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'),
                                         borderRadius: '10px', padding: '14px 12px', cursor: 'pointer',
-                                        transition: 'all 0.15s', textAlign: 'center',
+                                        transition: 'all 0.15s', textAlign: 'center', fontFamily: 'inherit',
                                     }}>
                                     <div style={{ fontSize: '1.5rem', marginBottom: '4px', lineHeight: 1 }}>{m.icon}</div>
                                     <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '0.88rem', fontWeight: 700, color: 'var(--white)', letterSpacing: '0.04em', marginBottom: '2px' }}>{m.label}</div>
                                     <div style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.6, lineHeight: 1.3 }}>{m.description}</div>
-                                </div>
+                                </button>
                             ))}
                         </div>
                     </div>
@@ -370,11 +371,14 @@ function DashboardPanel({
     standings,
     currentLeague,
     playersData,
+    statsData,
+    prevStatsData,
     myRoster,
     getOwnerName,
     getPlayerName,
     timeAgo,
     briefDraftInfo,
+    timeRecomputeTs,
 }) {
     const [pickerOpen, setPickerOpen] = React.useState(false);
     const [editingWidget, setEditingWidget] = React.useState(null); // { widgetId, widget }
@@ -654,6 +658,9 @@ function DashboardPanel({
             currentLeague,
             briefDraftInfo,
             playersData,
+            statsData,
+            prevStatsData,
+            timeRecomputeTs,
             setActiveTab,
             navigateWidget,
         });
@@ -674,14 +681,15 @@ function DashboardPanel({
     // TRANSACTION TICKER
     // ══════════════════════════════════════════════════════════════
     function renderTransactionTicker(size) {
+        const visibleTransactions = (transactions || []).slice(0, size === 'lg' ? 8 : 5);
         return (
-            <div style={{ ...cardBase, padding: 'var(--card-pad, 14px 16px)', maxHeight: size === 'lg' ? '100%' : '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ ...cardBase, padding: 'var(--card-pad, 14px 16px)', maxHeight: size === 'lg' ? '100%' : '300px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ fontFamily: rajFont, fontSize: '0.9rem', fontWeight: 700, color: '#34D399', letterSpacing: '0.07em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     📰 TRANSACTION TICKER
                 </div>
                 {(!transactions || transactions.length === 0) ? (
                     <SkeletonRows count={6} />
-                ) : transactions.map((txn, ti) => (
+                ) : visibleTransactions.map((txn, ti) => (
                     <div key={ti} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.65rem', color: S, opacity: 0.55, minWidth: '36px' }}>{timeAgo(txn.created)}</span>
@@ -731,7 +739,7 @@ function DashboardPanel({
         const isCompact = size === 'md';
 
         return (
-            <div style={{ ...cardBase, padding: 'var(--card-pad, 14px 16px)', overflowY: 'auto' }}>
+            <div style={{ ...cardBase, padding: 'var(--card-pad, 14px 16px)', overflow: 'hidden' }}>
                 <div style={{ fontFamily: rajFont, fontSize: '0.9rem', fontWeight: 700, color: G, letterSpacing: '0.07em', marginBottom: '10px' }}>📊 LEAGUE STANDINGS</div>
                 {divKeys.map(divKey => (
                     <div key={divKey} style={{ marginBottom: hasDivisions ? '14px' : 0 }}>
@@ -755,7 +763,7 @@ function DashboardPanel({
                             if (b.wins !== a.wins) return b.wins - a.wins;
                             if (a.losses !== b.losses) return a.losses - b.losses;
                             return b.pointsFor - a.pointsFor;
-                        }).map((team, idx) => {
+                        }).slice(0, isCompact ? 5 : 8).map((team, idx) => {
                             const isMe = team.userId === sleeperUserId;
                             const roster = currentLeague?.rosters?.find(r => r.owner_id === team.userId);
                             const totalDHQ = roster?.players?.reduce((s, pid) => s + (window.App?.LI?.playerScores?.[pid] || 0), 0) || 0;
@@ -1092,6 +1100,40 @@ function DashboardPanel({
                         grid-column:span 2 !important;
                     }
                 }
+                @media(min-width:1024px) and (max-width:1279px){
+                    .wr-dashboard-grid{
+                        grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+                    }
+                    .wr-dashboard-grid>.wr-widget,
+                    .wr-dashboard-grid>.wr-add-widget{
+                        min-width:0;
+                    }
+                    .wr-dashboard-grid>.wr-widget[style*="span 3"],
+                    .wr-dashboard-grid>.wr-widget[style*="span 4"]{
+                        grid-column:span 2 !important;
+                    }
+                }
+                @media(min-width:1280px) and (max-width:1439px){
+                    .wr-dashboard-grid{
+                        grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+                    }
+                    .wr-dashboard-grid>.wr-widget,
+                    .wr-dashboard-grid>.wr-add-widget{
+                        min-width:0;
+                    }
+                    .wr-dashboard-grid>.wr-widget[style*="span 4"]{
+                        grid-column:span 3 !important;
+                    }
+                }
+                @media(min-width:1440px){
+                    .wr-dashboard-grid{
+                        grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+                    }
+                    .wr-dashboard-grid>.wr-widget,
+                    .wr-dashboard-grid>.wr-add-widget{
+                        min-width:0;
+                    }
+                }
             `}</style>
 
             {/* Widget grid */}
@@ -1103,26 +1145,32 @@ function DashboardPanel({
                 padding: '16px 20px',
                 background: BK,
                 borderBottom: '1px solid ' + (theme.colors?.border || 'rgba(212,175,55,0.12)'),
+                minWidth: 0,
+                maxWidth: '100%',
+                overflowX: 'hidden',
             }}>
                 {widgets.map((widget, idx) => renderWidget(widget, idx))}
 
                 {/* Add widget button */}
-                <div
+                <button
+                    type="button"
                     className="wr-add-widget"
                     onClick={() => { setEditingWidget(null); setPickerOpen(true); }}
                     style={{
                         gridColumn: 'span 1', gridRow: 'span 1',
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px',
                         border: '1px dashed rgba(212,175,55,0.25)', borderRadius: '10px',
+                        background: 'transparent',
                         cursor: 'pointer', minHeight: '160px',
                         transition: 'all 0.15s', color: 'rgba(212,175,55,0.35)',
+                        fontFamily: 'inherit',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.5)'; e.currentTarget.style.color = 'rgba(212,175,55,0.6)'; e.currentTarget.style.background = 'rgba(212,175,55,0.04)'; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.25)'; e.currentTarget.style.color = 'rgba(212,175,55,0.35)'; e.currentTarget.style.background = 'transparent'; }}
                 >
                     <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>+</span>
                     <span style={{ fontSize: '0.65rem', fontFamily: dmFont, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Add Widget</span>
-                </div>
+                </button>
             </div>
 
             {/* Pinned / starred section */}

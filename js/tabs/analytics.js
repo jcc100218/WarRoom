@@ -70,6 +70,7 @@ function AnalyticsPanel({
         tradedPicks: _seasonCtx.tradedPicks !== undefined ? _seasonCtx.tradedPicks : (window.S?.tradedPicks || []),
         playerStats: _seasonCtx.playerStats || window.S?.playerStats || {},
     };
+    const rosterState = window.App?.getRosterDataState?.({ roster: myRoster, rosters: _SS.rosters, currentLeague }) || { isUsable: true };
 
     // Token-driven card style so padding/radius/border track index.html's spacing scale.
     const aCardStyle = { background: 'var(--black)', border: 'var(--card-border, 1px solid rgba(212,175,55,0.2))', borderRadius: 'var(--card-radius, 10px)', padding: 'var(--card-pad, 14px 16px)', marginBottom: 'var(--card-gap, 12px)' };
@@ -238,6 +239,17 @@ function AnalyticsPanel({
             ))}
         </div>
     );
+    const RosterDataBlocker = ({ title = 'Roster analytics paused' }) => (
+        <div className="analytics-panel" style={{ minHeight: '240px' }}>
+            {window.App?.renderRosterDataBlocker?.(rosterState, {
+                title,
+                message: 'Champion-template and room coverage reads need complete roster IDs.',
+                detail: rosterState.detail,
+                actionLabel: 'Refresh Data',
+                style: { minHeight: '220px' },
+            })}
+        </div>
+    );
 
     return (
     <div className="analytics-shell" style={{ padding: '10px 16px 16px' }}>
@@ -270,6 +282,7 @@ function AnalyticsPanel({
         {analyticsTab === 'roster' && (() => {
             const r = d.roster;
             if (!r) return <div style={{ color: 'var(--silver)' }}>No roster data available.</div>;
+            if (!rosterState.isUsable) return <RosterDataBlocker />;
             const w = r.winnerProfile;
             const l = r.leagueProfile;
             const m = r.myProfile;

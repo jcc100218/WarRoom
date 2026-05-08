@@ -612,6 +612,7 @@
         }, [allRosters, playersData, statsData, nflStarterSet, picksByOwner, timeRecomputeTs]);
 
         const myRosterId = myRoster?.roster_id;
+        const rosterState = window.App?.getRosterDataState?.({ roster: myRoster, currentLeague, rosters: allRosters }) || { isUsable: true };
         const myAssessment = useMemo(() => assessments.find(a => a.rosterId === myRosterId) || null, [assessments, myRosterId]);
         const elitePlayerSet = useMemo(() => assessments.length ? calcElitePlayers(assessments) : new Set(), [assessments, statsData]);
 
@@ -1819,6 +1820,24 @@
         }
 
         function renderDealHQ() {
+            if (!rosterState.isUsable) {
+                return <div className="tc-dhq-shell wr-fade-in">
+                    <div className="tc-dhq-hero">
+                        <div>
+                            <div className="tc-dhq-kicker">Deal HQ</div>
+                            <h2>Trade recommendations paused</h2>
+                            <p>Partner scores and generated packages are hidden until complete roster IDs are available.</p>
+                        </div>
+                    </div>
+                    {window.App?.renderRosterDataBlocker?.(rosterState, {
+                        title: 'Roster sync incomplete',
+                        message: 'Trade partner scores need your current roster before they can be trusted.',
+                        detail: rosterState.detail,
+                        actionLabel: 'Refresh Data',
+                        style: { minHeight: '220px' },
+                    })}
+                </div>;
+            }
             if (!assessments.length || !myAssessment) {
                 return <div style={{ color:'var(--silver)', textAlign:'center', padding:'2rem' }}>No trade data loaded yet.</div>;
             }

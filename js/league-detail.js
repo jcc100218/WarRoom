@@ -496,11 +496,12 @@
         };
         // Default 6-widget dashboard — module-based format. Intelligence brief
         // sits at the top as a full-width xl widget so new users land on Alex.
-        // v2 default layout — Intel Brief (2×4 tall) left, Field Notes (1×4 narrow) right,
-        // one sm from each remaining module fills the last column beside them.
+        // v2 default layout — Intel Brief anchors the board; Field Notes starts
+        // compact until real decision logs exist, so empty notes do not consume
+        // a full desktop column.
         const DEFAULT_WIDGETS = [
             { id: 'dw0', key: 'intel-brief',        size: 'tall' },
-            { id: 'dw1', key: 'field-notes',        size: 'narrow' },
+            { id: 'dw1', key: 'field-notes',        size: 'slim' },
             { id: 'dw2', key: 'roster-pulse',       size: 'sm', primaryMetric: 'health-score' },
             { id: 'dw3', key: 'market-radar',       size: 'sm' },
             { id: 'dw4', key: 'draft-capital',      size: 'sm' },
@@ -525,10 +526,13 @@
                 };
                 widgets = stored.map((k, i) => ({ id: 'mig_' + i, key: keyToModule[k] || k, size: 'sm', primaryMetric: k }));
             } else {
-                // Old format v2: {key, size} without id or primaryMetric
-                widgets = stored.map((w, i) => {
-                    if (!w.id) w = { ...w, id: 'mig2_' + i };
-                    // Map old KPI keys to module keys
+	                // Old format v2: {key, size} without id or primaryMetric
+	                widgets = stored.map((w, i) => {
+	                    if (!w.id) w = { ...w, id: 'mig2_' + i };
+	                    if (w.key === 'field-notes' && w.id === 'dw1' && w.size === 'narrow') {
+	                        w = { ...w, size: 'slim' };
+	                    }
+	                    // Map old KPI keys to module keys
                     const legacyKpiModules = {
                         'health-score': 'roster', 'avg-age': 'roster', 'elite-count': 'roster',
                         'aging-cliff': 'roster', 'bench-quality': 'roster', 'portfolio': 'roster',
@@ -1411,9 +1415,16 @@
                         return +(games.reduce((a, b) => a + b, 0) / games.length).toFixed(1);
                     };
 
-                    // Load AI keys from localStorage so callClaude can use them
-                    const savedProvider = localStorage.getItem('dynastyhq_provider') || 'gemini';
-                    const savedKey = localStorage.getItem('dynastyhq_' + savedProvider + '_key') || localStorage.getItem('dynastyhq_gemini_key') || localStorage.getItem('dynastyhq_anthropic_key') || '';
+                    // BYO keys are session-only; migrate and clear older localStorage keys.
+                    ['dynastyhq_ai_provider', 'dynastyhq_ai_key', 'dynastyhq_ai_model', 'dynastyhq_xai_key', 'dynastyhq_provider', 'dynastyhq_gemini_key', 'dynastyhq_anthropic_key'].forEach(name => {
+                        try {
+                            const value = localStorage.getItem(name);
+                            if (value && !sessionStorage.getItem(name)) sessionStorage.setItem(name, value);
+                            localStorage.removeItem(name);
+                        } catch (_) {}
+                    });
+                    const savedProvider = sessionStorage.getItem('dynastyhq_ai_provider') || sessionStorage.getItem('dynastyhq_provider') || 'gemini';
+                    const savedKey = sessionStorage.getItem('dynastyhq_ai_key') || sessionStorage.getItem('dynastyhq_' + savedProvider + '_key') || sessionStorage.getItem('dynastyhq_gemini_key') || sessionStorage.getItem('dynastyhq_anthropic_key') || '';
                     if (savedKey) { window.S.aiProvider = savedProvider; window.S.apiKey = savedKey; }
 
                     // Bridge stats data — use prevStats (2025) as base, overlay current season
@@ -1540,9 +1551,19 @@
                     }).catch(err => window.wrLog('tags.load', err));
                 }
 
-                // Show tutorial for first-time users
+                // Show tutorial for first-time users only while they are still on Home.
                 if (typeof window.startWRTutorial === 'function') {
-                    setTimeout(window.startWRTutorial, 1000);
+                    setTimeout(async () => {
+                        const hashTab = new URLSearchParams((window.location.hash || '').replace(/^#/, '')).get('tab') || 'dashboard';
+                        if (hashTab !== 'dashboard') return;
+                        if (window.App?.AssistantTutorial?.isActive?.()) return;
+                        if (window.WR_TUTORIAL_CONFIG && typeof window.shouldShowWRTutorial === 'function') {
+                            try {
+                                if (!await window.shouldShowWRTutorial()) return;
+                            } catch (e) { window.wrLog?.('tutorial.shouldShow', e); }
+                        }
+                        window.startWRTutorial();
+                    }, 1000);
                 }
 
                 // Load league docs context for commissioner mode (fire-and-forget)
@@ -2409,11 +2430,29 @@
 
                 {/* Mobile hamburger toggle */}
                 <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{
-                    display: 'none', position: 'fixed', top: '10px', left: '10px', zIndex: 201,
+                    display: 'none', position: 'fixed', top: 'calc(10px + var(--wr-dev-banner-height, 0px))', left: '10px', zIndex: 201,
                     background: 'var(--black)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px',
                     padding: '6px 10px', cursor: 'pointer', color: 'var(--gold)', fontSize: '1.2rem', lineHeight: 1
                 }} className="wr-hamburger">{sidebarOpen ? '\u2715' : '\u2630'}</button>
-                <style>{`@media(max-width:767px){html,body,#root{max-width:100%;overflow-x:hidden}.wr-hamburger{display:block !important}.wr-sidebar{left:-220px !important;transform:none !important}.wr-sidebar.open{left:0 !important}.wr-main-content{margin-left:0 !important;width:100% !important;max-width:100vw;overflow-x:hidden;box-sizing:border-box}}`}</style>
+                <style>{`@media(max-width:767px){
+                    html,body,#root{max-width:100%;overflow-x:hidden}
+                    .wr-hamburger{display:block !important}
+                    .wr-sidebar{left:-220px !important;top:var(--wr-dev-banner-height,0px) !important;transform:none !important}
+                    .wr-sidebar.open{left:0 !important}
+                    .wr-main-content{margin-left:0 !important;width:100% !important;max-width:100vw;overflow-x:hidden;box-sizing:border-box;padding-top:var(--wr-dev-banner-height,0px)}
+                    .wr-league-header-row{display:grid !important;grid-template-columns:minmax(0,1fr) auto;align-items:start !important;gap:6px 8px !important;padding-left:42px}
+                    .wr-league-header-row .header-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.96rem !important;line-height:1.2}
+                    .wr-league-switch{grid-column:2;grid-row:1}
+                    .wr-gm-mode-badge{grid-column:1 / 3;justify-self:start;max-width:100%;min-width:0}
+                    .wr-time-bar{align-items:flex-start !important;padding:8px 10px !important;gap:6px !important}
+                    .wr-time-years{width:auto;max-width:100%;overflow:visible;flex-wrap:wrap !important;padding-bottom:2px}
+                    .wr-time-spacer{display:none !important}
+                    .wr-time-mode{margin-left:0;flex-shrink:0}
+                    .wr-time-banner{padding:8px 10px !important;flex-direction:column;align-items:flex-start !important;gap:4px !important}
+                    .wr-time-banner button{margin-left:0 !important;width:100%;max-width:220px}
+                    .wr-debug-strip{padding:4px 10px !important;overflow-x:auto}
+                    .wr-debug-strip>div{min-width:max-content}
+                }`}</style>
 
                 {/* Mobile overlay */}
                 {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ display: 'none', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 99 }} className="wr-sidebar-overlay" />}
@@ -2609,14 +2648,21 @@
                 </div>
 
                 {/* Main content shifted right */}
-                <div className="wr-main-content" style={{ marginLeft: sidebarWidth + 'px', width: 'calc(100% - ' + sidebarWidth + 'px)' }}>
+                <div className="wr-main-content" style={{
+                    marginLeft: sidebarWidth + 'px',
+                    width: 'calc(100vw - ' + sidebarWidth + 'px)',
+                    maxWidth: 'calc(100vw - ' + sidebarWidth + 'px)',
+                    minWidth: 0,
+                    overflowX: 'hidden',
+                    boxSizing: 'border-box',
+                }}>
                 {/* Header — collapsed into a single left-aligned strip.
                     Removed: redundant "{year} SEASON" subtitle (year picker below handles this)
                     and the duplicate league-name/team-count in the time context bar. */}
                 <header className="header" style={{ position: 'relative', marginBottom: '0', paddingTop: '0.6rem', paddingBottom: '0.6rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '10px' }}>
+                    <div className="wr-league-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '10px' }}>
                         <div className="header-title" style={{ fontSize: '1.05rem' }}>{currentLeague.name}</div>
-                        <button onClick={onBack} style={{ padding: '4px 12px', fontSize: '0.66rem', fontFamily: 'var(--font-body)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'rgba(212,175,55,0.10)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>SWITCH</button>
+                        <button className="wr-league-switch" onClick={onBack} style={{ padding: '4px 12px', fontSize: '0.66rem', fontFamily: 'var(--font-body)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'rgba(212,175,55,0.10)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>SWITCH</button>
                         {(() => {
                             const gm = window.WR?.GmMode?.describe?.(gmStrategy?.mode || 'compete');
                             if (!gm) return null;
@@ -2624,6 +2670,7 @@
                                 key: 'gm-badge-' + gm.id,
                                 onClick: () => setActiveTab && setActiveTab('strategy'),
                                 title: 'GM Mode — edit in GM\'s Office',
+                                className: 'wr-gm-mode-badge',
                                 style: {
                                     padding: '4px 10px 4px 8px', display: 'inline-flex', alignItems: 'center', gap: '6px',
                                     fontSize: '0.66rem', fontFamily: 'var(--font-body)', fontWeight: 700,
@@ -2654,13 +2701,13 @@
                 )}
 
                 {/* ── GLOBAL TIME CONTEXT BAR ── */}
-                <div style={{
+                <div className="wr-time-bar" style={{
                     display: 'flex', alignItems: 'center', gap: '8px', padding: '8px clamp(12px, 4vw, 24px)', flexWrap: 'wrap',
                     background: 'rgba(0,0,0,0.4)', borderBottom: '1px solid rgba(212,175,55,0.12)',
                     position: 'sticky', top: 0, zIndex: 50
                 }}>
                     {/* Year pills */}
-                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', minWidth: 0 }}>
+                    <div className="wr-time-years" style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', minWidth: 0 }}>
                         {timeYears.map(yr =>
                             <button key={yr} onClick={() => handleTimeYearChange(yr)} style={{
                                 padding: '4px 10px', fontSize: '0.76rem', fontFamily: 'var(--font-body)',
@@ -2673,9 +2720,9 @@
                         )}
                     </div>
                     {/* League name/team-count moved to the main header to avoid duplication. */}
-                    <div style={{ marginLeft: 'auto' }}></div>
+                    <div className="wr-time-spacer" style={{ marginLeft: 'auto' }}></div>
                     {/* Time mode badge */}
-                    <span style={{
+                    <span className="wr-time-mode" style={{
                         fontSize: '0.72rem', fontWeight: 700, color: timeModeColor,
                         background: timeModeColor + '15', border: '1px solid ' + timeModeColor + '30',
                         padding: '2px 10px', borderRadius: '12px',
@@ -2689,7 +2736,7 @@
                 </div>
 
                 {/* Time mode banner — visible when not viewing current season */}
-                {!isCurrentYear && <div style={{
+                {!isCurrentYear && <div className="wr-time-banner" style={{
                     padding: '8px 24px', display: 'flex', alignItems: 'center', gap: '8px',
                     background: timeModeColor + '10', borderBottom: '1px solid ' + timeModeColor + '30'
                 }}>
@@ -2703,7 +2750,7 @@
                 </div>}
 
                 {/* Debug panel (dev only) */}
-                {DEV_DEBUG && <div style={{ padding: '4px 24px', background: 'rgba(255,0,0,0.04)', borderBottom: '1px solid rgba(255,0,0,0.1)', fontSize: '0.7rem', fontFamily: 'monospace', color: '#F0A500' }}>
+                {DEV_DEBUG && <div className="wr-debug-strip" style={{ padding: '4px 24px', background: 'rgba(255,0,0,0.04)', borderBottom: '1px solid rgba(255,0,0,0.1)', fontSize: '0.7rem', fontFamily: 'monospace', color: '#F0A500' }}>
                     <div style={{ display: 'flex', gap: '16px', marginBottom: '2px' }}>
                         <span>year={timeYear}</span>
                         <span>mode={timeMode}</span>
@@ -2877,11 +2924,14 @@
                     standings={standings}
                     currentLeague={currentLeague}
                     playersData={playersData}
+                    statsData={statsData}
+                    prevStatsData={stats2025Data}
                     myRoster={myRoster}
                     getOwnerName={getOwnerName}
                     getPlayerName={getPlayerName}
                     timeAgo={timeAgo}
                     briefDraftInfo={briefDraftInfo}
+                    timeRecomputeTs={timeRecomputeTs}
                 />
                 )}
                 </div>

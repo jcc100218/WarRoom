@@ -180,6 +180,16 @@ test('subscriptions constrains tier and status values used by functions', () => 
   });
 });
 
+test('webhook does not grant paid access for unknown Stripe statuses', () => {
+  hasEvery(webhookSource, [
+    "case 'incomplete':",
+    "console.warn('[stripe-webhook] Unknown subscription status:', stripeStatus);",
+    "return 'incomplete';",
+    "(status === 'active' || status === 'trialing') ? 'pro' : 'free'",
+  ], 'webhook status safety');
+  ok(!webhookSource.includes("default:\n      return 'active'"), 'unknown Stripe status must not default to active');
+});
+
 group('security');
 
 test('billing tables keep RLS enabled with user-scoped read policies', () => {

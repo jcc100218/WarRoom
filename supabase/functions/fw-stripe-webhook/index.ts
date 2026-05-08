@@ -122,7 +122,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     .from('subscriptions')
     .update({
       status,
-      tier:                 status === 'active' ? 'pro' : 'free',
+      tier:                 (status === 'active' || status === 'trialing') ? 'pro' : 'free',
       current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
       current_period_end:   new Date(subscription.current_period_end   * 1000).toISOString(),
       cancel_at_period_end: subscription.cancel_at_period_end,
@@ -156,12 +156,15 @@ function mapStripeStatus(stripeStatus: string): string {
     case 'active':   return 'active';
     case 'trialing': return 'trialing';
     case 'past_due': return 'past_due';
+    case 'incomplete':
+      return 'incomplete';
     case 'canceled':
     case 'unpaid':
     case 'incomplete_expired':
       return 'canceled';
     default:
-      return 'active';
+      console.warn('[stripe-webhook] Unknown subscription status:', stripeStatus);
+      return 'incomplete';
   }
 }
 

@@ -676,8 +676,10 @@
     const DEV_DEBUG = new URLSearchParams(window.location.search).get('dev') === 'true';
     if (DEV_MODE) {
         console.log('%c[DEV MODE] All features unlocked, auth bypassed','color:#D4AF37;font-weight:bold;font-size:14px');
+        document.documentElement.style.setProperty('--wr-dev-banner-height', '18px');
         const b = document.createElement('div');
-        b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#D4AF37;color:#000;font-size:11px;font-weight:700;text-align:center;padding:3px;letter-spacing:.05em;font-family:monospace';
+        b.className = 'wr-dev-banner';
+        b.style.cssText = 'position:fixed;top:0;left:0;right:0;height:18px;box-sizing:border-box;z-index:99999;background:#D4AF37;color:#000;font-size:11px;font-weight:700;text-align:center;padding:3px;letter-spacing:.05em;font-family:monospace;line-height:12px;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
         b.textContent = IS_LOCAL ? '⚡ LOCAL DEV — bigloco auto-logged in, all features unlocked' : 'SANDBOX — changes here do not affect production';
         document.body.prepend(b);
     }

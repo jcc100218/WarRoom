@@ -101,6 +101,8 @@ const indexHtml = read('index.html');
 const onboardingSrc = read('onboarding.html');
 const leagueDetailSrc = read('js/league-detail.js');
 const dashboardSrc = read('js/tabs/dashboard.js');
+const flashBriefSrc = read('js/tabs/flash-brief.js');
+const freeAgencySrc = read('js/free-agency.js');
 const leagueHistorySrc = read('js/shared/league-history.js');
 const trophyRoomSrc = read('js/tabs/trophy-room.js');
 
@@ -189,8 +191,8 @@ group('mobile overflow');
 test('league shell clamps horizontal overflow at 390px and 430px', () => {
   sourceMatches(leagueDetailSrc, /@media\(max-width:767px\)/, 'mobile media query missing');
   sourceHas(leagueDetailSrc, 'html,body,#root{max-width:100%;overflow-x:hidden}', 'root overflow clamp missing');
-  sourceHas(leagueDetailSrc, '.wr-main-content{margin-left:0 !important;width:100% !important;max-width:100vw;overflow-x:hidden;box-sizing:border-box}', 'main content mobile clamp missing');
-  sourceHas(leagueDetailSrc, '.wr-sidebar{left:-220px !important;transform:none !important}', 'sidebar off-canvas rule missing');
+  sourceHas(leagueDetailSrc, '.wr-main-content{margin-left:0 !important;width:100% !important;max-width:100vw;overflow-x:hidden;box-sizing:border-box;padding-top:var(--wr-dev-banner-height,0px)}', 'main content mobile clamp missing');
+  sourceHas(leagueDetailSrc, '.wr-sidebar{left:-220px !important;top:var(--wr-dev-banner-height,0px) !important;transform:none !important}', 'sidebar off-canvas rule missing');
   sourceHas(leagueDetailSrc, '.wr-sidebar.open{left:0 !important}', 'sidebar open rule missing');
   for (const width of MOBILE_WIDTHS) {
     ok(width <= 767, `${width}px should exercise the mobile shell rules`);
@@ -198,7 +200,10 @@ test('league shell clamps horizontal overflow at 390px and 430px', () => {
 });
 
 test('main content no longer carries fixed desktop width on mobile', () => {
-  sourceHas(leagueDetailSrc, '<div className="wr-main-content" style={{ marginLeft: sidebarWidth + \'px\', width: \'calc(100% - \' + sidebarWidth + \'px)\' }}>', 'desktop content width source changed unexpectedly');
+  sourceHas(leagueDetailSrc, '<div className="wr-main-content" style={{', 'main content wrapper missing');
+  sourceHas(leagueDetailSrc, "width: 'calc(100vw - ' + sidebarWidth + 'px)'", 'desktop content width must be viewport-clamped');
+  sourceHas(leagueDetailSrc, "maxWidth: 'calc(100vw - ' + sidebarWidth + 'px)'", 'desktop content max-width must stay viewport-clamped');
+  sourceHas(leagueDetailSrc, "overflowX: 'hidden'", 'desktop content overflow clamp missing');
   sourceHas(leagueDetailSrc, 'margin-left:0 !important;width:100% !important;max-width:100vw', 'mobile margin override missing');
 });
 
@@ -241,6 +246,35 @@ test('dashboard widget shell defines every supported size for rows and columns',
     ok(Number.isFinite(sizeSpan[size]), `${size} missing from sizeSpan`);
     ok(Number.isFinite(rowSpan[size]), `${size} missing from rowSpan`);
   }
+});
+
+test('Intel Brief waiver card uses the Free Agency Action HQ source', () => {
+  sourceHas(freeAgencySrc, 'window.App.buildFreeAgencyActionBoard = buildFreeAgencyActionBoard;', 'shared FA board helper missing');
+  sourceHas(freeAgencySrc, 'window.App.getFreeAgencyBriefTarget', 'brief target helper missing');
+  sourceHas(freeAgencySrc, '(scores[pid] || 0) > 0', 'shared FA board must not recommend unvalued candidates');
+  sourceHas(flashBriefSrc, 'window.App.getFreeAgencyBriefTarget({', 'Intel Brief must use shared FA target');
+  sourceHas(flashBriefSrc, 'if (hasActionTargetHelper) return null;', 'Intel Brief must not fall back to stale waiver logic while shared helper is available');
+  sourceHas(dashboardSrc, 'statsData,', 'dashboard must pass current stats into Intel Brief');
+  sourceHas(dashboardSrc, 'timeRecomputeTs,', 'dashboard must pass recompute timestamp into Intel Brief');
+  sourceHas(leagueDetailSrc, 'statsData={statsData}', 'league detail must pass stats into dashboard');
+  sourceHas(leagueDetailSrc, 'timeRecomputeTs={timeRecomputeTs}', 'league detail must pass recompute timestamp into dashboard');
+});
+
+test('draft FantasyCalc value request is allowed by app CSP', () => {
+  sourceHas(indexHtml, 'https://api.fantasycalc.com', 'FantasyCalc API must be present in connect-src');
+  sourceHas(read('js/draft-room.js'), 'https://api.fantasycalc.com/values/current', 'draft room FantasyCalc fetch missing');
+});
+
+test('first-run tutorial waits for Home instead of interrupting navigated workflows', () => {
+  sourceHas(leagueDetailSrc, "hashTab !== 'dashboard'", 'tutorial must bail if user has left Home');
+  sourceHas(leagueDetailSrc, 'window.shouldShowWRTutorial', 'tutorial should respect shouldShow before start');
+});
+
+test('empty Field Notes defaults to compact decision-log utility', () => {
+  sourceHas(leagueDetailSrc, "{ id: 'dw1', key: 'field-notes',        size: 'slim' }", 'default Field Notes widget should be compact');
+  sourceHas(leagueDetailSrc, "w.key === 'field-notes' && w.id === 'dw1' && w.size === 'narrow'", 'old default Field Notes layouts should migrate compact');
+  sourceHas(flashBriefSrc, 'No decisions logged yet', 'empty Field Notes should explain decision log state');
+  sourceHas(flashBriefSrc, 'OPEN GM OFFICE', 'empty Field Notes should offer an action');
 });
 
 group('league-scoped history');

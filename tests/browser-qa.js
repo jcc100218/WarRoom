@@ -158,8 +158,57 @@ async function main() {
 
     const page = await context.newPage();
     await page.setViewportSize({ width: 390, height: 900 });
+    await page.addInitScript(() => localStorage.setItem('wr_tutorial_done_v1', '1'));
     await page.goto(`http://127.0.0.1:${port}${BASE_PATH}?dev=true&user=${USER}#league=${LEAGUE_ID}&tab=dashboard`, { waitUntil: 'domcontentloaded', timeout: 12000 });
     await page.waitForTimeout(700);
+
+    const hamburger = page.locator('.wr-hamburger');
+    if (await hamburger.count() !== 1) {
+      failures.push('dashboard-shell@390: hamburger control not found');
+    } else {
+      await hamburger.click({ timeout: 4000 }).catch(err => {
+        failures.push(`dashboard-shell@390: hamburger click failed (${err.message})`);
+      });
+      await page.waitForTimeout(150);
+      const open = await page.locator('.wr-sidebar.open').count();
+      if (open !== 1) failures.push('dashboard-shell@390: hamburger did not open sidebar');
+      const overlay = page.locator('.wr-sidebar-overlay');
+      if (await overlay.count()) await overlay.click({ timeout: 4000 }).catch(() => {});
+      await page.waitForTimeout(150);
+    }
+
+    const shellSnap = await page.evaluate(() => {
+      const names = ['.wr-hamburger', '.wr-league-header-row', '.wr-time-bar', '.wr-time-mode'];
+      const rectFor = selector => {
+        const el = document.querySelector(selector);
+        if (!el) return null;
+        const rect = el.getBoundingClientRect();
+        return {
+          selector,
+          text: String(el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          top: Math.round(rect.top),
+          bottom: Math.round(rect.bottom),
+          width: Math.round(rect.width),
+        };
+      };
+      const banner = rectFor('.wr-dev-banner');
+      return {
+        banner,
+        items: names.map(rectFor).filter(Boolean),
+      };
+    });
+    shellSnap.items.forEach(item => {
+      if (item.left < -2 || item.right > 392) {
+        failures.push(`dashboard-shell@390: ${item.selector} clips viewport ${JSON.stringify(item)}`);
+      }
+    });
+    const hamburgerRect = shellSnap.items.find(item => item.selector === '.wr-hamburger');
+    if (shellSnap.banner && hamburgerRect && hamburgerRect.top < shellSnap.banner.bottom - 1) {
+      failures.push(`dashboard-shell@390: dev banner overlaps hamburger ${JSON.stringify({ banner: shellSnap.banner, hamburger: hamburgerRect })}`);
+    }
+
     const widgetSnap = await page.evaluate(() => {
       const widgets = [...document.querySelectorAll('.wr-dashboard-grid > .wr-widget')];
       return widgets.map(widget => {

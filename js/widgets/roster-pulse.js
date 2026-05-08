@@ -22,6 +22,7 @@
         const fonts = theme.fonts || {};
         const cardStyle = window.WrTheme?.cardStyle?.() || {};
         const fs = (rem) => window.WrTheme?.fontSize?.(rem) || (rem + 'rem');
+        const rosterState = window.App?.getRosterDataState?.({ roster: myRoster, currentLeague, rosters: currentLeague?.rosters }) || { isUsable: true };
 
         // ── Data ────────────────────────────────────────────────
         const assess = React.useMemo(() => {
@@ -94,6 +95,17 @@
                 col: g.grade === 'A' ? colors.positive : g.grade === 'B' ? colors.accent : (g.grade === 'C' || g.grade === 'D') ? colors.warn : colors.negative,
             }));
         }, [assess, currentLeague, myRoster, playersData]);
+
+        if (!rosterState.isUsable) {
+            return window.App?.renderRosterDataBlocker?.(rosterState, {
+                title: size === 'sm' ? 'Sync' : 'Roster Pulse paused',
+                compact: size === 'sm' || size === 'md',
+                fill: true,
+                actionLabel: size === 'sm' ? null : 'Open Roster',
+                onAction: openMyRoster,
+                style: { cursor: size === 'sm' || size === 'md' ? 'pointer' : 'default' },
+            });
+        }
 
         // ── SM (1×1) ─────────────────────────────────────────────
         if (size === 'sm') {

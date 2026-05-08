@@ -33,6 +33,173 @@
         full:    Object.keys(FA_COLUMNS),
     };
 
+    function buildFreeAgencyActionBoard(args = {}) {
+        const playersData = args.playersData || {};
+        const statsData = args.statsData || {};
+        const prevStatsData = args.prevStatsData || {};
+        const myRoster = args.myRoster || null;
+        const currentLeague = args.currentLeague || {};
+        const briefDraftInfo = args.briefDraftInfo || null;
+        const rosterState = args.rosterState || window.App?.getRosterDataState?.({ roster: myRoster, currentLeague, rosters: currentLeague?.rosters }) || { isUsable: true };
+        if (!rosterState.isUsable) return { priorityAdds: [], actionBoardPlayers: [] };
+
+        const normPos = window.App?.normPos || (p => p);
+        const scores = window.App?.LI?.playerScores || {};
+        const assess = typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal(myRoster?.roster_id) : null;
+        const rosterPositions = currentLeague?.roster_positions || [];
+        const scoring = currentLeague?.scoring_settings || {};
+        const budget = currentLeague?.settings?.waiver_budget || myRoster?.settings?.waiver_budget || 0;
+        const spent = myRoster?.settings?.waiver_budget_used || 0;
+        const remaining = Math.max(0, budget - spent);
+        const hasFAAB = budget > 0;
+        const faabMinBid = currentLeague?.settings?.waiver_budget_min ?? 0;
+        const teamTier = assess?.tier || '';
+        const teamWindow = assess?.window || '';
+        const isRebuilding = teamTier === 'REBUILDING' || teamWindow === 'REBUILDING';
+        const isContending = teamTier === 'ELITE' || teamTier === 'CONTENDER' || teamWindow === 'CONTENDING';
+        const isSuperFlex = rosterPositions.includes('SUPER_FLEX');
+        const isTEP = (scoring.bonus_rec_te || scoring.rec_te || 0) > 0;
+        const peaks = window.App?.peakWindows || {};
+        const normName = (s) => (s || '').toLowerCase().replace(/[''`.]/g, '').replace(/\s+(jr\.?|sr\.?|ii|iii|iv)$/, '').replace(/\s+/g, ' ').trim();
+        const hasUpcomingRookieDraft = briefDraftInfo?.status === 'pre_draft'
+            || (window.S?.drafts || []).some(d => d?.status === 'pre_draft');
+        const prospectNames = hasUpcomingRookieDraft && typeof window.getProspects === 'function'
+            ? new Set((window.getProspects() || []).map(p => normName(p.name)).filter(Boolean))
+            : new Set();
+
+        function calcRawPtsFor(s) {
+            return typeof window.App?.calcRawPts === 'function' ? window.App.calcRawPts(s, scoring) : 0;
+        }
+        function isDraftProspect(pid, p) {
+            if (!hasUpcomingRookieDraft || !p) return false;
+            const name = normName(p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim());
+            if (prospectNames.has(name)) return true;
+            const exp = Number(p.years_exp || 0);
+            const hasNflStats = (statsData?.[pid]?.gp || 0) > 0 || ((prevStatsData || {})[pid]?.gp || 0) > 0;
+            return exp === 0 && !!p.college && !hasNflStats;
+        }
+        function playerName(p) {
+            return p?.full_name || ((p?.first_name || '') + ' ' + (p?.last_name || '')).trim() || 'Unknown';
+        }
+        function seasonPpgFor(pid) {
+            const st = statsData[pid] || {};
+            const prevSt = (prevStatsData || {})[pid] || {};
+            if (st.gp > 0) return +(calcRawPtsFor(st) / st.gp).toFixed(1);
+            if (prevSt.gp > 0) return +(calcRawPtsFor(prevSt) / prevSt.gp).toFixed(1);
+            return 0;
+        }
+        function ageCurveFor(pos) {
+            return typeof window.App?.getAgeCurve === 'function'
+                ? window.App.getAgeCurve(pos)
+                : { build: [22, 24], peak: peaks[pos] || [24, 29], decline: [30, 32] };
+        }
+        function peakYearsFor(pos, age) {
+            const curve = ageCurveFor(pos);
+            return Math.max(0, curve.peak[1] - (age || 25));
+        }
+        function valueYearsFor(pos, age) {
+            const curve = ageCurveFor(pos);
+            return Math.max(0, curve.decline[1] - (age || 25));
+        }
+        function windowRead(pos, age) {
+            const peakYrs = peakYearsFor(pos, age);
+            const valueYrs = valueYearsFor(pos, age);
+            if (peakYrs >= 4) return { label: peakYrs + 'yr peak', short: 'Rising', color: '#2ECC71', peakYrs, valueYrs };
+            if (peakYrs >= 1) return { label: peakYrs + 'yr peak', short: 'Prime', color: 'var(--gold)', peakYrs, valueYrs };
+            if (valueYrs >= 1) return { label: valueYrs + 'yr value', short: 'Vet', color: '#F0A500', peakYrs, valueYrs };
+            return { label: 'short term', short: 'Post', color: '#E74C3C', peakYrs, valueYrs };
+        }
+        function fitRead(pos) {
+            const need = assess?.needs?.find(n => n.pos === pos);
+            if (need?.urgency === 'deficit') return { label: 'Fills deficit', short: 'Deficit', score: 4, color: '#2ECC71', need };
+            if (need) return { label: 'Fills thin room', short: 'Thin', score: 3, color: '#2ECC71', need };
+            if (assess?.strengths?.includes(pos)) return { label: 'Surplus stash', short: 'Stash', score: 1, color: 'var(--silver)', need: null };
+            return { label: 'Depth add', short: 'Depth', score: 2, color: 'var(--silver)', need: null };
+        }
+        function getScarcityMultiplier(pos) {
+            let mult = 1.0;
+            if (isSuperFlex && pos === 'QB') mult = 1.8;
+            if (isTEP && pos === 'TE') mult = 1.5;
+            const rbSlots = rosterPositions.filter(s => s === 'RB').length;
+            if (pos === 'RB' && rbSlots >= 2) mult = Math.max(mult, 1.3);
+            return mult;
+        }
+        function faabSuggest(dhq, pos, playerAge) {
+            if (!hasFAAB || dhq <= 0) return null;
+            if (dhq < 500) return null;
+            if (isRebuilding && (playerAge || 30) > 25 && dhq < 2000) return null;
+            const floor = faabMinBid || 1;
+            const base = Math.round((dhq / 250) * getScarcityMultiplier(pos));
+            const cap = Math.round(remaining * 0.15);
+            const modeMultiplier = isRebuilding ? 0.6 : isContending ? 1.2 : 1.0;
+            const sug = Math.max(floor, Math.min(cap, Math.round(base * modeMultiplier)));
+            const lo = Math.max(floor, Math.round(sug * 0.7));
+            const hi = Math.min(remaining, Math.round(sug * 1.4));
+            return { sug, lo, hi, scarcity: getScarcityMultiplier(pos), modeMultiplier };
+        }
+        function decorateFaCandidate(x) {
+            const pos = x.pos || normPos(x.p?.position) || x.p?.position || '';
+            const ppg = x.ppg != null ? x.ppg : seasonPpgFor(x.pid);
+            const win = windowRead(pos, x.p?.age);
+            const fit = fitRead(pos);
+            const faab = x.faab || faabSuggest(x.dhq, pos, x.p?.age);
+            const why = fit.need
+                ? 'Addresses your ' + pos + ' ' + fit.need.urgency + ' and keeps the bid in a controlled range.'
+                : win.peakYrs > 0
+                    ? 'Adds usable dynasty runway without forcing a major FAAB commitment.'
+                    : 'Short-window depth. Treat as a tactical add, not a core asset.';
+            return { ...x, name: playerName(x.p), pos, ppg, faab, fit, fitScore: fit.score, peakYrs: win.peakYrs, valueYrs: win.valueYrs, windowLabel: win.label, windowShort: win.short, windowColor: win.color, why };
+        }
+
+        const rostered = new Set();
+        (currentLeague?.rosters || []).forEach(r => (r.players || []).concat(r.taxi || [], r.reserve || []).forEach(pid => rostered.add(String(pid))));
+        const availablePlayers = Object.entries(playersData || {})
+            .filter(([pid, p]) => !rostered.has(pid) && p.team && p.status !== 'Inactive' && p.status !== 'Retired' && p.active !== false && (scores[pid] || 0) > 0 && !isDraftProspect(pid, p))
+            .map(([pid, p]) => ({ pid, p, dhq: scores[pid] || 0, pos: normPos(p.position) || p.position }))
+            .sort((a, b) => b.dhq - a.dhq)
+            .slice(0, 300);
+
+        const needPositions = (assess?.needs || []).slice(0, 3).map(n => n.pos).filter(Boolean);
+        let recommendations = [];
+        if (needPositions.length) {
+            const bestAvailDhq = availablePlayers
+                .filter(x => needPositions.includes(x.pos))
+                .reduce((m, x) => Math.max(m, x.dhq), 0);
+            const dynamicFloor = Math.min(500, Math.max(100, Math.round(bestAvailDhq * 0.25)));
+            recommendations = availablePlayers
+                .filter(x => {
+                    if (!needPositions.includes(x.pos)) return false;
+                    if (x.dhq < dynamicFloor) return false;
+                    if (isRebuilding && (x.p.age || 30) > 25 && x.dhq < 2000) return false;
+                    return true;
+                })
+                .slice(0, 8)
+                .map(x => {
+                    const st = statsData[x.pid] || {};
+                    const ppg = st.gp > 0 ? +(calcRawPtsFor(st) / st.gp).toFixed(1) : 0;
+                    if (ppg > 0 && ppg < 5.0 && (st.gp || 0) >= 6) return null;
+                    const need = assess?.needs?.find(n => n.pos === x.pos);
+                    return { ...x, ppg, need, peakYrs: peakYearsFor(x.pos, x.p.age), valueYrs: valueYearsFor(x.pos, x.p.age), faab: faabSuggest(x.dhq, x.pos, x.p.age) };
+                })
+                .filter(Boolean);
+        }
+
+        const actionBoardPlayers = availablePlayers
+            .map(decorateFaCandidate)
+            .sort((a, b) => (b.fitScore * 5000 + b.dhq + (b.ppg || 0) * 35) - (a.fitScore * 5000 + a.dhq + (a.ppg || 0) * 35));
+        const priorityAdds = (recommendations.length ? recommendations : actionBoardPlayers)
+            .map(decorateFaCandidate)
+            .sort((a, b) => (b.fitScore * 5000 + b.dhq) - (a.fitScore * 5000 + a.dhq))
+            .slice(0, 5);
+        return { priorityAdds, actionBoardPlayers, availablePlayers };
+    }
+
+    window.App = window.App || {};
+    window.App.buildFreeAgencyActionBoard = buildFreeAgencyActionBoard;
+    window.App.getFreeAgencyBriefTarget = function getFreeAgencyBriefTarget(args) {
+        return buildFreeAgencyActionBoard(args).priorityAdds[0] || null;
+    };
+
     function FreeAgencyTab({ playersData, statsData, prevStatsData, myRoster, currentLeague, sleeperUserId, timeRecomputeTs, viewMode, briefDraftInfo }) {
         const [faTargets, setFaTargets] = useState([]);
         const [faFilter, setFaFilter] = useState('');
@@ -62,6 +229,7 @@
         const normPos = window.App.normPos;
         const calcRawPts = (s) => window.App.calcRawPts(s, currentLeague?.scoring_settings);
         const normName = (s) => (s || '').toLowerCase().replace(/[''`.]/g, '').replace(/\s+(jr\.?|sr\.?|ii|iii|iv)$/, '').replace(/\s+/g, ' ').trim();
+        const rosterState = window.App?.getRosterDataState?.({ roster: myRoster, currentLeague, rosters: currentLeague?.rosters }) || { isUsable: true };
         const hasUpcomingRookieDraft = briefDraftInfo?.status === 'pre_draft'
             || (window.S?.drafts || []).some(d => d?.status === 'pre_draft');
         const prospectNames = useMemo(() => {
@@ -94,12 +262,13 @@
         }, [currentLeague]);
 
         const availablePlayers = useMemo(() => {
+            if (!rosterState.isUsable) return [];
             return Object.entries(playersData)
                 .filter(([pid, p]) => !rostered.has(pid) && p.team && p.status !== 'Inactive' && p.status !== 'Retired' && p.active !== false && !isDraftProspect(pid, p))
                 .map(([pid, p]) => ({ pid, p, dhq: window.App?.LI?.playerScores?.[pid] || 0, pos: normPos(p.position) || p.position }))
                 .sort((a, b) => b.dhq - a.dhq)
                 .slice(0, 300);
-        }, [playersData, rostered, timeRecomputeTs, isDraftProspect]);
+        }, [rosterState.isUsable, playersData, rostered, timeRecomputeTs, isDraftProspect]);
 
         const posColors = window.App.POS_COLORS;
         const faPosOrder = { QB:0, RB:1, WR:2, TE:3, K:4, DL:5, LB:6, DB:7 };
@@ -242,6 +411,7 @@
 
         // Top recommendations at weak positions — with quality + mode filtering
         const recommendations = useMemo(() => {
+            if (!rosterState.isUsable) return [];
             if (!assess?.needs?.length) return [];
             const needPositions = assess.needs.slice(0, 3).map(n => n.pos);
 
@@ -275,7 +445,7 @@
 	                    return { ...x, ppg, need, peakYrs, valueYrs, faab };
                 })
                 .filter(Boolean);
-        }, [availablePlayers, assess, statsData]);
+        }, [rosterState.isUsable, availablePlayers, assess, statsData]);
 
         // Selected player detail
         const selPlayer = faSelectedPid ? playersData[faSelectedPid] : null;
@@ -598,6 +768,32 @@
                 </section>
             );
         }
+
+        function renderRosterSyncBlocker() {
+            return (
+                <div className="fa-page wr-fade-in">
+                    <div className="wr-module-strip">
+                        <div className="wr-module-context">
+                            <span>Waivers</span>
+                            <strong>Action HQ paused</strong>
+                            <em>Roster-fit targeting is paused until the league roster data is complete.</em>
+                        </div>
+                        <div className="wr-module-actions">
+                            <span className="wr-module-pill">Sync Required</span>
+                        </div>
+                    </div>
+                    {window.App?.renderRosterDataBlocker?.(rosterState, {
+                        title: 'Free Agency paused',
+                        message: 'Waiver rankings are hidden until roster IDs finish loading.',
+                        detail: rosterState.detail,
+                        actionLabel: 'Refresh Data',
+                        style: { minHeight: '220px' },
+                    })}
+                </div>
+            );
+        }
+
+        if (!rosterState.isUsable) return renderRosterSyncBlocker();
 
         // ── COMMAND VIEW: shared Action HQ, without the deep market table ──
         if (viewMode === 'command') {

@@ -91,7 +91,8 @@ test('Supabase deploy workflow ships tutorial state backend', () => {
     '20260503010000_tutorial_state.sql',
     'deno check --node-modules-dir=auto "$fn"',
     'supabase functions deploy fw-profile',
-    'SUPABASE_ACCESS_TOKEN !=',
+    'if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then',
+    'SUPABASE_ACCESS_TOKEN repo secret is required',
   ], 'deploy workflow');
 });
 

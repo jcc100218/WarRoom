@@ -509,7 +509,7 @@
       try {
         const db = getSbClient();
         if (!db || !eventName) return;
-        db.from('analytics_events').upsert([{
+        db.from('analytics_events').insert([{
           event_id: 'evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10),
           username: null,
           league_id: null,
@@ -522,7 +522,7 @@
           entity_type: metadata.entityType || null,
           entity_id: metadata.entityId || null,
           metadata: safeLandingMeta(metadata),
-        }], { onConflict: 'event_id' }).then(() => {}).catch(() => {});
+        }]).then(() => {}).catch(() => {});
       } catch {}
     }
     trackLandingEvent('landing_viewed', {

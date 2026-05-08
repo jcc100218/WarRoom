@@ -10,6 +10,7 @@ const RECON_ROOT = path.resolve(ROOT, '..', 'reconai');
 const fn = read(ROOT, 'supabase/functions/admin-analytics-report/index.ts');
 const admin = read(ROOT, 'admin.html');
 const landing = read(ROOT, 'landing.html');
+const permissionHardening = read(ROOT, 'supabase/migrations/20260508000000_supabase_permission_hardening.sql');
 const rollup = [
   read(RECON_ROOT, 'supabase/migrations/016_analytics_rollups.sql'),
   read(ROOT, 'supabase/migrations/20260503020000_ai_margin_rollups.sql'),
@@ -89,6 +90,7 @@ test('landing page tracks signup/signin funnel without sending email or password
     'safeLandingMeta',
   ].forEach(fragment => ok(landing.includes(fragment), `missing ${fragment}`));
   ok(/email\|password\|token\|secret/.test(landing), 'landing metadata denylist missing');
+  ok(landing.includes("db.from('analytics_events').insert"), 'landing should use insert-only analytics writes');
 });
 
 test('shared client supports anonymous funnel flushes and Sentry error correlation', () => {
@@ -114,6 +116,13 @@ test('database rollup stays service-role only', () => {
     "'ai_call_failed'",
     "'errors'",
   ].forEach(fragment => ok(rollup.includes(fragment), `missing ${fragment}`));
+});
+
+test('anonymous analytics collection has an explicit insert-only grant', () => {
+  [
+    'revoke all on table public.analytics_events from anon, authenticated',
+    'grant insert on table public.analytics_events to anon, authenticated',
+  ].forEach(fragment => ok(permissionHardening.includes(fragment), `missing ${fragment}`));
 });
 
 console.log('\n');

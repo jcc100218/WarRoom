@@ -47,6 +47,7 @@ jobs:
               '20260503000000': 'supabase/migrations/20260503000000_ai_usage_controls.sql',
               '20260503010000': 'supabase/migrations/20260503010000_tutorial_state.sql',
               '20260503020000': 'supabase/migrations/20260503020000_ai_margin_rollups.sql',
+              '20260508000000': 'supabase/migrations/20260508000000_supabase_permission_hardening.sql',
           }
 
           for path in expected.values():

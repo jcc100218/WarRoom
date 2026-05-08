@@ -7,6 +7,7 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const migration = read('supabase/migrations/20260502020000_security_baseline.sql');
+const permissionHardening = read('supabase/migrations/20260508000000_supabase_permission_hardening.sql');
 const shared = read('supabase/functions/_shared/security.ts');
 const signin = read('supabase/functions/fw-signin/index.ts');
 const signup = read('supabase/functions/fw-signup/index.ts');
@@ -77,6 +78,19 @@ test('security tables deny all browser access via RLS', () => {
     'password_reset_tokens_deny_all',
     'app_user_roles_deny_all',
   ].forEach(policy => ok(migration.includes(policy), `missing ${policy}`));
+});
+
+test('production permission hardening keeps server-only RPCs off browser roles', () => {
+  hasEvery(permissionHardening, [
+    'grant insert on table public.analytics_events to anon, authenticated',
+    'revoke execute on function public.add_ai_tokens_used(text, integer)',
+    'grant execute on function public.add_ai_tokens_used(text, integer) to service_role',
+    'alter function public.add_ai_tokens_used(text, integer) set search_path = public',
+    'revoke execute on function public.increment_app_user_session_version(uuid)',
+    'grant execute on function public.increment_app_user_session_version(uuid) to service_role',
+    'alter function public.increment_app_user_session_version(uuid) set search_path = public',
+  ], 'permission hardening');
+  ok(permissionHardening.includes('from public, anon, authenticated'), 'server-only RPCs must revoke browser role execution');
 });
 
 group('shared helper');

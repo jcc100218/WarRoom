@@ -32,6 +32,79 @@
         bidding: ['pos','team','dhq','ppg','faab','fit','injury'],
         full:    Object.keys(FA_COLUMNS),
     };
+    const ROOKIE_DRAFT_LOCK_STATUSES = new Set(['pre_draft', 'drafting']);
+    const ROOKIE_DHQ_SOURCES = new Set(['FC_ROOKIE', 'PROSPECT_ROOKIE']);
+
+    function faNormName(s) {
+        return (s || '').toLowerCase().replace(/[''`.]/g, '').replace(/\s+(jr\.?|sr\.?|ii|iii|iv)$/, '').replace(/\s+/g, ' ').trim();
+    }
+
+    function collectFaDrafts(currentLeague, briefDraftInfo) {
+        const byId = new Map();
+        const add = (draft) => {
+            if (!draft || typeof draft !== 'object') return;
+            const key = draft.draft_id || draft.id || `${draft.season || ''}-${draft.status || ''}-${draft.start_time || ''}`;
+            byId.set(key, draft);
+        };
+        add(briefDraftInfo);
+        (window.S?.drafts || []).forEach(add);
+        (currentLeague?.drafts || []).forEach(add);
+        return [...byId.values()];
+    }
+
+    function isDynastyLeague(currentLeague) {
+        const settingsType = Number(currentLeague?.settings?.type);
+        if (settingsType === 2) return true;
+        const text = [
+            currentLeague?.type,
+            currentLeague?.metadata?.type,
+            currentLeague?.metadata?.league_type,
+            currentLeague?.metadata?.draft_type,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return text.includes('dynasty');
+    }
+
+    function isRookieDraftLike(draft, currentLeague) {
+        if (!draft) return false;
+        const playerType = String(draft.settings?.player_type ?? draft.metadata?.player_type ?? '').toLowerCase();
+        if (playerType === '1' || playerType === 'rookie' || playerType === 'rookies') return true;
+        const descr = [
+            draft.metadata?.description,
+            draft.metadata?.name,
+            draft.metadata?.draft_name,
+            draft.type,
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (/\brookie\b|\brookies\b|\bsupplemental\b|\bcollege\b/.test(descr)) return true;
+        const rounds = Number(draft.settings?.rounds || 0);
+        return isDynastyLeague(currentLeague) && rounds > 0 && rounds <= 8;
+    }
+
+    function sameDraftSeason(draft, currentLeague) {
+        const leagueSeason = currentLeague?.season;
+        if (!leagueSeason || !draft?.season) return true;
+        return String(draft.season) === String(leagueSeason);
+    }
+
+    function rookiesLockedForWaivers(currentLeague, briefDraftInfo) {
+        const drafts = collectFaDrafts(currentLeague, briefDraftInfo).filter(d => sameDraftSeason(d, currentLeague));
+        const rookieDrafts = drafts.filter(d => isRookieDraftLike(d, currentLeague));
+        if (rookieDrafts.some(d => d.status === 'complete')) return false;
+        if (rookieDrafts.some(d => ROOKIE_DRAFT_LOCK_STATUSES.has(d.status))) return true;
+        return isDynastyLeague(currentLeague)
+            && currentLeague?.status === 'pre_draft'
+            && !rookieDrafts.some(d => d.status === 'complete');
+    }
+
+    function isRookieWaiverLockedCandidate(pid, p, { rookiesLocked, prospectNames, statsData, prevStatsData }) {
+        if (!rookiesLocked || !p) return false;
+        const source = window.App?.LI?.playerMeta?.[pid]?.source;
+        if (ROOKIE_DHQ_SOURCES.has(source)) return true;
+        const name = faNormName(p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim());
+        if (prospectNames?.has?.(name)) return true;
+        const exp = Number(p.years_exp || 0);
+        const hasNflStats = (statsData?.[pid]?.gp || 0) > 0 || ((prevStatsData || {})[pid]?.gp || 0) > 0;
+        return exp === 0 && !hasNflStats;
+    }
 
     function buildFreeAgencyActionBoard(args = {}) {
         const playersData = args.playersData || {};
@@ -60,24 +133,15 @@
         const isSuperFlex = rosterPositions.includes('SUPER_FLEX');
         const isTEP = (scoring.bonus_rec_te || scoring.rec_te || 0) > 0;
         const peaks = window.App?.peakWindows || {};
-        const normName = (s) => (s || '').toLowerCase().replace(/[''`.]/g, '').replace(/\s+(jr\.?|sr\.?|ii|iii|iv)$/, '').replace(/\s+/g, ' ').trim();
-        const hasUpcomingRookieDraft = briefDraftInfo?.status === 'pre_draft'
-            || (window.S?.drafts || []).some(d => d?.status === 'pre_draft');
-        const prospectNames = hasUpcomingRookieDraft && typeof window.getProspects === 'function'
-            ? new Set((window.getProspects() || []).map(p => normName(p.name)).filter(Boolean))
+        const rookiesLocked = rookiesLockedForWaivers(currentLeague, briefDraftInfo);
+        const prospectNames = rookiesLocked && typeof window.getProspects === 'function'
+            ? new Set((window.getProspects() || []).map(p => faNormName(p.name)).filter(Boolean))
             : new Set();
 
         function calcRawPtsFor(s) {
             return typeof window.App?.calcRawPts === 'function' ? window.App.calcRawPts(s, scoring) : 0;
         }
-        function isDraftProspect(pid, p) {
-            if (!hasUpcomingRookieDraft || !p) return false;
-            const name = normName(p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim());
-            if (prospectNames.has(name)) return true;
-            const exp = Number(p.years_exp || 0);
-            const hasNflStats = (statsData?.[pid]?.gp || 0) > 0 || ((prevStatsData || {})[pid]?.gp || 0) > 0;
-            return exp === 0 && !!p.college && !hasNflStats;
-        }
+        const isDraftProspect = (pid, p) => isRookieWaiverLockedCandidate(pid, p, { rookiesLocked, prospectNames, statsData, prevStatsData });
         function playerName(p) {
             return p?.full_name || ((p?.first_name || '') + ' ' + (p?.last_name || '')).trim() || 'Unknown';
         }
@@ -195,6 +259,7 @@
     }
 
     window.App = window.App || {};
+    window.App.rookiesLockedForWaivers = rookiesLockedForWaivers;
     window.App.buildFreeAgencyActionBoard = buildFreeAgencyActionBoard;
     window.App.getFreeAgencyBriefTarget = function getFreeAgencyBriefTarget(args) {
         return buildFreeAgencyActionBoard(args).priorityAdds[0] || null;
@@ -228,22 +293,15 @@
 
         const normPos = window.App.normPos;
         const calcRawPts = (s) => window.App.calcRawPts(s, currentLeague?.scoring_settings);
-        const normName = (s) => (s || '').toLowerCase().replace(/[''`.]/g, '').replace(/\s+(jr\.?|sr\.?|ii|iii|iv)$/, '').replace(/\s+/g, ' ').trim();
         const rosterState = window.App?.getRosterDataState?.({ roster: myRoster, currentLeague, rosters: currentLeague?.rosters }) || { isUsable: true };
-        const hasUpcomingRookieDraft = briefDraftInfo?.status === 'pre_draft'
-            || (window.S?.drafts || []).some(d => d?.status === 'pre_draft');
+        const rookiesLocked = rookiesLockedForWaivers(currentLeague, briefDraftInfo);
         const prospectNames = useMemo(() => {
-            if (!hasUpcomingRookieDraft || typeof window.getProspects !== 'function') return new Set();
-            return new Set((window.getProspects() || []).map(p => normName(p.name)).filter(Boolean));
-        }, [hasUpcomingRookieDraft, timeRecomputeTs]);
+            if (!rookiesLocked || typeof window.getProspects !== 'function') return new Set();
+            return new Set((window.getProspects() || []).map(p => faNormName(p.name)).filter(Boolean));
+        }, [rookiesLocked, timeRecomputeTs]);
         const isDraftProspect = useCallback((pid, p) => {
-            if (!hasUpcomingRookieDraft || !p) return false;
-            const name = normName(p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim());
-            if (prospectNames.has(name)) return true;
-            const exp = Number(p.years_exp || 0);
-            const hasNflStats = (statsData?.[pid]?.gp || 0) > 0 || ((prevStatsData || {})[pid]?.gp || 0) > 0;
-            return exp === 0 && !!p.college && !hasNflStats;
-        }, [hasUpcomingRookieDraft, prospectNames, statsData, prevStatsData]);
+            return isRookieWaiverLockedCandidate(pid, p, { rookiesLocked, prospectNames, statsData, prevStatsData });
+        }, [rookiesLocked, prospectNames, statsData, prevStatsData]);
 
         // Load FA targets from Supabase/localStorage
         useEffect(() => {

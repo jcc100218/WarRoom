@@ -252,6 +252,10 @@ test('Intel Brief waiver card uses the Free Agency Action HQ source', () => {
   sourceHas(freeAgencySrc, 'window.App.buildFreeAgencyActionBoard = buildFreeAgencyActionBoard;', 'shared FA board helper missing');
   sourceHas(freeAgencySrc, 'window.App.getFreeAgencyBriefTarget', 'brief target helper missing');
   sourceHas(freeAgencySrc, '(scores[pid] || 0) > 0', 'shared FA board must not recommend unvalued candidates');
+  sourceHas(freeAgencySrc, "const ROOKIE_DRAFT_LOCK_STATUSES = new Set(['pre_draft', 'drafting']);", 'shared FA board must treat upcoming/live rookie drafts as waiver-locked');
+  sourceHas(freeAgencySrc, 'window.App.rookiesLockedForWaivers = rookiesLockedForWaivers;', 'rookie waiver lock helper must be exposed for brief/FA consistency');
+  sourceHas(freeAgencySrc, 'ROOKIE_DHQ_SOURCES.has(source)', 'shared FA board must filter DHQ-valued rookies while rookie waivers are locked');
+  sourceHas(freeAgencySrc, 'rookiesLockedForWaivers(currentLeague, briefDraftInfo)', 'shared FA board must use league draft lock state');
   sourceHas(flashBriefSrc, 'window.App.getFreeAgencyBriefTarget({', 'Intel Brief must use shared FA target');
   sourceHas(flashBriefSrc, 'if (hasActionTargetHelper) return null;', 'Intel Brief must not fall back to stale waiver logic while shared helper is available');
   sourceHas(dashboardSrc, 'statsData,', 'dashboard must pass current stats into Intel Brief');

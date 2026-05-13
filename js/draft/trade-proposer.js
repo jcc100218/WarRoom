@@ -86,7 +86,7 @@
                     // Bonus if our give aligns with a sell-forward mode (rebuild wanting picks, win-now wanting vets)
                     const diffPct = theirGiveDHQ > 0 ? (myGiveDHQ - theirGiveDHQ) / theirGiveDHQ : 0;
                     const modeDelta = Math.round(((fyb - 1) * 3) + ((vp - 1) * 3) + diffPct * 2);
-                    likelihood = Math.max(3, Math.min(95, baseLikelihood + modeDelta));
+                    likelihood = Math.max(5, Math.min(95, baseLikelihood + modeDelta));
                 }
             } catch (_) { /* silent — fall back to base likelihood */ }
             const grade = helpers.fairnessGrade(myGiveDHQ, theirGiveDHQ);

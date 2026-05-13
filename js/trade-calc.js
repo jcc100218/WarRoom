@@ -25,11 +25,11 @@
 
         const DNA_TYPES = {
             NONE: { label: '— Not Set —', color: 'var(--silver)', desc: '', taxes: [] },
-            FLEECER: { label: 'The Fleecer', color: '#E74C3C', desc: 'High activity, always hunting asymmetric value. Sends lowball offers constantly. Sharp but impatient — will counter-offer if you decline.', strategy: 'Counter with slightly above-fair value. They respect boldness. Never show urgency.', taxes: ['Endowment Effect +15%', 'Expects to "win" the trade'], multiplier: 0.85 },
-            DOMINATOR: { label: 'The Dominator', color: '#E67E22', desc: 'High ego, requires a perceived +30% margin to pull the trigger. Motivated by status and bragging rights above all else.', strategy: 'Frame your offer as giving them the "better" side. Let them feel like they won.', taxes: ['Ego Premium +30%', 'Needs to feel superior', 'Grudge Tax if rejected'], multiplier: 0.75 },
-            STALWART: { label: 'The Stalwart', color: '#5DADE2', desc: 'High stability, prefers 1-for-1 lateral moves. Emotionally attached to their roster. Slow to move but reliable when they engage.', strategy: 'Lead with fair value. Never low-ball. Highlight how the trade improves both sides equally.', taxes: ['Desire Tax on fan favorites', 'Prefers even-up deals'], multiplier: 1.0 },
-            ACCEPTOR: { label: 'The Acceptor', color: '#2ECC71', desc: 'Low attachment, willing to sell current assets for future picks and young players. Rebuilding or just indifferent.', strategy: 'Offer future assets (picks, young upside). They discount current stars — exploit it.', taxes: ['Future Asset Bonus +20%', 'Discounts veterans -15%'], multiplier: 1.15 },
-            DESPERATE: { label: 'The Desperate', color: '#BB8FCE', desc: 'High urgency triggered by injuries, bye-weeks, or playoff push. Will massively overpay for an immediate starter.', strategy: 'Identify their empty slot or injury. Strike fast — desperation fades after their bye.', taxes: ['Panic Multiplier up to +40%', 'Time-sensitive window'], multiplier: 1.3 },
+            FLEECER: { label: 'The Fleecer', color: '#E74C3C', desc: 'High activity, always hunting asymmetric value. Sends lowball offers constantly. Sharp but impatient — will counter-offer if you decline.', strategy: 'Lead with clean surplus. They respect boldness, but the math still moves linearly.', taxes: ['Endowment -5 pts', 'Surplus hunter'] },
+            DOMINATOR: { label: 'The Dominator', color: '#E67E22', desc: 'High ego, requires visible surplus to pull the trigger. Motivated by status and bragging rights above all else.', strategy: 'Frame your offer as giving them the "better" side. Let them feel like they won.', taxes: ['Status Tax -18', 'Endowment -14', 'Loss Aversion -8'] },
+            STALWART: { label: 'The Stalwart', color: '#5DADE2', desc: 'High stability, emotionally attached to their roster. Slow to move but reliable when they engage.', strategy: 'Lead with clear value. Never low-ball. Highlight how the trade improves both sides.', taxes: ['Endowment -10', 'Loss Aversion -8'] },
+            ACCEPTOR: { label: 'The Acceptor', color: '#2ECC71', desc: 'Low attachment, willing to sell current assets for future picks and young players. Rebuilding or just indifferent.', strategy: 'Offer future assets (picks, young upside). They discount current stars through the tax layer.', taxes: ['Rebuilding Discount +10', 'Endowment -3'] },
+            DESPERATE: { label: 'The Desperate', color: '#BB8FCE', desc: 'High urgency triggered by injuries, bye-weeks, or playoff push. Will overpay for an immediate starter.', strategy: 'Identify their empty slot or injury. Strike fast — desperation fades after their bye.', taxes: ['Panic Premium +14 to +26', 'Endowment -8'] },
         };
 
         const GRUDGE_TYPES = {
@@ -287,7 +287,7 @@
         const calcComplementarity = window.App?.TradeEngine?.calcComplementarity || function(mine, theirs) { if (!mine || !theirs) return 0; let score = 0; for (const n of mine.needs) { const t = theirs.posAssessment[n.pos]; if (t?.status === 'surplus') score += n.urgency === 'deficit' ? 25 : 12; else if (t?.status === 'ok' && n.urgency === 'deficit') score += 6; } for (const n of theirs.needs) { const m = mine.posAssessment[n.pos]; if (m?.status === 'surplus') score += n.urgency === 'deficit' ? 25 : 12; else if (m?.status === 'ok' && n.urgency === 'deficit') score += 6; } if (mine.window !== theirs.window) score += 15; return Math.min(100, score); };
         const calcOwnerPosture = window.App?.TradeEngine?.calcOwnerPosture || function(assessment, dnaKey) { if (!assessment) return POSTURES.NEUTRAL; const { tier, panic } = assessment; if (panic >= 4) return POSTURES.DESPERATE; if (tier === 'REBUILDING' || dnaKey === 'ACCEPTOR') return POSTURES.SELLER; if (tier === 'ELITE' && panic <= 1) return POSTURES.LOCKED; if ((tier === 'CONTENDER' || tier === 'CROSSROADS') && panic >= 2) return POSTURES.BUYER; return POSTURES.NEUTRAL; };
         const calcPsychTaxes = window.App?.TradeEngine?.calcPsychTaxes || function(myAssess, theirAssess, theirDnaKey, theirPosture) { const taxes = []; const ePct = { FLEECER:10, DOMINATOR:28, STALWART:20, ACCEPTOR:5, DESPERATE:15, NONE:12 }[theirDnaKey] || 12; taxes.push({ name:'Endowment Effect', impact:-Math.round(ePct/2), type:'TAX', desc:`~${ePct}% mental inflation on their own players.` }); if (theirAssess?.panic >= 3) taxes.push({ name:'Panic Premium', impact:8+(theirAssess.panic-2)*6, type:'BONUS', desc:`Panic ${theirAssess.panic}/5 — urgency overrides caution.` }); if (theirDnaKey === 'DOMINATOR') taxes.push({ name:'Status Tax', impact:-18, type:'TAX', desc:'Must visibly win the trade for ego/status.' }); if (['STALWART','DOMINATOR'].includes(theirDnaKey)) taxes.push({ name:'Loss Aversion', impact:-8, type:'TAX', desc:'Losing a familiar player hurts more than gaining a new one.' }); if (theirDnaKey === 'ACCEPTOR') taxes.push({ name:'Rebuilding Discount', impact:+10, type:'BONUS', desc:'They mentally discount current starters.' }); const myStrengths = myAssess?.strengths || []; const theirNeedPos = theirAssess?.needs?.slice(0,3).map(n=>n.pos) || []; if (theirNeedPos.some(p => myStrengths.includes(p))) taxes.push({ name:'Need Fulfillment', impact:+12, type:'BONUS', desc:'Your surplus fills their critical gap.' }); if (myAssess && theirAssess) { if (myAssess.window !== theirAssess.window) taxes.push({ name:'Window Alignment', impact:+8, type:'BONUS', desc:'Opposite windows = natural asset exchange.' }); else taxes.push({ name:'Window Friction', impact:-5, type:'TAX', desc:'Same window reduces natural motivation.' }); } if (theirPosture?.key === 'LOCKED') taxes.push({ name:'Locked Roster Tax', impact:-12, type:'TAX', desc:'High satisfaction + attachment.' }); else if (theirPosture?.key === 'SELLER') taxes.push({ name:'Seller Momentum', impact:+10, type:'BONUS', desc:'Actively shopping. Trade conversations welcomed.' }); return taxes; };
-        const calcAcceptanceLikelihood = window.App?.TradeEngine?.calcAcceptanceLikelihood || window.App?.calcAcceptanceLikelihood || function(myValue, theirValue, _dnaKey, psychTaxes, _myAssess, _theirAssess, opts) { const maxSide = Math.max(myValue, theirValue, 1); const valueLean = (myValue - theirValue) / maxSide; const tax = (psychTaxes || []).reduce((sum, t) => sum + (t.impact || 0), 0); const complexity = Math.max(0, ((opts?.totalPieces) || 0) - 4) * 5; return Math.round(Math.max(3, Math.min(95, 50 + valueLean * 70 + Math.max(-15, Math.min(15, tax)) - complexity))); };
+        const calcAcceptanceLikelihood = window.App?.TradeEngine?.calcAcceptanceLikelihood || window.App?.calcAcceptanceLikelihood || function(myValue, theirValue, _dnaKey, psychTaxes, _myAssess, _theirAssess, opts) { const totalA = Number(myValue) || 0; const totalB = Number(theirValue) || 0; if (totalA <= 0 && totalB <= 0) return 50; const maxSide = Math.max(totalA, totalB, 1); const diff = totalA - totalB; const rawTax = (psychTaxes || []).reduce((sum, t) => sum + (Number(t.impact) || 0), 0); const complexityTax = Math.max(0, ((opts?.totalPieces) || 0) - 4) * 5; const taxValueAdjust = ((rawTax - complexityTax) / 200) * maxSide; const normalizedSurplus = (diff + taxValueAdjust) / maxSide; return Math.round(Math.max(5, Math.min(95, 50 + Math.round(normalizedSurplus * 200)))); };
 
         const grudgeDecay = d => d < 30 ? 1.0 : d < 60 ? 0.6 : d < 90 ? 0.3 : 0.1;
         const GRUDGE_KEY = lid => `od_grudges_v1_${lid}`;
@@ -761,6 +761,9 @@
             const posture = calcOwnerPosture(partner, dnaKey);
             const taxes = calcPsychTaxes(myAssessment, partner, dnaKey, posture);
             const grudge = calcGrudgeTax(myAssessment.ownerId, partner.ownerId, grudges, dnaKey);
+            const acceptanceTaxes = grudge.total
+                ? [...taxes, { name:'Grudge Tax', impact:grudge.total, type: grudge.total > 0 ? 'BONUS' : 'TAX' }]
+                : taxes;
             const givePlayers = input.givePlayers || [];
             const receivePlayers = input.receivePlayers || [];
             const givePicks = input.givePicks || [];
@@ -771,8 +774,7 @@
             const receive = sideBreakdown(receivePlayers, receivePicks, receiveFaab);
             if (give.total <= 0 || receive.total <= 0) return null;
             const pieceCount = givePlayers.length + receivePlayers.length + givePicks.length + receivePicks.length;
-            let likelihood = calcAcceptanceLikelihood(give.total, receive.total, dnaKey, taxes, myAssessment, partner, { totalPieces: pieceCount });
-            likelihood = Math.round(Math.max(3, Math.min(95, likelihood + (grudge.total || 0))));
+            const likelihood = calcAcceptanceLikelihood(give.total, receive.total, dnaKey, acceptanceTaxes, myAssessment, partner, { totalPieces: pieceCount });
             const gradeRaw = window.App?.TradeEngine?.fairnessGrade
                 ? window.App.TradeEngine.fairnessGrade(give.total, receive.total)
                 : { grade: receive.total >= give.total ? 'B+' : 'C', label: receive.total >= give.total ? 'Win' : 'Overpay', color: receive.total >= give.total ? '#2ECC71' : '#E74C3C' };
@@ -1309,7 +1311,7 @@
                     {/* Right pane: selected owner detail */}
                     <div style={{ flex: '1 1 480px', minWidth: '320px' }}>
                         <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6, marginBottom: '10px', lineHeight: 1.5 }}>
-                            Profile each owner's behavioral DNA. {React.createElement(Tip, null, 'Owner DNA classifies each league member\'s trading personality. Multiplier = expected value adjustment.')}
+                            Profile each owner's behavioral DNA. {React.createElement(Tip, null, 'Owner DNA classifies each league member\'s trading personality. DNA now affects acceptance through psychological tax drivers, not separate multiplier curves.')}
                             {' '}
                             {React.createElement(function DnaGuideInline() {
                                 const [guideOpen, setGuideOpen] = React.useState(false);
@@ -1320,8 +1322,7 @@
                                             var key=entry[0], d=entry[1];
                                             return React.createElement('div', { key:key, style:{background:d.color+'08',border:'1px solid '+d.color+'44',borderLeft:'3px solid '+d.color,borderRadius:'6px',padding:'8px 10px'} },
                                                 React.createElement('div', { style:{display:'flex', alignItems:'center', gap:'6px', marginBottom:'4px'} },
-                                                    React.createElement('span', { style:{fontFamily:'Rajdhani, sans-serif',fontSize:'0.9rem',color:d.color,fontWeight:700,letterSpacing:'0.03em'} }, d.label),
-                                                    React.createElement('span', { style:{fontSize:'0.62rem',fontFamily:'JetBrains Mono, monospace',color:d.color,background:d.color+'18',padding:'1px 5px',borderRadius:'3px'} }, '×'+d.multiplier)
+                                                    React.createElement('span', { style:{fontFamily:'Rajdhani, sans-serif',fontSize:'0.9rem',color:d.color,fontWeight:700,letterSpacing:'0.03em'} }, d.label)
                                                 ),
                                                 React.createElement('div', { style:{fontSize:'0.7rem',color:'var(--silver)',lineHeight:1.45,marginBottom:'4px'} }, d.desc),
                                                 d.strategy ? React.createElement('div', { style:{fontSize:'0.66rem',color:d.color,opacity:0.85,fontStyle:'italic',paddingTop:'4px',borderTop:'1px dashed '+d.color+'33',marginTop:'4px'} }, '→ ' + d.strategy) : null,
@@ -1603,7 +1604,7 @@
                     {/* Legacy grid retained only for backwards compat — hidden */}
                     <div style={{ display: 'none' }}>
                     <div style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.655, marginBottom:'0.75rem', lineHeight:1.5 }}>
-                        Profile each owner's behavioral DNA. This unlocks psychological tax calculations in the Trade Analyzer. {React.createElement(Tip, null, 'Owner DNA classifies each league member\'s trading personality based on historical behavior. The system auto-derives DNA from trade history and applies psychological taxes to acceptance likelihood calculations. Multiplier = how much value adjustment to expect.')}
+                        Profile each owner's behavioral DNA. This unlocks psychological tax calculations in the Trade Analyzer. {React.createElement(Tip, null, 'Owner DNA classifies each league member\'s trading personality based on historical behavior. The system auto-derives DNA from trade history and applies psychological taxes to acceptance likelihood calculations.')}
                     </div>
                     {/* DNA Profile Guide */}
                     {React.createElement(function DnaGuideInline() {
@@ -1615,8 +1616,7 @@
                                     var key=entry[0], d=entry[1];
                                     return React.createElement('div', { key:key, style:{background:'rgba(255,255,255,0.02)',border:'1px solid '+d.color+'30',borderRadius:'8px',padding:'0.7rem 0.85rem'} },
                                         React.createElement('div', { style:{display:'flex',alignItems:'center',gap:'0.5rem',marginBottom:'0.3rem'} },
-                                            React.createElement('span', { style:{fontFamily:'Rajdhani, sans-serif',fontSize:'0.95rem',color:d.color} }, d.label),
-                                            React.createElement('span', { style:{fontSize:'0.7rem',color:'var(--silver)',opacity:0.65,background:d.color+'15',padding:'0.1rem 0.4rem',borderRadius:'3px'} }, 'x'+d.multiplier)
+                                            React.createElement('span', { style:{fontFamily:'Rajdhani, sans-serif',fontSize:'0.95rem',color:d.color} }, d.label)
                                         ),
                                         React.createElement('div', { style:{fontSize:'0.76rem',color:'var(--silver)',lineHeight:1.5,marginBottom:'0.3rem'} }, d.desc),
                                         d.strategy ? React.createElement('div', { style:{fontSize:'0.74rem',color:d.color,opacity:0.9,fontStyle:'italic',marginBottom:'0.3rem'} }, 'Strategy: '+d.strategy) : null,
@@ -2157,7 +2157,10 @@
             const theirPosture = calcOwnerPosture(theirAssessment, otherDnaKey);
             const psychTaxes = calcPsychTaxes(myAssessment, theirAssessment, otherDnaKey, theirPosture);
             const grudgeTax = calcGrudgeTax(myOwnerId, otherOwnerId, grudges, otherDnaKey);
-            const netTaxTotal = psychTaxes.reduce((s,t) => s + t.impact, 0) + grudgeTax.total;
+            const netTaxTotal = psychTaxes.reduce((s,t) => s + (Number(t.impact) || 0), 0) + grudgeTax.total;
+            const acceptanceTaxes = grudgeTax.total !== 0
+                ? [...psychTaxes, { name:'Grudge Tax', impact:grudgeTax.total, type: grudgeTax.total > 0 ? 'BONUS' : 'TAX' }]
+                : psychTaxes;
             const fairMargin = Math.round(Math.max(totalA, totalB) * 0.04);
 
             // Use shared canonical acceptance calculation (same as Scout)
@@ -2165,14 +2168,12 @@
             let likelihood = 50;
             if (hasTrade && (totalA > 0 || totalB > 0)) {
                 if (typeof _calcLikelihood === 'function') {
-                    likelihood = _calcLikelihood(totalA, totalB, otherDnaKey, psychTaxes, myAssessment, theirAssessment);
-                    // Add grudge tax on top (not in shared engine — app-specific persistence)
-                    likelihood = Math.round(Math.max(3, Math.min(95, likelihood + grudgeTax.total)));
+                    likelihood = _calcLikelihood(totalA, totalB, otherDnaKey, acceptanceTaxes, myAssessment, theirAssessment);
                 } else {
-                    // Emergency fallback — sigmoid only
                     const maxSide = Math.max(totalA, totalB, 1);
-                    const nd = (totalA - totalB) / maxSide;
-                    likelihood = Math.round(Math.max(5, Math.min(95, 5 + 90 / (1 + Math.exp(-7 * nd)))));
+                    const taxValueAdjust = (netTaxTotal / 200) * maxSide;
+                    const normalizedSurplus = (diff + taxValueAdjust) / maxSide;
+                    likelihood = Math.round(Math.max(5, Math.min(95, 50 + Math.round(normalizedSurplus * 200))));
                 }
             }
             const likelihoodColor = likelihood >= 70 ? 'var(--win-green)' : likelihood >= 45 ? '#F0A500' : 'var(--loss-red)';
@@ -2458,7 +2459,7 @@
                                     )}
                                     <div className="tc-tax-table-row tc-total">
                                         <span className="tc-tax-name">NET MODIFIER</span>
-                                        <span className="tc-tax-desc">Applied to base likelihood</span>
+                                        <span className="tc-tax-desc">Folded into effective surplus</span>
                                         <span className="tc-tax-val" style={{ color: netTaxTotal > 0 ? 'var(--win-green)' : netTaxTotal < 0 ? 'var(--loss-red)' : 'var(--silver)' }}>{netTaxTotal > 0 ? '+' : ''}{netTaxTotal}</span>
                                     </div>
                                 </div>
@@ -2468,7 +2469,7 @@
                             )}
                             <div>
                                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.3rem' }}>
-                                    <span style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.7, textTransform:'uppercase', letterSpacing:'0.06em' }}>Likelihood of Acceptance {React.createElement(Tip, null, 'Estimated chance the other owner accepts. Starts at 50%, adjusted by: value difference, DNA type multiplier, psychological taxes, and posture. Each DNA type has different thresholds.')}</span>
+                                    <span style={{ fontSize:'0.76rem', color:'var(--silver)', opacity:0.7, textTransform:'uppercase', letterSpacing:'0.06em' }}>Likelihood of Acceptance {React.createElement(Tip, null, 'Estimated chance the other owner accepts. Starts at 50%, then applies value difference plus psychological modifiers from DNA, posture, needs, window, and history.')}</span>
                                     <span style={{ fontFamily:'JetBrains Mono, monospace', fontSize:'1.4rem', fontWeight:600, color: likelihoodColor }}>{likelihood}%</span>
                                 </div>
                                 <div className="tc-likelihood-bar-wrap"><div className="tc-likelihood-bar-fill" style={{ width:`${likelihood}%`, background: likelihoodColor }} /></div>

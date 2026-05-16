@@ -25,8 +25,6 @@
         };
 
         const gradeCol = offer.grade?.col || 'var(--gold)';
-        const myPick = offer.myGive?.[0];
-        const theirPick = offer.theirGive?.[0];
 
         return (
             <div style={{
@@ -89,7 +87,7 @@
                         <span>Likelihood: <strong style={{ color: 'var(--gold)' }}>{offer.likelihood}%</strong></span>
                     </div>
 
-                    {/* Pick swap */}
+                    {/* Asset swap */}
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: '1fr auto 1fr',
@@ -104,10 +102,8 @@
                             padding: '10px',
                             textAlign: 'center',
                         }}>
-                            <div style={{ fontSize: '0.56rem', color: '#E74C3C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '2px' }}>You give</div>
-                            <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--white)', fontFamily: FONT_DISPL, letterSpacing: '0.02em' }}>
-                                R{myPick?.round}.{String(myPick?.slot || 0).padStart(2, '0')}
-                            </div>
+                            <div style={{ fontSize: '0.56rem', color: '#E74C3C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px' }}>You give</div>
+                            <AssetStack picks={offer.myGive} playerIds={offer.myGivePlayers} faab={offer.myGiveFaab} />
                             <div style={{ fontSize: '0.6rem', color: 'var(--silver)', marginTop: '2px', fontFamily: FONT_MONO }}>
                                 {offer.myGiveDHQ?.toLocaleString()} DHQ
                             </div>
@@ -120,10 +116,8 @@
                             padding: '10px',
                             textAlign: 'center',
                         }}>
-                            <div style={{ fontSize: '0.56rem', color: '#2ECC71', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '2px' }}>You get</div>
-                            <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--white)', fontFamily: FONT_DISPL, letterSpacing: '0.02em' }}>
-                                R{theirPick?.round}.{String(theirPick?.slot || 0).padStart(2, '0')}
-                            </div>
+                            <div style={{ fontSize: '0.56rem', color: '#2ECC71', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '5px' }}>You get</div>
+                            <AssetStack picks={offer.theirGive} playerIds={offer.theirGivePlayers} faab={offer.theirGiveFaab} />
                             <div style={{ fontSize: '0.6rem', color: 'var(--silver)', marginTop: '2px', fontFamily: FONT_MONO }}>
                                 {offer.myGainDHQ?.toLocaleString()} DHQ
                             </div>
@@ -184,6 +178,36 @@
                         }}>Decline</button>
                     </div>
                 </div>
+            </div>
+        );
+    }
+
+    function AssetStack({ picks, playerIds, faab }) {
+        const pdata = window.S?.players || {};
+        const playerName = pid => {
+            const p = pdata[pid] || {};
+            const full = p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim();
+            return full || pid;
+        };
+        const hasAny = (picks || []).length || (playerIds || []).length || Number(faab || 0) > 0;
+        if (!hasAny) {
+            return <div style={{ color: 'var(--silver)', opacity: 0.55, fontSize: '0.62rem' }}>No assets</div>;
+        }
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center' }}>
+                {(picks || []).map((p, i) => (
+                    <div key={'pick' + i} style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--white)', fontFamily: FONT_DISPL, letterSpacing: '0.02em' }}>
+                        R{p.round}.{String(p.slot || 0).padStart(2, '0')}
+                    </div>
+                ))}
+                {(playerIds || []).map(pid => (
+                    <div key={pid} style={{ maxWidth: 150, fontSize: '0.64rem', color: '#9b8afb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {playerName(pid)}
+                    </div>
+                ))}
+                {Number(faab || 0) > 0 && (
+                    <div style={{ fontSize: '0.64rem', color: '#2ECC71', fontFamily: FONT_MONO }}>${faab} FAAB</div>
+                )}
             </div>
         );
     }

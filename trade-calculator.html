@@ -550,6 +550,17 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/shared/shared-loader.js?v=20260502b"></script>
 <script>
+if (['localhost', '127.0.0.1'].includes(window.location.hostname || '')) {
+  const existingConfig = window.DYNASTY_HQ_CONFIG || {};
+  window.DYNASTY_HQ_CONFIG = {
+    ...existingConfig,
+    devPreviewAI: true,
+    endpoints: {
+      ...(existingConfig.endpoints || {}),
+      aiAnalyze: `${window.location.origin}/api/dev-ai-analyze`,
+    },
+  };
+}
 WRShared.loadMany([
   'app-config.js',
   'constants.js',
@@ -558,6 +569,7 @@ WRShared.loadMany([
   'supabase-client.js',
   'pick-value-model.js',
   'dhq-core.js',
+  'intelligence-context.js',
   'dhq-engine.js',
   'trade-engine.js',
   'dhq-ai.js',
@@ -704,35 +716,35 @@ const DNA_TYPES = {
         color: '#E74C3C',
         desc: 'High activity, always hunting asymmetric value. Sends lowball offers constantly. Sharp but impatient — will counter-offer if you decline.',
         strategy: 'Lead with clean surplus. They respect boldness, but the math still moves linearly.',
-        taxes: ['Endowment -5 pts', 'Surplus hunter'],
+        taxes: ['Endowment -5%', 'Surplus hunter'],
     },
     DOMINATOR: {
         label: 'The Dominator',
         color: '#E67E22',
         desc: 'High ego, requires visible surplus to pull the trigger. Motivated by status and bragging rights above all else.',
         strategy: 'Frame your offer as giving them the "better" side. Let them feel like they won.',
-        taxes: ['Status Tax -18', 'Endowment -14', 'Loss Aversion -8'],
+        taxes: ['Status Tax -18%', 'Endowment -14%', 'Loss Aversion -8%'],
     },
     STALWART: {
         label: 'The Stalwart',
         color: '#5DADE2',
         desc: 'High stability, emotionally attached to their roster. Slow to move but reliable when they engage.',
         strategy: 'Lead with clear value. Never low-ball. Highlight how the trade improves both sides.',
-        taxes: ['Endowment -10', 'Loss Aversion -8'],
+        taxes: ['Endowment -10%', 'Loss Aversion -8%'],
     },
     ACCEPTOR: {
         label: 'The Acceptor',
         color: '#2ECC71',
         desc: 'Low attachment, willing to sell current assets for future picks and young players. Rebuilding or just indifferent.',
         strategy: 'Offer future assets (picks, young upside). They discount current stars through the tax layer.',
-        taxes: ['Rebuilding Discount +10', 'Endowment -3'],
+        taxes: ['Rebuilding Discount +10%', 'Endowment -3%'],
     },
     DESPERATE: {
         label: 'The Desperate',
         color: '#BB8FCE',
         desc: 'High urgency triggered by injuries, bye-weeks, or playoff push. Will overpay for an immediate starter.',
         strategy: 'Identify their empty slot or injury. Strike fast — desperation fades after their bye.',
-        taxes: ['Panic Premium +14 to +26', 'Endowment -8'],
+        taxes: ['Panic Premium +14% to +26%', 'Endowment -8%'],
     },
 };
 
@@ -3285,7 +3297,7 @@ function TradeCalculator() {
                         <div>
                             <div className="log-section-hdr" style={{ marginBottom:'0.35rem' }}>Acceptance Drivers</div>
                             <div style={{ fontSize:'0.58rem', color:'var(--silver)', opacity:0.5, margin:'-0.15rem 0 0.35rem', lineHeight:1.35 }}>
-                                These are odds modifiers only. They do not change the raw DHQ won/lost above.
+                                These are percentage-point odds modifiers only. They do not change the raw DHQ won/lost above.
                             </div>
                             <div className="tax-table">
                                 {psychTaxes.map((t,i) => (
@@ -3293,7 +3305,7 @@ function TradeCalculator() {
                                         <span className="tax-name">{t.name}</span>
                                         <span className="tax-desc">{t.desc}</span>
                                         <span className="tax-val" style={{ color: t.impact > 0 ? 'var(--win-green)' : 'var(--loss-red)' }}>
-                                            {t.impact > 0 ? '+' : ''}{t.impact} pts
+                                            {t.impact > 0 ? '+' : ''}{t.impact}%
                                         </span>
                                     </div>
                                 ))}
@@ -3302,7 +3314,7 @@ function TradeCalculator() {
                                         <span className="tax-name">Grudge Tax</span>
                                         <span className="tax-desc">{grudgeTax.entries.length} logged interaction{grudgeTax.entries.length!==1?'s':''}, decay-weighted</span>
                                         <span className="tax-val" style={{ color: grudgeTax.total < 0 ? 'var(--loss-red)' : 'var(--win-green)' }}>
-                                            {grudgeTax.total > 0 ? '+' : ''}{grudgeTax.total} pts
+                                            {grudgeTax.total > 0 ? '+' : ''}{grudgeTax.total}%
                                         </span>
                                     </div>
                                 )}
@@ -3310,7 +3322,7 @@ function TradeCalculator() {
                                     <span className="tax-name">NET ODDS MODIFIER</span>
                                     <span className="tax-desc">Folded into effective surplus before probability</span>
                                     <span className="tax-val" style={{ color: netTaxTotal > 0 ? 'var(--win-green)' : netTaxTotal < 0 ? 'var(--loss-red)' : 'var(--silver)' }}>
-                                        {netTaxTotal > 0 ? '+' : ''}{netTaxTotal} pts
+                                        {netTaxTotal > 0 ? '+' : ''}{netTaxTotal}%
                                     </span>
                                 </div>
                             </div>

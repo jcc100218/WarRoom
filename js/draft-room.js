@@ -11,13 +11,17 @@
     // DRAFT TAB — migrated from draft-warroom.html
     // ══════════════════════════════════════════════════════════════════════════
     function DraftTab({ playersData, statsData, myRoster, currentLeague, sleeperUserId, setReconPanelOpen, sendReconMessage, timeRecomputeTs, viewMode }) {
+        const leagueKey = currentLeague?.league_id || currentLeague?.id || '';
         const leagueSeason = parseInt(currentLeague.season || new Date().getFullYear());
         const draftRounds = currentLeague.settings?.draft_rounds || 5;
         const tradedPicks = window.S?.tradedPicks || [];
         const [draftSort, setDraftSort] = useState({ key: 'dhq', dir: -1 });
         const [draftView, setDraftView] = useState('command'); // 'command' | 'board' | 'mock' | 'live'
         const [draftInfo, setDraftInfo] = useState(null);
-        const [boardData, setBoardData] = useState(() => DraftStorage.get(DRAFT_WR_KEYS.BIGBOARD(currentLeague.id || ''), null));
+        const boardStorageKey = DRAFT_WR_KEYS.BIGBOARD_DRAFT
+            ? DRAFT_WR_KEYS.BIGBOARD_DRAFT(leagueKey, 'rookie')
+            : DRAFT_WR_KEYS.BIGBOARD(leagueKey);
+        const [boardData, setBoardData] = useState(() => DraftStorage.get(boardStorageKey, DraftStorage.get(DRAFT_WR_KEYS.BIGBOARD(leagueKey), null)));
         const [draftedPids, setDraftedPids] = useState(new Set());
         const [boardNotes, setBoardNotes] = useState({});
         const [boardTags, setBoardTags] = useState({}); // pid -> 'target'|'avoid'|'sleeper'|'must'
@@ -33,7 +37,7 @@
         const [rankInput, setRankInput] = useState('');
         const [countdownNow, setCountdownNow] = useState(Date.now());
         const [draftStrategyEditing, setDraftStrategyEditing] = useState(false);
-        const draftStrategyKey = 'wr_draft_strategy_' + (currentLeague?.league_id || currentLeague?.id || '');
+        const draftStrategyKey = 'wr_draft_strategy_' + leagueKey;
         const [customDraftStrategy, setCustomDraftStrategy] = useState(() => {
             try { return localStorage.getItem(draftStrategyKey) || ''; } catch(e) { return ''; }
         });
@@ -292,9 +296,17 @@
 
         // Auto-save board data to localStorage on changes
         useEffect(() => {
-            DraftStorage.set(DRAFT_WR_KEYS.BIGBOARD(currentLeague.id || ''),
-                { tags: boardTags, notes: boardNotes, drafted: Array.from(draftedPids), myOrder: myBoardOrder });
-        }, [boardTags, boardNotes, draftedPids, myBoardOrder, currentLeague.id]);
+            DraftStorage.set(boardStorageKey,
+                {
+                    tags: boardTags,
+                    notes: boardNotes,
+                    drafted: Array.from(draftedPids),
+                    myOrder: myBoardOrder,
+                    activeLane: boardMode,
+                    lineage: { source: 'wr_bigboard', userLastEditedAt: new Date().toISOString() },
+                    updatedAt: new Date().toISOString(),
+                });
+        }, [boardTags, boardNotes, draftedPids, myBoardOrder, boardMode, boardStorageKey]);
 
         // Restore board data from localStorage on mount
         useEffect(() => {

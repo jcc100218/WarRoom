@@ -2,6 +2,9 @@ supabase/.temp/
 node_modules/
 dist-preview/
 reconai-shared/
+.env
+.env.local
+.env.*.local
 ios/
 android/
 icon.PNG

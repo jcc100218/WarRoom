@@ -511,6 +511,17 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="js/shared/shared-loader.js?v=20260502b"></script>
     <script>
+    if (['localhost', '127.0.0.1'].includes(window.location.hostname || '')) {
+      const existingConfig = window.DYNASTY_HQ_CONFIG || {};
+      window.DYNASTY_HQ_CONFIG = {
+        ...existingConfig,
+        devPreviewAI: true,
+        endpoints: {
+          ...(existingConfig.endpoints || {}),
+          aiAnalyze: `${window.location.origin}/api/dev-ai-analyze`,
+        },
+      };
+    }
     WRShared.loadMany([
       'app-config.js',
       'constants.js',
@@ -519,6 +530,7 @@
       'supabase-client.js',
       'pick-value-model.js',
       'dhq-core.js',
+      'intelligence-context.js',
       'dhq-engine.js',
       'dhq-ai.js',
       'ai-dispatch.js',

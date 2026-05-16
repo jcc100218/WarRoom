@@ -18,7 +18,7 @@
 // ══════════════════════════════════════════════════════════════════
 
 (function() {
-    const { DRAFT_CC_LAYOUT, FONT_UI, FONT_DISPL, panelCard, bpBucket } = window.DraftCC.styles;
+    const { DRAFT_CC_LAYOUT, FONT_UI, FONT_DISPL, FONT_MONO, panelCard, bpBucket } = window.DraftCC.styles;
     const SpeedMap = { slow: 1600, medium: 700, fast: 250, paused: -1 };
 
     const FEATURE_FLAG_KEY = 'wr_draft_cc_enabled';
@@ -31,21 +31,24 @@
     }
 
     // ── Top-level shell ──────────────────────────────────────────────
-    // Reorder a draft pool by the user's saved Big Board (draft-room.js persists
-    // `myOrder` — an ordered pid[] — under WR_KEYS.BIGBOARD(leagueId)). Players
-    // not in myOrder keep their original (DHQ-sorted) position at the tail.
-    // Refreshes consensusRank so reach/steal detection reflects the user's order.
-    function applyUserBigBoardOrder(pool, leagueId) {
+    // Reorder a draft pool by the selected saved board lane. Players not in the
+    // saved order keep their original DHQ-sorted position at the tail. Refreshes
+    // consensusRank so reach/steal detection reflects the board the user picked.
+    function applyUserBigBoardOrder(pool, leagueId, draftType) {
         if (!Array.isArray(pool) || !pool.length || !leagueId) return pool;
         try {
-            const keys = window.App?.WR_KEYS;
-            const store = window.App?.WrStorage;
-            if (!keys?.BIGBOARD || !store?.get) return pool;
-            const saved = store.get(keys.BIGBOARD(leagueId));
-            const myOrder = Array.isArray(saved?.myOrder) ? saved.myOrder : null;
-            if (!myOrder || !myOrder.length) return pool;
+            const saved = window.DraftCC?.context?._private?.loadStoredBoard
+                ? window.DraftCC.context._private.loadStoredBoard(leagueId, draftType)
+                : null;
+            const lane = saved?.activeLane || saved?.boardMode || 'dhq';
+            const savedOrder = lane === 'ai' && Array.isArray(saved?.aiOrder) && saved.aiOrder.length
+                ? saved.aiOrder
+                : lane === 'my' && Array.isArray(saved?.myOrder) && saved.myOrder.length
+                    ? saved.myOrder
+                    : null;
+            if (!savedOrder || !savedOrder.length) return pool;
             const rank = new Map();
-            myOrder.forEach((pid, i) => rank.set(String(pid), i));
+            savedOrder.forEach((pid, i) => rank.set(String(pid), i));
             const getRank = p => {
                 if (rank.has(String(p.pid))) return rank.get(String(p.pid));
                 if (p.csvPid && rank.has(String(p.csvPid))) return rank.get(String(p.csvPid));
@@ -67,6 +70,91 @@
 
     function normalizeDraftName(name) {
         return (name || '').toLowerCase().replace(/[''`.]/g, '').replace(/\s+(jr\.?|sr\.?|ii|iii|iv)$/, '').replace(/\s+/g, ' ').trim();
+    }
+
+    function formatTradeAssetPick(pick) {
+        if (!pick) return '';
+        return 'R' + pick.round + '.' + String(pick.slot || 0).padStart(2, '0');
+    }
+
+    function formatTradeAssetPlayer(pid) {
+        const p = window.S?.players?.[pid] || {};
+        const full = p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim();
+        return full || pid;
+    }
+
+    function formatTradePackageSide(proposal, side) {
+        const picks = side === 'my' ? (proposal?.myGive || []) : (proposal?.theirGive || []);
+        const players = side === 'my' ? (proposal?.myGivePlayers || []) : (proposal?.theirGivePlayers || []);
+        const faab = side === 'my' ? (proposal?.myGiveFaab || 0) : (proposal?.theirGiveFaab || 0);
+        const items = [];
+        picks.slice(0, 2).forEach(p => items.push(formatTradeAssetPick(p)));
+        players.slice(0, 1).forEach(pid => items.push(formatTradeAssetPlayer(pid)));
+        const displayedAssets = Math.min(2, picks.length) + Math.min(1, players.length);
+        if (faab > 0) items.push('$' + faab + ' FAAB');
+        const remaining = Math.max(0, picks.length + players.length - displayedAssets);
+        if (remaining) items.push('+' + remaining);
+        return items.length ? items.join(', ') : 'No assets';
+    }
+
+    function liveTradeTimingLabel(tradeWindow) {
+        if (tradeWindow?.onClock) return 'On clock now';
+        if (tradeWindow?.picksAway === 1) return 'Next pick';
+        return (tradeWindow?.picksAway || 0) + ' picks away';
+    }
+
+    function describeLiveTradeWindow(tradeWindow) {
+        const suggestion = tradeWindow?.suggestion || {};
+        const proposal = suggestion.proposal || {};
+        const give = formatTradePackageSide(proposal, 'my');
+        const get = formatTradePackageSide(proposal, 'their');
+        return liveTradeTimingLabel(tradeWindow) + ' at ' + tradeWindow.pickLabel + ': '
+            + (suggestion.label || tradeWindow.motive || 'Trade window') + ' with ' + tradeWindow.teamName
+            + '. Give ' + give + '; get ' + get + '. '
+            + tradeWindow.likelihood + '% acceptance vs ' + tradeWindow.acceptanceLine + '% Buyer Line.';
+    }
+
+    function formatLiveClockTime(ts) {
+        if (!ts) return 'not checked yet';
+        try {
+            return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+        } catch (_) {
+            return 'recently';
+        }
+    }
+
+    function sleeperDraftUrl(draftId) {
+        return draftId ? 'https://sleeper.com/draft/nfl/' + draftId : '';
+    }
+
+    function looksLikeRookieSleeperDraft(draft) {
+        const rounds = draft?.settings?.rounds || 0;
+        const playerType = draft?.settings?.player_type;
+        const descr = (draft?.metadata?.description || draft?.metadata?.name || '').toLowerCase();
+        return playerType === 1
+            || /rookie/.test(descr)
+            || (rounds > 0 && rounds <= 6);
+    }
+
+    function liveDraftSetupPatch(draft) {
+        if (!draft?.draft_id) return {};
+        const rounds = draft.settings?.rounds || 0;
+        const patch = {
+            sleeperDraftId: draft.draft_id,
+            liveDraftMeta: {
+                draftId: draft.draft_id,
+                status: draft.status || '',
+                startTime: draft.start_time || null,
+                type: draft.type || '',
+                rounds,
+                teams: draft.settings?.teams || 0,
+            },
+        };
+        if (looksLikeRookieSleeperDraft(draft)) patch.variant = 'rookie';
+        if (rounds) patch.rounds = rounds;
+        if (draft.settings?.teams) patch.leagueSize = draft.settings.teams;
+        if (draft.type) patch.draftType = draft.type;
+        return patch;
     }
 
     function refreshRookieValuesFromEngine(saved, stateFns, playersData) {
@@ -283,13 +371,13 @@
                         }
                     } catch (e) {}
                     saved.personas = window.DraftCC.persona.composeAllPersonas(leagueId, draftDnaMap);
-                    // originalPool was stripped too — restore from pool as a best-effort baseline
+                    // Old saves stripped originalPool; new saves preserve it.
                     if (!saved.originalPool || !saved.originalPool.length) {
                         saved.originalPool = saved.pool.slice();
                     }
                     // Re-apply the user's custom Big Board order on resume so changes
                     // to the board since the draft was saved are reflected immediately.
-                    saved.pool = applyUserBigBoardOrder(saved.pool, leagueId);
+                    saved.pool = applyUserBigBoardOrder(saved.pool, leagueId, saved.variant);
                     return saved;
                 }
                 // Phase 5+: prefer the league's scheduled upcoming draft settings
@@ -362,6 +450,10 @@
         // isUserTurn prefers rosterId match (post-trade ownership), but falls back
         // to teamIdx match for leagues where rosterId is null (e.g., unmapped slots).
         const currentSlot = state.pickOrder[state.currentIdx] || null;
+        const liveStateRef = React.useRef(state);
+        React.useEffect(() => {
+            liveStateRef.current = state;
+        }, [state]);
         const userIdx = (state.userSlot || 1) - 1;
         // In mock modes the user picks their slot via the dropdown, which doesn't
         // rewrite pickOrder rosterIds — the slot they picked still has some ghost
@@ -379,6 +471,7 @@
         React.useEffect(() => {
             if (state.phase !== 'drafting') return;
             if (state.mode === 'live-sync') return; // Live sync: picks come from Sleeper poll, not AI
+            if (state.mode === 'manual') return; // Manual mode: user records every pick
             if (isUserTurn) return;
             if (isDone) return;
             if (state.speed === 'paused') return;
@@ -427,12 +520,19 @@
                                 return desc ? { gmMode: desc.id, draftWeights: desc.draftWeights } : {};
                             } catch (_) { return {}; }
                         })();
+                        const draftCtx = state.draftContext || null;
                         const result = window.DraftCC.cpuEngine.personaPick(
                             persona,
                             state.pool,
                             slot.round,
                             slot.overall,
-                            Object.assign({ teamRoster }, gmCtx)
+                            Object.assign({
+                                teamRoster,
+                                draftTuning: state.draftTuning,
+                                draftContext: draftCtx,
+                                boardContext: draftCtx?.boardContext || null,
+                                ownerIntel: persona?.ownerIntel || draftCtx?.ownerContext?.[String(slot.rosterId)] || null,
+                            }, gmCtx)
                         );
                         if (result) {
                             pick = result.player;
@@ -456,7 +556,7 @@
             }, delay);
 
             return () => clearTimeout(cpuTimerRef.current);
-        }, [state.phase, state.currentIdx, state.speed, isUserTurn, isDone]);
+        }, [state.phase, state.currentIdx, state.speed, state.mode, state.overrideMode, isUserTurn, isDone]);
 
         // ── Phase 3: CPU trade offer generation ──────────────────────
         // After each completed pick, roll for a trade offer. Cooldown prevents spam.
@@ -464,6 +564,7 @@
         const lastPickCountRef = React.useRef(0);
         React.useEffect(() => {
             if (state.phase !== 'drafting') return;
+            if (state.mode === 'live-sync' || state.mode === 'manual') return;
             if (state.activeOffer) return;            // don't stack offers
             if (state.proposerDrawer) return;         // user is building their own
             if (state.picks.length === lastPickCountRef.current) return;
@@ -490,7 +591,7 @@
             }, 300);
 
             return () => clearTimeout(t);
-        }, [state.currentIdx, state.phase, state.activeOffer, state.proposerDrawer]);
+        }, [state.currentIdx, state.phase, state.mode, state.activeOffer, state.proposerDrawer]);
 
         // ── Phase 5: Live Sync polling loop ─────────────────────────
         // When mode==='live-sync' and phase==='drafting', start polling the
@@ -505,28 +606,61 @@
             if (!state.sleeperDraftId) return;
             if (!window.DraftCC.liveSync) return;
 
-            const playersData = window.S?.players || {};
             const normPos = window.App?.normPos || (p => p);
             const getDHQ = (pid) => window.App?.LI?.playerScores?.[pid] || 0;
 
-            window.DraftCC.liveSync.start(state.sleeperDraftId, (sleeperPick) => {
-                if (!sleeperPick) return;
-                const p = playersData[sleeperPick.player_id] || {};
-                const player = {
-                    pid: sleeperPick.player_id,
-                    name: p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || 'Unknown',
-                    pos: normPos(p.position) || p.position || '?',
-                    dhq: getDHQ(sleeperPick.player_id),
-                    photoUrl: 'https://sleepercdn.com/content/nfl/players/thumb/' + sleeperPick.player_id + '.jpg',
-                    college: p.college || '',
-                };
-                dispatch({
-                    type: 'MAKE_PICK',
-                    player,
-                    isUser: sleeperPick.roster_id === state.userRosterId,
-                    reasoning: { primary: 'Live Sleeper pick', baseVal: player.dhq, nudges: [] },
-                    confidence: 1.0,
+            const initialPickNo = Math.max(
+                Number(state.liveSync?.lastPickNo || 0),
+                Number(state.currentIdx || 0)
+            );
+            const seenPickKeys = (state.picks || [])
+                .map(p => p.sleeperPickNo ? ('no:' + p.sleeperPickNo) : null)
+                .filter(Boolean);
+
+            window.DraftCC.liveSync.start(state.sleeperDraftId, (sleeperPicks, snapshot) => {
+                const active = liveStateRef.current || state;
+                const activePlayersData = window.S?.players || {};
+                const mapped = (sleeperPicks || []).map(sleeperPick => {
+                    const pid = sleeperPick.player_id;
+                    const p = activePlayersData[pid] || {};
+                    const poolMatch = (active.pool || []).find(x => String(x.pid) === String(pid))
+                        || (active.originalPool || []).find(x => String(x.pid) === String(pid));
+                    const player = {
+                        pid,
+                        name: poolMatch?.name || p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || 'Unknown',
+                        pos: poolMatch?.pos || normPos(p.position) || p.position || '?',
+                        dhq: poolMatch?.dhq || getDHQ(pid),
+                        consensusRank: poolMatch?.consensusRank || null,
+                        photoUrl: poolMatch?.photoUrl || ('https://sleepercdn.com/content/nfl/players/thumb/' + pid + '.jpg'),
+                        college: poolMatch?.college || p.college || '',
+                        tier: poolMatch?.tier || null,
+                        csv: poolMatch?.csv || null,
+                    };
+                    return {
+                        sleeperPick,
+                        player,
+                        reasoning: { primary: 'Live Sleeper pick', baseVal: player.dhq, nudges: [] },
+                        confidence: 1.0,
+                    };
                 });
+                dispatch({
+                    type: 'APPLY_LIVE_SYNC_PICKS',
+                    picks: mapped,
+                    status: {
+                        status: snapshot?.draftStatus === 'complete' ? 'complete' : 'mirroring',
+                        draftStatus: snapshot?.draftStatus || '',
+                        remotePickCount: snapshot?.remotePickCount || 0,
+                        lastPickNo: snapshot?.lastPickNo || initialPickNo,
+                        duplicateCount: snapshot?.duplicateCount || 0,
+                        lastPollAt: Date.now(),
+                        stale: false,
+                        error: null,
+                    },
+                });
+            }, {
+                initialPickNo,
+                seenPickKeys,
+                onStatus: status => dispatch({ type: 'LIVE_SYNC_STATUS', payload: status }),
             });
 
             return () => {
@@ -571,7 +705,7 @@
                     }
                     const leagueId = currentLeague?.league_id || currentLeague?.id || '';
                     let newPool = stateFns.buildPool({ variant: 'rookie', playersData, maxSize: 200 });
-                    newPool = applyUserBigBoardOrder(newPool, leagueId);
+                    newPool = applyUserBigBoardOrder(newPool, leagueId, 'rookie');
                     dispatch({ type: 'SETUP_CHANGE', payload: { variant: 'rookie', pool: newPool, originalPool: newPool.slice() } });
                 } catch (e) {
                     if (window.wrLog) window.wrLog('cc.variantAutoCorrect', e);
@@ -593,6 +727,7 @@
 
             const lastPick = state.picks[state.picks.length - 1];
             if (!lastPick) return;
+            const projectedAlexRead = lastPick.alexCommentary?.streamText || lastPick.reasoning?.alexCommentary?.streamText || '';
 
             // Round change banner (rule-triggered, free)
             if (lastPick.round !== lastAlexRoundRef.current && lastAlexRoundRef.current > 0) {
@@ -614,11 +749,13 @@
             dispatch({
                 type: 'ALEX_EVENT_ADD',
                 event: {
-                    type: lastPick.isUser ? 'user' : 'rule',
-                    badge: lastPick.isUser ? '★' : '•',
-                    color: lastPick.isUser ? 'var(--gold)' : 'var(--silver)',
-                    title: 'R' + lastPick.round + '.' + String(lastPick.slot).padStart(2, '0') + ' · ' + lastPick.name,
-                    text: (lastPick.isUser ? 'You selected ' : '') + lastPick.pos + (lastPick.dhq > 0 ? ' · ' + lastPick.dhq.toLocaleString() + ' DHQ' : ''),
+                    type: projectedAlexRead ? 'ai' : (lastPick.isUser ? 'user' : 'rule'),
+                    badge: projectedAlexRead ? 'A' : (lastPick.isUser ? '★' : '•'),
+                    color: projectedAlexRead ? 'var(--gold)' : (lastPick.isUser ? 'var(--gold)' : 'var(--silver)'),
+                    title: projectedAlexRead
+                        ? 'Alex read · R' + lastPick.round + '.' + String(lastPick.slot).padStart(2, '0') + ' · ' + lastPick.name
+                        : 'R' + lastPick.round + '.' + String(lastPick.slot).padStart(2, '0') + ' · ' + lastPick.name,
+                    text: projectedAlexRead || ((lastPick.isUser ? 'You selected ' : '') + lastPick.pos + (lastPick.dhq > 0 ? ' · ' + lastPick.dhq.toLocaleString() + ' DHQ' : '')),
                     relatedPickNo: lastPick.overall,
                 },
             });
@@ -659,9 +796,13 @@
                 const reasoning = lastPick.reasoning || {};
                 const nudgesText = (reasoning.nudges || []).slice(0, 3).map(n => n.name + ' ' + (n.pct >= 0 ? '+' : '') + n.pct + '%').join(', ');
                 const userPersona = state.personas?.[state.userRosterId];
+                const ownerIntelText = window.DraftCC?.context?.summarizeOwnerIntel
+                    ? window.DraftCC.context.summarizeOwnerIntel(persona?.ownerIntel || state.draftContext?.ownerContext?.[String(lastPick.rosterId)])
+                    : '';
                 const contextLines = [
                     `Draft pick: ${lastPick.name} (${lastPick.pos}) at R${lastPick.round}.${String(lastPick.slot).padStart(2, '0')}, overall #${lastPick.overall}.`,
                     `By: ${persona?.teamName || 'Team ' + lastPick.teamIdx}, DNA: ${persona?.draftDna?.label || '—'}, Trade DNA: ${persona?.tradeDna?.label || '—'}, Posture: ${persona?.posture?.label || '—'}.`,
+                    ownerIntelText ? `Owner intel: ${ownerIntelText}.` : '',
                     nudgesText ? `Picker reasoning: ${nudgesText}.` : '',
                     lastPick.isUser ? `THIS IS THE USER'S OWN PICK. Grade it for them honestly.` : '',
                     userPersona ? `User's team needs: ${(userPersona.assessment?.needs || []).slice(0, 3).map(n => typeof n === 'string' ? n : n?.pos).join(', ')}.` : '',
@@ -700,6 +841,36 @@
             }
         }, [state.picks.length, state.phase]);
 
+        // ── P2E: Live trade-window readout ─────────────────────────────
+        // Live drafts stay read-only, but Alex should still flag actionable
+        // windows based on owner intel, remaining picks, and buyer-line odds.
+        const liveTradeAlertRef = React.useRef('');
+        React.useEffect(() => {
+            if (state.mode !== 'live-sync') return;
+            if (state.phase !== 'drafting') return;
+            const windows = window.DraftCC.tradeSimulator?.buildLiveTradeWindows?.(state, { lookahead: 5 }) || [];
+            const best = windows[0];
+            if (!best) return;
+            const alertFloor = Math.max((best.acceptanceLine || 70) - 8, best.suggestion?.evaluation?.counterLine || 0);
+            if ((best.likelihood || 0) < alertFloor) return;
+            const key = [state.currentIdx, best.rosterId, best.suggestion?.id].join(':');
+            if (liveTradeAlertRef.current === key) return;
+            liveTradeAlertRef.current = key;
+
+            const clears = best.likelihood >= best.acceptanceLine;
+            dispatch({
+                type: 'ALEX_EVENT_ADD',
+                event: {
+                    type: 'rule',
+                    badge: 'T',
+                    color: clears ? '#2ECC71' : 'var(--gold)',
+                    title: 'Live trade window · ' + best.teamName,
+                    text: describeLiveTradeWindow(best) + ' ' + (clears ? 'This clears their line.' : 'This is close enough to stage before the room moves.'),
+                    relatedPickNo: best.overall || null,
+                },
+            });
+        }, [state.mode, state.phase, state.currentIdx, state.pickOrder, state.personas, state.tradedAssets, state.draftTuning, state.picks.length]);
+
         // ── Actions ──────────────────────────────────────────────────
         const onStartDraft = React.useCallback(async () => {
             const leagueId = currentLeague?.league_id || currentLeague?.id || '';
@@ -709,7 +880,8 @@
                 playersData,
                 maxSize: 200,
             });
-            pool = applyUserBigBoardOrder(pool, leagueId);
+            pool = applyUserBigBoardOrder(pool, leagueId, state.variant);
+            const originalPool = pool.slice();
             let pickOrder = stateFns.buildPickOrder(
                 state.rounds,
                 state.leagueSize,
@@ -717,6 +889,22 @@
                 draftMeta.slotToRoster,
                 draftMeta.pickOwnership
             );
+            if (state.mode !== 'live-sync' && state.userRosterId != null) {
+                const selectedSlotInfo = draftMeta.slotToRoster?.[state.userSlot] || {};
+                pickOrder = pickOrder.map(p => {
+                    if (p.slot === state.userSlot) {
+                        return { ...p, rosterId: state.userRosterId, ownerName: 'YOU', traded: p.traded };
+                    }
+                    if (draftMeta.mySlot && p.slot === draftMeta.mySlot && draftMeta.mySlot !== state.userSlot) {
+                        return {
+                            ...p,
+                            rosterId: selectedSlotInfo.rosterId || p.rosterId,
+                            ownerName: selectedSlotInfo.ownerName || p.ownerName,
+                        };
+                    }
+                    return p;
+                });
+            }
 
             // Compose personas
             let draftDnaMap = {};
@@ -727,10 +915,19 @@
             } catch (e) {}
             const personas = window.DraftCC.persona.composeAllPersonas(leagueId, draftDnaMap);
 
-            // Phase 5: scenario transform
+            // P2: analyst projected mock scenario handoff. Stages projected
+            // picks before the user's first turn so they can rehearse the room.
             let prePicks = [];
             let narrative = null;
-            if (state.mode === 'scenario' && state.scenarioId) {
+            if (state.mode === 'scenario' && state.analystScenario?.picks?.length && window.DraftCC.analystMock?.applyProjectedScenario) {
+                const result = window.DraftCC.analystMock.applyProjectedScenario(state, pool, pickOrder, state.analystScenario);
+                if (result) {
+                    pool = result.pool;
+                    pickOrder = result.pickOrder;
+                    prePicks = result.prePicks || [];
+                    narrative = result.narrative;
+                }
+            } else if (state.mode === 'scenario' && state.scenarioId) {
                 const result = window.DraftCC.scenarios?.applyScenario(state, pool, pickOrder, state.scenarioId);
                 if (result) {
                     pool = result.pool;
@@ -764,22 +961,50 @@
             }
 
             // Phase 5: live sync — validate that a draft was picked
+            let liveDraftStatus = '';
             if (state.mode === 'live-sync') {
                 if (!state.sleeperDraftId) {
                     alert('Live Sync mode requires selecting an upcoming or in-progress draft from the Live Sync Source list.');
                     return;
                 }
-                narrative = '📡 LIVE SYNC · Mirroring draft from Sleeper every 5s. Read-only — no picks are sent back.';
+                liveDraftStatus = state.liveDraftMeta?.status || '';
+                narrative = liveDraftStatus === 'pre_draft'
+                    ? '📡 LIVE SYNC · Waiting room open. War Room will mirror Sleeper as soon as picks begin.'
+                    : '📡 LIVE SYNC · Mirroring draft from Sleeper every 5s. Read-only — no picks are sent back.';
             }
+
+            const draftContext = window.DraftCC?.context?.buildDraftContext
+                ? window.DraftCC.context.buildDraftContext({
+                    state: {
+                        ...state,
+                        phase: 'drafting',
+                        pool,
+                        pickOrder,
+                        personas,
+                        picks: prePicks,
+                        currentIdx: prePicks.length,
+                    },
+                    currentLeague,
+                    myRoster,
+                    playersData,
+                    pool,
+                    pickOrder,
+                    personas,
+                    draftMeta,
+                })
+                : null;
 
             dispatch({
                 type: 'START_DRAFT',
                 pool,
                 pickOrder,
                 personas,
+                draftContext,
+                originalPool,
                 prePicks,
                 narrative,
                 replay,
+                liveDraftStatus,
             });
 
             // Phase 2: async DraftHistory sync (mirrors Scout draft-ui.js:1977)
@@ -794,7 +1019,21 @@
                     dispatch({ type: 'MERGE_DRAFT_DNA', payload });
                 }).catch(() => { /* ok, fallback persists */ });
             }
-        }, [state.variant, state.rounds, state.leagueSize, state.draftType, state.mode, state.scenarioId, state.sleeperDraftId, draftMeta, playersData, currentLeague]);
+        }, [
+            state.variant,
+            state.rounds,
+            state.leagueSize,
+            state.draftType,
+            state.userRosterId,
+            state.userSlot,
+            state.mode,
+            state.scenarioId,
+            state.sleeperDraftId,
+            state.draftTuning,
+            draftMeta,
+            playersData,
+            currentLeague,
+        ]);
 
         // ── Phase 2: predictions refresh ────────────────────────────
         // Recompute willReach / willPassOn / likelyPick for every persona
@@ -812,11 +1051,18 @@
             const payload = {};
             Object.entries(state.personas).forEach(([rid, persona]) => {
                 try {
+                    const draftCtx = state.draftContext || null;
                     const preds = window.DraftCC.cpuEngine.computePredictions(
                         persona,
                         state.pool,
                         round,
-                        currentSlot.overall
+                        currentSlot.overall,
+                        {
+                            draftTuning: state.draftTuning,
+                            draftContext: draftCtx,
+                            boardContext: draftCtx?.boardContext || null,
+                            ownerIntel: persona?.ownerIntel || draftCtx?.ownerContext?.[String(rid)] || null,
+                        }
                     );
                     payload[rid] = preds;
                 } catch (e) {
@@ -849,8 +1095,20 @@
                 }
             } catch (e) {}
             const personas = window.DraftCC.persona.composeAllPersonas(leagueId, draftDnaMap);
-            dispatch({ type: 'HYDRATE', state: { personas, originalPool: state.pool.slice() } });
-        }, [currentLeague, state.pool]);
+            const draftContext = window.DraftCC?.context?.buildDraftContext
+                ? window.DraftCC.context.buildDraftContext({
+                    state: { ...state, personas },
+                    currentLeague,
+                    myRoster,
+                    playersData,
+                    pool: state.pool,
+                    pickOrder: state.pickOrder,
+                    personas,
+                    draftMeta,
+                })
+                : state.draftContext || null;
+            dispatch({ type: 'HYDRATE', state: { personas, originalPool: state.originalPool?.length ? state.originalPool : state.pool.slice(), draftContext } });
+        }, [currentLeague, myRoster, playersData, draftMeta, state]);
 
         const onResumeNo = React.useCallback(() => {
             stateFns.clearLocal(currentLeague?.league_id || currentLeague?.id, forcedMode);
@@ -860,7 +1118,7 @@
 
         // Phase 3: open the trade proposer drawer for a given CPU roster
         const onPropose = React.useCallback((rosterId) => {
-            if (!rosterId || rosterId === state.userRosterId) return;
+            if (!rosterId || String(rosterId) === String(state.userRosterId)) return;
             dispatch({ type: 'OPEN_PROPOSER', targetRosterId: rosterId });
         }, [state.userRosterId]);
 
@@ -877,6 +1135,9 @@
                     state={state}
                     dispatch={dispatch}
                     draftMeta={draftMeta}
+                    playersData={playersData}
+                    currentLeague={currentLeague}
+                    myRoster={myRoster}
                     csvReady={csvReady}
                     showResume={showResume}
                     onStartDraft={onStartDraft}
@@ -902,7 +1163,7 @@
     }
 
     // ── Setup screen ─────────────────────────────────────────────────
-    function SetupScreen({ state, dispatch, draftMeta, csvReady, showResume, onStartDraft, onResumeYes, onResumeNo, forcedMode }) {
+    function SetupScreen({ state, dispatch, draftMeta, playersData, currentLeague, myRoster, csvReady, showResume, onStartDraft, onResumeYes, onResumeNo, forcedMode }) {
         const [showOther, setShowOther] = React.useState(false);
         const selStyle = {
             width: '100%',
@@ -935,12 +1196,29 @@
             return { round, slot, overall: ((round - 1) * state.leagueSize) + slot, ownerName: slotOwner, traded: false };
         });
         const pickPreviewRows = userPickPreview.length ? userPickPreview : fallbackPickPreview;
+        const variantLabels = {
+            startup: 'Startup pool',
+            rookie: 'Rookie pool',
+            redraft: 'Redraft pool',
+            best_ball: 'Bestball pool',
+        };
+        const poolChoices = [
+            { id: 'startup', label: 'startup', sub: 'DHQ-ranked dynasty board' },
+            { id: 'rookie', label: 'rookie', sub: csvReady ? (window.getProspects?.()?.length || 0) + ' prospects loaded' : 'loading CSV...' },
+            { id: 'redraft', label: 'redraft', sub: 'current-season adapter' },
+            { id: 'best_ball', label: 'bestball', sub: 'ceiling + stack adapter' },
+        ];
         const setupSummary = [
-            state.variant === 'rookie' ? 'Rookie pool' : 'Startup pool',
+            variantLabels[state.variant] || 'Startup pool',
             state.draftType === 'snake' ? 'Snake draft' : 'Linear draft',
             state.rounds + ' rounds',
             state.leagueSize + ' teams',
         ].join(' - ');
+        const paceLabel = state.mode === 'manual'
+            ? 'manual entry'
+            : state.mode === 'live-sync'
+                ? 'Sleeper mirror'
+                : state.speed + ' CPU';
 
         return (
             <div className="draft-setup-shell">
@@ -978,7 +1256,7 @@
                         <LiveSyncDraftPicker state={state} update={update} leagueId={state.leagueId} />
                         {state.sleeperDraftId && (
                             <div className="draft-setup-note" style={{ marginTop: 8 }}>
-                                Read-only mirror. Pool type and config below only shape the War Room dashboard.
+                                Read-only mirror. If the Sleeper room has not started, Start Mirror opens a waiting room and begins polling without making picks.
                             </div>
                         )}
                     </div>
@@ -1000,11 +1278,11 @@
                         )}
 
                         <div className="draft-setup-label">Pool Type</div>
-                        <div className="draft-setup-choice" style={{ marginTop: 6, marginBottom: 12 }}>
-                            {['startup', 'rookie'].map(v => (
-                                <button key={v} type="button" className={state.variant === v ? 'is-active' : ''} onClick={() => update({ variant: v })}>
-                                    {v}
-                                    <span>{v === 'rookie' ? (csvReady ? (window.getProspects?.()?.length || 0) + ' prospects loaded' : 'loading CSV...') : 'DHQ-ranked veterans + rookies'}</span>
+                        <div className="draft-setup-choice" style={{ marginTop: 6, marginBottom: 12, gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+                            {poolChoices.map(choice => (
+                                <button key={choice.id} type="button" className={state.variant === choice.id ? 'is-active' : ''} onClick={() => update({ variant: choice.id })}>
+                                    {choice.label}
+                                    <span>{choice.sub}</span>
                                 </button>
                             ))}
                         </div>
@@ -1065,7 +1343,7 @@
                             <div><span>Your slot</span><strong>{state.userSlot} of {state.leagueSize}</strong><em>{slotOwner}</em></div>
                             <div><span>Total picks</span><strong>{totalPicks}</strong><em>{state.rounds} rounds</em></div>
                             <div><span>Pool</span><strong>{poolCount || '--'}</strong><em>{state.variant === 'rookie' ? 'prospects' : 'players'}</em></div>
-                            <div><span>Format</span><strong>{state.draftType}</strong><em>{state.speed} CPU</em></div>
+                            <div><span>Format</span><strong>{state.draftType}</strong><em>{paceLabel}</em></div>
                         </div>
                         <div className="draft-setup-label" style={{ marginBottom: 6 }}>Your first picks</div>
                         <div className="draft-setup-timeline">
@@ -1084,12 +1362,21 @@
                             <span>Simulation Controls</span>
                             <em>{state.mode}</em>
                         </div>
-                        <div className="draft-setup-label">CPU Speed</div>
-                        <div className="draft-setup-speed">
-                            {['slow', 'medium', 'fast'].map(v => (
-                                <button key={v} type="button" className={state.speed === v ? 'is-active' : ''} onClick={() => update({ speed: v })}>{v}</button>
-                            ))}
-                        </div>
+                        {state.mode !== 'manual' ? (
+                            <>
+                                <div className="draft-setup-label">CPU Speed</div>
+                                <div className="draft-setup-speed">
+                                    {['slow', 'medium', 'fast'].map(v => (
+                                        <button key={v} type="button" className={state.speed === v ? 'is-active' : ''} onClick={() => update({ speed: v })}>{v}</button>
+                                    ))}
+                                </div>
+                                <DraftTuningControls state={state} update={update} />
+                            </>
+                        ) : (
+                            <div className="draft-setup-note">
+                                Manual entry records the room pick by pick without CPU autopicks.
+                            </div>
+                        )}
                         <div className="draft-setup-note" style={{ marginTop: 10 }}>
                             {setupSummary}. The command center will use owner DNA, needs, draft history, and your saved Big Board order.
                         </div>
@@ -1111,7 +1398,7 @@
                             <div className="draft-setup-secondary">
                                 <button type="button" onClick={() => setShowOther(v => !v)}>
                                     <span>{showOther ? 'Hide other mock options' : 'Other mock options'}</span>
-                                    <span>{state.mode === 'scenario' ? 'Scenario active' : state.mode === 'ghost' ? 'Ghost active' : 'Scenarios - Ghost replay - Templates'}</span>
+                                    <span>{state.mode === 'manual' ? 'Manual room active' : state.mode === 'scenario' ? 'Scenario active' : state.mode === 'ghost' ? 'Ghost active' : 'Manual - Scenarios - Ghost replay - Templates'}</span>
                                 </button>
                                 {showOther && (
                                     <div className="draft-setup-other">
@@ -1123,6 +1410,416 @@
                         )}
                     </section>
                 </div>
+                {!forcedMode && (
+                    <AnalystMockPanel
+                        state={state}
+                        dispatch={dispatch}
+                        draftMeta={draftMeta}
+                        playersData={playersData}
+                        currentLeague={currentLeague}
+                        myRoster={myRoster}
+                    />
+                )}
+            </div>
+        );
+    }
+
+    function AnalystMockPanel({ state, dispatch, draftMeta, playersData, currentLeague, myRoster }) {
+        const engine = window.DraftCC?.analystMock;
+        const presets = engine?.PRESETS || [];
+        const [presetId, setPresetId] = React.useState('league-history');
+        const [roundLimit, setRoundLimit] = React.useState('full');
+        const [reports, setReports] = React.useState([]);
+        const [activeId, setActiveId] = React.useState(null);
+        const [filters, setFilters] = React.useState({ team: 'all', round: 'all', pos: 'ALL', focus: 'all', query: '' });
+        const [expandedOverall, setExpandedOverall] = React.useState(null);
+        const active = reports.find(r => r.id === activeId) || reports[0] || null;
+        React.useEffect(() => {
+            if (!active?.picks?.length) return;
+            const stillValid = active.picks.some(p => Number(p.overall) === Number(expandedOverall));
+            if (stillValid) return;
+            const firstUser = active.summary?.userPicks?.[0];
+            setExpandedOverall(firstUser?.overall || active.picks[0].overall);
+        }, [active?.id]);
+        if (!engine || !presets.length) return null;
+
+        const generate = () => {
+            const report = engine.generateProjectedMock({
+                state,
+                draftMeta,
+                playersData,
+                currentLeague,
+                myRoster,
+                presetId,
+                roundLimit,
+            });
+            setReports(prev => [report].concat(prev.filter(r => r.id !== report.id)).slice(0, 4));
+            setActiveId(report.id);
+        };
+        const useAsScenario = () => {
+            if (!active) return;
+            dispatch({
+                type: 'SETUP_CHANGE',
+                payload: {
+                    mode: 'scenario',
+                    scenarioId: null,
+                    analystScenario: active,
+                },
+            });
+        };
+        const driverLabel = (counts) => {
+            const order = Object.entries(counts || {}).sort((a, b) => b[1] - a[1]);
+            return order.slice(0, 3).map(([k, v]) => k.replace(/_/g, ' ') + ' ' + v).join(' - ') || 'No drivers yet';
+        };
+        const fmt = n => {
+            const v = Number(n || 0);
+            if (Math.abs(v) >= 1000) return (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k';
+            return String(Math.round(v));
+        };
+        const patchFilters = patch => setFilters(prev => ({ ...prev, ...patch }));
+        const filteredPicks = active
+            ? (engine.applyReportFilters ? engine.applyReportFilters(active, filters, state) : active.picks)
+            : [];
+        const brief = active?.summary?.reportBrief || null;
+        const teamOptions = active ? Array.from(new Map(active.picks.map(p => {
+            const key = String(p.rosterId || p.ownerName || p.slot);
+            return [key, { key, label: p.ownerName || ('Team ' + p.slot) }];
+        })).values()).sort((a, b) => a.label.localeCompare(b.label)) : [];
+        const roundOptions = active ? Array.from(new Set(active.picks.map(p => Number(p.round)))).sort((a, b) => a - b) : [];
+        const posOptions = active ? Array.from(new Set(active.picks.map(p => String(p.pos || '?').toUpperCase()))).sort() : [];
+        const focusCount = id => {
+            if (!active) return 0;
+            if (id === 'all') return active.picks.length;
+            if (id === 'my') return active.summary?.userPicks?.length || 0;
+            if (id === 'reaches') return active.summary?.reaches?.length || 0;
+            if (id === 'steals') return active.summary?.steals?.length || 0;
+            if (id === 'trades') return active.summary?.tradeSignals?.length || 0;
+            if (id === 'high') return active.picks.filter(p => p.confidence === 'high').length;
+            if (id === 'owner_history') return active.picks.filter(p => (p.drivers || []).some(d => d.code === 'owner_history')).length;
+            if (id === 'need') return active.picks.filter(p => p.alexCommentary?.meta?.needHit || (p.drivers || []).some(d => d.code === 'need')).length;
+            return 0;
+        };
+        const focusOptions = [
+            { id: 'all', label: 'All' },
+            { id: 'my', label: 'My Picks' },
+            { id: 'reaches', label: 'Reaches' },
+            { id: 'steals', label: 'Steals' },
+            { id: 'trades', label: 'Trade Heat' },
+            { id: 'high', label: 'High Certainty' },
+            { id: 'owner_history', label: 'Owner DNA' },
+            { id: 'need', label: 'Need Fits' },
+        ];
+        const controlStyle = {
+            padding: '7px 9px',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(212,175,55,0.2)',
+            borderRadius: '6px',
+            color: 'var(--white)',
+            fontSize: '0.68rem',
+            fontFamily: FONT_UI,
+            outline: 'none',
+            minWidth: 0,
+        };
+        const chipStyle = activeChip => ({
+            padding: '5px 8px',
+            borderRadius: '5px',
+            border: '1px solid ' + (activeChip ? 'rgba(212,175,55,0.46)' : 'rgba(255,255,255,0.08)'),
+            background: activeChip ? 'rgba(212,175,55,0.13)' : 'rgba(255,255,255,0.025)',
+            color: activeChip ? 'var(--gold)' : 'var(--silver)',
+            cursor: 'pointer',
+            fontSize: '0.58rem',
+            fontFamily: FONT_UI,
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+            whiteSpace: 'nowrap',
+        });
+        const preset = engine.presetFor(presetId);
+        const comparison = active && reports.length > 1 && engine.compareReports
+            ? engine.compareReports([active].concat(reports.filter(r => r.id !== active.id)), state)
+            : null;
+
+        return (
+            <section className="draft-setup-panel" style={{ marginTop: 12 }}>
+                <div className="draft-hq-panel-head">
+                    <span>Analyst Projected Mock</span>
+                    <em>{preset.label} - {roundLimit === 'full' ? 'full draft' : roundLimit + ' round' + (Number(roundLimit) === 1 ? '' : 's')}</em>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12, alignItems: 'start' }}>
+                    <div>
+                        <div className="draft-setup-choice" style={{ marginTop: 6, marginBottom: 10, gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                            {presets.map(p => (
+                                <button key={p.id} type="button" className={presetId === p.id ? 'is-active' : ''} onClick={() => setPresetId(p.id)}>
+                                    {p.label}
+                                    <span>{p.desc}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <select value={roundLimit} onChange={e => setRoundLimit(e.target.value)} style={{
+                                padding: '7px 10px',
+                                background: 'rgba(255,255,255,0.04)',
+                                border: '1px solid rgba(212,175,55,0.2)',
+                                borderRadius: '6px',
+                                color: 'var(--white)',
+                                fontSize: '0.76rem',
+                                fontFamily: FONT_UI,
+                                outline: 'none',
+                            }}>
+                                <option value="1" style={{ background: '#111' }}>1 round</option>
+                                <option value="3" style={{ background: '#111' }}>3 rounds</option>
+                                <option value="full" style={{ background: '#111' }}>Full draft</option>
+                            </select>
+                            <button type="button" onClick={generate} style={{
+                                padding: '8px 14px',
+                                background: 'var(--gold)',
+                                color: 'var(--black)',
+                                border: '1px solid var(--gold)',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.72rem',
+                                fontFamily: FONT_UI,
+                                fontWeight: 800,
+                                letterSpacing: '0.04em',
+                            }}>GENERATE LEAGUE MOCK</button>
+                            {active && (
+                                <button type="button" onClick={useAsScenario} style={{
+                                    padding: '8px 12px',
+                                    background: 'rgba(46,204,113,0.12)',
+                                    color: '#2ECC71',
+                                    border: '1px solid rgba(46,204,113,0.35)',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.72rem',
+                                    fontFamily: FONT_UI,
+                                    fontWeight: 800,
+                                }}>REHEARSE THIS PROJECTION</button>
+                            )}
+                        </div>
+                    </div>
+                    <div style={{
+                        minHeight: 190,
+                        padding: '10px 12px',
+                        background: 'rgba(255,255,255,0.025)',
+                        border: '1px solid rgba(212,175,55,0.12)',
+                        borderRadius: '8px',
+                    }}>
+                        {!active && (
+                            <div style={{ color: 'var(--silver)', opacity: 0.62, fontSize: '0.72rem', lineHeight: 1.55 }}>
+                                Generate a league-specific pick-by-pick projection using draft order, owner profiles, saved boards, roster needs, and tuning assumptions.
+                            </div>
+                        )}
+                        {active && (
+                            <div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginBottom: 8 }}>
+                                    <div><span style={{ display: 'block', fontSize: '0.52rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase' }}>Picks</span><strong style={{ color: 'var(--gold)', fontFamily: FONT_MONO }}>{active.summary.totalPicks}</strong></div>
+                                    <div><span style={{ display: 'block', fontSize: '0.52rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase' }}>Your Picks</span><strong style={{ color: '#2ECC71', fontFamily: FONT_MONO }}>{active.summary.userPicks.length}</strong></div>
+                                    <div><span style={{ display: 'block', fontSize: '0.52rem', color: 'var(--silver)', opacity: 0.6, textTransform: 'uppercase' }}>Basis</span><strong style={{ color: 'var(--white)', fontFamily: FONT_MONO }}>{active.basis}</strong></div>
+                                </div>
+                                {brief && (
+                                    <div style={{
+                                        marginBottom: 9,
+                                        padding: '8px 9px',
+                                        background: 'rgba(212,175,55,0.055)',
+                                        border: '1px solid rgba(212,175,55,0.16)',
+                                        borderRadius: '7px',
+                                    }}>
+                                        <div style={{ color: 'var(--gold)', fontSize: '0.56rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 900, fontFamily: FONT_UI, marginBottom: 3 }}>Report Brief</div>
+                                        <div style={{ color: 'var(--white)', fontSize: '0.66rem', lineHeight: 1.35, fontFamily: FONT_UI }}>{brief.headline}</div>
+                                        <div style={{ color: 'var(--silver)', opacity: 0.72, fontSize: '0.58rem', lineHeight: 1.35, marginTop: 4, fontFamily: FONT_UI }}>{brief.userPath}</div>
+                                    </div>
+                                )}
+                                {brief && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 6, marginBottom: 9 }}>
+                                        <div style={{ padding: '7px 8px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.025)', borderRadius: 6 }}>
+                                            <span style={{ display: 'block', color: 'var(--silver)', opacity: 0.62, fontSize: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pressure</span>
+                                            <strong style={{ display: 'block', color: 'var(--white)', fontSize: '0.72rem', fontFamily: FONT_MONO, marginTop: 2 }}>{brief.positionPressure?.[0] ? brief.positionPressure[0].key + ' x' + brief.positionPressure[0].count : 'Even'}</strong>
+                                        </div>
+                                        <div style={{ padding: '7px 8px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.025)', borderRadius: 6 }}>
+                                            <span style={{ display: 'block', color: 'var(--silver)', opacity: 0.62, fontSize: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Value Team</span>
+                                            <strong style={{ display: 'block', color: '#2ECC71', fontSize: '0.68rem', fontFamily: FONT_UI, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{brief.valueTeams?.[0]?.ownerName || '—'}</strong>
+                                        </div>
+                                        <div style={{ padding: '7px 8px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.025)', borderRadius: 6 }}>
+                                            <span style={{ display: 'block', color: 'var(--silver)', opacity: 0.62, fontSize: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Watch</span>
+                                            <strong style={{ display: 'block', color: 'var(--gold)', fontSize: '0.72rem', fontFamily: FONT_MONO, marginTop: 2 }}>{(active.summary.reaches?.length || 0) + (active.summary.steals?.length || 0) + (active.summary.tradeSignals?.length || 0)}</strong>
+                                        </div>
+                                    </div>
+                                )}
+                                <div style={{ fontSize: '0.58rem', color: 'var(--silver)', opacity: 0.65, marginBottom: 8 }}>{driverLabel(active.summary.driverCounts)}</div>
+                                <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+                                    {reports.map(r => (
+                                        <button key={r.id} type="button" onClick={() => setActiveId(r.id)} style={{
+                                            padding: '3px 7px',
+                                            borderRadius: '4px',
+                                            border: '1px solid ' + (active.id === r.id ? 'rgba(212,175,55,0.45)' : 'rgba(255,255,255,0.08)'),
+                                            background: active.id === r.id ? 'rgba(212,175,55,0.12)' : 'transparent',
+                                            color: active.id === r.id ? 'var(--gold)' : 'var(--silver)',
+                                            cursor: 'pointer',
+                                            fontSize: '0.56rem',
+                                            fontFamily: FONT_UI,
+                                        }}>{r.label}</button>
+                                    ))}
+                                </div>
+                                {comparison?.ready && (
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
+                                        gap: 6,
+                                        marginBottom: 9,
+                                        padding: '7px 8px',
+                                        background: 'rgba(155,138,251,0.055)',
+                                        border: '1px solid rgba(155,138,251,0.18)',
+                                        borderRadius: 7,
+                                    }}>
+                                        <div><span style={{ display: 'block', color: 'var(--silver)', opacity: 0.62, fontSize: '0.5rem', textTransform: 'uppercase' }}>Changed Picks</span><strong style={{ color: 'rgba(214,208,255,0.98)', fontFamily: FONT_MONO, fontSize: '0.68rem' }}>{comparison.changedPickCount}</strong></div>
+                                        <div><span style={{ display: 'block', color: 'var(--silver)', opacity: 0.62, fontSize: '0.5rem', textTransform: 'uppercase' }}>Target Risk</span><strong style={{ color: comparison.summary.targetRisk ? '#F0A500' : '#2ECC71', fontFamily: FONT_MONO, fontSize: '0.68rem' }}>{comparison.summary.targetRisk}</strong></div>
+                                        <div><span style={{ display: 'block', color: 'var(--silver)', opacity: 0.62, fontSize: '0.5rem', textTransform: 'uppercase' }}>Top Grade</span><strong style={{ color: 'var(--gold)', fontFamily: FONT_UI, fontSize: '0.66rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{comparison.teamGrades?.[0]?.letter || '?'} · {comparison.teamGrades?.[0]?.ownerName || '—'}</strong></div>
+                                    </div>
+                                )}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.62fr 0.62fr 1fr', gap: 6, marginBottom: 7 }}>
+                                    <select value={filters.team} onChange={e => patchFilters({ team: e.target.value })} style={controlStyle}>
+                                        <option value="all" style={{ background: '#111' }}>All teams</option>
+                                        {teamOptions.map(t => <option key={t.key} value={t.key} style={{ background: '#111' }}>{t.label}</option>)}
+                                    </select>
+                                    <select value={filters.round} onChange={e => patchFilters({ round: e.target.value })} style={controlStyle}>
+                                        <option value="all" style={{ background: '#111' }}>All rounds</option>
+                                        {roundOptions.map(r => <option key={r} value={r} style={{ background: '#111' }}>R{r}</option>)}
+                                    </select>
+                                    <select value={filters.pos} onChange={e => patchFilters({ pos: e.target.value })} style={controlStyle}>
+                                        <option value="ALL" style={{ background: '#111' }}>All pos</option>
+                                        {posOptions.map(pos => <option key={pos} value={pos} style={{ background: '#111' }}>{pos}</option>)}
+                                    </select>
+                                    <input value={filters.query} onChange={e => patchFilters({ query: e.target.value })} placeholder="Search report..." style={{ ...controlStyle, width: '100%' }} />
+                                </div>
+                                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
+                                    {focusOptions.map(f => (
+                                        <button key={f.id} type="button" onClick={() => patchFilters({ focus: f.id })} style={chipStyle(filters.focus === f.id)}>
+                                            {f.label} <span style={{ opacity: 0.62, fontFamily: FONT_MONO }}>{focusCount(f.id)}</span>
+                                        </button>
+                                    ))}
+                                    {(filters.team !== 'all' || filters.round !== 'all' || filters.pos !== 'ALL' || filters.focus !== 'all' || filters.query) && (
+                                        <button type="button" onClick={() => setFilters({ team: 'all', round: 'all', pos: 'ALL', focus: 'all', query: '' })} style={chipStyle(false)}>Clear</button>
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--silver)', opacity: 0.68, fontSize: '0.56rem', fontFamily: FONT_UI, marginBottom: 5 }}>
+                                    <span>{filteredPicks.length} of {active.picks.length} projected picks</span>
+                                    <span>{brief?.roundSummaries?.length || 0} rounds · {brief?.teamSummaries?.length || 0} teams</span>
+                                </div>
+                                <div style={{ maxHeight: 520, overflowY: 'auto', paddingRight: 3 }}>
+                                    {!filteredPicks.length && (
+                                        <div style={{ padding: 14, color: 'var(--silver)', opacity: 0.68, fontSize: '0.68rem', textAlign: 'center' }}>No picks match the current report filters.</div>
+                                    )}
+                                    {filteredPicks.map(p => {
+                                        const expanded = Number(expandedOverall) === Number(p.overall);
+                                        const isReach = (active.summary.reaches || []).some(x => Number(x.overall) === Number(p.overall));
+                                        const isSteal = (active.summary.steals || []).some(x => Number(x.overall) === Number(p.overall));
+                                        const isTrade = (active.summary.tradeSignals || []).some(x => Number(x.overall) === Number(p.overall));
+                                        const isMine = String(p.rosterId || '') === String(state.userRosterId || '') || (!p.rosterId && Number(p.slot) === Number(state.userSlot));
+                                        const borderColor = isMine ? 'rgba(46,204,113,0.34)' : expanded ? 'rgba(212,175,55,0.34)' : 'rgba(255,255,255,0.055)';
+                                        return (
+                                            <div key={p.overall} onClick={() => setExpandedOverall(expanded ? null : p.overall)} role="button" tabIndex={0} style={{
+                                                marginBottom: 6,
+                                                padding: '7px 8px',
+                                                border: '1px solid ' + borderColor,
+                                                background: expanded ? 'rgba(212,175,55,0.065)' : isMine ? 'rgba(46,204,113,0.04)' : 'rgba(255,255,255,0.018)',
+                                                borderRadius: 7,
+                                                cursor: 'pointer',
+                                            }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '42px minmax(0,1fr) 62px', gap: 8, alignItems: 'start' }}>
+                                                    <span style={{ color: isMine ? '#2ECC71' : 'var(--gold)', fontFamily: FONT_MONO, fontSize: '0.64rem' }}>{p.round}.{String(p.slot).padStart(2, '0')}</span>
+                                                    <span style={{ minWidth: 0 }}>
+                                                        <strong style={{ display: 'block', color: 'var(--white)', fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name} <span style={{ color: 'var(--gold)', fontSize: '0.58rem' }}>{p.pos}</span></strong>
+                                                        <em style={{ display: 'block', color: 'var(--silver)', opacity: 0.66, fontSize: '0.58rem', fontStyle: 'normal', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.ownerName}</em>
+                                                    </span>
+                                                    <span style={{ textAlign: 'right' }}>
+                                                        <span style={{ display: 'block', color: p.confidence === 'high' ? '#2ECC71' : p.confidence === 'medium' ? 'var(--gold)' : 'var(--silver)', fontSize: '0.54rem', textTransform: 'uppercase', fontWeight: 900 }}>{p.confidence}</span>
+                                                        <span style={{ display: 'block', color: isSteal ? '#2ECC71' : isReach ? '#E74C3C' : 'var(--silver)', fontFamily: FONT_MONO, fontSize: '0.56rem', marginTop: 2 }}>{isSteal ? 'STEAL' : isReach ? 'REACH' : isTrade ? 'TRADE' : fmt(p.dhq)}</span>
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
+                                                    {isMine && <span style={chipStyle(true)}>Your pick</span>}
+                                                    {(p.drivers || []).slice(0, 3).map(d => <span key={d.code} style={{ ...chipStyle(false), cursor: 'default', padding: '3px 6px', fontSize: '0.51rem' }}>{d.label}</span>)}
+                                                </div>
+                                                {expanded && (
+                                                    <div style={{ marginTop: 7, paddingTop: 7, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                                        <div style={{ color: 'var(--silver)', opacity: 0.78, fontSize: '0.6rem', lineHeight: 1.38, fontFamily: FONT_UI, marginBottom: 7 }}>{p.note}</div>
+                                                        {p.alexCommentary && (
+                                                            <div style={{ padding: '7px 8px', background: 'rgba(212,175,55,0.055)', border: '1px solid rgba(212,175,55,0.14)', borderRadius: 6 }}>
+                                                                <div style={{ color: 'var(--gold)', fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 900, marginBottom: 4 }}>Alex Pick Read</div>
+                                                                <div style={{ display: 'grid', gap: 5 }}>
+                                                                    {[p.alexCommentary.teamImpact, p.alexCommentary.ownerFit, p.alexCommentary.boardRead, p.alexCommentary.roomImpact, p.alexCommentary.pivot].filter(Boolean).map((line, idx) => (
+                                                                        <div key={idx} style={{ color: idx === 2 ? 'var(--white)' : 'var(--silver)', opacity: idx === 2 ? 0.92 : 0.75, fontSize: '0.6rem', lineHeight: 1.35, fontFamily: FONT_UI }}>{line}</div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 5, marginTop: 7 }}>
+                                                            <div><span style={{ display: 'block', color: 'var(--silver)', opacity: 0.55, fontSize: '0.48rem', textTransform: 'uppercase' }}>DHQ</span><strong style={{ color: 'var(--gold)', fontFamily: FONT_MONO, fontSize: '0.64rem' }}>{fmt(p.dhq)}</strong></div>
+                                                            <div><span style={{ display: 'block', color: 'var(--silver)', opacity: 0.55, fontSize: '0.48rem', textTransform: 'uppercase' }}>Board</span><strong style={{ color: 'var(--white)', fontFamily: FONT_MONO, fontSize: '0.64rem' }}>{p.consensusRank ? '#' + Math.round(p.consensusRank) : '—'}</strong></div>
+                                                            <div><span style={{ display: 'block', color: 'var(--silver)', opacity: 0.55, fontSize: '0.48rem', textTransform: 'uppercase' }}>Tier</span><strong style={{ color: 'var(--white)', fontFamily: FONT_MONO, fontSize: '0.64rem' }}>{p.tier || '—'}</strong></div>
+                                                            <div><span style={{ display: 'block', color: 'var(--silver)', opacity: 0.55, fontSize: '0.48rem', textTransform: 'uppercase' }}>Alt</span><strong style={{ color: 'var(--white)', fontFamily: FONT_UI, fontSize: '0.58rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(p.alternatives || [])[0]?.name || '—'}</strong></div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    function DraftTuningControls({ state, update }) {
+        const t = state.draftTuning || {};
+        const patch = (key, value) => update({ draftTuning: { ...t, [key]: Number(value) } });
+        const rows = [
+            { key: 'ownerDna', label: 'Owner DNA', left: 'Class-agnostic', right: 'History-heavy' },
+            { key: 'classValue', label: 'Class Value', left: 'Loose tiers', right: 'Board discipline' },
+            { key: 'needFit', label: 'Roster Fit', left: 'BPA', right: 'Need-driven' },
+            { key: 'tradeActivity', label: 'Trade Activity', left: 'No trades', right: 'Aggressive' },
+            { key: 'variance', label: 'Pick Variance', left: 'Predictable', right: 'Chaotic' },
+        ];
+        return (
+            <div style={{ marginTop: '14px' }}>
+                <div className="draft-setup-label">Simulation Tuning</div>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    padding: '10px 12px',
+                    marginTop: '6px',
+                    background: 'rgba(255,255,255,0.025)',
+                    border: '1px solid rgba(212,175,55,0.12)',
+                    borderRadius: '8px',
+                }}>
+                    {rows.map(row => {
+                        const value = t[row.key] ?? (row.key === 'ownerDna' ? 70 : row.key === 'classValue' ? 65 : row.key === 'needFit' ? 60 : row.key === 'tradeActivity' ? 50 : 45);
+                        return (
+                            <div key={row.key}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                    <span style={{ flex: 1, fontSize: '0.66rem', fontWeight: 700, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: FONT_UI }}>{row.label}</span>
+                                    <span style={{ fontSize: '0.66rem', color: 'var(--white)', fontFamily: FONT_MONO, minWidth: 34, textAlign: 'right' }}>{value}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={value}
+                                    onChange={e => patch(row.key, e.target.value)}
+                                    style={{ width: '100%', accentColor: 'var(--gold)' }}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.52rem', color: 'var(--silver)', opacity: 0.55, fontFamily: FONT_UI, marginTop: '-1px' }}>
+                                    <span>{row.left}</span>
+                                    <span>{row.right}</span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         );
     }
@@ -1132,6 +1829,7 @@
     function ModeSelector({ state, update }) {
         const modes = [
             { id: 'solo',     label: 'Custom Solo',  desc: 'Manually configure rounds & teams',   icon: '⚡' },
+            { id: 'manual',   label: 'Manual Room',  desc: 'Record every pick yourself',           icon: '✍' },
             { id: 'scenario', label: 'Scenario',     desc: 'Canned "what-if" scenarios',          icon: '🎯' },
             { id: 'ghost',    label: 'Ghost Replay', desc: 'Replay a prior Sleeper draft',        icon: '👻' },
         ];
@@ -1145,7 +1843,7 @@
                     letterSpacing: '0.08em',
                     marginBottom: '6px',
                 }}>Alternate Mock Mode</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '6px' }}>
                     {modes.map(m => {
                         const isActive = state.mode === m.id;
                         return (
@@ -1435,6 +2133,12 @@
                 if (a.status !== b.status) return a.status === 'drafting' ? -1 : 1;
                 return (a.start_time || Infinity) - (b.start_time || Infinity);
             });
+        const liveDraftSignature = liveDrafts.map(d => d.draft_id + ':' + d.status).join('|');
+
+        React.useEffect(() => {
+            if (loading || state.sleeperDraftId || !liveDrafts.length) return;
+            update(liveDraftSetupPatch(liveDrafts[0]));
+        }, [loading, state.sleeperDraftId, liveDraftSignature]);
 
         return (
             <div style={{ marginBottom: '16px' }}>
@@ -1495,24 +2199,7 @@
                                 : (isDrafting ? 'in progress' : 'not scheduled');
                             return (
                                 <button key={d.draft_id}
-                                    onClick={() => {
-                                        // Auto-detect rookie vs startup from the Sleeper draft settings.
-                                        // Dynasty rookie drafts are typically ≤ 6 rounds; startups are 20+.
-                                        // Sleeper exposes `settings.player_type` on some rookie drafts
-                                        // (1 = rookies), and `metadata.description` occasionally includes "rookie".
-                                        const rounds = d.settings?.rounds || 0;
-                                        const playerType = d.settings?.player_type;
-                                        const descr = (d.metadata?.description || d.metadata?.name || '').toLowerCase();
-                                        const looksRookie = playerType === 1
-                                            || /rookie/.test(descr)
-                                            || (rounds > 0 && rounds <= 6);
-                                        const patch = { sleeperDraftId: d.draft_id };
-                                        if (looksRookie) patch.variant = 'rookie';
-                                        if (rounds) patch.rounds = rounds;
-                                        if (d.settings?.teams) patch.leagueSize = d.settings.teams;
-                                        if (d.type) patch.draftType = d.type;
-                                        update(patch);
-                                    }}
+                                    onClick={() => update(liveDraftSetupPatch(d))}
                                     style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1651,6 +2338,192 @@
         );
     }
 
+    function MyDraftRosterPanel({ state }) {
+        const players = window.S?.players || {};
+        const scores = window.App?.LI?.playerScores || {};
+        const rosters = window.S?.rosters || [];
+        const normPos = window.App?.normPos || (p => p);
+        const posColors = window.App?.POS_COLORS || {
+            QB: '#FF6B6B', RB: '#4ECDC4', WR: '#45B7D1', TE: '#F7DC6F',
+            DL: '#E67E22', LB: '#F0A500', DB: '#5DADE2', K: '#BB8FCE',
+        };
+        const fmt = (n) => {
+            const v = Number(n) || 0;
+            return v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(Math.round(v));
+        };
+        const playerName = (pid, fallback) => {
+            const p = players[pid] || {};
+            return fallback || p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || pid;
+        };
+        const playerAge = (pid, fallback) => {
+            const p = players[pid] || {};
+            if (fallback != null) return Number(fallback);
+            if (p.age) return Number(p.age);
+            if (p.birth_date) {
+                const d = new Date(p.birth_date).getTime();
+                if (Number.isFinite(d)) return Math.floor((Date.now() - d) / 31557600000);
+            }
+            return null;
+        };
+        const projectDhq = (dhq, pos, age, years) => {
+            const base = Number(dhq) || 0;
+            if (!base) return 0;
+            const core = window.App?.DhqCore || window.DhqCore;
+            if (!core?.ageCurveFactor || !age) return Math.round(base * Math.pow(0.94, years));
+            const nowFactor = Math.max(0.01, core.ageCurveFactor(age, pos));
+            const futureFactor = core.ageCurveFactor(age + years, pos) / nowFactor;
+            return Math.max(0, Math.round(base * futureFactor * Math.pow(0.96, years)));
+        };
+
+        const myPicks = React.useMemo(() => {
+            return (state.picks || []).filter(p => p.rosterId === state.userRosterId || p.isUser);
+        }, [state.picks, state.userRosterId]);
+
+        const baseRoster = React.useMemo(() => {
+            return rosters.find(r => String(r.roster_id) === String(state.userRosterId));
+        }, [state.userRosterId, rosters.length]);
+
+        const rosterRows = React.useMemo(() => {
+            const effective = window.DraftCC?.state?.getEffectivePlayers
+                ? window.DraftCC.state.getEffectivePlayers(state, state.userRosterId, baseRoster?.players || [])
+                : (baseRoster?.players || []);
+            const baseRows = (effective || []).map(pid => {
+                const p = players[pid] || {};
+                const pos = normPos(p.position) || p.position || '?';
+                const dhq = scores[pid] || (typeof window.dynastyValue === 'function' ? window.dynastyValue(pid) : 0) || 0;
+                return {
+                    pid,
+                    name: playerName(pid),
+                    pos,
+                    team: p.team || 'FA',
+                    age: playerAge(pid),
+                    dhq,
+                    projected5: projectDhq(dhq, pos, playerAge(pid), 5),
+                    source: 'Roster',
+                };
+            });
+            const pickRows = myPicks.map(p => ({
+                pid: p.pid,
+                name: p.name,
+                pos: p.pos,
+                team: p.team || p.college || 'Draft',
+                age: playerAge(p.pid, p.age || p.csv?.age || null),
+                dhq: p.dhq || 0,
+                projected5: projectDhq(p.dhq || 0, p.pos, playerAge(p.pid, p.age || p.csv?.age || null), 5),
+                source: 'Pick ' + p.round + '.' + String(p.slot).padStart(2, '0'),
+                isPick: true,
+            }));
+            return [...baseRows, ...pickRows].filter(r => r.pos && r.dhq > 0).sort((a, b) => {
+                if (a.pos !== b.pos) return a.pos.localeCompare(b.pos);
+                return b.dhq - a.dhq;
+            });
+        }, [state, state.userRosterId, baseRoster, players, scores, myPicks]);
+
+        const grouped = React.useMemo(() => {
+            const m = {};
+            rosterRows.forEach(r => {
+                if (!m[r.pos]) m[r.pos] = [];
+                m[r.pos].push(r);
+            });
+            return m;
+        }, [rosterRows]);
+
+        const compareRows = React.useMemo(() => {
+            return (state.pool || []).slice(0, 80).map(p => {
+                const pos = p.pos || '?';
+                const age = playerAge(p.pid, p.age || p.csv?.age || null);
+                const projected5 = projectDhq(p.dhq || 0, pos, age, 5);
+                const room = (grouped[pos] || []).slice().sort((a, b) => b.dhq - a.dhq);
+                const topMine = room[0] || null;
+                return {
+                    ...p,
+                    age,
+                    projected5,
+                    topMine,
+                    delta: (p.dhq || 0) - (topMine?.dhq || 0),
+                };
+            }).sort((a, b) => {
+                const needA = a.delta > 0 ? 1 : 0;
+                const needB = b.delta > 0 ? 1 : 0;
+                return needB - needA || (b.dhq || 0) - (a.dhq || 0);
+            }).slice(0, 10);
+        }, [state.pool, grouped, players]);
+
+        const totalDhq = rosterRows.reduce((sum, r) => sum + (r.dhq || 0), 0);
+        const pickDhq = myPicks.reduce((sum, p) => sum + (p.dhq || 0), 0);
+        const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'].filter(pos => grouped[pos]?.length)
+            .concat(Object.keys(grouped).filter(pos => !['QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'].includes(pos)));
+
+        return (
+            <div style={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '8px 10px',
+                background: 'var(--black)',
+                border: '1px solid rgba(212,175,55,0.2)',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                fontFamily: FONT_UI,
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexShrink: 0 }}>
+                    <div style={{ fontFamily: FONT_DISPL, fontSize: '0.8rem', fontWeight: 700, color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', flex: 1 }}>My Roster Build</div>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--silver)', opacity: 0.65 }}>{myPicks.length} picks</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px', flexShrink: 0 }}>
+                    <div style={{ padding: '6px 8px', background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.14)', borderRadius: '5px' }}>
+                        <div style={{ fontSize: '0.52rem', color: 'var(--silver)', opacity: 0.65, textTransform: 'uppercase' }}>Roster DHQ</div>
+                        <div style={{ fontFamily: FONT_MONO, color: 'var(--gold)', fontWeight: 700, fontSize: '0.84rem' }}>{fmt(totalDhq)}</div>
+                    </div>
+                    <div style={{ padding: '6px 8px', background: 'rgba(46,204,113,0.06)', border: '1px solid rgba(46,204,113,0.14)', borderRadius: '5px' }}>
+                        <div style={{ fontSize: '0.52rem', color: 'var(--silver)', opacity: 0.65, textTransform: 'uppercase' }}>Draft Added</div>
+                        <div style={{ fontFamily: FONT_MONO, color: '#2ECC71', fontWeight: 700, fontSize: '0.84rem' }}>{fmt(pickDhq)}</div>
+                    </div>
+                </div>
+
+                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '3px' }}>
+                    <div style={{ fontSize: '0.56rem', color: 'var(--gold)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>Build By Position</div>
+                    {positions.length === 0 && (
+                        <div style={{ padding: '12px', textAlign: 'center', color: 'var(--silver)', opacity: 0.45, fontSize: '0.7rem' }}>Your mock picks will appear here.</div>
+                    )}
+                    {positions.slice(0, 7).map(pos => {
+                        const rows = grouped[pos].slice(0, 3);
+                        return (
+                            <div key={pos} style={{ marginBottom: '6px', paddingBottom: '5px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' }}>
+                                    <strong style={{ fontSize: '0.62rem', color: posColors[pos] || 'var(--gold)', width: 28 }}>{pos}</strong>
+                                    <span style={{ fontSize: '0.54rem', color: 'var(--silver)', opacity: 0.55 }}>{grouped[pos].length} players</span>
+                                    <span style={{ marginLeft: 'auto', fontSize: '0.56rem', color: 'var(--gold)', fontFamily: FONT_MONO }}>{fmt(grouped[pos].reduce((s, r) => s + r.dhq, 0))}</span>
+                                </div>
+                                {rows.map(r => (
+                                    <div key={r.source + '-' + r.pid} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.6rem', lineHeight: 1.45 }}>
+                                        <span style={{ flex: 1, color: r.isPick ? 'var(--gold)' : 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
+                                        <span style={{ color: 'var(--silver)', opacity: 0.55, fontFamily: FONT_MONO }}>{fmt(r.dhq)}</span>
+                                        <span style={{ color: r.projected5 >= r.dhq ? '#2ECC71' : 'var(--silver)', fontFamily: FONT_MONO, minWidth: 32, textAlign: 'right' }}>Y5 {fmt(r.projected5)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        );
+                    })}
+
+                    <div style={{ fontSize: '0.56rem', color: 'var(--gold)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '8px 0 4px' }}>Available Vs Team</div>
+                    {compareRows.map(p => {
+                        const col = p.delta > 0 ? '#2ECC71' : p.delta > -600 ? 'var(--gold)' : 'var(--silver)';
+                        return (
+                            <div key={p.pid} style={{ display: 'grid', gridTemplateColumns: '22px minmax(0,1fr) 42px 44px 44px', gap: '5px', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.035)', fontSize: '0.6rem' }}>
+                                <span style={{ color: posColors[p.pos] || 'var(--silver)', fontWeight: 700 }}>{p.pos}</span>
+                                <span style={{ color: 'var(--white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+                                <span style={{ color: 'var(--gold)', textAlign: 'right', fontFamily: FONT_MONO }}>{fmt(p.dhq)}</span>
+                                <span style={{ color: col, textAlign: 'right', fontFamily: FONT_MONO }}>{p.delta > 0 ? '+' : ''}{fmt(p.delta)}</span>
+                                <span style={{ color: p.projected5 >= p.dhq ? '#2ECC71' : 'var(--silver)', textAlign: 'right', fontFamily: FONT_MONO }}>Y5 {fmt(p.projected5)}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
     // ── Drafting / complete grid ─────────────────────────────────────
     function CommandCenterGrid({ state, dispatch, isUserTurn, currentSlot, onExit, viewport, onPropose }) {
         const L = DRAFT_CC_LAYOUT;
@@ -1691,6 +2564,65 @@
             cursor: 'pointer',
             textTransform: 'capitalize',
         });
+
+        const liveTradeWindow = React.useMemo(() => {
+            if (state.mode !== 'live-sync' || state.phase !== 'drafting') return null;
+            try {
+                const windows = window.DraftCC.tradeSimulator?.buildLiveTradeWindows?.(state, { lookahead: 6 }) || [];
+                return windows[0] || null;
+            } catch (e) {
+                if (window.wrLog) window.wrLog('cc.liveTradeWindow', e);
+                return null;
+            }
+        }, [state.mode, state.phase, state.currentIdx, state.pickOrder, state.personas, state.tradedAssets, state.draftTuning, state.picks.length, state.userRosterId]);
+
+        const tradeDeskTarget = React.useMemo(() => {
+            if (liveTradeWindow?.rosterId) return liveTradeWindow.rosterId;
+            const userRosterId = String(state.userRosterId || '');
+            if (currentSlot?.rosterId && String(currentSlot.rosterId) !== userRosterId) {
+                return currentSlot.rosterId;
+            }
+            const upcoming = (state.pickOrder || [])
+                .slice(state.currentIdx)
+                .find(slot => slot?.rosterId && String(slot.rosterId) !== userRosterId);
+            if (upcoming?.rosterId) return upcoming.rosterId;
+            const personaId = Object.keys(state.personas || {}).find(rosterId => String(rosterId) !== userRosterId);
+            return personaId || null;
+        }, [currentSlot, liveTradeWindow, state.currentIdx, state.personas, state.pickOrder, state.userRosterId]);
+
+        const liveDecisionDeck = React.useMemo(() => {
+            if (state.mode !== 'live-sync' || state.phase !== 'drafting') return null;
+            try {
+                return window.DraftCC.liveDecisionEngine?.buildDecisionDeck?.(state, { tradeWindow: liveTradeWindow }) || null;
+            } catch (e) {
+                if (window.wrLog) window.wrLog('cc.liveDecisionDeck', e);
+                return null;
+            }
+        }, [state.mode, state.phase, state.currentIdx, state.pool, state.pickOrder, state.draftContext, state.personas, state.draftedPids, state.userRosterId, liveTradeWindow]);
+
+        const openTradeDesk = React.useCallback(() => {
+            if (tradeDeskTarget) onPropose(tradeDeskTarget);
+        }, [onPropose, tradeDeskTarget]);
+        const learningSaveKeyRef = React.useRef('');
+        React.useEffect(() => {
+            const helpers = window.DraftCC?.state || {};
+            if (state.phase !== 'complete' || !helpers.buildDraftRecap || !helpers.saveDraftLearning) return;
+            const saveKey = [state.id, state.picks?.length || 0, grade.totalDHQ || 0].join(':');
+            if (learningSaveKeyRef.current === saveKey) return;
+            try {
+                helpers.saveDraftLearning(helpers.buildDraftRecap(state, {
+                    grade,
+                    id: 'learning_' + (state.id || Date.now()),
+                }));
+                learningSaveKeyRef.current = saveKey;
+            } catch (e) {
+                if (window.wrLog) window.wrLog('cc.draftLearning', e);
+            }
+        }, [state.phase, state.id, state.picks?.length, grade.totalDHQ, grade.letter]);
+        const lastPick = state.picks?.[state.picks.length - 1] || null;
+        const canUndoManualPick = state.phase === 'drafting' && lastPick && (
+            state.mode === 'manual' || lastPick.source === 'manual-live' || lastPick.source === 'manual-draft'
+        );
 
         // Desktop grid or tablet collapse
         const isTablet = viewport === 'tablet';
@@ -1758,7 +2690,7 @@
                     )}
 
                     {/* Speed buttons */}
-                    {state.phase === 'drafting' && (
+                    {state.phase === 'drafting' && state.mode !== 'live-sync' && state.mode !== 'manual' && (
                         <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
                             {['slow', 'medium', 'fast', 'paused'].map(v => (
                                 <button key={v} onClick={() => dispatch({ type: 'SET_SPEED', speed: v })} style={speedBtn(v)}>
@@ -1766,6 +2698,50 @@
                                 </button>
                             ))}
                         </div>
+                    )}
+
+                    {state.phase === 'drafting' && tradeDeskTarget && (
+                        <button
+                            onClick={openTradeDesk}
+                            title="Open trade proposer"
+                            style={{
+                                padding: '5px 10px',
+                                background: 'rgba(212,175,55,0.12)',
+                                border: '1px solid rgba(212,175,55,0.35)',
+                                borderRadius: '4px',
+                                color: 'var(--gold)',
+                                cursor: 'pointer',
+                                fontSize: '0.66rem',
+                                fontFamily: FONT_UI,
+                                flexShrink: 0,
+                                fontWeight: 700,
+                                letterSpacing: '0.04em',
+                            }}
+                        >
+                            ⇄ TRADE
+                        </button>
+                    )}
+
+                    {canUndoManualPick && (
+                        <button
+                            onClick={() => dispatch({ type: 'UNDO_LAST_PICK', manualOnly: true })}
+                            title="Undo the last manual pick entry"
+                            style={{
+                                padding: '5px 10px',
+                                background: 'rgba(155,138,251,0.12)',
+                                border: '1px solid rgba(155,138,251,0.35)',
+                                borderRadius: '4px',
+                                color: 'rgba(214,208,255,0.98)',
+                                cursor: 'pointer',
+                                fontSize: '0.66rem',
+                                fontFamily: FONT_UI,
+                                flexShrink: 0,
+                                fontWeight: 700,
+                                letterSpacing: '0.04em',
+                            }}
+                        >
+                            UNDO PICK
+                        </button>
                     )}
 
                     {/* Phase 5: Save template button */}
@@ -1835,6 +2811,39 @@
                         flexShrink: 0,
                     }}>Exit</button>
                 </div>
+
+                {state.mode === 'live-sync' && (
+                    <LiveSyncStatusBanner
+                        state={state}
+                        liveSync={state.liveSync}
+                        currentSlot={currentSlot}
+                        dispatch={dispatch}
+                        layoutGap={L.GRID_GAP}
+                    />
+                )}
+
+                {state.mode === 'live-sync' && (state.stagedLiveOffers || []).length > 0 && (
+                    <StagedLiveOffersPanel
+                        offers={state.stagedLiveOffers || []}
+                        sleeperDraftId={state.sleeperDraftId}
+                        dispatch={dispatch}
+                        layoutGap={L.GRID_GAP}
+                    />
+                )}
+
+                <LiveTradeWindowBanner
+                    tradeWindow={liveTradeWindow}
+                    onOpen={() => liveTradeWindow?.rosterId && onPropose(liveTradeWindow.rosterId)}
+                    layoutGap={L.GRID_GAP}
+                />
+
+                {state.mode === 'live-sync' && liveDecisionDeck && (
+                    <LiveDecisionDeckPanel
+                        deck={liveDecisionDeck}
+                        onTrade={openTradeDesk}
+                        layoutGap={L.GRID_GAP}
+                    />
+                )}
 
                 {/* Phase 5: Scenario / Ghost replay narrative banner */}
                 {state.scenarioNarrative && (
@@ -1909,20 +2918,23 @@
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: isTablet
-                        ? '1fr 1fr 1fr'
-                        : `${L.SPAN.LIVE_ANALYT}fr ${L.SPAN.ALEX_STREAM}fr`,
+                        ? '1fr 1fr'
+                        : '5fr 3fr 4fr',
                     gap: L.GRID_GAP + 'px',
-                    height: L.ROW_BOTTOM_H + 'px',
+                    height: isTablet ? 'auto' : L.ROW_BOTTOM_H + 'px',
                 }}>
                     {isTablet && (
-                        <div style={{ minHeight: '100%', minWidth: 0 }}>
+                        <div style={{ minHeight: 240, minWidth: 0 }}>
                             <OpponentIntelPanel state={state} dispatch={dispatch} currentSlot={currentSlot} onPropose={onPropose} />
                         </div>
                     )}
-                    <div style={{ minHeight: '100%', minWidth: 0 }}>
+                    <div style={{ minHeight: isTablet ? 240 : '100%', minWidth: 0 }}>
                         <LiveAnalyticsPanel state={state} />
                     </div>
-                    <div style={{ minHeight: '100%', minWidth: 0 }}>
+                    <div style={{ minHeight: isTablet ? 240 : '100%', minWidth: 0 }}>
+                        <MyDraftRosterPanel state={state} />
+                    </div>
+                    <div style={{ minHeight: isTablet ? 240 : '100%', minWidth: 0 }}>
                         <AlexStreamPanel state={state} dispatch={dispatch} />
                     </div>
                 </div>
@@ -1935,15 +2947,20 @@
 
                 {/* Phase 7: Post-draft recap — full-screen modal with grade + per-position + roster + export */}
                 {state.phase === 'complete' && (() => {
+                    const stateHelpers = window.DraftCC?.state || {};
+                    const recap = stateHelpers.buildDraftRecap
+                        ? stateHelpers.buildDraftRecap(state, { grade })
+                        : null;
                     // Build per-position summary from myPicks
                     const posSummary = {};
                     (myPicks || []).forEach(pk => {
-                        const pos = (pk.player?.position || pk.pos || '').toUpperCase();
+                        const normalized = stateHelpers.normalizePickRecord ? stateHelpers.normalizePickRecord(pk) : pk;
+                        const pos = (normalized?.pos || pk.player?.position || pk.pos || '').toUpperCase();
                         if (!pos) return;
                         if (!posSummary[pos]) posSummary[pos] = { count: 0, dhq: 0, players: [] };
                         posSummary[pos].count += 1;
-                        posSummary[pos].dhq += (pk.player?.dhq || pk.dhq || 0);
-                        posSummary[pos].players.push(pk.player?.full_name || pk.player?.name || pk.name || pk.pid);
+                        posSummary[pos].dhq += (normalized?.dhq || pk.player?.dhq || pk.dhq || 0);
+                        posSummary[pos].players.push(normalized?.name || pk.player?.full_name || pk.player?.name || pk.name || pk.pid);
                     });
                     const POS_ORDER = ['QB','RB','WR','TE','K','DL','LB','DB'];
                     const orderedPositions = POS_ORDER.filter(p => posSummary[p]).concat(Object.keys(posSummary).filter(p => !POS_ORDER.includes(p)));
@@ -1951,15 +2968,10 @@
                     const gradeColor = grade.letter.startsWith('A') ? '#2ECC71' : grade.letter.startsWith('B') ? '#D4AF37' : grade.letter.startsWith('C') ? '#F0A500' : '#E74C3C';
 
                     // League-wide percentile — how our total DHQ ranks
-                    const allDraftTotals = (state.pickOrder || []).reduce((acc, slot) => {
-                        const pick = state.pickedByIdx?.[slot.overall];
-                        if (!pick) return acc;
-                        acc[slot.rosterId] = (acc[slot.rosterId] || 0) + (pick.player?.dhq || 0);
-                        return acc;
-                    }, {});
+                    const allDraftTotals = recap?.leagueTotals || (stateHelpers.leagueTotalsFromPicks ? stateHelpers.leagueTotalsFromPicks(state.picks || []) : {});
                     const totals = Object.values(allDraftTotals).sort((a, b) => b - a);
-                    const myRank = totals.indexOf(grade.totalDHQ) + 1;
-                    const myPct = totals.length ? Math.round(((totals.length - myRank) / Math.max(1, totals.length - 1)) * 100) : 0;
+                    const myRank = recap?.rank || (totals.indexOf(grade.totalDHQ) + 1);
+                    const myPct = recap?.percentile ?? (totals.length ? Math.round(((totals.length - myRank) / Math.max(1, totals.length - 1)) * 100) : 0);
 
                     return (
                         <div style={{
@@ -2015,17 +3027,18 @@
                                     {(myPicks || []).length ? (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                             {myPicks.map((pk, i) => {
+                                                const normalized = stateHelpers.normalizePickRecord ? stateHelpers.normalizePickRecord(pk) : pk;
                                                 const p = pk.player || {};
-                                                const pos = (p.position || '').toUpperCase();
+                                                const pos = (normalized?.pos || p.position || pk.pos || '').toUpperCase();
                                                 const posCol = (window.App?.POS_COLORS || {})[pos] || 'var(--silver)';
-                                                const dhq = p.dhq || pk.dhq || 0;
+                                                const dhq = normalized?.dhq || p.dhq || pk.dhq || 0;
                                                 const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : 'var(--silver)';
                                                 return <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.02)' }}>
                                                     <span style={{ fontFamily: FONT_DISPL, fontSize: '0.72rem', color: 'var(--gold)', width: '48px' }}>
                                                         {pk.round && pk.pickInRound ? (pk.round + '.' + String(pk.pickInRound).padStart(2, '0')) : ('#' + (i + 1))}
                                                     </span>
                                                     <img src={'https://sleepercdn.com/content/nfl/players/thumb/' + pk.pid + '.jpg'} alt="" onError={e => e.target.style.display = 'none'} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
-                                                    <span style={{ flex: 1, fontSize: '0.84rem', color: 'var(--white)', fontWeight: 600 }}>{p.full_name || p.name || pk.name || pk.pid}</span>
+                                                    <span style={{ flex: 1, fontSize: '0.84rem', color: 'var(--white)', fontWeight: 600 }}>{normalized?.name || p.full_name || p.name || pk.name || pk.pid}</span>
                                                     <span style={{ fontSize: '0.7rem', fontWeight: 700, color: posCol, padding: '1px 6px', background: 'rgba(0,0,0,0.4)', borderRadius: '3px' }}>{pos}</span>
                                                     <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.82rem', color: dhqCol, minWidth: '56px', textAlign: 'right' }}>{dhq > 0 ? dhq.toLocaleString() : '—'}</span>
                                                 </div>;
@@ -2053,17 +3066,20 @@
                                 <div style={{ padding: '18px 32px 24px', display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                                     <button onClick={() => {
                                         try {
-                                            const payload = { grade: grade.letter, totalDHQ: grade.totalDHQ, pct: grade.pct, picks: myPicks.map(pk => ({ round: pk.round, overall: pk.overall, pid: pk.pid, name: pk.player?.full_name, dhq: pk.player?.dhq || 0 })), savedAt: Date.now() };
                                             const key = 'wr_draft_recap_' + Date.now();
-                                            localStorage.setItem(key, JSON.stringify(payload));
+                                            const payload = stateHelpers.saveDraftRecap
+                                                ? stateHelpers.saveDraftRecap(state, { grade, key })
+                                                : recap;
+                                            if (!payload) localStorage.setItem(key, JSON.stringify(recap || {}));
                                             alert('Draft recap saved locally (' + key + ')');
                                         } catch (e) { alert('Save failed: ' + e.message); }
                                     }} style={{ padding: '10px 22px', background: 'rgba(212,175,55,0.12)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.35)', borderRadius: '6px', fontFamily: FONT_DISPL, fontSize: '0.86rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}>SAVE RECAP</button>
                                     <button onClick={() => {
                                         try {
-                                            const lines = ['Draft Recap — ' + grade.letter + ' (' + grade.totalDHQ.toLocaleString() + ' DHQ, ' + grade.pct + '% value)', ''];
-                                            (myPicks || []).forEach((pk, i) => { lines.push('  ' + (i + 1) + '. ' + (pk.player?.full_name || pk.pid) + ' — ' + (pk.player?.position || '?') + ' · ' + (pk.player?.dhq || 0).toLocaleString() + ' DHQ'); });
-                                            const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+                                            const text = stateHelpers.formatDraftRecapText
+                                                ? stateHelpers.formatDraftRecapText(recap || stateHelpers.buildDraftRecap(state, { grade }))
+                                                : 'Draft Recap - ' + grade.letter;
+                                            const blob = new Blob([text], { type: 'text/plain' });
                                             const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'draft-recap-' + Date.now() + '.txt'; a.click(); URL.revokeObjectURL(url);
                                         } catch (e) { alert('Export failed: ' + e.message); }
                                     }} style={{ padding: '10px 22px', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', fontFamily: FONT_DISPL, fontSize: '0.86rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}>EXPORT .TXT</button>
@@ -2077,8 +3093,412 @@
         );
     }
 
-    // ── Mobile: read-only feed ───────────────────────────────────────
-    function MobileFeed({ state, dispatch, onStart, isUserTurn, currentSlot }) {
+    function LiveSyncStatusBanner({ state, liveSync, currentSlot, dispatch, layoutGap }) {
+        const status = liveSync?.status || 'idle';
+        const color = status === 'mirroring' ? '#2ECC71'
+            : status === 'waiting' ? '#F0A500'
+                : status === 'complete' ? 'var(--gold)'
+                    : '#E74C3C';
+        const label = status === 'mirroring' ? 'Mirror Healthy'
+            : status === 'waiting' ? 'Waiting Room'
+                : status === 'complete' ? 'Draft Complete'
+                    : status === 'stale' ? 'Sync Needs Attention'
+                        : status === 'error' ? 'Poll Error'
+                            : 'Live Sync';
+        const text = status === 'waiting'
+            ? 'Sleeper has not posted picks yet. War Room is polling and will mirror the room when pick 1 lands.'
+            : status === 'mirroring'
+                ? 'Read-only mirror active. Last checked ' + formatLiveClockTime(liveSync?.lastPollAt) + '.'
+                : status === 'complete'
+                    ? 'Sleeper marked this draft complete. Review your class and next moves.'
+                    : (liveSync?.error || 'War Room paused live application until the Sleeper feed reconciles.');
+        const current = currentSlot
+            ? 'Next local slot: R' + currentSlot.round + '.' + String(currentSlot.slot || 0).padStart(2, '0') + ' · #' + currentSlot.overall
+            : 'No next slot';
+        return (
+            <div style={{
+                padding: '9px 14px',
+                marginBottom: (layoutGap || 8) + 'px',
+                background: 'rgba(255,255,255,0.025)',
+                border: '1px solid rgba(155,138,251,0.24)',
+                borderLeft: '3px solid ' + color,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                fontFamily: FONT_UI,
+            }}>
+                <div style={{ color, fontWeight: 900, fontFamily: FONT_DISPL, fontSize: '0.78rem', minWidth: 92 }}>
+                    {label}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: 'var(--silver)', fontSize: '0.66rem', lineHeight: 1.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {text}
+                    </div>
+                    <div style={{ color: 'var(--silver)', opacity: 0.62, fontSize: '0.56rem', marginTop: 2 }}>
+                        {current} · Sleeper picks seen: {liveSync?.remotePickCount || 0} · Applied: {state.currentIdx || 0}
+                    </div>
+                </div>
+                {(liveSync?.duplicateCount || liveSync?.missedPickCount) > 0 && (
+                    <div style={{ color: '#F0A500', fontSize: '0.58rem', fontWeight: 800, textAlign: 'right', flexShrink: 0 }}>
+                        {liveSync?.duplicateCount || 0} dup · {liveSync?.missedPickCount || 0} gap
+                    </div>
+                )}
+                {dispatch && state.phase === 'drafting' && (
+                    <button
+                        onClick={() => dispatch({ type: 'SET_OVERRIDE', enabled: !state.overrideMode })}
+                        title={state.overrideMode ? 'Return to read-only Sleeper mirror' : 'Apply the next pick manually from the Big Board'}
+                        style={liveMiniButtonStyle(
+                            state.overrideMode ? 'rgba(155,138,251,0.22)' : 'rgba(255,255,255,0.035)',
+                            state.overrideMode ? 'rgba(214,208,255,0.98)' : 'var(--silver)',
+                            state.overrideMode ? 'rgba(155,138,251,0.45)' : 'rgba(255,255,255,0.12)'
+                        )}
+                    >
+                        {state.overrideMode ? 'MANUAL ON' : 'MANUAL PICK'}
+                    </button>
+                )}
+            </div>
+        );
+    }
+
+    function StagedLiveOffersPanel({ offers, sleeperDraftId, dispatch, layoutGap }) {
+        if (!offers || !offers.length) return null;
+        const counts = offers.reduce((acc, offer) => {
+            const status = offer.status || 'staged';
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+        }, {});
+        return (
+            <div style={{
+                padding: '9px 14px',
+                marginBottom: (layoutGap || 8) + 'px',
+                background: 'rgba(124,107,248,0.045)',
+                border: '1px solid rgba(155,138,251,0.24)',
+                borderRadius: '6px',
+                fontFamily: FONT_UI,
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 7 }}>
+                    <div style={{ color: 'rgba(155,138,251,1)', fontSize: '0.58rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        Staged Live Offers
+                        <span style={{ marginLeft: 8, color: 'var(--silver)', opacity: 0.7, fontWeight: 700 }}>
+                            {(counts.pending || 0)} pending · {(counts.accepted || 0)} accepted · {(counts.rejected || 0)} rejected
+                        </span>
+                    </div>
+                    {sleeperDraftId && (
+                        <button
+                            onClick={() => window.open(sleeperDraftUrl(sleeperDraftId), '_blank', 'noopener,noreferrer')}
+                            style={liveMiniButtonStyle('rgba(155,138,251,0.16)', 'rgba(214,208,255,0.98)', 'rgba(155,138,251,0.34)')}
+                        >
+                            OPEN SLEEPER
+                        </button>
+                    )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {offers.slice(0, 3).map(offer => (
+                        <StagedOfferRow
+                            key={offer.id}
+                            offer={offer}
+                            dispatch={dispatch}
+                            onDismiss={() => dispatch({ type: 'DISMISS_STAGED_LIVE_OFFER', offerId: offer.id })}
+                        />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    function StagedOfferRow({ offer, dispatch, onDismiss }) {
+        const [copied, setCopied] = React.useState(false);
+        const onCopy = () => copyLiveText(offer.copyText || '').then(ok => {
+            setCopied(ok);
+            setTimeout(() => setCopied(false), 1400);
+        });
+        const status = offer.status || 'staged';
+        const statusColor = status === 'accepted' ? '#2ECC71'
+            : status === 'rejected' ? '#E74C3C'
+                : status === 'pending' ? 'var(--gold)'
+                    : 'rgba(155,138,251,0.95)';
+        const updateStatus = nextStatus => dispatch?.({ type: 'UPDATE_LIVE_OFFER_STATUS', offerId: offer.id, status: nextStatus });
+        return (
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr auto auto auto auto auto',
+                alignItems: 'center',
+                gap: 8,
+                padding: '7px 8px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: '5px',
+            }}>
+                <div style={{ minWidth: 0 }}>
+                    <div style={{ color: 'var(--white)', fontSize: '0.66rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {offer.partnerName || 'Trade partner'} · {offer.likelihood || 0}% / {offer.acceptanceLine || 70}% Buyer Line
+                    </div>
+                    <div style={{ color: 'var(--silver)', opacity: 0.74, fontSize: '0.56rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>
+                        <span style={{ color: statusColor, fontWeight: 800, textTransform: 'uppercase' }}>{status}</span> · Give {offer.giveText || 'package'} / Get {offer.getText || 'package'}
+                    </div>
+                </div>
+                <button onClick={onCopy} style={liveMiniButtonStyle('rgba(46,204,113,0.11)', '#2ECC71', 'rgba(46,204,113,0.28)')}>
+                    {copied ? 'COPIED' : 'COPY'}
+                </button>
+                <button onClick={() => updateStatus('pending')} style={liveMiniButtonStyle(status === 'pending' ? 'rgba(212,175,55,0.15)' : 'transparent', 'var(--gold)', 'rgba(212,175,55,0.28)')}>
+                    SENT
+                </button>
+                <button onClick={() => updateStatus('accepted')} style={liveMiniButtonStyle(status === 'accepted' ? 'rgba(46,204,113,0.16)' : 'transparent', '#2ECC71', 'rgba(46,204,113,0.28)')}>
+                    YES
+                </button>
+                <button onClick={() => updateStatus('rejected')} style={liveMiniButtonStyle(status === 'rejected' ? 'rgba(231,76,60,0.16)' : 'transparent', '#E74C3C', 'rgba(231,76,60,0.28)')}>
+                    NO
+                </button>
+                <button onClick={onDismiss} style={liveMiniButtonStyle('transparent', 'var(--silver)', 'rgba(255,255,255,0.12)')}>
+                    ×
+                </button>
+            </div>
+        );
+    }
+
+    function liveMiniButtonStyle(background, color, borderColor) {
+        return {
+            padding: '4px 7px',
+            background,
+            border: '1px solid ' + borderColor,
+            borderRadius: '4px',
+            color,
+            cursor: 'pointer',
+            fontFamily: FONT_UI,
+            fontSize: '0.55rem',
+            fontWeight: 900,
+            letterSpacing: '0.04em',
+            whiteSpace: 'nowrap',
+        };
+    }
+
+    function copyLiveText(text) {
+        if (!text) return Promise.resolve(false);
+        if (navigator.clipboard?.writeText) {
+            return navigator.clipboard.writeText(text).then(() => true).catch(() => false);
+        }
+        window.prompt('Copy live offer summary:', text);
+        return Promise.resolve(true);
+    }
+
+    function liveTone(tone) {
+        if (tone === 'green') return { main: '#2ECC71', bg: 'rgba(46,204,113,0.08)', border: 'rgba(46,204,113,0.26)' };
+        if (tone === 'purple') return { main: 'rgba(155,138,251,1)', bg: 'rgba(155,138,251,0.08)', border: 'rgba(155,138,251,0.28)' };
+        if (tone === 'red') return { main: '#E74C3C', bg: 'rgba(231,76,60,0.08)', border: 'rgba(231,76,60,0.28)' };
+        if (tone === 'amber') return { main: '#F0A500', bg: 'rgba(240,165,0,0.08)', border: 'rgba(240,165,0,0.28)' };
+        return { main: 'var(--gold)', bg: 'rgba(212,175,55,0.08)', border: 'rgba(212,175,55,0.28)' };
+    }
+
+    function shortLiveValue(value) {
+        const n = Number(value || 0);
+        if (!n) return '0';
+        return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(Math.round(n));
+    }
+
+    function openLiveDecisionPlayer(player) {
+        if (!player?.pid) return;
+        if (typeof window.openPlayerModal === 'function') {
+            try { window.openPlayerModal(player.pid); return; } catch (_) {}
+        }
+        if (typeof window.WR?.openPlayerCard === 'function') {
+            try { window.WR.openPlayerCard(player.pid); } catch (_) {}
+        }
+    }
+
+    function LiveDecisionDeckPanel({ deck, onTrade, layoutGap }) {
+        const cards = deck?.cards || [];
+        if (!cards.length) return null;
+        const next = deck?.nextUserPick;
+        const nextLabel = next
+            ? (next.picksAway === 0 ? 'You are on deck now' : next.picksAway + ' picks to your next turn')
+            : 'No user pick remaining';
+        return (
+            <div style={{
+                padding: '10px 14px',
+                marginBottom: (layoutGap || 8) + 'px',
+                background: 'rgba(255,255,255,0.022)',
+                border: '1px solid rgba(212,175,55,0.22)',
+                borderRadius: '6px',
+                fontFamily: FONT_UI,
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <div style={{ color: 'var(--gold)', fontSize: '0.6rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', flex: 1 }}>
+                        On-Clock Decision Deck
+                    </div>
+                    <div style={{ color: 'var(--silver)', opacity: 0.66, fontSize: '0.56rem', fontWeight: 700 }}>
+                        {nextLabel} · {deck.assumptions?.boardLane || 'dhq'} board
+                    </div>
+                </div>
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(148px, 1fr))',
+                    gap: 7,
+                    marginBottom: deck.alerts?.length ? 8 : 0,
+                }}>
+                    {cards.map(card => {
+                        const tone = liveTone(card.tone);
+                        const player = card.player;
+                        const clickable = card.action === 'trade' || player?.pid;
+                        return (
+                            <button
+                                key={card.kind + ':' + (player?.pid || card.detail || '')}
+                                onClick={() => card.action === 'trade' ? onTrade?.() : openLiveDecisionPlayer(player)}
+                                disabled={!clickable}
+                                style={{
+                                    minWidth: 0,
+                                    padding: '8px 9px',
+                                    background: tone.bg,
+                                    border: '1px solid ' + tone.border,
+                                    borderLeft: '3px solid ' + tone.main,
+                                    borderRadius: '5px',
+                                    textAlign: 'left',
+                                    cursor: clickable ? 'pointer' : 'default',
+                                    fontFamily: FONT_UI,
+                                    color: 'var(--silver)',
+                                }}
+                            >
+                                <div style={{ color: tone.main, fontSize: '0.52rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+                                    {card.label}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, marginBottom: 4 }}>
+                                    {player?.pos && (
+                                        <span style={{ flexShrink: 0, color: tone.main, border: '1px solid ' + tone.border, borderRadius: 3, padding: '0 4px', fontSize: '0.52rem', fontWeight: 900 }}>
+                                            {player.pos}
+                                        </span>
+                                    )}
+                                    <strong style={{ color: 'var(--white)', fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {player?.name || card.detail}
+                                    </strong>
+                                </div>
+                                {player && (
+                                    <div style={{ display: 'flex', gap: 7, color: 'var(--silver)', opacity: 0.78, fontSize: '0.54rem', fontFamily: FONT_MONO, marginBottom: 4 }}>
+                                        <span>DHQ {shortLiveValue(player.dhq)}</span>
+                                        <span>Y5 {shortLiveValue(player.y5)}</span>
+                                        {player.tier && <span>T{player.tier}</span>}
+                                    </div>
+                                )}
+                                <div style={{ color: 'var(--silver)', opacity: 0.76, fontSize: '0.56rem', lineHeight: 1.35 }}>
+                                    {player ? card.detail : (card.drivers || []).slice(0, 2).join(' · ')}
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+                {!!deck.alerts?.length && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {deck.alerts.map(alert => {
+                            const tone = liveTone(alert.tone);
+                            return (
+                                <div key={alert.type + ':' + alert.title} style={{
+                                    flex: '1 1 190px',
+                                    minWidth: 0,
+                                    padding: '6px 8px',
+                                    background: tone.bg,
+                                    border: '1px solid ' + tone.border,
+                                    borderRadius: '4px',
+                                }}>
+                                    <div style={{ color: tone.main, fontSize: '0.52rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{alert.title}</div>
+                                    <div style={{ color: 'var(--silver)', opacity: 0.8, fontSize: '0.56rem', lineHeight: 1.35, marginTop: 2 }}>{alert.text}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    function LiveTradeWindowBanner({ tradeWindow, onOpen, layoutGap }) {
+        if (!tradeWindow) return null;
+            const suggestion = tradeWindow.suggestion || {};
+            const proposal = suggestion.proposal || {};
+            const give = formatTradePackageSide(proposal, 'my');
+            const get = formatTradePackageSide(proposal, 'their');
+            const clears = tradeWindow.likelihood >= tradeWindow.acceptanceLine;
+            const statusColor = clears ? '#2ECC71' : '#F0A500';
+            return (
+                <div style={{
+                    padding: '9px 14px',
+                    marginBottom: (layoutGap || 8) + 'px',
+                    background: 'rgba(124,107,248,0.055)',
+                    border: '1px solid rgba(155,138,251,0.28)',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    minHeight: 48,
+                    fontFamily: FONT_UI,
+                }}>
+                    <div style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: '50%',
+                        border: '1px solid rgba(155,138,251,0.45)',
+                        color: 'rgba(155,138,251,1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontFamily: FONT_DISPL,
+                        fontWeight: 800,
+                        flexShrink: 0,
+                    }}>T</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            minWidth: 0,
+                            marginBottom: 2,
+                        }}>
+                            <span style={{ fontSize: '0.58rem', color: 'rgba(155,138,251,1)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 800, flexShrink: 0 }}>
+                                Live Trade Window
+                            </span>
+                            <span style={{ color: 'var(--white)', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {tradeWindow.teamName} · {tradeWindow.pickLabel}
+                            </span>
+                        </div>
+                        <div style={{ color: 'var(--silver)', fontSize: '0.64rem', lineHeight: 1.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {liveTradeTimingLabel(tradeWindow)} · {suggestion.label || tradeWindow.motive || 'Package'} · Give {give} / Get {get}
+                        </div>
+                    </div>
+                    <div style={{
+                        color: statusColor,
+                        fontFamily: FONT_MONO,
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        textAlign: 'right',
+                        flexShrink: 0,
+                    }}>
+                        {tradeWindow.likelihood}% / {tradeWindow.acceptanceLine}%
+                        <div style={{ color: 'var(--silver)', opacity: 0.68, fontSize: '0.52rem', fontFamily: FONT_UI, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                            Buyer Line
+                        </div>
+                    </div>
+                    <button
+                        onClick={onOpen}
+                        style={{
+                            padding: '6px 10px',
+                            background: 'rgba(155,138,251,0.14)',
+                            border: '1px solid rgba(155,138,251,0.34)',
+                            borderRadius: '4px',
+                            color: 'rgba(214,208,255,0.98)',
+                            cursor: 'pointer',
+                            fontFamily: FONT_UI,
+                            fontSize: '0.62rem',
+                            fontWeight: 800,
+                            letterSpacing: '0.04em',
+                            flexShrink: 0,
+                        }}
+                    >
+                        OPEN TRADE DESK
+                    </button>
+                </div>
+            );
+        }
+
+        // ── Mobile: read-only feed ───────────────────────────────────────
+        function MobileFeed({ state, dispatch, onStart, isUserTurn, currentSlot }) {
         const BigBoardPanel = window.DraftCC.BigBoardPanel;
         const DraftGridPanel = window.DraftCC.DraftGridPanel;
         const AlexStreamPanel = window.DraftCC.AlexStreamPanel;

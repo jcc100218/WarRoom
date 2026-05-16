@@ -416,6 +416,55 @@
         return out;
     }
 
+    function getInsightsLeagueProfile(props) {
+        const currentLeague = props?.currentLeague
+            || window.S?.leagues?.find(l => l.league_id === window.S?.currentLeagueId)
+            || window.S?.leagues?.[0]
+            || null;
+        if (!currentLeague || typeof window.App?.Intelligence?.buildLeagueProfile !== 'function') return null;
+        return window.App.Intelligence.buildLeagueProfile({
+            league: currentLeague,
+            rosters: currentLeague?.rosters || window.S?.rosters || [],
+            platform: window.S?.platform || currentLeague?._platform,
+        });
+    }
+
+    function decorateInsightRecommendations(insights, props, kpis, source) {
+        if (typeof window.App?.Intelligence?.buildBehavioralRecommendation !== 'function') return insights || [];
+        const profile = getInsightsLeagueProfile(props);
+        return (insights || []).map((ins, index) => {
+            const titleSlug = String(ins?.title || index).replace(/\W+/g, '_').toLowerCase().slice(0, 48);
+            const intelligence = window.App.Intelligence.buildBehavioralRecommendation({
+                id: 'alex_' + (source || 'heuristic') + '_' + index + '_' + titleSlug,
+                focus: ins?.focus,
+                severity: ins?.severity,
+                confidence: ins?.confidence,
+                title: ins?.title,
+                body: ins?.body,
+                profile,
+                kpis,
+                evidenceDetail: (source === 'ai' ? 'AI-generated ' : 'Deterministic ') + 'behavioral read grounded in decision history.',
+                badge: ins?.severity,
+            });
+            const whyView = typeof window.App?.Intelligence?.buildWhyView === 'function'
+                ? window.App.Intelligence.buildWhyView(intelligence, { title: 'Why this insight', limit: 3 })
+                : null;
+            const recommendationWhy = whyView?.lines || (typeof window.App?.Intelligence?.recommendationWhyLines === 'function'
+                ? window.App.Intelligence.recommendationWhyLines(intelligence, 3)
+                : []);
+            return { ...ins, intelligence, whyView, recommendationWhy };
+        });
+    }
+
+    function publishInsightRecommendations(insights, surface) {
+        if (typeof window.App?.Intelligence?.publishRecommendations !== 'function') return;
+        window.App.Intelligence.publishRecommendations(
+            'alex-insights',
+            (insights || []).map(ins => ins.intelligence).filter(Boolean),
+            { surface: surface || 'gm-office' }
+        );
+    }
+
     // ── AI-generated novel insights ───────────────────────────────
     // Asks Alex (via window.dhqAI) to produce 1-2 *novel* behavioral
     // insights that don't overlap with the heuristic pool. Cached for
@@ -552,7 +601,7 @@
     }
 
     // ── Overview sub-tab ──────────────────────────────────────────
-    function OverviewView({ kpis, insights, props }) {
+    function OverviewView({ kpis, insights, props, settings }) {
         const Kpi = window.WR.Kpi;
         const InsightCard = window.WR.InsightCard;
         const fmtK = (n) => n == null ? null : ((n > 0 ? '+' : '') + (n / 1000).toFixed(1) + 'k');
@@ -562,8 +611,19 @@
         const [aiState, setAiState] = useState(() => loadCachedAiInsights(props));
         const [aiLoading, setAiLoading] = useState(false);
         const [aiError, setAiError] = useState(null);
-        const aiInsights = (aiState?.insights || []).filter(x => !window.WR?.AlexSettings || window.WR.AlexSettings.shouldShow(x));
-        const merged = [...insights, ...aiInsights];
+        const decoratedAiInsights = React.useMemo(
+            () => decorateInsightRecommendations(aiState?.insights || [], props, kpis, 'ai'),
+            [aiState, props, kpis]
+        );
+        const aiInsights = React.useMemo(
+            () => decoratedAiInsights.filter(x => !window.WR?.AlexSettings || window.WR.AlexSettings.shouldShow(x)),
+            [decoratedAiInsights, settings]
+        );
+        const merged = React.useMemo(() => [...insights, ...aiInsights], [insights, aiInsights]);
+
+        useEffect(() => {
+            publishInsightRecommendations(merged, 'gm-office-overview');
+        }, [merged]);
 
         useEffect(() => {
             setAiState(loadCachedAiInsights(props));
@@ -654,6 +714,25 @@
                 : h('div', { className: 'gm-office-insight-grid' },
                     merged.map((ins, i) => h('div', { key: i, style: { position: 'relative' } },
                         h(InsightCard, ins),
+                        ins.recommendationWhy?.length > 0 && h('div', {
+                            style: {
+                                display: 'flex', flexWrap: 'wrap', gap: '5px',
+                                margin: '6px 2px 0',
+                            }
+                        },
+                            ins.recommendationWhy.slice(0, 3).map(line => h('span', {
+                                key: line,
+                                style: {
+                                    color: '#D0E7FA',
+                                    background: 'rgba(125,183,232,0.07)',
+                                    border: '1px solid rgba(125,183,232,0.18)',
+                                    borderRadius: '4px',
+                                    padding: '2px 5px',
+                                    fontSize: '0.6rem',
+                                    lineHeight: 1.25,
+                                }
+                            }, line))
+                        ),
                         ins.isAi && h('div', { style: { position: 'absolute', top: 10, right: 10, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.12em', padding: '2px 6px', borderRadius: '4px', background: 'rgba(124,107,248,0.2)', color: '#9b8afb', border: '1px solid rgba(124,107,248,0.4)' } }, '\u2728 AI')
                     ))
                 )
@@ -1380,7 +1459,11 @@
 
         // Safe read of derived data — handle mid-load states
         const kpis = React.useMemo(() => computeKpis(props), [props.myRoster, props.currentLeague, props.timeRecomputeTs]);
-        const rawInsights = React.useMemo(() => computeInsights(props, kpis), [kpis, props.myRoster, props.playersData]);
+        const rawInsightBase = React.useMemo(() => computeInsights(props, kpis), [kpis, props.myRoster, props.playersData]);
+        const rawInsights = React.useMemo(
+            () => decorateInsightRecommendations(rawInsightBase, props, kpis, 'heuristic'),
+            [rawInsightBase, props, kpis]
+        );
         // Filter through AlexSettings — applies alertThreshold + focus areas + maxAlertsPerWeek.
         const insights = React.useMemo(() => {
             if (window.WR?.AlexSettings?.filterInsights) return window.WR.AlexSettings.filterInsights(rawInsights);
@@ -1400,7 +1483,7 @@
                     { k: 'settings', label: 'Model Settings' },
                 ]
             }),
-            subTab === 'overview' && h(OverviewView, { kpis, insights, props }),
+            subTab === 'overview' && h(OverviewView, { kpis, insights, props, settings }),
             subTab === 'strategy' && h(StrategySubview, { props }),
             subTab === 'patterns' && h(PatternsView, { props }),
             subTab === 'history' && h(HistoryView, { props }),

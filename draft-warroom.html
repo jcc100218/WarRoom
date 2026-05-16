@@ -130,6 +130,17 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="js/shared/shared-loader.js?v=20260502b"></script>
     <script>
+    if (['localhost', '127.0.0.1'].includes(window.location.hostname || '')) {
+      const existingConfig = window.DYNASTY_HQ_CONFIG || {};
+      window.DYNASTY_HQ_CONFIG = {
+        ...existingConfig,
+        devPreviewAI: true,
+        endpoints: {
+          ...(existingConfig.endpoints || {}),
+          aiAnalyze: `${window.location.origin}/api/dev-ai-analyze`,
+        },
+      };
+    }
     WRShared.loadMany([
       'app-config.js',
       'constants.js',
@@ -138,6 +149,7 @@
       'supabase-client.js',
       'pick-value-model.js',
       'dhq-core.js',
+      'intelligence-context.js',
       'dhq-engine.js',
       'trade-engine.js',
       'mock-engine.js',
@@ -574,25 +586,6 @@
                 }
             }
 
-            // ---- Render states ----
-            if (phase === 'boot') return (
-                <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'0.75rem' }}>
-                    <div style={{ color:'var(--gold)', fontFamily:'Inter,sans-serif', fontSize:'1.4rem', letterSpacing:'0.12em' }}>LOADING DRAFT COMMAND CENTER</div>
-                    <div style={{ color:'var(--silver)', fontSize:'0.75rem', opacity:0.6 }}>Connecting to Sleeper API...</div>
-                </div>
-            );
-            if (phase === 'error') return (
-                <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem' }}>
-                    <div style={{ textAlign:'center' }}>
-                        <div style={{ color:'#E74C3C', marginBottom:'1rem', fontSize:'0.9rem' }}>{errMsg}</div>
-                        <button onClick={() => window.location.href='index.html'}
-                            style={{ padding:'0.5rem 1.2rem', background:'var(--gold)', border:'none', borderRadius:'4px', cursor:'pointer', fontFamily:'Inter,sans-serif', fontWeight:700, fontSize:'0.85rem' }}>
-                            &larr; Back to Dashboard
-                        </button>
-                    </div>
-                </div>
-            );
-
             // ---- Computed data for new panels ----
             const PICK_VALUES = { 1:6250, 2:3150, 3:1650, 4:850, 5:450, 6:225, 7:125 };
             function getPickDHQ(season, round, totalTeams) {
@@ -701,6 +694,25 @@
                 candidates.sort((a,b) => b.fit - a.fit || a.searchRank - b.searchRank);
                 return candidates.slice(0, 5);
             }, [nextPick, allRookies, positionalNeeds]);
+
+            // ---- Render states ----
+            if (phase === 'boot') return (
+                <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'0.75rem' }}>
+                    <div style={{ color:'var(--gold)', fontFamily:'Inter,sans-serif', fontSize:'1.4rem', letterSpacing:'0.12em' }}>LOADING DRAFT COMMAND CENTER</div>
+                    <div style={{ color:'var(--silver)', fontSize:'0.75rem', opacity:0.6 }}>Connecting to Sleeper API...</div>
+                </div>
+            );
+            if (phase === 'error') return (
+                <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:'2rem' }}>
+                    <div style={{ textAlign:'center' }}>
+                        <div style={{ color:'#E74C3C', marginBottom:'1rem', fontSize:'0.9rem' }}>{errMsg}</div>
+                        <button onClick={() => window.location.href='index.html'}
+                            style={{ padding:'0.5rem 1.2rem', background:'var(--gold)', border:'none', borderRadius:'4px', cursor:'pointer', fontFamily:'Inter,sans-serif', fontWeight:700, fontSize:'0.85rem' }}>
+                            &larr; Back to Dashboard
+                        </button>
+                    </div>
+                </div>
+            );
 
             return (
                 <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>

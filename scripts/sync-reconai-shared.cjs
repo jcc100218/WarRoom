@@ -25,6 +25,7 @@ const FILES = [
   'pick-value-model.js',
   'dhq-providers.js',
   'dhq-core.js',
+  'intelligence-context.js',
   'dhq-engine.js',
   'team-assess.js',
   'analytics-engine.js',

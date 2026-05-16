@@ -25,11 +25,11 @@
 
         const DNA_TYPES = {
             NONE: { label: '— Not Set —', color: 'var(--silver)', desc: '', taxes: [] },
-            FLEECER: { label: 'The Fleecer', color: '#E74C3C', desc: 'High activity, always hunting asymmetric value. Sends lowball offers constantly. Sharp but impatient — will counter-offer if you decline.', strategy: 'Lead with clean surplus. They respect boldness, but the math still moves linearly.', taxes: ['Endowment -5 pts', 'Surplus hunter'] },
-            DOMINATOR: { label: 'The Dominator', color: '#E67E22', desc: 'High ego, requires visible surplus to pull the trigger. Motivated by status and bragging rights above all else.', strategy: 'Frame your offer as giving them the "better" side. Let them feel like they won.', taxes: ['Status Tax -18', 'Endowment -14', 'Loss Aversion -8'] },
-            STALWART: { label: 'The Stalwart', color: '#5DADE2', desc: 'High stability, emotionally attached to their roster. Slow to move but reliable when they engage.', strategy: 'Lead with clear value. Never low-ball. Highlight how the trade improves both sides.', taxes: ['Endowment -10', 'Loss Aversion -8'] },
-            ACCEPTOR: { label: 'The Acceptor', color: '#2ECC71', desc: 'Low attachment, willing to sell current assets for future picks and young players. Rebuilding or just indifferent.', strategy: 'Offer future assets (picks, young upside). They discount current stars through the tax layer.', taxes: ['Rebuilding Discount +10', 'Endowment -3'] },
-            DESPERATE: { label: 'The Desperate', color: '#BB8FCE', desc: 'High urgency triggered by injuries, bye-weeks, or playoff push. Will overpay for an immediate starter.', strategy: 'Identify their empty slot or injury. Strike fast — desperation fades after their bye.', taxes: ['Panic Premium +14 to +26', 'Endowment -8'] },
+            FLEECER: { label: 'The Fleecer', color: '#E74C3C', desc: 'High activity, always hunting asymmetric value. Sends lowball offers constantly. Sharp but impatient — will counter-offer if you decline.', strategy: 'Lead with clean surplus. They respect boldness, but the math still moves linearly.', taxes: ['Endowment -5%', 'Surplus hunter'] },
+            DOMINATOR: { label: 'The Dominator', color: '#E67E22', desc: 'High ego, requires visible surplus to pull the trigger. Motivated by status and bragging rights above all else.', strategy: 'Frame your offer as giving them the "better" side. Let them feel like they won.', taxes: ['Status Tax -18%', 'Endowment -14%', 'Loss Aversion -8%'] },
+            STALWART: { label: 'The Stalwart', color: '#5DADE2', desc: 'High stability, emotionally attached to their roster. Slow to move but reliable when they engage.', strategy: 'Lead with clear value. Never low-ball. Highlight how the trade improves both sides.', taxes: ['Endowment -10%', 'Loss Aversion -8%'] },
+            ACCEPTOR: { label: 'The Acceptor', color: '#2ECC71', desc: 'Low attachment, willing to sell current assets for future picks and young players. Rebuilding or just indifferent.', strategy: 'Offer future assets (picks, young upside). They discount current stars through the tax layer.', taxes: ['Rebuilding Discount +10%', 'Endowment -3%'] },
+            DESPERATE: { label: 'The Desperate', color: '#BB8FCE', desc: 'High urgency triggered by injuries, bye-weeks, or playoff push. Will overpay for an immediate starter.', strategy: 'Identify their empty slot or injury. Strike fast — desperation fades after their bye.', taxes: ['Panic Premium +14% to +26%', 'Endowment -8%'] },
         };
 
         const GRUDGE_TYPES = {
@@ -56,6 +56,12 @@
             return c[pos] || 'var(--silver)';
         }
         function avatarUrl(id) { return id ? `https://sleepercdn.com/avatars/thumbs/${id}` : null; }
+        const leagueProfile = typeof window.App?.Intelligence?.buildLeagueProfile === 'function'
+            ? window.App.Intelligence.buildLeagueProfile({ league: currentLeague, rosters: currentLeague?.rosters || [], platform: currentLeague?._platform })
+            : null;
+        const leagueFormatBadges = leagueProfile && typeof window.App?.Intelligence?.buildFormatBadges === 'function'
+            ? window.App.Intelligence.buildFormatBadges(leagueProfile)
+            : [];
 
         const calcPPG = (pid, scoring) => window.App.calcPPG(statsData[pid], scoring);
         function calcSeasonPts(pid, scoring) {
@@ -120,6 +126,39 @@
             return { value: 0, source: 'none' };
         }
         const getPickValue = window.App.PlayerValue.getPickValue;
+
+        function formatReasonsForAssets(players = []) {
+            if (!leagueProfile || typeof window.App?.Intelligence?.buildPlayerFormatReasons !== 'function') return [];
+            const seen = new Set();
+            const reasons = [];
+            (players || []).forEach(asset => {
+                const p = playersData[asset.pid] || { position: asset.pos, full_name: asset.name };
+                window.App.Intelligence.buildPlayerFormatReasons({ player: p, pos: asset.pos, profile: leagueProfile }).forEach(reason => {
+                    if (seen.has(reason.code)) return;
+                    seen.add(reason.code);
+                    reasons.push(reason);
+                });
+            });
+            return reasons;
+        }
+
+        function formatReadoutForDeal(givePlayers = [], receivePlayers = []) {
+            const playerReasons = formatReasonsForAssets(receivePlayers).concat(formatReasonsForAssets(givePlayers));
+            const firstPlayerReasons = [];
+            const seen = new Set();
+            playerReasons.forEach(reason => {
+                if (seen.has(reason.code)) return;
+                seen.add(reason.code);
+                firstPlayerReasons.push(reason);
+            });
+            if (firstPlayerReasons.length) return firstPlayerReasons.slice(0, 2).map(r => r.detail || r.label).join(' ');
+            const marketFit = leagueProfile?.market?.fantasyCalcCompatibility;
+            if (marketFit?.custom) {
+                return 'This league uses custom scoring, so generic market values should be checked against league-specific DHQ context.';
+            }
+            const badge = leagueFormatBadges.find(b => b.impact === 'major' || b.impact === 'scoring');
+            return badge ? badge.detail : '';
+        }
 
         function detectPickIdMode(rosters, tradedPicks) {
             const rosterIds = new Set(rosters.map(r => String(r.roster_id)));
@@ -615,6 +654,61 @@
         const rosterState = window.App?.getRosterDataState?.({ roster: myRoster, currentLeague, rosters: allRosters }) || { isUsable: true };
         const myAssessment = useMemo(() => assessments.find(a => a.rosterId === myRosterId) || null, [assessments, myRosterId]);
         const elitePlayerSet = useMemo(() => assessments.length ? calcElitePlayers(assessments) : new Set(), [assessments, statsData]);
+        const behaviorBaselines = useMemo(() => {
+            if (typeof window.App?.Intelligence?.buildLeagueBehaviorBaselines !== 'function') return null;
+            return window.App.Intelligence.buildLeagueBehaviorBaselines({
+                league: currentLeague,
+                rosters: allRosters,
+                ownerProfiles: window.App?.LI?.ownerProfiles || {},
+                tradeHistory: window.App?.LI?.tradeHistory || [],
+                draftOutcomes: window.App?.LI?.draftOutcomes || [],
+            });
+        }, [currentLeague?.league_id, allRosters.length, timeRecomputeTs]);
+        const ownerBehaviorByRosterId = useMemo(() => {
+            if (!behaviorBaselines || typeof window.App?.Intelligence?.buildOwnerBehaviorProfile !== 'function') return {};
+            const profiles = {};
+            assessments.forEach(a => {
+                const dnaKey = ownerDna[a.ownerId] || null;
+                profiles[String(a.rosterId)] = window.App.Intelligence.buildOwnerBehaviorProfile({
+                    rosterId: a.rosterId,
+                    ownerId: a.ownerId,
+                    ownerName: a.ownerName,
+                    assessment: a,
+                    ownerProfile: window.App?.LI?.ownerProfiles?.[a.rosterId] || {},
+                    tradeHistory: window.App?.LI?.tradeHistory || [],
+                    draftOutcomes: window.App?.LI?.draftOutcomes || [],
+                    baselines: behaviorBaselines,
+                    dnaKey,
+                    dnaLabel: dnaKey ? (DNA_TYPES[dnaKey]?.label || dnaKey) : undefined,
+                    manualDna: !!dnaKey,
+                });
+            });
+            window.App.LI = window.App.LI || {};
+            window.App.LI.ownerBehaviorProfiles = profiles;
+            window.App.LI.leagueBehaviorBaselines = behaviorBaselines;
+            return profiles;
+        }, [assessments, behaviorBaselines, ownerDna, timeRecomputeTs]);
+        const teamContextByRosterId = useMemo(() => {
+            if (typeof window.App?.Intelligence?.buildTeamContext !== 'function') return {};
+            const contexts = {};
+            assessments.forEach(a => {
+                const roster = allRosters.find(r => String(r.roster_id) === String(a.rosterId)) || {};
+                contexts[String(a.rosterId)] = window.App.Intelligence.buildTeamContext({
+                    league: currentLeague,
+                    profile: leagueProfile,
+                    roster,
+                    assessment: a,
+                    playersData,
+                    playerScores: window.App?.LI?.playerScores || {},
+                    ownerName: a.ownerName,
+                    teamName: a.teamName,
+                    valueFreshness: 'live',
+                });
+            });
+            window.App.LI = window.App.LI || {};
+            window.App.LI.teamContexts = contexts;
+            return contexts;
+        }, [assessments, allRosters, currentLeague?.league_id, leagueProfile, playersData, timeRecomputeTs]);
 
         // Auto-set Side A to my team
         useEffect(() => {
@@ -774,31 +868,75 @@
             const receive = sideBreakdown(receivePlayers, receivePicks, receiveFaab);
             if (give.total <= 0 || receive.total <= 0) return null;
             const pieceCount = givePlayers.length + receivePlayers.length + givePicks.length + receivePicks.length;
-            const likelihood = calcAcceptanceLikelihood(give.total, receive.total, dnaKey, acceptanceTaxes, myAssessment, partner, { totalPieces: pieceCount });
+            const baseLikelihood = calcAcceptanceLikelihood(give.total, receive.total, dnaKey, acceptanceTaxes, myAssessment, partner, { totalPieces: pieceCount });
             const gradeRaw = window.App?.TradeEngine?.fairnessGrade
                 ? window.App.TradeEngine.fairnessGrade(give.total, receive.total)
                 : { grade: receive.total >= give.total ? 'B+' : 'C', label: receive.total >= give.total ? 'Win' : 'Overpay', color: receive.total >= give.total ? '#2ECC71' : '#E74C3C' };
             const userGain = receive.total - give.total;
+            const behaviorProfile = ownerBehaviorByRosterId?.[String(partner.rosterId)] || null;
+            const behaviorFit = behaviorProfile && typeof window.App?.Intelligence?.evaluateBehaviorTradeFit === 'function'
+                ? window.App.Intelligence.evaluateBehaviorTradeFit({
+                    behaviorProfile,
+                    givePlayers,
+                    givePicks,
+                    receivePlayers,
+                    receivePicks,
+                    userGain,
+                })
+                : null;
+            const likelihood = Math.round(Math.max(5, Math.min(95, baseLikelihood + (behaviorFit?.acceptanceDelta || 0))));
             const fit = myAssessment ? calcComplementarity(myAssessment, partner) : 0;
             const valueScore = Math.max(0, Math.min(100, 50 + (userGain / Math.max(give.total, receive.total, 1)) * 120));
-            const confidenceScore = Math.round(likelihood * 0.45 + fit * 0.25 + valueScore * 0.30);
+            const confidenceScore = Math.round(Math.max(0, Math.min(100, likelihood * 0.45 + fit * 0.25 + valueScore * 0.30 + (behaviorFit?.scoreDelta || 0))));
             const confidence = confidenceScore >= 72 ? 'High' : confidenceScore >= 50 ? 'Medium' : 'Low';
             const windowImpact = dealWindowImpact(givePlayers, receivePlayers);
             const swing = explainRosterSwing(partner, givePlayers, receivePlayers);
+            const formatReadout = formatReadoutForDeal(givePlayers, receivePlayers);
+            const behaviorReadout = behaviorFit?.framing || behaviorProfile?.observedFacts?.[0]?.detail || '';
             const caution = [];
             if (likelihood < 40) caution.push('Low acceptance odds');
             if (posture.key === 'LOCKED') caution.push('Locked roster');
             if (userGain < -Math.max(500, receive.total * 0.12)) caution.push('Meaningful overpay');
             if (!swing.includes('need') && !swing.includes('gap')) caution.push('Weak roster-fit signal');
             if (givePicks.length && receivePicks.length) caution.push('Pick timing matters');
+            if (behaviorProfile?.inferences?.includes('low-liquidity')) caution.push('Low-liquidity partner');
             const whyAccept = input.whyAccept || (partner.needs?.length
                 ? `They need ${partner.needs.slice(0, 2).map(n => n.pos).join('/')} and this gives them usable assets.`
                 : `Their ${posture.label.toLowerCase()} posture keeps them open to a clean value offer.`);
             const whyYou = input.whyYou || (userGain >= 0
                 ? `You gain ${Math.abs(Math.round(userGain)).toLocaleString()} DHQ while improving deal fit.`
                 : `You pay ${Math.abs(Math.round(userGain)).toLocaleString()} DHQ for a roster or window upgrade.`);
+            const dealId = input.id || `deal_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+            const dealFormatReasons = formatReasonsForAssets(receivePlayers).concat(formatReasonsForAssets(givePlayers)).slice(0, 3);
+            const userContext = teamContextByRosterId?.[String(myRosterId)] || null;
+            const partnerContext = teamContextByRosterId?.[String(partner.rosterId)] || null;
+            const intelligence = typeof window.App?.Intelligence?.buildTradeRecommendation === 'function'
+                ? window.App.Intelligence.buildTradeRecommendation({
+                    id: dealId,
+                    partnerName: partner.ownerName,
+                    partnerOwnerId: partner.ownerId,
+                    partnerRosterId: partner.rosterId,
+                    userGain,
+                    likelihood,
+                    fit,
+                    confidence,
+                    confidenceScore,
+                    posture,
+                    dnaLabel: (DNA_TYPES[dnaKey] || DNA_TYPES.NONE)?.label || dnaKey,
+                    totals: { give, receive },
+                    profile: leagueProfile,
+                    formatReasons: dealFormatReasons,
+                    behaviorProfile,
+                    behaviorFit,
+                    userContext,
+                    partnerContext,
+                    whyAccept,
+                    whyYou,
+                    detail: whyYou,
+                })
+                : null;
             return {
-                id: input.id || `deal_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+                id: dealId,
                 mode: input.mode || dealMode,
                 type: input.type || 'Deal',
                 partnerOwnerId: partner.ownerId,
@@ -826,7 +964,14 @@
                 grudge,
                 whyAccept,
                 whyYou,
+                intelligence,
+                behaviorProfile,
+                behaviorFit,
+                userContext,
+                partnerContext,
                 swing,
+                formatReadout,
+                behaviorReadout,
                 windowImpact,
                 caution,
                 rank: Math.round(likelihood * 1.2 + fit * 0.8 + valueScore + (confidenceScore / 2)),
@@ -1358,6 +1503,9 @@
             const derivedDnaKey = deriveDNAFromHistory(a.ownerId, grudges);
             const derivedDna = derivedDnaKey ? DNA_TYPES[derivedDnaKey] : null;
             const profile = window.App?.LI?.ownerProfiles?.[rid] || {};
+            const behaviorProfile = ownerBehaviorByRosterId?.[String(rid)] || null;
+            const behaviorFacts = behaviorProfile?.observedFacts || [];
+            const behaviorTags = behaviorProfile?.inferences || [];
             const ownerRoster = allRosters.find(r => String(r.roster_id) === String(rid));
             const ownerPickAssets = pickAssetsForOwner(a.ownerId);
             const pickCapital = ownerPickAssets.reduce((s, p) => s + (p.value || 0), 0);
@@ -1499,6 +1647,32 @@
                             </div>
                         )}
                     </div>
+
+                    {/* Observed behavior: facts first, inference second */}
+                    {behaviorProfile && (
+                        <div style={{ marginBottom: '14px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(0, 0.85fr)', gap: '10px' }}>
+                            <div style={{ border: '1px solid rgba(125,183,232,0.16)', borderRadius: '7px', background: 'rgba(125,183,232,0.04)', padding: '9px 10px' }}>
+                                <div style={{ fontSize: '0.66rem', color: '#7DB7E8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Observed Behavior</div>
+                                <div style={{ display: 'grid', gap: '5px' }}>
+                                    {behaviorFacts.slice(0, 4).map(fact => (
+                                        <div key={fact.code} style={{ fontSize: '0.72rem', color: 'var(--silver)', lineHeight: 1.35 }}>
+                                            <b style={{ color: '#D0E7FA', fontWeight: 800 }}>{fact.label}:</b> {fact.detail}
+                                        </div>
+                                    ))}
+                                    {!behaviorFacts.length && <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.6 }}>No behavioral sample yet.</div>}
+                                </div>
+                            </div>
+                            <div style={{ border: '1px solid rgba(212,175,55,0.16)', borderRadius: '7px', background: 'rgba(212,175,55,0.04)', padding: '9px 10px' }}>
+                                <div style={{ fontSize: '0.66rem', color: 'var(--gold)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Inference</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '7px' }}>
+                                    {behaviorTags.length
+                                        ? behaviorTags.slice(0, 5).map(tag => <span key={tag} style={{ fontSize: '0.62rem', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.22)', background: 'rgba(212,175,55,0.07)', borderRadius: '4px', padding: '2px 5px' }}>{tag.replace(/-/g, ' ')}</span>)
+                                        : <span style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6 }}>Sample too thin</span>}
+                                </div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--silver)', opacity: 0.82, lineHeight: 1.42 }}>{behaviorProfile.strategy?.offerFrame}</div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Draft DNA (if present) */}
                     {draftDna && (
@@ -1857,11 +2031,20 @@
                     const pickAssets = pickAssetsForOwner(a.ownerId);
                     const pickCapital = pickAssets.reduce((s, p) => s + p.value, 0);
                     const profile = window.App?.LI?.ownerProfiles?.[a.rosterId] || {};
+                    const behaviorProfile = ownerBehaviorByRosterId?.[String(a.rosterId)] || null;
+                    const behaviorTags = new Set(behaviorProfile?.inferences || []);
                     const tradeVol = profile.trades || 0;
-                    const score = Math.round(compat * 1.2 + mutualNeedFit * 18 + theyHaveNeed * 14 + (a.panic || 0) * 7 + Math.min(20, tradeVol * 2) + (posture.key === 'LOCKED' ? -16 : 0));
+                    const behaviorScore = behaviorProfile
+                        ? Math.round(((behaviorProfile.scores?.liquidity ?? 50) - 50) / 4)
+                            + (behaviorTags.has('active-trader') ? 8 : 0)
+                            + (behaviorTags.has('fair-dealer') ? 5 : 0)
+                            + (behaviorTags.has('low-liquidity') ? -12 : 0)
+                            + (behaviorTags.has('value-hunter') ? -5 : 0)
+                        : 0;
+                    const score = Math.round(compat * 1.2 + mutualNeedFit * 18 + theyHaveNeed * 14 + (a.panic || 0) * 7 + Math.min(20, tradeVol * 2) + behaviorScore + (posture.key === 'LOCKED' ? -16 : 0));
                     const tag = score >= 90 ? 'Attack' : score >= 70 ? 'Prime' : score >= 50 ? 'Possible' : a.panic >= 3 ? 'Pressure' : 'Long shot';
                     const tagColor = tag === 'Attack' || tag === 'Prime' ? '#2ECC71' : tag === 'Possible' ? '#F0A500' : tag === 'Pressure' ? '#BB8FCE' : 'var(--silver)';
-                    return { assessment:a, dnaKey, dna, posture, compat, mutualNeedFit, theyHaveNeed, pickAssets, pickCapital, profile, score, tag, tagColor };
+                    return { assessment:a, dnaKey, dna, posture, compat, mutualNeedFit, theyHaveNeed, pickAssets, pickCapital, profile, behaviorProfile, behaviorScore, score, tag, tagColor };
                 })
                 .sort((a, b) => b.score - a.score || b.compat - a.compat);
 
@@ -1870,6 +2053,9 @@
             const GRADE_ORDER = { 'A+':0, 'A':1, 'B+':2, 'B':3, 'C':4, 'D':5, 'F':6 };
             const deals = (selectedPartner ? generateDealsForPartner(selectedPartner, dealMode, dealFocusPid) : [])
                 .sort((a, b) => (GRADE_ORDER[a.grade] ?? 9) - (GRADE_ORDER[b.grade] ?? 9));
+            if (typeof window.App?.Intelligence?.publishRecommendations === 'function') {
+                window.App.Intelligence.publishRecommendations('trade', deals.map(deal => deal.intelligence).filter(Boolean), { surface: 'deal-hq', partner: selectedPartner?.ownerName || null });
+            }
             const bestDeal = deals[0] || null;
             const bestPartner = partnerBoard[0];
             const leverageCounts = {};
@@ -1942,6 +2128,12 @@
             function dealCard(deal, idx) {
                 const deltaColor = deal.userGain >= 0 ? '#2ECC71' : '#E74C3C';
                 const likelihoodColor2 = deal.likelihood >= 70 ? '#2ECC71' : deal.likelihood >= 45 ? '#F0A500' : '#E74C3C';
+                const whyView = typeof window.App?.Intelligence?.buildWhyView === 'function'
+                    ? window.App.Intelligence.buildWhyView(deal.intelligence, { title: 'Why this trade', limit: 4 })
+                    : null;
+                const whyLines = whyView?.lines || (typeof window.App?.Intelligence?.recommendationWhyLines === 'function'
+                    ? window.App.Intelligence.recommendationWhyLines(deal.intelligence, 4)
+                    : []);
                 return <div key={deal.id} className={`tc-dhq-deal-card${idx === 0 ? ' tc-dhq-top-deal' : ''}`}>
                     <div className="tc-dhq-deal-top">
                         <div>
@@ -1979,7 +2171,10 @@
                         <div><b>Accept:</b><span>{deal.whyAccept}</span></div>
                         <div><b>You:</b><span>{deal.whyYou}</span></div>
                         <div><b>Swing:</b><span>{deal.swing}</span></div>
+                        {deal.formatReadout && <div><b>Format:</b><span>{deal.formatReadout}</span></div>}
+                        {deal.behaviorReadout && <div><b>Behavior:</b><span>{deal.behaviorReadout}</span></div>}
                     </div>
+                    {whyLines.length > 0 && <div className="tc-dhq-evidence">{whyLines.slice(0, 4).map(line => <span key={line}>{line}</span>)}</div>}
                     {deal.caution.length > 0 && <div className="tc-dhq-cautions">{deal.caution.slice(0, 3).map(c => <span key={c}>{c}</span>)}</div>}
                     <div className="tc-dhq-deal-grid">
                         {sideSummary('You Send', deal, 'give')}
@@ -2032,6 +2227,7 @@
                                     <div className="tc-dhq-chipline">
                                         <span style={{ color:item.posture.color }}>{item.posture.label}</span>
                                         {item.dnaKey !== 'NONE' && <span style={{ color:item.dna.color }}>{item.dna.label}</span>}
+                                        {(item.behaviorProfile?.inferences || []).slice(0, 2).map(tag => <span key={tag}>{tag.replace(/-/g, ' ')}</span>)}
                                         <span>{item.pickAssets.length} picks</span>
                                         <span>${a.faabRemaining || 0} FAAB</span>
                                     </div>
@@ -2080,7 +2276,7 @@
                                     <span style={{ color:selectedItem.posture.color }}>{selectedItem.posture.label}</span>
                                     <span>{selectedItem.compat}% fit</span>
                                 </div>
-                                <p>{selectedItem.dna?.strategy || selectedItem.posture.desc}</p>
+                                <p>{selectedItem.behaviorProfile?.strategy?.offerFrame || selectedItem.dna?.strategy || selectedItem.posture.desc}</p>
                             </div>
                             <div className="tc-dhq-dossier-grid">
                                 <div><span>Record</span><strong>{selectedPartner.wins}-{selectedPartner.losses}{selectedPartner.ties ? '-' + selectedPartner.ties : ''}</strong></div>
@@ -2103,6 +2299,7 @@
                                     {selectedPartner.panic >= 3 && <li>Panic level {selectedPartner.panic}/5 creates urgency.</li>}
                                     {selectedItem.mutualNeedFit > 0 && <li>Your surplus matches {selectedItem.mutualNeedFit} of their needs.</li>}
                                     {selectedItem.dnaKey !== 'NONE' && <li>{selectedItem.dna.label}: {selectedItem.dna.desc}</li>}
+                                    {(selectedItem.behaviorProfile?.observedFacts || []).slice(0, 2).map(fact => <li key={fact.code}>{fact.detail}</li>)}
                                 </ul>
                             </div>
                             <div className="tc-dhq-dossier-block">
@@ -2176,6 +2373,18 @@
                     likelihood = Math.round(Math.max(5, Math.min(95, 50 + Math.round(normalizedSurplus * 200))));
                 }
             }
+            const manualBehaviorProfile = theirAssessment ? ownerBehaviorByRosterId?.[String(theirAssessment.rosterId)] : null;
+            const manualBehaviorFit = manualBehaviorProfile && typeof window.App?.Intelligence?.evaluateBehaviorTradeFit === 'function'
+                ? window.App.Intelligence.evaluateBehaviorTradeFit({
+                    behaviorProfile: manualBehaviorProfile,
+                    givePlayers: tradeIds.A.map(playerAsset).filter(Boolean),
+                    givePicks: tradePickIds.A.map(id => ({ id })),
+                    receivePlayers: tradeIds.B.map(playerAsset).filter(Boolean),
+                    receivePicks: tradePickIds.B.map(id => ({ id })),
+                    userGain,
+                })
+                : null;
+            if (manualBehaviorFit) likelihood = Math.round(Math.max(5, Math.min(95, likelihood + (manualBehaviorFit.acceptanceDelta || 0))));
             const likelihoodColor = likelihood >= 70 ? 'var(--win-green)' : likelihood >= 45 ? '#F0A500' : 'var(--loss-red)';
             const verdictColor = userGain > fairMargin ? 'var(--win-green)' : userGain < -fairMargin ? '#E74C3C' : 'var(--gold)';
             const verdictText = userGain > fairMargin ? 'YOU WIN' : userGain < -fairMargin ? 'YOU LOSE' : 'EVEN TRADE';
@@ -2430,7 +2639,7 @@
                                 <div>
                                     <span>Acceptance</span>
                                     <strong style={{ color: likelihoodColor }}>{likelihood}%</strong>
-                                    <em>{netTaxTotal >= 0 ? '+' : ''}{netTaxTotal} psych modifier</em>
+                                    <em>{netTaxTotal >= 0 ? '+' : ''}{netTaxTotal}% psych · {manualBehaviorFit ? `${manualBehaviorFit.acceptanceDelta >= 0 ? '+' : ''}${manualBehaviorFit.acceptanceDelta}% behavior` : '0% behavior'}</em>
                                 </div>
                             </div>
                             {otherOwnerId && (
@@ -2438,29 +2647,37 @@
                                     <span style={{ fontSize:'0.72rem', color:'var(--silver)', opacity:0.65 }}>Their posture:</span>
                                     <span className="tc-posture-badge" style={{ color:theirPosture.color, borderColor:theirPosture.color, background:`${theirPosture.color}18` }}>{theirPosture.label}</span>
                                     {otherDnaKey !== 'NONE' && <span className="tc-chip tc-chip-dna">{otherDna.label}</span>}
+                                    {(manualBehaviorProfile?.inferences || []).slice(0, 3).map(tag => <span key={tag} className="tc-chip">{tag.replace(/-/g, ' ')}</span>)}
                                 </div>
                             )}
                             <div>
-                                <div style={{ fontSize:'0.72rem', color:'var(--silver)', opacity:0.65, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'0.35rem' }}>Psychological Tax Breakdown {React.createElement(Tip, null, 'Each owner\'s DNA type creates psychological modifiers that affect trade acceptance beyond pure value. Taxes reduce likelihood, bonuses increase it. Factors: endowment effect, panic premium, status tax, loss aversion, rebuilding discount, need fulfillment, window alignment, and posture.')}</div>
+                                <div style={{ fontSize:'0.72rem', color:'var(--silver)', opacity:0.65, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'0.35rem' }}>Psychological Tax Breakdown {React.createElement(Tip, null, 'Each owner\'s DNA type creates percentage-point acceptance modifiers beyond pure value. Taxes reduce likelihood, bonuses increase it. Factors: endowment effect, panic premium, status tax, loss aversion, rebuilding discount, need fulfillment, window alignment, and posture.')}</div>
                                 <div className="tc-tax-table">
                                     {psychTaxes.map((t,i) => (
                                         <div key={i} className={`tc-tax-table-row ${t.type === 'BONUS' ? 'tc-bonus' : 'tc-tax'}`}>
                                             <span className="tc-tax-name">{t.name}</span>
                                             <span className="tc-tax-desc">{t.desc}</span>
-                                            <span className="tc-tax-val" style={{ color: t.impact > 0 ? 'var(--win-green)' : 'var(--loss-red)' }}>{t.impact > 0 ? '+' : ''}{t.impact}</span>
+                                            <span className="tc-tax-val" style={{ color: t.impact > 0 ? 'var(--win-green)' : 'var(--loss-red)' }}>{t.impact > 0 ? '+' : ''}{t.impact}%</span>
                                         </div>
                                     ))}
                                     {grudgeTax.total !== 0 && (
                                         <div className={`tc-tax-table-row ${grudgeTax.total < 0 ? 'tc-tax' : 'tc-bonus'}`}>
                                             <span className="tc-tax-name">Grudge Tax</span>
                                             <span className="tc-tax-desc">{grudgeTax.entries.length} logged interaction{grudgeTax.entries.length!==1?'s':''}</span>
-                                            <span className="tc-tax-val" style={{ color: grudgeTax.total < 0 ? 'var(--loss-red)' : 'var(--win-green)' }}>{grudgeTax.total > 0 ? '+' : ''}{grudgeTax.total}</span>
+                                            <span className="tc-tax-val" style={{ color: grudgeTax.total < 0 ? 'var(--loss-red)' : 'var(--win-green)' }}>{grudgeTax.total > 0 ? '+' : ''}{grudgeTax.total}%</span>
+                                        </div>
+                                    )}
+                                    {manualBehaviorFit && (
+                                        <div className={`tc-tax-table-row ${manualBehaviorFit.acceptanceDelta >= 0 ? 'tc-bonus' : 'tc-tax'}`}>
+                                            <span className="tc-tax-name">Observed Behavior</span>
+                                            <span className="tc-tax-desc">{manualBehaviorFit.framing || 'Trade history adjusted acceptance odds.'}</span>
+                                            <span className="tc-tax-val" style={{ color: manualBehaviorFit.acceptanceDelta >= 0 ? 'var(--win-green)' : 'var(--loss-red)' }}>{manualBehaviorFit.acceptanceDelta >= 0 ? '+' : ''}{manualBehaviorFit.acceptanceDelta}%</span>
                                         </div>
                                     )}
                                     <div className="tc-tax-table-row tc-total">
                                         <span className="tc-tax-name">NET MODIFIER</span>
                                         <span className="tc-tax-desc">Folded into effective surplus</span>
-                                        <span className="tc-tax-val" style={{ color: netTaxTotal > 0 ? 'var(--win-green)' : netTaxTotal < 0 ? 'var(--loss-red)' : 'var(--silver)' }}>{netTaxTotal > 0 ? '+' : ''}{netTaxTotal}</span>
+                                        <span className="tc-tax-val" style={{ color: netTaxTotal > 0 ? 'var(--win-green)' : netTaxTotal < 0 ? 'var(--loss-red)' : 'var(--silver)' }}>{netTaxTotal > 0 ? '+' : ''}{netTaxTotal}%</span>
                                     </div>
                                 </div>
                             </div>

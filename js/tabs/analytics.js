@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════════
 // js/tabs/analytics.js — AnalyticsPanel: League analytics terminal
-// with 5 sub-tabs: Roster, Draft, Waiver/Trades, Playoffs, Timeline
+// with focused sub-tabs: Roster, Draft, Market Moves, Players, Picks, Reports
 // Extracted from league-detail.js. Props: all required state from LeagueDetail.
 // ══════════════════════════════════════════════════════════════════
 
@@ -62,7 +62,6 @@ function AnalyticsPanel({
   getAcquisitionInfo,
 }) {
     const _seasonCtx = React.useContext(window.App.SeasonContext) || {};
-    const [timelineFilter, setTimelineFilter] = React.useState('all');
     // _SS mirrors the window.S shape consumed throughout this component
     const _SS = {
         rosters: _seasonCtx.rosters?.length ? _seasonCtx.rosters : (window.S?.rosters || currentLeague?.rosters || []),
@@ -92,19 +91,16 @@ function AnalyticsPanel({
         { key: 'roster', label: 'Roster' },
         { key: 'draft', label: 'Draft' },
         { key: 'trades', label: 'Market Moves' },
-        { key: 'playoffs', label: 'Playoffs' },
-        { key: 'timeline', label: 'Timeline' },
         { key: 'players', label: 'All Players', navLabel: 'Players' },
         { key: 'picks', label: 'Draft Picks', navLabel: 'Picks' },
         { key: 'reports', label: 'Custom Reports', navLabel: 'Reports' },
     ];
     const activeSubTab = subTabs.find(t => t.key === analyticsTab) || subTabs[0];
+    const analyticsViewTab = activeSubTab.key;
     const analyticsContext = {
         roster: 'Winner-template gaps, room coverage, and roster construction evidence.',
         draft: 'Pick value, hit-rate patterns, and current-pick strategy.',
         trades: 'Trade efficiency, waiver activity, FAAB, and market pressure.',
-        playoffs: 'Titles, finals paths, roadblocks, and postseason records.',
-        timeline: 'League eras, filtered events, champions, and major shifts.',
         players: 'Full player universe with analytics-grade filters and saved views.',
         picks: 'Pick capital, ownership status, and traded/acquired paths.',
         reports: 'Custom report templates, saved views, and live preview.'
@@ -262,7 +258,7 @@ function AnalyticsPanel({
             <div className="wr-module-actions">
                 <div className="wr-module-nav">
                     {subTabs.map(t => (
-                        <button key={t.key} className={analyticsTab === t.key ? 'is-active' : ''} onClick={() => setAnalyticsTab(t.key)}>{t.navLabel || t.label}</button>
+                        <button key={t.key} className={analyticsViewTab === t.key ? 'is-active' : ''} onClick={() => setAnalyticsTab(t.key)}>{t.navLabel || t.label}</button>
                     ))}
                 </div>
                 <span className="wr-module-pill">{d?.computedAt ? 'Updated ' + new Date(d.computedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Loading'}</span>
@@ -279,7 +275,7 @@ function AnalyticsPanel({
         <React.Fragment>
 
         {/* ═══ ROSTER CONSTRUCTION ═══ */}
-        {analyticsTab === 'roster' && (() => {
+        {analyticsViewTab === 'roster' && (() => {
             const r = d.roster;
             if (!r) return <div style={{ color: 'var(--silver)' }}>No roster data available.</div>;
             if (!rosterState.isUsable) return <RosterDataBlocker />;
@@ -705,7 +701,7 @@ function AnalyticsPanel({
         })()}
 
         {/* ═══ DRAFT INTELLIGENCE ═══ */}
-        {analyticsTab === 'draft' && (() => {
+        {analyticsViewTab === 'draft' && (() => {
             const dr = d.draft;
             if (!dr) return <div style={{ color: 'var(--silver)' }}>No draft data available.</div>;
             const rounds = Object.keys(dr.winnerDraftProfile || {}).map(Number).sort((a, b) => a - b);
@@ -915,7 +911,7 @@ function AnalyticsPanel({
         })()}
 
         {/* ═══ MARKET MOVES INTELLIGENCE ═══ */}
-        {analyticsTab === 'trades' && (() => {
+        {analyticsViewTab === 'trades' && (() => {
             const tr = d.trades;
             if (!tr) return <div style={{ color: 'var(--silver)' }}>No trade data available.</div>;
             const wa = d.waivers || {};
@@ -1098,384 +1094,11 @@ function AnalyticsPanel({
             );
         })()}
 
-        {/* ═══ PLAYOFF HISTORY ═══ */}
-        {analyticsTab === 'playoffs' && (() => { try {
-            const championships = window.App?.LI?.championships || {};
-            const seasons = completedChampionshipEntries(championships);
-            if (!seasons.length) return <div style={{ ...aCardStyle, color: 'var(--silver)', textAlign: 'center', padding: '40px' }}>No championship history available yet.</div>;
-
-            // ── Playoff Profile Summary ──
-            const myRidP = myRoster?.roster_id;
-            let myChampionships = 0, myRunnerUps = 0, mySemiFinals = 0;
-            seasons.forEach(([season, data]) => {
-                if (sameId(data.champion, myRidP)) myChampionships++;
-                if (sameId(data.runnerUp, myRidP)) myRunnerUps++;
-                if ((data.semiFinals || data.semiFinalists || []).some(rid => sameId(rid, myRidP))) mySemiFinals++;
-            });
-            const myPlayoffAppearances = myChampionships + myRunnerUps;
-            const bracketDataP = window.App?.LI?.bracketData || {};
-            let playoffWins = 0, playoffLosses = 0;
-            Object.values(bracketDataP).forEach(sData => {
-                (sData?.winners || []).forEach(m => {
-                    if (sameId(m.w, myRidP)) playoffWins++;
-                    if (sameId(m.l, myRidP)) playoffLosses++;
-                });
-            });
-            const playoffDiag = myChampionships > 0
-                ? 'You have ' + myChampionships + ' championship' + (myChampionships > 1 ? 's' : '') + ' in ' + seasons.length + ' seasons.'
-                : myRunnerUps > 0
-                ? 'You have reached ' + myRunnerUps + ' final' + (myRunnerUps > 1 ? 's' : '') + ' but no championships in ' + seasons.length + ' seasons.'
-                : 'You haven\'t reached the finals recently.';
-            const playoffInsight = myRunnerUps > myChampionships && myRunnerUps > 0
-                ? ' You struggle to close out championship matchups — consider roster upgrades at key playoff positions.'
-                : myPlayoffAppearances === 0
-                ? ' Focus on building a contender before worrying about playoff optimization.'
-                : ' Your playoff track record is solid. Maintain your competitive edge.';
-            const playoffProofItems = [
-                { label: 'Titles', value: myChampionships, detail: seasons.length + ' completed seasons in evidence.', tone: myChampionships ? 'good' : 'warn', color: myChampionships ? 'var(--gold)' : 'var(--silver)' },
-                { label: 'Finals Conversion', value: (myChampionships + myRunnerUps) ? Math.round(myChampionships / Math.max(myChampionships + myRunnerUps, 1) * 100) + '%' : '\u2014', detail: (myChampionships + myRunnerUps) + ' finals appearances.', tone: myChampionships >= myRunnerUps ? 'good' : 'warn', color: myChampionships >= myRunnerUps ? goodColor : warnColor },
-                { label: 'Semifinal Reach', value: mySemiFinals, detail: 'Documented semifinal berths.', tone: mySemiFinals ? 'good' : 'warn', color: mySemiFinals ? '#4ECDC4' : 'var(--silver)' },
-                { label: 'Playoff Record', value: playoffWins + '-' + playoffLosses, detail: 'Winners bracket games only.', tone: playoffWins >= playoffLosses ? 'good' : 'bad', color: playoffWins >= playoffLosses ? goodColor : badColor },
-            ];
-
-            return (
-            <React.Fragment>
-                <AnalyticsCommandPanel
-                    title="What has the bracket proven about your title path?"
-                    thesis={playoffDiag + playoffInsight + ' Trophy Room owns legacy; Analytics keeps the bracket evidence and roadblock data.'}
-                    stats={[
-                        { label: 'Completed Seasons', value: seasons.length, sub: 'with champion and runner-up' },
-                        { label: 'Your Finals', value: myChampionships + myRunnerUps, sub: myRunnerUps + ' runner-up' },
-                        { label: 'Roadblock Sample', value: (window.App?.detectRivalries?.(myRoster?.roster_id) || []).length, sub: 'repeat playoff opponents' },
-                        { label: 'Bracket Games', value: playoffWins + playoffLosses, sub: 'winners bracket' },
-                    ]}
-                />
-
-                <AnalyticsProofGrid items={playoffProofItems} />
-
-                {(() => {
-                    const detectRivalries = window.App?.detectRivalries;
-                    const rivals = detectRivalries && myRoster ? detectRivalries(myRoster.roster_id) : [];
-                    return (
-                        <div className="analytics-action-grid">
-                            <AnalyticsSection title="ROADBLOCKS" meta="Most frequent playoff opponents">
-                                <div className="analytics-signal-list">
-                                    {rivals && rivals.length ? rivals.slice(0, 3).map((r, i) => (
-                                        <div key={i} className={'analytics-signal ' + (r.wins >= r.losses ? 'analytics-signal-low' : 'analytics-signal-high')}>
-                                            <strong>{ownerNameSafe(r.rosterId)}</strong>
-                                            <span>{r.wins}-{r.losses} across {r.total} playoff meetings</span>
-                                        </div>
-                                    )) : <div className="analytics-signal"><strong>No repeat roadblock</strong><span>No opponent has met you multiple times in the available bracket data.</span></div>}
-                                </div>
-                            </AnalyticsSection>
-                            <AnalyticsSection title="RECENT FINISHES" meta="Champion / runner-up">
-                                <div className="analytics-mini-table">
-                                    {seasons.slice(0, 4).map(([season, data]) => (
-                                        <div key={season}><strong>{season}</strong><span>{ownerNameSafe(data.champion)}</span><em>over {ownerNameSafe(data.runnerUp)}</em></div>
-                                    ))}
-                                </div>
-                            </AnalyticsSection>
-                        </div>
-                    );
-                })()}
-
-                <div style={aCardStyle}>
-                    <div style={aHeaderStyle}>TITLE PATH EVIDENCE</div>
-                    {seasons.map(([season, data]) => {
-                        const champName = ownerNameSafe(data.champion);
-                        const runnerName = ownerNameSafe(data.runnerUp);
-                        const isMyChamp = sameId(data.champion, myRoster?.roster_id);
-                        const isMyRunner = sameId(data.runnerUp, myRoster?.roster_id);
-                        const champRoster = rosterByAnyId(data.champion);
-                        const champUser = currentLeague.users?.find(u => u.user_id === champRoster?.owner_id);
-                        const runnerRoster = rosterByAnyId(data.runnerUp);
-                        const runnerUser = currentLeague.users?.find(u => u.user_id === runnerRoster?.owner_id);
-                        return (
-                            <div key={season} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                <span style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: 'var(--gold)', minWidth: '40px' }}>{season}</span>
-                                <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: isMyChamp ? 'var(--gold)' : 'var(--white)', fontWeight: isMyChamp ? 700 : 400 }}>
-                                        {champUser?.avatar && <img src={'https://sleepercdn.com/avatars/thumbs/' + champUser.avatar} style={{ width:'20px', height:'20px', borderRadius:'50%' }} onError={e => e.target.style.display='none'} />}
-                                        Champion: {champName}{champUser?.metadata?.team_name ? ' (' + champUser.metadata.team_name + ')' : ''}{isMyChamp ? ' (You!)' : ''}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--silver)' }}>
-                                        {runnerUser?.avatar && <img src={'https://sleepercdn.com/avatars/thumbs/' + runnerUser.avatar} style={{ width:'20px', height:'20px', borderRadius:'50%' }} onError={e => e.target.style.display='none'} />}
-                                        Runner-up: {runnerName}{isMyRunner ? ' (You)' : ''}
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-
-                {/* ── FULL BRACKET DISPLAY ── */}
-                {(() => {
-                    const bracketData = window.App?.LI?.bracketData;
-                    if (!bracketData || !Object.keys(bracketData).length) return null;
-                    const completedSeasonSet = new Set(seasons.map(([season]) => String(season)));
-                    const bracketSeasons = Object.entries(bracketData)
-                        .filter(([season]) => completedSeasonSet.has(String(season)))
-                        .sort(([a],[b]) => String(b).localeCompare(String(a)));
-                    if (!bracketSeasons.length) return null;
-                    return (
-                        <div style={aCardStyle}>
-                            <div style={aHeaderStyle}>BRACKET EVIDENCE</div>
-                            {bracketSeasons.map(([season, sData]) => {
-                                const brackets = [
-                                    { key: 'winners', label: 'Winners Bracket', data: sData.winners || sData.w || [] },
-                                    { key: 'losers', label: 'Losers Bracket', data: sData.losers || sData.l || [] },
-                                ];
-                                return (
-                                    <div key={season} style={{ marginBottom: '12px' }}>
-                                        <div style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: '1.1rem', color: 'var(--gold)', marginBottom: '8px' }}>{season} Playoffs</div>
-                                        {brackets.map(b => {
-                                            if (!b.data || !b.data.length) return null;
-                                            return (
-                                                <div key={b.key} style={{ marginBottom: '12px' }}>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--silver)', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>{b.label}</div>
-                                                    {b.data.map((matchup, mi) => {
-                                                        const t1 = matchup.t1 || matchup.team1;
-                                                        const t2 = matchup.t2 || matchup.team2;
-                                                        const w = matchup.w || matchup.winner;
-                                                        if (!isResolvedOwner(t1) || !isResolvedOwner(t2)) return null;
-                                                        // Robust round label: handle 0-indexed rounds and missing values
-                                                        let _mr = Math.max(...(b.data || []).map(m => m.r || m.round || 0), 0);
-                                                        let _rd = matchup.r || matchup.round || 0;
-                                                        // If all rounds are 0, try 1-indexing from matchup index
-                                                        if (_mr <= 0) {
-                                                            const uniqueRounds = [...new Set((b.data || []).map(m => m.r || m.round || 0))];
-                                                            _mr = uniqueRounds.length || 1;
-                                                            _rd = mi + 1; // fallback: use matchup index as round proxy
-                                                        }
-                                                        // If rounds appear 0-indexed (max round is 0-based), shift up by 1
-                                                        if (_mr >= 1 && _rd === 0) { _rd = 1; }
-                                                        // Debug log removed — was flooding console with every bracket matchup
-                                                        const roundLabel = _rd === _mr ? 'Championship' : _rd === _mr - 1 ? 'Semi-finals' : _rd === _mr - 2 ? 'Quarter-finals' : 'Round ' + _rd;
-                                                        const isMyGame = sameId(t1, myRidP) || sameId(t2, myRidP);
-                                                        return (
-                                                            <div key={mi} style={{
-                                                                display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', marginBottom: '4px',
-                                                                background: isMyGame ? 'rgba(212,175,55,0.06)' : 'rgba(255,255,255,0.02)',
-                                                                borderLeft: isMyGame ? '3px solid var(--gold)' : '3px solid transparent',
-                                                                borderRadius: '4px', fontSize: '0.8rem', fontFamily: 'var(--font-body)',
-                                                            }}>
-                                                                <span style={{ fontSize: '0.68rem', color: 'var(--silver)', opacity: 0.6, minWidth: '80px' }}>{roundLabel}</span>
-                                                                <span style={{ color: sameId(w, t1) ? 'var(--gold)' : 'var(--silver)', fontWeight: sameId(w, t1) ? 700 : 400 }}>{ownerNameSafe(t1)}</span>
-                                                                <span style={{ color: 'var(--silver)', opacity: 0.4, fontSize: '0.7rem' }}>vs</span>
-                                                                <span style={{ color: sameId(w, t2) ? 'var(--gold)' : 'var(--silver)', fontWeight: sameId(w, t2) ? 700 : 400 }}>{ownerNameSafe(t2)}</span>
-                                                                {w && <span style={{ color: 'var(--gold)', fontSize: '0.7rem', marginLeft: 'auto' }}>{'\u2192'} {ownerNameSafe(w)}</span>}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    );
-                })()}
-
-                {/* Rivalry Detection */}
-                {(() => {
-                    const detectRivalries = window.App?.detectRivalries;
-                    if (!detectRivalries || !myRoster) return null;
-                    const rivals = detectRivalries(myRoster.roster_id);
-                    if (!rivals || !rivals.length) return null;
-                    return (
-                        <div style={aCardStyle}>
-                            <div style={aHeaderStyle}>YOUR PLAYOFF RIVALRIES</div>
-                            {rivals.map((r, i) => {
-                                const rivalName = ownerNameSafe(r.rosterId);
-                                return (
-                                    <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--white)', fontWeight: 600, flex: 1 }}>{rivalName}</span>
-                                            <span style={{ fontSize: '0.78rem', color: r.wins > r.losses ? goodColor : r.wins < r.losses ? badColor : warnColor, fontWeight: 700, fontFamily: 'var(--font-body)' }}>{r.wins}-{r.losses}</span>
-                                            <span style={{ fontSize: '0.74rem', color: 'var(--silver)' }}>{r.total} meetings</span>
-                                        </div>
-                                        {r.meetings && r.meetings.length > 0 && (
-                                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
-                                                {r.meetings.map((mtg, mi) => (
-                                                    <span key={mi} style={{ fontSize: '0.68rem', fontFamily: 'var(--font-body)', padding: '1px 6px', borderRadius: '8px', background: mtg.won ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)', color: mtg.won ? goodColor : badColor, border: '1px solid ' + (mtg.won ? goodColor : badColor) + '33' }}>
-                                                        Met in {mtg.bracket || 'Winners'} R{mtg.round || '?'} ({mtg.season || '?'})
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {(!r.meetings || !r.meetings.length) && (
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--silver)', opacity: 0.65, marginTop: '2px' }}>{r.seasons.join(', ')}</div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    );
-                })()}
-            </React.Fragment>
-            );
-        } catch(e) { console.warn('[WarRoom] Playoffs render error:', e); return <div style={{ padding: '24px', textAlign: 'center', color: 'var(--silver)' }}>Playoff data could not be rendered. Check console for details.</div>; } })()}
-
-        {/* ═══ TIMELINE ═══ */}
-        {analyticsTab === 'timeline' && (() => {
-            const championships = window.App?.LI?.championships || {};
-            const championshipEntries = completedChampionshipEntries(championships);
-            const completedChampionships = Object.fromEntries(championshipEntries);
-            const tradeHistory = window.App?.LI?.tradeHistory || [];
-            // Uses shared getOwnerName() passed as prop
-            const events = [];
-
-            championshipEntries.forEach(([season, data]) => {
-                if (data.champion) events.push({ year: season, type: 'champ', title: ownerNameSafe(data.champion) + ' wins the championship', color: 'var(--gold)', ts: parseInt(season)*100+99 });
-            });
-
-            // Collect all trades with DHQ, then keep top 5 by total value
-            const _tradeEvents = [];
-            tradeHistory.forEach(trade => {
-                const rids = trade.roster_ids || [];
-                const names = rids.map(r => ownerNameSafe(r)).join(' and ');
-                const pids = Object.keys(trade.sides || {}).flatMap(rid => (trade.sides[rid]?.players || []));
-                const playerNames = pids.slice(0, 3).map(pid => playersData[pid]?.full_name || pid).join(', ');
-                const totalVal = pids.reduce((s, pid) => s + Math.abs(window.App?.LI?.playerScores?.[pid] || 0), 0);
-                if (totalVal < 5000) return;
-                _tradeEvents.push({
-                    year: trade.season || '?', type: 'trade',
-                    title: names + ' swap assets' + (playerNames ? ': ' + playerNames : ''),
-                    sub: totalVal > 0 ? totalVal.toLocaleString() + ' DHQ moved' : '',
-                    color: '#F0A500', ts: parseInt(trade.season||0)*100 + (trade.week||50),
-                    _totalVal: totalVal
-                });
-            });
-            _tradeEvents.sort((a, b) => b._totalVal - a._totalVal);
-            _tradeEvents.slice(0, 5).forEach(te => events.push(te));
-
-            // Personal highlights per year
-            const myRidTLx = myRoster?.roster_id;
-            const playerScoresTL = window.App?.LI?.playerScores || {};
-            const draftOutcomesTL = (window.App?.LI || {}).draftOutcomes || [];
-            const allYears = [...new Set([...Object.keys(completedChampionships), ...events.map(e => String(e.year))])].sort((a,b) => b - a);
-            allYears.forEach(yr => {
-                // Your team's finish
-                const cData = completedChampionships[yr];
-                if (cData) {
-                    if (sameId(cData.champion, myRidTLx)) events.push({ year: yr, type: 'personal', title: 'You won the championship!', color: 'var(--gold)', ts: parseInt(yr)*100+97 });
-                    else if (sameId(cData.runnerUp, myRidTLx)) events.push({ year: yr, type: 'personal', title: 'You finished as runner-up', color: 'var(--silver)', ts: parseInt(yr)*100+96 });
-                    else if ((cData.semiFinalists || cData.semiFinals || []).some(rid => sameId(rid, myRidTLx))) events.push({ year: yr, type: 'personal', title: 'You reached the semi-finals', color: '#4ECDC4', ts: parseInt(yr)*100+95 });
-                }
-                // Your best draft pick that year
-                const myDraftPicks = draftOutcomesTL.filter(dp => dp.roster_id === myRidTLx && String(dp.season || dp.year) === String(yr));
-                if (myDraftPicks.length > 0) {
-                    const bestPick = myDraftPicks.reduce((best, dp) => (playerScoresTL[dp.player_id] || 0) > (playerScoresTL[best.player_id] || 0) ? dp : best, myDraftPicks[0]);
-                    const bestDhq = playerScoresTL[bestPick.player_id] || 0;
-                    if (bestDhq > 2000) {
-                        const pName = playersData[bestPick.player_id]?.full_name || bestPick.player_id;
-                        events.push({ year: yr, type: 'personal', title: 'Best draft pick: ' + pName + ' (R' + (bestPick.round || '?') + ', ' + bestDhq.toLocaleString() + ' DHQ)', color: '#4ECDC4', ts: parseInt(yr)*100+94 });
-                    }
-                }
-            });
-
-            events.sort((a, b) => b.ts - a.ts);
-            const years = [...new Set(events.map(e => e.year))].sort((a, b) => b - a);
-
-            if (!events.length) return <div style={{ color:'var(--silver)', textAlign:'center', padding:'40px' }}>No timeline events. DHQ engine needs to load trade history and championship data.</div>;
-
-            // ── League Narrative Summary ──
-            const champCounts = {};
-            Object.values(completedChampionships).forEach(data => {
-                if (data.champion) champCounts[data.champion] = (champCounts[data.champion] || 0) + 1;
-            });
-            const champEntries = Object.entries(champCounts).sort((a, b) => b[1] - a[1]);
-            const dominantTeam = champEntries.length > 0 ? ownerNameSafe(champEntries[0][0]) : 'N/A';
-            const dominantTitles = champEntries.length > 0 ? champEntries[0][1] : 0;
-            const repeatWinners = champEntries.filter(([, cnt]) => cnt > 1).map(([rid]) => ownerNameSafe(rid)).filter(n => n && n !== 'Unknown');
-            const myRidTL = myRoster?.roster_id;
-            const myChampsTL = champCounts[myRidTL] || 0;
-            // Trajectory from projection data
-            const projTL = d.projection || [];
-            const tlTrend = projTL.length >= 2 ? projTL[projTL.length - 1].projectedDHQ - projTL[0].projectedDHQ : 0;
-            const myTrajectory = tlTrend > 500 ? 'rising' : tlTrend < -500 ? 'declining' : 'stable';
-            // Next champion candidates: teams with highest health scores
-            const allRostersTL = _SS.rosters || [];
-            const teamHealthList = [];
-            allRostersTL.forEach(ros => {
-                try {
-                    if (window.assessTeamFromGlobal) {
-                        const a = window.assessTeamFromGlobal(ros.roster_id);
-                        if (a) teamHealthList.push({ rid: ros.roster_id, name: ownerNameSafe(ros.roster_id), health: a.healthScore || 0 });
-                    }
-                } catch(e) { window.wrLog('timeline.assessTeam', e); }
-            });
-            teamHealthList.sort((a, b) => b.health - a.health);
-            const nextChampCandidates = teamHealthList.slice(0, 3).map(t => t.name).join(', ') || 'insufficient data';
-            const majorTradeCount = events.filter(e => e.type === 'trade').length;
-            const personalEventCount = events.filter(e => e.type === 'personal').length;
-
-            return (
-                <React.Fragment>
-                <AnalyticsCommandPanel
-                    title="How has the league evolved, and where are you in the current era?"
-                    thesis={(dominantTitles > 0 ? 'League dominated by ' + dominantTeam + ' with ' + dominantTitles + ' title' + (dominantTitles > 1 ? 's' : '') + '.' : 'No completed championship history is resolved yet.') + (repeatWinners.length > 0 ? ' Repeat elite tier: ' + repeatWinners.join(', ') + '.' : ' No repeat champions yet — wide-open league.') + ' Your trajectory: ' + myTrajectory + (myChampsTL > 0 ? ' (' + myChampsTL + ' title' + (myChampsTL > 1 ? 's' : '') + ')' : '') + '. Next likely champion candidates: ' + nextChampCandidates + '.'}
-                    stats={[
-                        { label: 'Timeline Events', value: events.length, sub: 'resolved evidence points' },
-                        { label: 'Major Trades', value: majorTradeCount, sub: '5000+ DHQ moved' },
-                        { label: 'My Highlights', value: personalEventCount, sub: 'personal league events' },
-                        { label: 'Current Trajectory', value: myTrajectory, sub: 'projection signal', color: myTrajectory === 'rising' ? goodColor : myTrajectory === 'declining' ? badColor : warnColor },
-                    ]}
-                />
-
-                <div className="analytics-filter-row">
-                    {[
-                        ['all', 'All Events'],
-                        ['champ', 'Championships'],
-                        ['trade', 'Major Trades'],
-                        ['personal', 'My Highlights'],
-                    ].map(([key, label]) => (
-                        <button key={key} onClick={() => setTimelineFilter(key)} className={timelineFilter === key ? 'is-active' : ''}>{label}</button>
-                    ))}
-                </div>
-
-                <div style={{ background:'var(--black)', border:'2px solid rgba(212,175,55,0.3)', borderRadius:'12px', padding:'24px' }}>
-                    <div style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'1.3rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'12px' }}>ERA / MOVE TIMELINE</div>
-                    {(() => {
-                        const visibleEvents = timelineFilter === 'all'
-                            ? events
-                            : timelineFilter === 'champ'
-                            ? events.filter(e => e.type === 'champ')
-                            : events.filter(e => e.type === timelineFilter);
-                        const visibleYears = [...new Set(visibleEvents.map(e => e.year))].sort((a, b) => b - a);
-                        return visibleYears.map(year => {
-                        const yearEvents = visibleEvents.filter(e => e.year === year);
-                        return (
-                            <div key={year} style={{ marginBottom:'24px' }}>
-                                <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'12px' }}>
-                                    <div style={{ width:'14px', height:'14px', background:'var(--gold)', borderRadius:'50%', border:'3px solid var(--black)', flexShrink:0 }} />
-                                    <span style={{ fontFamily:'Rajdhani, sans-serif', fontSize:'1.2rem', color:'var(--gold)' }}>{year}</span>
-                                </div>
-                                <div style={{ paddingLeft:'20px', borderLeft:'2px solid rgba(212,175,55,0.2)', marginLeft:'6px' }}>
-                                    {yearEvents.map((ev, i) => (
-                                        <div key={i} style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(212,175,55,0.12)', borderLeft:'3px solid '+ev.color, borderRadius:'6px', padding:'10px 14px', marginBottom:'8px', position:'relative' }}>
-                                            <div style={{ position:'absolute', left:'-14px', top:'12px', width:'8px', height:'8px', background:ev.color, borderRadius:'50%', border:'2px solid var(--black)' }} />
-                                            <div style={{ fontSize:'0.78rem', color:ev.color, textTransform:'uppercase', fontFamily: 'var(--font-body)', letterSpacing:'0.06em', marginBottom:'3px' }}>{ev.type === 'champ' ? 'Championship' : ev.type === 'finals' ? 'Runner-Up' : ev.type === 'personal' ? 'Your Highlight' : 'Trade'}</div>
-                                            <div style={{ fontSize:'0.78rem', color:'var(--white)', fontWeight:600 }}>{ev.title}</div>
-                                            {ev.sub && <div style={{ fontSize:'0.74rem', color:'var(--silver)', opacity:0.6, marginTop:'2px' }}>{ev.sub}</div>}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    });
-                    })()}
-                </div>
-                </React.Fragment>
-            );
-        })()}
-
         {/* Phase 8: All Players / Draft Picks / Custom Reports — ex-League Map sub-views
             rendered inline via LeagueMapTab's embed mode. Local state lives in AnalyticsPanel
             so sort/filter/search persist as the user moves between sub-tabs. */}
-        {(analyticsTab === 'players' || analyticsTab === 'picks' || analyticsTab === 'reports') && React.createElement(window.AnalyticsLeagueEmbed || (() => null), {
-            analyticsTab, standings, currentLeague, playersData, statsData, sleeperUserId,
+        {(analyticsViewTab === 'players' || analyticsViewTab === 'picks' || analyticsViewTab === 'reports') && React.createElement(window.AnalyticsLeagueEmbed || (() => null), {
+            analyticsTab: analyticsViewTab, standings, currentLeague, playersData, statsData, sleeperUserId,
             myRoster, activeYear, timeRecomputeTs, setActiveTab, getAcquisitionInfo, getOwnerName,
         })}
 

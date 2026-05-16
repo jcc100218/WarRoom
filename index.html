@@ -981,7 +981,7 @@
     .tc-tax-table-row.tc-total { background: rgba(212,175,55,0.06); border-top: 1px solid rgba(212,175,55,0.2); font-weight: 700; }
     .tc-tax-name { flex: 1; font-weight: 600; font-size: 0.72rem; }
     .tc-tax-desc { font-size: 0.8rem; color: var(--silver); opacity: 0.655; flex: 2; }
-    .tc-tax-val { font-weight: 700; font-size: 0.78rem; width: 40px; text-align: right; flex-shrink: 0; }
+    .tc-tax-val { font-weight: 700; font-size: 0.78rem; width: 48px; text-align: right; flex-shrink: 0; }
 
     .tc-posture-badge { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.07em; padding: 0.18rem 0.45rem; border-radius: 3px; border: 1px solid; text-transform: uppercase; }
 
@@ -1053,6 +1053,8 @@
     .tc-dhq-readout div { border: none; background: none; border-radius: 0; padding: 0; display: inline; }
     .tc-dhq-readout b { display: inline; color: var(--gold); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 3px; }
     .tc-dhq-readout span { color: var(--silver); opacity: 0.72; font-size: 0.68rem; line-height: 1.35; }
+    .tc-dhq-evidence { display: flex; flex-wrap: wrap; gap: 5px; }
+    .tc-dhq-evidence span { color: #D0E7FA; background: rgba(125,183,232,0.07); border: 1px solid rgba(125,183,232,0.18); border-radius: 4px; padding: 2px 6px; font-size: 0.62rem; line-height: 1.25; }
     .tc-dhq-dossier-card, .tc-dhq-dossier-block { border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.025); border-radius: 7px; padding: 7px; }
     .tc-dhq-dossier-block b { display: block; color: var(--gold); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
     .tc-dhq-dossier-card p, .tc-dhq-dossier-block p, .tc-dhq-dossier-block li { color: var(--silver); opacity: 0.78; font-size: 0.74rem; line-height: 1.45; }
@@ -1173,6 +1175,8 @@
 	    .fa-hq-player-value { text-align: right; }
 	    .fa-hq-player-value strong { display: block; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
 	    .fa-hq-why { grid-column: 2 / -1; color: var(--silver); opacity: 0.68; font-size: 0.68rem; line-height: 1.35; }
+	    .fa-hq-evidence { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 5px; margin-top: -1px; }
+	    .fa-hq-evidence em { color: #D0E7FA; background: rgba(125,183,232,0.07); border: 1px solid rgba(125,183,232,0.18); border-radius: 4px; padding: 2px 5px; font-size: 0.6rem; font-style: normal; line-height: 1.25; }
 	    .fa-hq-faab-card { position: relative; overflow: hidden; padding: 10px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.025); border-radius: 8px; margin-bottom: 8px; }
 	    .fa-hq-faab-card strong { display: block; font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; }
 	    .fa-hq-faab-card span { display: block; color: var(--silver); opacity: 0.68; font-size: 0.7rem; }
@@ -1577,11 +1581,22 @@
     <div id="root"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.101.1/dist/umd/supabase.min.js"></script>
-<script src="js/shared/shared-loader.js?v=20260503tutorial1"></script>
+<script src="js/shared/shared-loader.js?v=20260515phase4fc"></script>
 <script>
 window.DYNASTY_HQ_APP = 'warroom';
 const WR_PLATFORM_SANDBOX_ACCESS = (window.location.hostname || '').includes('sandbox')
   || ['localhost', '127.0.0.1'].includes(window.location.hostname || '');
+if (WR_PLATFORM_SANDBOX_ACCESS) {
+  const existingConfig = window.DYNASTY_HQ_CONFIG || {};
+  window.DYNASTY_HQ_CONFIG = {
+    ...existingConfig,
+    devPreviewAI: true,
+    endpoints: {
+      ...(existingConfig.endpoints || {}),
+      aiAnalyze: `${window.location.origin}/api/dev-ai-analyze`,
+    },
+  };
+}
 const WR_SHARED_FILES = [
   'app-config.js',
   'bug-capture.js',
@@ -1596,6 +1611,7 @@ const WR_SHARED_FILES = [
   'pick-value-model.js',
   'dhq-providers.js',
   'dhq-core.js',
+  'intelligence-context.js',
   'dhq-engine.js',
   'team-assess.js',
   'analytics-engine.js',
@@ -1661,6 +1677,7 @@ WRShared.loadMany(WR_SHARED_FILES);
 <script type="text/babel" src="js/draft/styles.js?v=20260427font1"></script>
 <script type="text/babel" src="js/draft/scouting.js?v=20260426i"></script>
 <script type="text/babel" src="js/draft/trade-helpers.js?v=20260415cd8"></script>
+<script type="text/babel" src="js/draft/context.js?v=20260516p0"></script>
 <script type="text/babel" src="js/draft/persona.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft/cpu-engine.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft/state.js?v=20260426a"></script>
@@ -1678,6 +1695,8 @@ WRShared.loadMany(WR_SHARED_FILES);
 <script type="text/babel" src="js/draft/scenarios.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft/ghost-replay.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft/live-sync.js?v=20260415cd8"></script>
+<script type="text/babel" src="js/draft/live-decision-engine.js?v=20260516p3"></script>
+<script type="text/babel" src="js/draft/analyst-mock.js?v=20260516p2"></script>
 <script type="text/babel" src="js/draft/command-center.js?v=20260427font1"></script>
 <script type="text/babel" src="js/draft-room.js?v=20260427nav2"></script>
 <!-- 5. League detail tab components (extracted from league-detail.js) -->
@@ -1699,7 +1718,7 @@ WRShared.loadMany(WR_SHARED_FILES);
 <script type="text/babel" src="js/tabs/my-team.js?v=20260502ui5"></script>
 <!-- Compare: extracted from My Roster's former sub-view, now a top-level ROSTER-group tab. -->
 <script type="text/babel" src="js/tabs/compare.js?v=20260502ui1"></script>
-<script type="text/babel" src="js/tabs/analytics.js?v=20260427nav3"></script>
+<script type="text/babel" src="js/tabs/analytics.js?v=20260516trim1"></script>
 <script type="text/babel" src="js/tabs/trophy-room.js?v=20260427font1"></script>
 <script type="text/babel" src="js/tabs/calendar.js?v=20260420a"></script>
 <!-- Alex Insights (Option A): top-level tab for behavioral analysis + AI settings -->

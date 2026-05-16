@@ -88,20 +88,20 @@
     function rookiesLockedForWaivers(currentLeague, briefDraftInfo) {
         const drafts = collectFaDrafts(currentLeague, briefDraftInfo).filter(d => sameDraftSeason(d, currentLeague));
         const rookieDrafts = drafts.filter(d => isRookieDraftLike(d, currentLeague));
-        if (rookieDrafts.some(d => d.status === 'complete')) return false;
-        if (rookieDrafts.some(d => ROOKIE_DRAFT_LOCK_STATUSES.has(d.status))) return true;
+        if (rookieDrafts.some(d => ROOKIE_DRAFT_LOCK_STATUSES.has(String(d.status || '').toLowerCase()))) return true;
+        if (rookieDrafts.some(d => String(d.status || '').toLowerCase() === 'complete')) return false;
         return isDynastyLeague(currentLeague)
-            && currentLeague?.status === 'pre_draft'
+            && ROOKIE_DRAFT_LOCK_STATUSES.has(String(currentLeague?.status || '').toLowerCase())
             && !rookieDrafts.some(d => d.status === 'complete');
     }
 
     function isRookieWaiverLockedCandidate(pid, p, { rookiesLocked, prospectNames, statsData, prevStatsData }) {
         if (!rookiesLocked || !p) return false;
-        const source = window.App?.LI?.playerMeta?.[pid]?.source;
-        if (ROOKIE_DHQ_SOURCES.has(source)) return true;
+        const source = String(window.App?.LI?.playerMeta?.[pid]?.source || '').toUpperCase();
+        if (ROOKIE_DHQ_SOURCES.has(source) || source.includes('ROOKIE')) return true;
         const name = faNormName(p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim());
         if (prospectNames?.has?.(name)) return true;
-        const exp = Number(p.years_exp || 0);
+        const exp = Number(p.years_exp ?? p.yoe ?? p.maybeYoe ?? 0);
         const hasNflStats = (statsData?.[pid]?.gp || 0) > 0 || ((prevStatsData || {})[pid]?.gp || 0) > 0;
         return exp === 0 && !hasNflStats;
     }
@@ -121,6 +121,9 @@
         const assess = typeof window.assessTeamFromGlobal === 'function' ? window.assessTeamFromGlobal(myRoster?.roster_id) : null;
         const rosterPositions = currentLeague?.roster_positions || [];
         const scoring = currentLeague?.scoring_settings || {};
+        const leagueProfile = typeof window.App?.Intelligence?.buildLeagueProfile === 'function'
+            ? window.App.Intelligence.buildLeagueProfile({ league: currentLeague, rosters: currentLeague?.rosters || [], platform: currentLeague?._platform })
+            : null;
         const budget = currentLeague?.settings?.waiver_budget || myRoster?.settings?.waiver_budget || 0;
         const spent = myRoster?.settings?.waiver_budget_used || 0;
         const remaining = Math.max(0, budget - spent);
@@ -130,8 +133,8 @@
         const teamWindow = assess?.window || '';
         const isRebuilding = teamTier === 'REBUILDING' || teamWindow === 'REBUILDING';
         const isContending = teamTier === 'ELITE' || teamTier === 'CONTENDER' || teamWindow === 'CONTENDING';
-        const isSuperFlex = rosterPositions.includes('SUPER_FLEX');
-        const isTEP = (scoring.bonus_rec_te || scoring.rec_te || 0) > 0;
+        const isSuperFlex = leagueProfile ? leagueProfile.formatTags?.includes('superflex') : rosterPositions.includes('SUPER_FLEX');
+        const isTEP = leagueProfile ? ((leagueProfile.scoring?.teBonus || 0) > 0 || leagueProfile.scoring?.tePremium >= 1.45) : (scoring.bonus_rec_te || scoring.rec_te || 0) > 0;
         const peaks = window.App?.peakWindows || {};
         const rookiesLocked = rookiesLockedForWaivers(currentLeague, briefDraftInfo);
         const prospectNames = rookiesLocked && typeof window.getProspects === 'function'
@@ -207,12 +210,49 @@
             const win = windowRead(pos, x.p?.age);
             const fit = fitRead(pos);
             const faab = x.faab || faabSuggest(x.dhq, pos, x.p?.age);
-            const why = fit.need
+            const formatReasons = leagueProfile && typeof window.App?.Intelligence?.buildPlayerFormatReasons === 'function'
+                ? window.App.Intelligence.buildPlayerFormatReasons({ player: x.p, pos, profile: leagueProfile }).slice(0, 2)
+                : [];
+            const playerContext = typeof window.App?.Intelligence?.buildPlayerContext === 'function'
+                ? window.App.Intelligence.buildPlayerContext({
+                    id: 'waiver_context_' + x.pid,
+                    pid: x.pid,
+                    player: x.p,
+                    pos,
+                    profile: leagueProfile,
+                    dhq: x.dhq,
+                    ppg,
+                    peakYrs: win.peakYrs,
+                    valueYrs: win.valueYrs,
+                    fit,
+                    formatReasons,
+                })
+                : null;
+            const whyBase = fit.need
                 ? 'Addresses your ' + pos + ' ' + fit.need.urgency + ' and keeps the bid in a controlled range.'
                 : win.peakYrs > 0
                     ? 'Adds usable dynasty runway without forcing a major FAAB commitment.'
                     : 'Short-window depth. Treat as a tactical add, not a core asset.';
-            return { ...x, name: playerName(x.p), pos, ppg, faab, fit, fitScore: fit.score, peakYrs: win.peakYrs, valueYrs: win.valueYrs, windowLabel: win.label, windowShort: win.short, windowColor: win.color, why };
+            const why = formatReasons.length ? whyBase + ' ' + (formatReasons[0].detail || formatReasons[0].label) : whyBase;
+            const intelligence = typeof window.App?.Intelligence?.buildWaiverRecommendation === 'function'
+                ? window.App.Intelligence.buildWaiverRecommendation({
+                    id: 'waiver_' + x.pid,
+                    pid: x.pid,
+                    player: x.p,
+                    pos,
+                    profile: leagueProfile,
+                    dhq: x.dhq,
+                    ppg,
+                    fit,
+                    faab,
+                    formatReasons,
+                    playerContext,
+                    detail: why,
+                    windowDetail: whyBase,
+                    badge: fit.short,
+                })
+                : null;
+            return { ...x, name: playerName(x.p), pos, ppg, faab, fit, fitScore: fit.score, peakYrs: win.peakYrs, valueYrs: win.valueYrs, windowLabel: win.label, windowShort: win.short, windowColor: win.color, formatReasons, playerContext, intelligence, why };
         }
 
         const rostered = new Set();
@@ -255,11 +295,15 @@
             .map(decorateFaCandidate)
             .sort((a, b) => (b.fitScore * 5000 + b.dhq) - (a.fitScore * 5000 + a.dhq))
             .slice(0, 5);
+        if (typeof window.App?.Intelligence?.publishRecommendations === 'function') {
+            window.App.Intelligence.publishRecommendations('waiver', priorityAdds.map(x => x.intelligence).filter(Boolean), { surface: 'free-agency-action-board' });
+        }
         return { priorityAdds, actionBoardPlayers, availablePlayers };
     }
 
     window.App = window.App || {};
     window.App.rookiesLockedForWaivers = rookiesLockedForWaivers;
+    window.App.isRookieWaiverLockedCandidate = isRookieWaiverLockedCandidate;
     window.App.buildFreeAgencyActionBoard = buildFreeAgencyActionBoard;
     window.App.getFreeAgencyBriefTarget = function getFreeAgencyBriefTarget(args) {
         return buildFreeAgencyActionBoard(args).priorityAdds[0] || null;
@@ -294,6 +338,16 @@
         const normPos = window.App.normPos;
         const calcRawPts = (s) => window.App.calcRawPts(s, currentLeague?.scoring_settings);
         const rosterState = window.App?.getRosterDataState?.({ roster: myRoster, currentLeague, rosters: currentLeague?.rosters }) || { isUsable: true };
+        const leagueProfile = useMemo(() => {
+            return typeof window.App?.Intelligence?.buildLeagueProfile === 'function'
+                ? window.App.Intelligence.buildLeagueProfile({ league: currentLeague, rosters: currentLeague?.rosters || [], platform: currentLeague?._platform })
+                : null;
+        }, [currentLeague]);
+        const leagueFormatBadges = useMemo(() => {
+            return leagueProfile && typeof window.App?.Intelligence?.buildFormatBadges === 'function'
+                ? window.App.Intelligence.buildFormatBadges(leagueProfile).filter(b => b.impact === 'major' || b.impact === 'scoring' || b.impact === 'confidence').slice(0, 4)
+                : [];
+        }, [leagueProfile]);
         const rookiesLocked = rookiesLockedForWaivers(currentLeague, briefDraftInfo);
         const prospectNames = useMemo(() => {
             if (!rookiesLocked || typeof window.getProspects !== 'function') return new Set();
@@ -404,9 +458,9 @@
 
         // ── League format detection (for scarcity multipliers) ──
         const rosterPositions = currentLeague?.roster_positions || [];
-        const isSuperFlex = rosterPositions.includes('SUPER_FLEX');
+        const isSuperFlex = leagueProfile ? leagueProfile.formatTags?.includes('superflex') : rosterPositions.includes('SUPER_FLEX');
         const scoring = currentLeague?.scoring_settings || {};
-        const isTEP = (scoring.bonus_rec_te || scoring.rec_te || 0) > 0;
+        const isTEP = leagueProfile ? ((leagueProfile.scoring?.teBonus || 0) > 0 || leagueProfile.scoring?.tePremium >= 1.45) : (scoring.bonus_rec_te || scoring.rec_te || 0) > 0;
         const teamTier = assess?.tier || '';
         const teamWindow = assess?.window || '';
         const isRebuilding = teamTier === 'REBUILDING' || teamWindow === 'REBUILDING';
@@ -581,12 +635,49 @@
             const win = windowRead(pos, x.p?.age);
             const fit = fitRead(pos);
             const faab = x.faab || faabSuggest(x.dhq, pos, x.p?.age);
-            const why = fit.need
+            const formatReasons = leagueProfile && typeof window.App?.Intelligence?.buildPlayerFormatReasons === 'function'
+                ? window.App.Intelligence.buildPlayerFormatReasons({ player: x.p, pos, profile: leagueProfile }).slice(0, 2)
+                : [];
+            const playerContext = typeof window.App?.Intelligence?.buildPlayerContext === 'function'
+                ? window.App.Intelligence.buildPlayerContext({
+                    id: 'waiver_context_' + x.pid,
+                    pid: x.pid,
+                    player: x.p,
+                    pos,
+                    profile: leagueProfile,
+                    dhq: x.dhq,
+                    ppg,
+                    peakYrs: win.peakYrs,
+                    valueYrs: win.valueYrs,
+                    fit,
+                    formatReasons,
+                })
+                : null;
+            const whyBase = fit.need
                 ? 'Addresses your ' + pos + ' ' + fit.need.urgency + ' and keeps the bid in a controlled range.'
                 : win.peakYrs > 0
                     ? 'Adds usable dynasty runway without forcing a major FAAB commitment.'
                     : 'Short-window depth. Treat as a tactical add, not a core asset.';
-            return { ...x, pos, ppg, faab, fit, fitScore: fit.score, peakYrs: win.peakYrs, valueYrs: win.valueYrs, windowLabel: win.label, windowShort: win.short, windowColor: win.color, why };
+            const why = formatReasons.length ? whyBase + ' ' + (formatReasons[0].detail || formatReasons[0].label) : whyBase;
+            const intelligence = typeof window.App?.Intelligence?.buildWaiverRecommendation === 'function'
+                ? window.App.Intelligence.buildWaiverRecommendation({
+                    id: 'waiver_' + x.pid,
+                    pid: x.pid,
+                    player: x.p,
+                    pos,
+                    profile: leagueProfile,
+                    dhq: x.dhq,
+                    ppg,
+                    fit,
+                    faab,
+                    formatReasons,
+                    playerContext,
+                    detail: why,
+                    windowDetail: whyBase,
+                    badge: fit.short,
+                })
+                : null;
+            return { ...x, pos, ppg, faab, fit, fitScore: fit.score, peakYrs: win.peakYrs, valueYrs: win.valueYrs, windowLabel: win.label, windowShort: win.short, windowColor: win.color, formatReasons, playerContext, intelligence, why };
         }
 
         const faabMarketRows = (currentLeague.rosters || []).map(r => {
@@ -633,6 +724,9 @@
             .map(decorateFaCandidate)
             .sort((a, b) => (b.fitScore * 5000 + b.dhq) - (a.fitScore * 5000 + a.dhq))
             .slice(0, 5);
+        if (typeof window.App?.Intelligence?.publishRecommendations === 'function') {
+            window.App.Intelligence.publishRecommendations('waiver', priorityAdds.map(x => x.intelligence).filter(Boolean), { surface: 'free-agency' });
+        }
         const dropCandidates = (myRoster?.players || [])
             .filter(pid => !(myRoster?.starters || []).includes(pid))
             .map(pid => {
@@ -684,6 +778,12 @@
 
         function renderCandidateRow(x, i, isPrimary) {
             const dhqCol = x.dhq >= 4000 ? '#3498DB' : x.dhq >= 2000 ? 'var(--silver)' : 'rgba(255,255,255,0.45)';
+            const whyView = typeof window.App?.Intelligence?.buildWhyView === 'function'
+                ? window.App.Intelligence.buildWhyView(x.intelligence, { title: 'Why this waiver target', limit: 3 })
+                : null;
+            const whyLines = whyView?.lines || (typeof window.App?.Intelligence?.recommendationWhyLines === 'function'
+                ? window.App.Intelligence.recommendationWhyLines(x.intelligence, 3)
+                : []);
             return (
                 <button key={x.pid} className={'fa-hq-candidate' + (isPrimary ? ' is-primary' : '')} onClick={() => openFaPlayer(x.pid)}>
                     <span className="fa-hq-rank">{i + 1}</span>
@@ -697,6 +797,7 @@
                         <em>{x.faab ? '$' + x.faab.lo + '-' + x.faab.hi : 'No bid'}</em>
                     </span>
                     <span className="fa-hq-why">{x.why}</span>
+                    {whyLines.length > 0 && <span className="fa-hq-evidence">{whyLines.slice(0, 3).map(line => <em key={line}>{line}</em>)}</span>}
                 </button>
             );
         }
@@ -726,6 +827,9 @@
                             <span>Free Agency Action HQ</span>
                             <h2>{topAdds[0] ? topAdds[0].p.full_name || playerName(topAdds[0].p) : 'No urgent add surfaced'}</h2>
                             <p>{topAdds[0] ? topAdds[0].why : 'Your market is clean enough to browse for stashes and tactical depth.'}</p>
+                            {leagueFormatBadges.length > 0 && <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                                {leagueFormatBadges.map(badge => <span key={badge.code} style={{ fontSize: '0.66rem', color: '#D0E7FA', border: '1px solid rgba(125,183,232,0.25)', background: 'rgba(125,183,232,0.08)', borderRadius: '5px', padding: '2px 7px', fontWeight: 700 }}>{badge.label}</span>)}
+                            </div>}
                         </div>
                         <div className="fa-hq-hero-kpis">
                             {hasFAAB && <div><span>FAAB</span><strong style={{ color: faabColor }}>${remaining}</strong><em>#{myFaabRank || '—'}/{faabMarketRows.length || '—'} · avg ${leagueAvgRemaining}</em></div>}

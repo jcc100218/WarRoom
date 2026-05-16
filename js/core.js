@@ -438,6 +438,7 @@ const { useState, useEffect, useMemo, useRef, useCallback } = React;
         WELCOMED:         (leagueId) => `wr_welcomed_v2_${leagueId}`,
         // Draft
         BIGBOARD:         (leagueId) => `wr_bigboard_${leagueId}`,
+        BIGBOARD_DRAFT:   (leagueId, draftType) => `wr_bigboard_${leagueId}_${draftType || 'draft'}`,
         // Session cache (sessionStorage, not localStorage)
         PLAYERS_CACHE:    'fw_players_cache',
         // SOS engine caches (sessionStorage, 24hr TTL — managed by sos-engine.js)

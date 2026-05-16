@@ -103,6 +103,7 @@ const leagueDetailSrc = read('js/league-detail.js');
 const dashboardSrc = read('js/tabs/dashboard.js');
 const flashBriefSrc = read('js/tabs/flash-brief.js');
 const freeAgencySrc = read('js/free-agency.js');
+const analyticsSrc = read('js/tabs/analytics.js');
 const leagueHistorySrc = read('js/shared/league-history.js');
 const trophyRoomSrc = read('js/tabs/trophy-room.js');
 
@@ -160,6 +161,14 @@ test('GM strategy remains routed through GM office, not a sidebar button', () =>
   sourceHas(leagueDetailSrc, "activeTab === 'strategy'", 'strategy route must still render');
   sourceHas(leagueDetailSrc, "{ label: 'GM\\'s Office', tab: 'alex', iconKey: 'office' }", 'GM office sidebar entry missing');
   ok(!leagueDetailSrc.includes("{ label: 'GM Strategy', tab: 'strategy'"), 'GM Strategy should not be a sidebar entry');
+});
+
+test('analytics module keeps only value-producing sub-tabs', () => {
+  ok(!analyticsSrc.includes("key: 'playoffs'"), 'analytics should not expose Playoffs sub-tab');
+  ok(!analyticsSrc.includes("key: 'timeline'"), 'analytics should not expose Timeline sub-tab');
+  ok(!analyticsSrc.includes("analyticsTab === 'playoffs'"), 'Playoffs render branch should be removed');
+  ok(!analyticsSrc.includes("analyticsTab === 'timeline'"), 'Timeline render branch should be removed');
+  sourceHas(analyticsSrc, 'const analyticsViewTab = activeSubTab.key;', 'legacy analytics sub-tab routes should fall back to a valid tab');
 });
 
 group('live platform gate');

@@ -341,8 +341,39 @@ function providerSecretName(provider: AIProvider): string {
     return 'ANTHROPIC_API_KEY';
 }
 
-function isProviderConfigured(provider: AIProvider): boolean {
-    return !!Deno.env.get(providerSecretName(provider));
+const AI_SECRET_CACHE = new Map<string, string | null>();
+
+async function getVaultSecret(secretName: string): Promise<string | null> {
+    if (AI_SECRET_CACHE.has(secretName)) {
+        return AI_SECRET_CACHE.get(secretName) || null;
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+        AI_SECRET_CACHE.set(secretName, null);
+        return null;
+    }
+
+    try {
+        const admin = createClient(supabaseUrl, serviceRoleKey);
+        const data = await safeSupabaseData(admin.rpc('get_app_secret', { secret_name: secretName }));
+        const value = typeof data === 'string' ? data.trim() : '';
+        AI_SECRET_CACHE.set(secretName, value || null);
+        return value || null;
+    } catch {
+        AI_SECRET_CACHE.set(secretName, null);
+        return null;
+    }
+}
+
+async function getProviderSecret(provider: AIProvider): Promise<string | null> {
+    const secretName = providerSecretName(provider);
+    return Deno.env.get(secretName) || await getVaultSecret(secretName);
+}
+
+async function isProviderConfigured(provider: AIProvider): Promise<boolean> {
+    return !!(await getProviderSecret(provider));
 }
 
 function normalizeProvider(value: string | null | undefined): AIProvider | null {
@@ -420,15 +451,15 @@ function downgradeRouteForEntitlement(route: AIRoute, limits: AIPlanLimits): { r
     return { route: routeForTier('fast'), downgraded: true };
 }
 
-function resolveConfiguredRoute(
+async function resolveConfiguredRoute(
     route: AIRoute,
     limits: AIPlanLimits,
     useWebSearch: boolean,
     blockedProvider: AIProvider | null = null,
-): { route: AIRoute | null; providerFallback: boolean; providerFallbackReason: string | null } {
+): Promise<{ route: AIRoute | null; providerFallback: boolean; providerFallbackReason: string | null }> {
     if (useWebSearch) {
         const webRoute = routeForProviderTier('premium', 'anthropic');
-        if (webRoute && blockedProvider !== 'anthropic' && allowsModelTier(limits, webRoute.tier) && isProviderConfigured(webRoute.provider)) {
+        if (webRoute && blockedProvider !== 'anthropic' && allowsModelTier(limits, webRoute.tier) && await isProviderConfigured(webRoute.provider)) {
             return {
                 route: webRoute,
                 providerFallback: route.provider !== webRoute.provider || route.model !== webRoute.model,
@@ -438,7 +469,7 @@ function resolveConfiguredRoute(
         return { route: null, providerFallback: false, providerFallbackReason: 'web_search_provider_unavailable' };
     }
 
-    if (blockedProvider !== route.provider && isProviderConfigured(route.provider)) {
+    if (blockedProvider !== route.provider && await isProviderConfigured(route.provider)) {
         return { route, providerFallback: false, providerFallbackReason: null };
     }
 
@@ -455,12 +486,18 @@ function resolveConfiguredRoute(
         });
     }
 
-    const fallback = candidates.find(candidate =>
-        candidate.provider !== route.provider
-        && candidate.provider !== blockedProvider
-        && isProviderConfigured(candidate.provider)
-        && allowsModelTier(limits, candidate.tier)
-    );
+    let fallback: AIRoute | null = null;
+    for (const candidate of candidates) {
+        if (
+            candidate.provider !== route.provider
+            && candidate.provider !== blockedProvider
+            && allowsModelTier(limits, candidate.tier)
+            && await isProviderConfigured(candidate.provider)
+        ) {
+            fallback = candidate;
+            break;
+        }
+    }
 
     return fallback
         ? { route: fallback, providerFallback: true, providerFallbackReason: blockedProvider ? `${blockedProvider}_provider_error` : `${route.provider}_unconfigured` }
@@ -502,7 +539,8 @@ async function callAIProvider(args: {
     const { route, systemPrompt, userPrompt, maxTokens, useWebSearch } = args;
 
     if (route.provider === 'gemini') {
-        const googleKey = Deno.env.get('GOOGLE_AI_KEY');
+        const googleKey = await getProviderSecret('gemini');
+        if (!googleKey) throw new Error('GOOGLE_AI_KEY not configured');
         const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
             method: 'POST',
             headers: {
@@ -537,7 +575,8 @@ async function callAIProvider(args: {
     }
 
     if (route.provider === 'openai') {
-        const apiKey = Deno.env.get('OPENAI_API_KEY');
+        const apiKey = await getProviderSecret('openai');
+        if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
         const res = await fetch('https://api.openai.com/v1/responses', {
             method: 'POST',
             headers: {
@@ -570,7 +609,7 @@ async function callAIProvider(args: {
         };
     }
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    const apiKey = await getProviderSecret('anthropic');
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
     const anthropic = new Anthropic({ apiKey });
@@ -1758,7 +1797,7 @@ Deno.serve(async (req) => {
         const promptClamp = clampTextToChars(userPrompt, promptBudget);
         userPrompt = promptClamp.text;
 
-        const configuredRoute = resolveConfiguredRoute(route, planLimits, useWebSearch);
+        const configuredRoute = await resolveConfiguredRoute(route, planLimits, useWebSearch);
         if (!configuredRoute.route) {
             return new Response(
                 JSON.stringify({ error: 'AI provider unavailable for this route.' }),
@@ -1837,7 +1876,7 @@ Deno.serve(async (req) => {
                 throw providerError;
             }
             const failedProvider = route.provider;
-            const fallback = resolveConfiguredRoute(route, planLimits, false, failedProvider);
+            const fallback = await resolveConfiguredRoute(route, planLimits, false, failedProvider);
             if (!fallback.route || fallback.route.provider === route.provider) {
                 await recordProviderFailure(providerError);
                 throw providerError;

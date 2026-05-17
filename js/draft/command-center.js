@@ -383,7 +383,7 @@
                 // Phase 5+: prefer the league's scheduled upcoming draft settings
                 // so Solo defaults match whatever's actually scheduled in Sleeper.
                 const upcoming = draftMeta.upcomingSettings;
-                return stateFns.initialDraftState({
+                const initial = stateFns.initialDraftState({
                     leagueId: currentLeague?.league_id || currentLeague?.id || '',
                     season: currentLeague?.season,
                     rounds: upcoming?.rounds || propRounds || 5,
@@ -394,6 +394,28 @@
                     // Honor forced mode (e.g., live-sync from the Follow Live Draft tab)
                     mode: forcedMode || 'solo',
                 });
+                const learning = !forcedMode && stateFns.buildRecapLearningDefaults
+                    ? stateFns.buildRecapLearningDefaults(initial.leagueId, {
+                        variant: initial.variant,
+                        baseTuning: initial.draftTuning,
+                    })
+                    : null;
+                const strategyProfile = stateFns.loadDraftStrategyProfile
+                    ? stateFns.loadDraftStrategyProfile(initial.leagueId, {
+                        variant: initial.variant,
+                        baseTuning: learning?.suggestedTuning || initial.draftTuning,
+                        recapLearning: learning,
+                    })
+                    : null;
+                const draftTuning = strategyProfile?.tuning
+                    ? stateFns.applyDraftStrategyProfileToTuning?.(strategyProfile, learning?.suggestedTuning || initial.draftTuning) || strategyProfile.tuning
+                    : (learning?.suggestedTuning || initial.draftTuning);
+                return {
+                    ...initial,
+                    draftTuning,
+                    recapLearning: learning,
+                    strategyProfile,
+                };
             }
         );
 
@@ -647,14 +669,26 @@
                     type: 'APPLY_LIVE_SYNC_PICKS',
                     picks: mapped,
                     status: {
-                        status: snapshot?.draftStatus === 'complete' ? 'complete' : 'mirroring',
+                        status: snapshot?.remoteBehind || snapshot?.missingPickNos?.length
+                            ? 'stale'
+                            : snapshot?.draftStatus === 'complete'
+                                ? 'complete'
+                                : 'mirroring',
                         draftStatus: snapshot?.draftStatus || '',
                         remotePickCount: snapshot?.remotePickCount || 0,
                         lastPickNo: snapshot?.lastPickNo || initialPickNo,
+                        remoteMaxPickNo: snapshot?.remoteMaxPickNo || 0,
                         duplicateCount: snapshot?.duplicateCount || 0,
+                        missedPickCount: snapshot?.gapCount || 0,
+                        missingPickNos: snapshot?.missingPickNos || [],
+                        remoteBehind: !!snapshot?.remoteBehind,
                         lastPollAt: Date.now(),
-                        stale: false,
-                        error: null,
+                        stale: !!(snapshot?.remoteBehind || snapshot?.missingPickNos?.length),
+                        error: snapshot?.remoteBehind
+                            ? 'Sleeper returned fewer picks than War Room has already mirrored.'
+                            : snapshot?.missingPickNos?.length
+                                ? 'Sleeper feed is missing pick ' + snapshot.missingPickNos.join(', ') + '.'
+                                : null,
                     },
                 });
             }, {
@@ -872,30 +906,50 @@
         }, [state.mode, state.phase, state.currentIdx, state.pickOrder, state.personas, state.tradedAssets, state.draftTuning, state.picks.length]);
 
         // ── Actions ──────────────────────────────────────────────────
-        const onStartDraft = React.useCallback(async () => {
+        const onStartDraft = React.useCallback(async (override = null) => {
+            const overridePatch = override && typeof override === 'object' && !override.nativeEvent && !override.preventDefault
+                ? override
+                : null;
+            const activeState = overridePatch ? { ...state, ...overridePatch } : state;
             const leagueId = currentLeague?.league_id || currentLeague?.id || '';
+            const recapLearning = stateFns.buildRecapLearningDefaults
+                ? stateFns.buildRecapLearningDefaults(leagueId, {
+                    variant: activeState.variant,
+                    baseTuning: activeState.draftTuning,
+                })
+                : null;
+            const activeStrategyProfile = activeState.strategyProfile || (stateFns.loadDraftStrategyProfile
+                ? stateFns.loadDraftStrategyProfile(leagueId, {
+                    variant: activeState.variant,
+                    baseTuning: recapLearning?.suggestedTuning || activeState.draftTuning,
+                    recapLearning,
+                })
+                : null);
+            const learnedTuning = activeStrategyProfile?.tuning
+                ? (stateFns.applyDraftStrategyProfileToTuning?.(activeStrategyProfile, activeState.draftTuning) || activeStrategyProfile.tuning)
+                : (recapLearning?.sampleSize ? (recapLearning.suggestedTuning || activeState.draftTuning) : activeState.draftTuning);
 
             let pool = stateFns.buildPool({
-                variant: state.variant,
+                variant: activeState.variant,
                 playersData,
                 maxSize: 200,
             });
-            pool = applyUserBigBoardOrder(pool, leagueId, state.variant);
+            pool = applyUserBigBoardOrder(pool, leagueId, activeState.variant);
             const originalPool = pool.slice();
             let pickOrder = stateFns.buildPickOrder(
-                state.rounds,
-                state.leagueSize,
-                state.draftType,
+                activeState.rounds,
+                activeState.leagueSize,
+                activeState.draftType,
                 draftMeta.slotToRoster,
                 draftMeta.pickOwnership
             );
-            if (state.mode !== 'live-sync' && state.userRosterId != null) {
-                const selectedSlotInfo = draftMeta.slotToRoster?.[state.userSlot] || {};
+            if (activeState.mode !== 'live-sync' && activeState.userRosterId != null) {
+                const selectedSlotInfo = draftMeta.slotToRoster?.[activeState.userSlot] || {};
                 pickOrder = pickOrder.map(p => {
-                    if (p.slot === state.userSlot) {
-                        return { ...p, rosterId: state.userRosterId, ownerName: 'YOU', traded: p.traded };
+                    if (p.slot === activeState.userSlot) {
+                        return { ...p, rosterId: activeState.userRosterId, ownerName: 'YOU', traded: p.traded };
                     }
-                    if (draftMeta.mySlot && p.slot === draftMeta.mySlot && draftMeta.mySlot !== state.userSlot) {
+                    if (draftMeta.mySlot && p.slot === draftMeta.mySlot && draftMeta.mySlot !== activeState.userSlot) {
                         return {
                             ...p,
                             rosterId: selectedSlotInfo.rosterId || p.rosterId,
@@ -919,16 +973,16 @@
             // picks before the user's first turn so they can rehearse the room.
             let prePicks = [];
             let narrative = null;
-            if (state.mode === 'scenario' && state.analystScenario?.picks?.length && window.DraftCC.analystMock?.applyProjectedScenario) {
-                const result = window.DraftCC.analystMock.applyProjectedScenario(state, pool, pickOrder, state.analystScenario);
+            if (activeState.mode === 'scenario' && activeState.analystScenario?.picks?.length && window.DraftCC.analystMock?.applyProjectedScenario) {
+                const result = window.DraftCC.analystMock.applyProjectedScenario(activeState, pool, pickOrder, activeState.analystScenario);
                 if (result) {
                     pool = result.pool;
                     pickOrder = result.pickOrder;
                     prePicks = result.prePicks || [];
                     narrative = result.narrative;
                 }
-            } else if (state.mode === 'scenario' && state.scenarioId) {
-                const result = window.DraftCC.scenarios?.applyScenario(state, pool, pickOrder, state.scenarioId);
+            } else if (activeState.mode === 'scenario' && activeState.scenarioId) {
+                const result = window.DraftCC.scenarios?.applyScenario(activeState, pool, pickOrder, activeState.scenarioId);
                 if (result) {
                     pool = result.pool;
                     pickOrder = result.pickOrder;
@@ -939,15 +993,15 @@
 
             // Phase 5: ghost replay — fetch picks and stage them
             let replay = null;
-            if (state.mode === 'ghost') {
-                if (!state.sleeperDraftId) {
+            if (activeState.mode === 'ghost') {
+                if (!activeState.sleeperDraftId) {
                     alert('Ghost Replay mode requires selecting a draft from the Replay Source list.');
                     return;
                 }
                 try {
-                    const sleeperPicks = await window.DraftCC.ghostReplay.loadReplayPicks(state.sleeperDraftId);
+                    const sleeperPicks = await window.DraftCC.ghostReplay.loadReplayPicks(activeState.sleeperDraftId);
                     if (sleeperPicks.length) {
-                        replay = window.DraftCC.ghostReplay.buildReplayState(state, sleeperPicks);
+                        replay = window.DraftCC.ghostReplay.buildReplayState(activeState, sleeperPicks);
                         narrative = '👻 GHOST REPLAY · ' + sleeperPicks.length + ' picks loaded. Use the scrubber to time-travel.';
                     } else {
                         alert('The selected draft has no picks yet — nothing to replay. Pick a completed draft, or try Live Sync mode for a draft in progress.');
@@ -962,12 +1016,12 @@
 
             // Phase 5: live sync — validate that a draft was picked
             let liveDraftStatus = '';
-            if (state.mode === 'live-sync') {
-                if (!state.sleeperDraftId) {
+            if (activeState.mode === 'live-sync') {
+                if (!activeState.sleeperDraftId) {
                     alert('Live Sync mode requires selecting an upcoming or in-progress draft from the Live Sync Source list.');
                     return;
                 }
-                liveDraftStatus = state.liveDraftMeta?.status || '';
+                liveDraftStatus = activeState.liveDraftMeta?.status || '';
                 narrative = liveDraftStatus === 'pre_draft'
                     ? '📡 LIVE SYNC · Waiting room open. War Room will mirror Sleeper as soon as picks begin.'
                     : '📡 LIVE SYNC · Mirroring draft from Sleeper every 5s. Read-only — no picks are sent back.';
@@ -976,13 +1030,16 @@
             const draftContext = window.DraftCC?.context?.buildDraftContext
                 ? window.DraftCC.context.buildDraftContext({
                     state: {
-                        ...state,
+                        ...activeState,
                         phase: 'drafting',
                         pool,
                         pickOrder,
                         personas,
                         picks: prePicks,
                         currentIdx: prePicks.length,
+                        draftTuning: learnedTuning,
+                        recapLearning,
+                        strategyProfile: activeStrategyProfile,
                     },
                     currentLeague,
                     myRoster,
@@ -1001,10 +1058,14 @@
                 personas,
                 draftContext,
                 originalPool,
+                draftTuning: learnedTuning,
+                recapLearning,
+                strategyProfile: activeStrategyProfile,
                 prePicks,
                 narrative,
                 replay,
                 liveDraftStatus,
+                setupPatch: overridePatch || null,
             });
 
             // Phase 2: async DraftHistory sync (mirrors Scout draft-ui.js:1977)
@@ -1030,6 +1091,8 @@
             state.scenarioId,
             state.sleeperDraftId,
             state.draftTuning,
+            state.strategyProfile,
+            state.analystScenario,
             draftMeta,
             playersData,
             currentLeague,
@@ -1197,19 +1260,17 @@
         });
         const pickPreviewRows = userPickPreview.length ? userPickPreview : fallbackPickPreview;
         const variantLabels = {
-            startup: 'Startup pool',
+            startup: 'Dynasty Start Up pool',
             rookie: 'Rookie pool',
             redraft: 'Redraft pool',
-            best_ball: 'Bestball pool',
         };
         const poolChoices = [
-            { id: 'startup', label: 'startup', sub: 'DHQ-ranked dynasty board' },
+            { id: 'startup', label: 'Dynasty Start Up', sub: 'DHQ-ranked dynasty board' },
             { id: 'rookie', label: 'rookie', sub: csvReady ? (window.getProspects?.()?.length || 0) + ' prospects loaded' : 'loading CSV...' },
             { id: 'redraft', label: 'redraft', sub: 'current-season adapter' },
-            { id: 'best_ball', label: 'bestball', sub: 'ceiling + stack adapter' },
         ];
         const setupSummary = [
-            variantLabels[state.variant] || 'Startup pool',
+            variantLabels[state.variant] || 'Dynasty Start Up pool',
             state.draftType === 'snake' ? 'Snake draft' : 'Linear draft',
             state.rounds + ' rounds',
             state.leagueSize + ' teams',
@@ -1219,10 +1280,75 @@
             : state.mode === 'live-sync'
                 ? 'Sleeper mirror'
                 : state.speed + ' CPU';
+        const roundOptions = (() => {
+            const opts = new Set(Array.from({ length: 100 }, (_, i) => i + 1));
+            [state.rounds, upcoming?.rounds].forEach(v => {
+                const n = Number(v || 0);
+                if (n > 0) opts.add(n);
+            });
+            return [...opts].sort((a, b) => a - b);
+        })();
+        const leagueSizeOptions = (() => {
+            const opts = new Set(Array.from({ length: 29 }, (_, i) => i + 4));
+            [state.leagueSize, upcoming?.teams, draftMeta.numTeams].forEach(v => {
+                const n = Number(v || 0);
+                if (n > 0) opts.add(n);
+            });
+            return [...opts].sort((a, b) => a - b);
+        })();
+        const upcomingPatch = () => {
+            if (!upcoming) return {};
+            const patch = { mode: 'solo' };
+            if (upcoming.rounds) patch.rounds = Number(upcoming.rounds);
+            if (upcoming.teams) patch.leagueSize = Number(upcoming.teams);
+            if (upcoming.type) patch.draftType = upcoming.type;
+            if (draftMeta.mySlot) patch.userSlot = draftMeta.mySlot;
+            if (myRoster?.roster_id) patch.userRosterId = myRoster.roster_id;
+            return patch;
+        };
+        const applyUpcomingDraft = () => {
+            const patch = upcomingPatch();
+            if (Object.keys(patch).length) update(patch);
+        };
+        const startUpcomingDraft = () => {
+            const patch = upcomingPatch();
+            if (Object.keys(patch).length) update(patch);
+            onStartDraft(patch);
+        };
+        const matchesUpcoming = !!upcoming
+            && (!upcoming.rounds || Number(state.rounds) === Number(upcoming.rounds))
+            && (!upcoming.teams || Number(state.leagueSize) === Number(upcoming.teams))
+            && (!upcoming.type || String(state.draftType) === String(upcoming.type))
+            && (!draftMeta.mySlot || Number(state.userSlot) === Number(draftMeta.mySlot));
+        const upcomingStart = upcoming?.startTime
+            ? new Date(upcoming.startTime).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+            : (upcoming?.status === 'drafting' ? 'in progress' : 'not scheduled');
+        const upcomingStatus = upcoming?.status
+            ? String(upcoming.status).replace('_', ' ')
+            : (upcoming ? 'league settings' : 'custom mock');
+        const structureFields = [
+            {
+                label: 'Draft Rounds',
+                value: state.rounds,
+                onChange: e => update({ rounds: Math.max(1, Math.min(100, Number(e.target.value) || 1)) }),
+                options: roundOptions,
+                suffix: ' rounds',
+            },
+            {
+                label: 'League Size',
+                value: state.leagueSize,
+                onChange: e => {
+                    const n = Number(e.target.value) || state.leagueSize;
+                    update({ leagueSize: n, userSlot: Math.min(state.userSlot, n) });
+                },
+                options: leagueSizeOptions,
+                suffix: ' teams',
+            },
+        ];
 
         return (
             <div className="draft-setup-shell">
-                {showResume && (
+                {!forcedMode && showResume && (
                     <div style={{
                         padding: '12px 16px',
                         background: 'linear-gradient(90deg, rgba(212,175,55,0.12), rgba(212,175,55,0.02))',
@@ -1244,41 +1370,60 @@
                     </div>
                 )}
 
-                <div className="draft-setup-head">
-                    <h2 style={{ color: forcedMode === 'live-sync' ? 'rgba(155,138,251,1)' : 'var(--gold)' }}>
-                        {forcedMode === 'live-sync' ? 'FOLLOW LIVE DRAFT' : 'MOCK DRAFT CENTER'}
-                    </h2>
-                    <p>{forcedMode === 'live-sync' ? 'Read-only Sleeper mirror with War Room draft intelligence.' : 'Configure the draft, preview your pick path, then launch the command center.'}</p>
-                </div>
-
-                {forcedMode === 'live-sync' && (
-                    <div className="draft-setup-panel" style={{ marginBottom: 12, borderColor: 'rgba(124,107,248,0.26)' }}>
+                {forcedMode === 'live-sync' ? (
+                    <section className="draft-setup-panel draft-live-only-picker" style={{ borderColor: 'rgba(124,107,248,0.26)' }}>
                         <LiveSyncDraftPicker state={state} update={update} leagueId={state.leagueId} />
-                        {state.sleeperDraftId && (
-                            <div className="draft-setup-note" style={{ marginTop: 8 }}>
-                                Read-only mirror. If the Sleeper room has not started, Start Mirror opens a waiting room and begins polling without making picks.
-                            </div>
-                        )}
-                    </div>
-                )}
+                        <button
+                            type="button"
+                            className="draft-setup-start"
+                            onClick={() => onStartDraft()}
+                            disabled={!state.sleeperDraftId}
+                            style={{
+                                background: state.sleeperDraftId ? '#9b8afb' : 'rgba(155,138,251,0.24)',
+                                color: '#fff',
+                                borderColor: state.sleeperDraftId ? '#9b8afb' : 'rgba(155,138,251,0.24)',
+                            }}
+                        >
+                            FOLLOW SELECTED DRAFT
+                        </button>
+                    </section>
+                ) : (
+                    <>
+                        {state.mode === 'scenario' && <ScenarioPicker state={state} update={update} />}
+                        {state.mode === 'ghost' && <GhostDraftPicker state={state} update={update} leagueId={state.leagueId} />}
 
-                {!forcedMode && state.mode === 'scenario' && <ScenarioPicker state={state} update={update} />}
-                {!forcedMode && state.mode === 'ghost' && <GhostDraftPicker state={state} update={update} leagueId={state.leagueId} />}
-
-                <div className="draft-setup-grid">
-                    <section className="draft-setup-panel">
-                        {state.mode === 'solo' && upcoming && (upcoming.rounds || upcoming.teams) && (
-                            <div className="draft-setup-match">
-                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#2ECC71', flexShrink: 0 }} />
-                                <div>
-                                    <strong>Mocking your upcoming draft</strong>
-                                    <span>{upcoming.type || 'snake'} - {upcoming.rounds || '?'}R x {upcoming.teams || '?'}T{upcoming.startTime ? ' - ' + new Date(upcoming.startTime).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : ''}</span>
+                        <div className="draft-setup-grid draft-setup-grid-pro">
+                        <section className={'draft-setup-panel draft-setup-league-card' + (matchesUpcoming ? ' is-synced' : '')}>
+                            <div className="draft-league-primary">
+                                <div className="draft-league-copy">
+                                    <span>League Upcoming Draft</span>
+                                    <strong>{upcoming ? `${upcoming.rounds || '?'} rounds x ${upcoming.teams || '?'} teams` : 'No scheduled draft detected'}</strong>
+                                    <em>{upcoming ? `${upcoming.type || 'snake'} - ${upcomingStatus} - ${upcomingStart}` : 'Custom mock settings are available below.'}</em>
+                                </div>
+                                <div className="draft-league-actions">
+                                    <button type="button" onClick={applyUpcomingDraft} disabled={!upcoming}>
+                                        {matchesUpcoming ? 'USING LEAGUE SETTINGS' : 'USE LEAGUE SETTINGS'}
+                                    </button>
+                                    <button type="button" className="is-primary" onClick={startUpcomingDraft} disabled={!upcoming || (state.variant === 'rookie' && !csvReady)}>
+                                        MOCK UPCOMING DRAFT
+                                    </button>
                                 </div>
                             </div>
-                        )}
+                            <div className="draft-league-metrics">
+                                <div><span>Rounds</span><strong>{upcoming?.rounds || state.rounds || '--'}</strong><em>1-100 supported</em></div>
+                                <div><span>Teams</span><strong>{upcoming?.teams || state.leagueSize || '--'}</strong><em>league size</em></div>
+                                <div><span>Your slot</span><strong>{draftMeta.mySlot || state.userSlot || '--'}</strong><em>{slotOwner}</em></div>
+                                <div><span>Format</span><strong>{upcoming?.type || state.draftType}</strong><em>{variantLabels[state.variant] || state.variant.replace('_', ' ')}</em></div>
+                            </div>
+                        </section>
 
+                    <section className="draft-setup-panel draft-setup-config-card">
+                        <div className="draft-hq-panel-head">
+                            <span>Draft Setup</span>
+                            <em>{setupSummary}</em>
+                        </div>
                         <div className="draft-setup-label">Pool Type</div>
-                        <div className="draft-setup-choice" style={{ marginTop: 6, marginBottom: 12, gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+                        <div className="draft-setup-choice draft-setup-choice-pro">
                             {poolChoices.map(choice => (
                                 <button key={choice.id} type="button" className={state.variant === choice.id ? 'is-active' : ''} onClick={() => update({ variant: choice.id })}>
                                     {choice.label}
@@ -1287,64 +1432,89 @@
                             ))}
                         </div>
 
-                        <div className="draft-setup-form">
-                            <div className="draft-setup-two">
-                                <div>
-                                    <div className="draft-setup-label">Draft Rounds</div>
-                                    <select value={state.rounds} onChange={e => update({ rounds: +e.target.value })} style={selStyle}>
-                                        {[3, 4, 5, 6, 7, 8, 10, 12, 16, 20, 23, 25].map(v => <option key={v} value={v} style={{ background: '#111' }}>{v} rounds</option>)}
+                        <div className="draft-setup-field-grid">
+                            {structureFields.map(field => (
+                                <div key={field.label}>
+                                    <div className="draft-setup-label">{field.label}</div>
+                                    <select value={field.value} onChange={field.onChange} style={selStyle}>
+                                        {field.options.map(v => <option key={v} value={v} style={{ background: '#111' }}>{v}{field.suffix === ' rounds' && v === 1 ? ' round' : field.suffix}</option>)}
                                     </select>
                                 </div>
-                                <div>
-                                    <div className="draft-setup-label">League Size</div>
-                                    <select value={state.leagueSize} onChange={e => {
-                                        const n = +e.target.value;
-                                        update({ leagueSize: n, userSlot: Math.min(state.userSlot, n) });
-                                    }} style={selStyle}>
-                                        {(() => {
-                                            const standard = [8, 10, 12, 14, 16, 20, 24, 28, 32];
-                                            const opts = new Set(standard);
-                                            if (state.leagueSize) opts.add(state.leagueSize);
-                                            return [...opts].sort((a, b) => a - b).map(v => <option key={v} value={v} style={{ background: '#111' }}>{v} teams</option>);
-                                        })()}
-                                    </select>
-                                </div>
+                            ))}
+                            <div>
+                                <div className="draft-setup-label">Your Draft Position</div>
+                                <select value={state.userSlot} onChange={e => update({ userSlot: +e.target.value })} style={selStyle}>
+                                    {Array.from({ length: state.leagueSize }, (_, i) => {
+                                        const slot = i + 1;
+                                        const info = draftMeta.slotToRoster[slot];
+                                        const isMine = slot === draftMeta.mySlot;
+                                        const ownerLabel = info?.ownerName ? ' - ' + info.ownerName : '';
+                                        return <option key={slot} value={slot} style={{ background: '#111' }}>{slot}.01{ownerLabel}{isMine ? ' (YOU)' : ''}</option>;
+                                    })}
+                                </select>
                             </div>
-                            <div className="draft-setup-two">
-                                <div>
-                                    <div className="draft-setup-label">Your Draft Position</div>
-                                    <select value={state.userSlot} onChange={e => update({ userSlot: +e.target.value })} style={selStyle}>
-                                        {Array.from({ length: state.leagueSize }, (_, i) => {
-                                            const slot = i + 1;
-                                            const info = draftMeta.slotToRoster[slot];
-                                            const isMine = slot === draftMeta.mySlot;
-                                            const ownerLabel = info?.ownerName ? ' - ' + info.ownerName : '';
-                                            return <option key={slot} value={slot} style={{ background: '#111' }}>{slot}.01{ownerLabel}{isMine ? ' (YOU)' : ''}</option>;
-                                        })}
-                                    </select>
-                                </div>
-                                <div>
-                                    <div className="draft-setup-label">Draft Type</div>
-                                    <select value={state.draftType} onChange={e => update({ draftType: e.target.value })} style={selStyle}>
-                                        <option value="snake" style={{ background: '#111' }}>Snake</option>
-                                        <option value="linear" style={{ background: '#111' }}>Linear</option>
-                                    </select>
-                                </div>
+                            <div>
+                                <div className="draft-setup-label">Draft Order</div>
+                                <select value={state.draftType} onChange={e => update({ draftType: e.target.value })} style={selStyle}>
+                                    <option value="snake" style={{ background: '#111' }}>Snake</option>
+                                    <option value="linear" style={{ background: '#111' }}>Linear</option>
+                                </select>
                             </div>
+                        </div>
+
+                        {state.mode !== 'manual' ? (
+                            <>
+                                <div className="draft-setup-label" style={{ marginTop: 12 }}>CPU Speed</div>
+                                <div className="draft-setup-speed">
+                                    {['slow', 'medium', 'fast'].map(v => (
+                                        <button key={v} type="button" className={state.speed === v ? 'is-active' : ''} onClick={() => update({ speed: v })}>{v}</button>
+                                    ))}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="draft-setup-note" style={{ marginTop: 10 }}>
+                                Manual entry records the room pick by pick without CPU autopicks.
+                            </div>
+                        )}
+
+                        <div className="draft-setup-secondary">
+                            <button type="button" onClick={() => setShowOther(v => !v)}>
+                                <span>{showOther ? 'Hide advanced mock options' : 'Advanced mock options'}</span>
+                                <span>{state.mode === 'manual' ? 'Manual room active' : state.mode === 'scenario' ? 'Scenario active' : state.mode === 'ghost' ? 'Ghost active' : 'Manual - Scenarios - Ghost replay - Templates'}</span>
+                            </button>
+                            {showOther && (
+                                <div className="draft-setup-other">
+                                    <ModeSelector state={state} update={update} />
+                                    <TemplateLoader state={state} dispatch={dispatch} />
+                                </div>
+                            )}
                         </div>
                     </section>
 
-                    <section className="draft-setup-panel">
+                    <section className="draft-setup-panel is-start draft-setup-launch-card">
                         <div className="draft-hq-panel-head">
                             <span>Pick Path Preview</span>
-                            <em>{setupSummary}</em>
+                            <em>{paceLabel}</em>
                         </div>
                         <div className="draft-setup-kpis">
                             <div><span>Your slot</span><strong>{state.userSlot} of {state.leagueSize}</strong><em>{slotOwner}</em></div>
                             <div><span>Total picks</span><strong>{totalPicks}</strong><em>{state.rounds} rounds</em></div>
                             <div><span>Pool</span><strong>{poolCount || '--'}</strong><em>{state.variant === 'rookie' ? 'prospects' : 'players'}</em></div>
-                            <div><span>Format</span><strong>{state.draftType}</strong><em>{paceLabel}</em></div>
+                            <div><span>Format</span><strong>{state.draftType}</strong><em>{variantLabels[state.variant] || state.variant.replace('_', ' ')}</em></div>
                         </div>
+                        <button
+                            type="button"
+                            className="draft-setup-start"
+                            onClick={() => onStartDraft()}
+                            disabled={state.variant === 'rookie' && !csvReady}
+	                            style={{
+	                                background: state.variant === 'rookie' && !csvReady ? 'rgba(212,175,55,0.3)' : 'var(--gold)',
+	                                color: 'var(--black)',
+	                                borderColor: state.variant === 'rookie' && !csvReady ? 'rgba(212,175,55,0.3)' : 'var(--gold)',
+	                            }}
+	                        >
+	                            {state.variant === 'rookie' && !csvReady ? 'LOADING PROSPECTS...' : 'START MOCK DRAFT'}
+	                        </button>
                         <div className="draft-setup-label" style={{ marginBottom: 6 }}>Your first picks</div>
                         <div className="draft-setup-timeline">
                             {pickPreviewRows.map((p, i) => (
@@ -1355,72 +1525,128 @@
                                 </div>
                             ))}
                         </div>
-                    </section>
-
-                    <section className="draft-setup-panel is-start">
-                        <div className="draft-hq-panel-head">
-                            <span>Simulation Controls</span>
-                            <em>{state.mode}</em>
-                        </div>
-                        {state.mode !== 'manual' ? (
-                            <>
-                                <div className="draft-setup-label">CPU Speed</div>
-                                <div className="draft-setup-speed">
-                                    {['slow', 'medium', 'fast'].map(v => (
-                                        <button key={v} type="button" className={state.speed === v ? 'is-active' : ''} onClick={() => update({ speed: v })}>{v}</button>
-                                    ))}
-                                </div>
-                                <DraftTuningControls state={state} update={update} />
-                            </>
-                        ) : (
-                            <div className="draft-setup-note">
-                                Manual entry records the room pick by pick without CPU autopicks.
-                            </div>
-                        )}
                         <div className="draft-setup-note" style={{ marginTop: 10 }}>
-                            {setupSummary}. The command center will use owner DNA, needs, draft history, and your saved Big Board order.
+                            {setupSummary}. Owner DNA, needs, draft history, and your saved Big Board order will drive the room.
                         </div>
-                        <button
-                            type="button"
-                            className="draft-setup-start"
-                            onClick={onStartDraft}
-                            disabled={state.variant === 'rookie' && !csvReady}
-                            style={{
-                                background: state.variant === 'rookie' && !csvReady ? 'rgba(212,175,55,0.3)' : (forcedMode === 'live-sync' ? '#9b8afb' : 'var(--gold)'),
-                                color: forcedMode === 'live-sync' ? '#fff' : 'var(--black)',
-                                borderColor: state.variant === 'rookie' && !csvReady ? 'rgba(212,175,55,0.3)' : (forcedMode === 'live-sync' ? '#9b8afb' : 'var(--gold)'),
-                            }}
-                        >
-                            {state.variant === 'rookie' && !csvReady ? 'LOADING PROSPECTS...' : (forcedMode === 'live-sync' ? 'START MIRROR' : 'START DRAFT')}
-                        </button>
-
-                        {!forcedMode && (
-                            <div className="draft-setup-secondary">
-                                <button type="button" onClick={() => setShowOther(v => !v)}>
-                                    <span>{showOther ? 'Hide other mock options' : 'Other mock options'}</span>
-                                    <span>{state.mode === 'manual' ? 'Manual room active' : state.mode === 'scenario' ? 'Scenario active' : state.mode === 'ghost' ? 'Ghost active' : 'Manual - Scenarios - Ghost replay - Templates'}</span>
-                                </button>
-                                {showOther && (
-                                    <div className="draft-setup-other">
-                                        <ModeSelector state={state} update={update} />
-                                        <TemplateLoader state={state} dispatch={dispatch} />
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </section>
-                </div>
-                {!forcedMode && (
-                    <AnalystMockPanel
-                        state={state}
-                        dispatch={dispatch}
-                        draftMeta={draftMeta}
-                        playersData={playersData}
-                        currentLeague={currentLeague}
-                        myRoster={myRoster}
-                    />
+                        </div>
+                        {state.mode !== 'manual' && (
+                            <section className="draft-setup-panel draft-setup-strategy-card">
+                                <DraftStrategyStudio state={state} update={update} />
+                            </section>
+                        )}
+                        <DraftLearningPanel
+                            state={state}
+                            update={update}
+                        />
+                    </>
                 )}
             </div>
+        );
+    }
+
+    function DraftLearningPanel({ state, update }) {
+        const helpers = window.DraftCC?.state || {};
+        const [refresh, setRefresh] = React.useState(0);
+        if (!helpers.listDraftRecaps || !helpers.buildRecapLearningDefaults) return null;
+        const recaps = helpers.listDraftRecaps(state.leagueId).slice(0, 5);
+        const learning = helpers.buildRecapLearningDefaults(state.leagueId, {
+            variant: state.variant,
+            baseTuning: state.draftTuning,
+        });
+        if (!recaps.length && !learning?.sampleSize) return null;
+
+        const fmt = n => Number(n || 0).toLocaleString();
+        const when = ts => {
+            if (!ts) return 'saved recap';
+            try {
+                return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+            } catch (_) {
+                return 'saved recap';
+            }
+        };
+        const applyLearning = () => {
+            if (!learning?.sampleSize || !learning.suggestedTuning) return;
+            update({ draftTuning: learning.suggestedTuning, recapLearning: learning });
+        };
+        const exportRecap = (recap) => {
+            if (!recap) return;
+            const text = helpers.formatDraftShareReport
+                ? helpers.formatDraftShareReport(recap)
+                : helpers.formatDraftRecapText?.(recap);
+            if (!text) return;
+            const blob = new Blob([text], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'war-room-draft-recap-' + (recap.savedAt || Date.now()) + '.md';
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+        const deleteRecap = (id) => {
+            if (!id || !helpers.deleteDraftRecap) return;
+            helpers.deleteDraftRecap(state.leagueId, id);
+            setRefresh(v => v + 1);
+        };
+        const tuningLabels = [
+            ['ownerDna', 'Owner DNA'],
+            ['classValue', 'Class Value'],
+            ['needFit', 'Roster Fit'],
+            ['tradeActivity', 'Trades'],
+            ['variance', 'Variance'],
+        ];
+
+        return (
+            <section className="draft-setup-panel" style={{ marginTop: 14, marginBottom: 14 }}>
+                <div className="draft-hq-panel-head">
+                    <span>Draft Learning Archive</span>
+                    <em>{learning?.sampleSize || 0} recap{learning?.sampleSize === 1 ? '' : 's'} feeding mock defaults</em>
+                </div>
+                {learning?.sampleSize > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.2fr) minmax(260px,0.8fr)', gap: 12, alignItems: 'start', marginBottom: 12 }}>
+                        <div>
+                            <div style={{ color: 'var(--white)', fontWeight: 800, fontSize: '0.78rem', marginBottom: 4 }}>
+                                Recap learning is active for {state.variant.replace('_', ' ')} mocks.
+                            </div>
+                            <div style={{ color: 'var(--silver)', opacity: 0.75, fontSize: '0.7rem', lineHeight: 1.5 }}>
+                                {(learning.notes || []).slice(0, 3).join(' ') || 'Saved recaps are available for future mock context.'}
+                            </div>
+                        </div>
+                        <div style={{ display: 'grid', gap: 6 }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                                {tuningLabels.map(([key, label]) => (
+                                    <span key={key} style={{ fontSize: '0.58rem', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, padding: '3px 5px', background: 'rgba(255,255,255,0.025)' }}>
+                                        {label} {learning.suggestedTuning?.[key] ?? '--'}
+                                    </span>
+                                ))}
+                            </div>
+                            <button type="button" onClick={applyLearning} style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid rgba(212,175,55,0.32)', background: 'rgba(212,175,55,0.12)', color: 'var(--gold)', fontFamily: FONT_UI, fontWeight: 800, cursor: 'pointer', fontSize: '0.68rem' }}>
+                                APPLY LEARNED DEFAULTS
+                            </button>
+                        </div>
+                    </div>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8 }}>
+                    {recaps.map(recap => (
+                        <div key={(recap.id || recap.savedAt) + '-' + refresh} style={{ padding: '10px 11px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                <strong style={{ color: 'var(--gold)', fontFamily: FONT_DISPL, fontSize: '1.08rem', lineHeight: 1 }}>{recap.grade?.letter || '?'}</strong>
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ color: 'var(--white)', fontWeight: 800, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{recap.variant || 'draft'} recap</div>
+                                    <div style={{ color: 'var(--silver)', opacity: 0.62, fontSize: '0.6rem' }}>{when(recap.savedAt)}</div>
+                                </div>
+                            </div>
+                            <div style={{ color: 'var(--silver)', fontSize: '0.66rem', lineHeight: 1.45, minHeight: 36 }}>
+                                #{recap.rank || '-'} league rank - {fmt(recap.totalDHQ)} DHQ - {recap.actionPlan?.length || 0} actions
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                                <button type="button" onClick={() => exportRecap(recap)} style={{ flex: 1, padding: '5px 7px', borderRadius: 5, border: '1px solid rgba(212,175,55,0.24)', background: 'rgba(212,175,55,0.08)', color: 'var(--gold)', fontFamily: FONT_UI, fontWeight: 800, cursor: 'pointer', fontSize: '0.58rem' }}>EXPORT</button>
+                                <button type="button" onClick={() => deleteRecap(recap.id)} style={{ padding: '5px 7px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'var(--silver)', fontFamily: FONT_UI, fontWeight: 700, cursor: 'pointer', fontSize: '0.58rem' }}>DELETE</button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </section>
         );
     }
 
@@ -1773,9 +1999,162 @@
         );
     }
 
+    function DraftStrategyStudio({ state, update }) {
+        const helpers = window.DraftCC?.state || {};
+        const presets = (helpers.getDraftStrategyPresets?.() || []).filter(p => !p.hidden);
+        const currentProfile = state.strategyProfile || (helpers.loadDraftStrategyProfile
+            ? helpers.loadDraftStrategyProfile(state.leagueId, {
+                variant: state.variant,
+                baseTuning: state.draftTuning,
+                recapLearning: state.recapLearning,
+            })
+            : null);
+        const activePresetId = currentProfile?.presetId || 'front-office-blend';
+        const [saveState, setSaveState] = React.useState('idle');
+        const buildProfile = (presetId, extra = {}) => helpers.buildDraftStrategyProfile
+            ? helpers.buildDraftStrategyProfile({
+                leagueId: state.leagueId,
+                presetId,
+                variant: state.variant,
+                baseTuning: state.draftTuning,
+                recapLearning: state.recapLearning,
+                gmMode: currentProfile?.gmMode,
+                ...extra,
+            })
+            : null;
+        const persistProfile = (profile) => {
+            if (!profile) return;
+            const saved = helpers.saveDraftStrategyProfile
+                ? helpers.saveDraftStrategyProfile(state.leagueId, profile)
+                : profile;
+            const next = saved || profile;
+            update({ strategyProfile: next, draftTuning: next.tuning || state.draftTuning });
+            setSaveState('saved');
+            setTimeout(() => setSaveState('idle'), 1800);
+        };
+        const applyPreset = (preset) => {
+            const profile = buildProfile(preset.id, { label: preset.label, philosophy: preset.philosophy });
+            persistProfile(profile);
+        };
+        const saveCustom = () => {
+            const profile = buildProfile('custom-studio', {
+                label: 'Custom Studio',
+                philosophy: 'Hand-tuned by the GM.',
+                tuning: state.draftTuning,
+                source: 'custom_studio',
+            });
+            persistProfile(profile);
+        };
+        const signal = currentProfile?.aiSignals || {};
+        const signalRows = [
+            ['Owner history', signal.ownerHistory ?? state.draftTuning?.ownerDna],
+            ['Class crop', signal.classCrop ?? state.draftTuning?.classValue],
+            ['Roster fit', signal.rosterFit ?? state.draftTuning?.needFit],
+            ['Trades', signal.tradeMode || (Number(state.draftTuning?.tradeActivity || 0) <= 3 ? 'off' : 'normal')],
+            ['Variance', signal.varianceModel || 'balanced'],
+        ];
+        const compact = bpBucket() === 'mobile';
+
+        if (!presets.length) return <DraftTuningControls state={state} update={update} />;
+
+        return (
+            <div style={{ marginTop: '14px' }}>
+                <div className="draft-setup-label">AI GM Strategy Studio</div>
+                <div style={{
+                    display: 'grid',
+                    gap: 10,
+                    padding: '10px 12px',
+                    marginTop: '6px',
+                    background: 'rgba(255,255,255,0.025)',
+                    border: '1px solid rgba(212,175,55,0.12)',
+                    borderRadius: '8px',
+                }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))', gap: 6 }}>
+                        {presets.map(preset => {
+                            const active = activePresetId === preset.id;
+                            return (
+                                <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() => applyPreset(preset)}
+                                    style={{
+                                        minHeight: 68,
+                                        padding: '8px 9px',
+                                        borderRadius: 7,
+                                        border: active ? '1px solid rgba(212,175,55,0.55)' : '1px solid rgba(255,255,255,0.08)',
+                                        background: active ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.025)',
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                        fontFamily: FONT_UI,
+                                    }}
+                                >
+                                    <div style={{ color: active ? 'var(--gold)' : 'var(--white)', fontWeight: 900, fontSize: '0.66rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{preset.shortLabel || preset.label}</div>
+                                    <div style={{ color: 'var(--silver)', opacity: 0.66, fontSize: '0.56rem', lineHeight: 1.35, marginTop: 4 }}>{preset.philosophy}</div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: compact ? '1fr' : 'minmax(0, 1.1fr) minmax(220px, 0.9fr)',
+                        gap: 10,
+                        alignItems: 'start',
+                    }}>
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ color: 'var(--white)', fontWeight: 900, fontSize: '0.8rem', fontFamily: FONT_UI }}>
+                                {currentProfile?.label || 'Front Office Blend'}
+                            </div>
+                            <div style={{ color: 'var(--silver)', opacity: 0.72, fontSize: '0.66rem', lineHeight: 1.45, marginTop: 3 }}>
+                                {currentProfile?.philosophy || 'Balanced board, owner history, roster fit, and normal trade pressure.'}
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+                                {signalRows.map(([label, value]) => (
+                                    <span key={label} style={{ fontSize: '0.56rem', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, padding: '3px 5px', background: 'rgba(255,255,255,0.025)' }}>
+                                        {label} {typeof value === 'number' ? value + '%' : value}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                        <div style={{ display: 'grid', gap: 6 }}>
+                            <button
+                                type="button"
+                                onClick={saveCustom}
+                                style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid rgba(212,175,55,0.32)', background: 'rgba(212,175,55,0.12)', color: 'var(--gold)', fontFamily: FONT_UI, fontWeight: 900, cursor: 'pointer', fontSize: '0.66rem' }}
+                            >
+                                {saveState === 'saved' ? 'SAVED TO LEAGUE' : 'SAVE PROFILE'}
+                            </button>
+                            <div style={{ color: 'var(--silver)', opacity: 0.58, fontSize: '0.58rem', lineHeight: 1.35, fontFamily: FONT_UI }}>
+                                {currentProfile?.saved ? 'League profile active.' : 'GM mode default active.'}
+                            </div>
+                        </div>
+                    </div>
+                    <DraftTuningControls state={state} update={update} />
+                </div>
+            </div>
+        );
+    }
+
     function DraftTuningControls({ state, update }) {
         const t = state.draftTuning || {};
-        const patch = (key, value) => update({ draftTuning: { ...t, [key]: Number(value) } });
+        const patch = (key, value) => {
+            const nextTuning = { ...t, [key]: Number(value) };
+            const helpers = window.DraftCC?.state || {};
+            const strategyProfile = helpers.buildDraftStrategyProfile
+                ? helpers.buildDraftStrategyProfile({
+                    leagueId: state.leagueId,
+                    presetId: 'custom-studio',
+                    label: 'Custom Studio',
+                    philosophy: 'Hand-tuned by the GM.',
+                    variant: state.variant,
+                    baseTuning: nextTuning,
+                    tuning: nextTuning,
+                    gmMode: state.strategyProfile?.gmMode,
+                    recapLearning: state.recapLearning,
+                    source: 'unsaved_custom',
+                })
+                : { ...(state.strategyProfile || {}), presetId: 'custom-studio', label: 'Custom Studio', tuning: nextTuning, saved: false };
+            update({ draftTuning: nextTuning, strategyProfile: { ...strategyProfile, saved: false } });
+        };
         const rows = [
             { key: 'ownerDna', label: 'Owner DNA', left: 'Class-agnostic', right: 'History-heavy' },
             { key: 'classValue', label: 'Class Value', left: 'Loose tiers', right: 'Board discipline' },
@@ -1784,8 +2163,8 @@
             { key: 'variance', label: 'Pick Variance', left: 'Predictable', right: 'Chaotic' },
         ];
         return (
-            <div style={{ marginTop: '14px' }}>
-                <div className="draft-setup-label">Simulation Tuning</div>
+            <div>
+                <div className="draft-setup-label">Model Tuning</div>
                 <div style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -1828,7 +2207,6 @@
     // Live Sync moved to its own top-level tab ("Follow Live Draft").
     function ModeSelector({ state, update }) {
         const modes = [
-            { id: 'solo',     label: 'Custom Solo',  desc: 'Manually configure rounds & teams',   icon: '⚡' },
             { id: 'manual',   label: 'Manual Room',  desc: 'Record every pick yourself',           icon: '✍' },
             { id: 'scenario', label: 'Scenario',     desc: 'Canned "what-if" scenarios',          icon: '🎯' },
             { id: 'ghost',    label: 'Ghost Replay', desc: 'Replay a prior Sleeper draft',        icon: '👻' },
@@ -1842,8 +2220,8 @@
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
                     marginBottom: '6px',
-                }}>Alternate Mock Mode</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '6px' }}>
+                }}>Advanced Mock Mode</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px' }}>
                     {modes.map(m => {
                         const isActive = state.mode === m.id;
                         return (
@@ -2524,6 +2902,123 @@
         );
     }
 
+    function DraftPickListPanel({ state, currentSlot }) {
+        const posColors = window.App?.POS_COLORS || {
+            QB: '#FF6B6B', RB: '#4ECDC4', WR: '#45B7D1', TE: '#F7DC6F',
+            DL: '#E67E22', LB: '#F0A500', DB: '#5DADE2', K: '#BB8FCE',
+        };
+        const fmt = (n) => {
+            const v = Number(n) || 0;
+            return v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(Math.round(v));
+        };
+        const order = state.pickOrder || [];
+        const picks = state.picks || [];
+        const personas = state.personas || {};
+        const userRosterId = String(state.userRosterId || '');
+        const ownerName = (slot, pick) => {
+            const rosterId = String(pick?.rosterId || slot?.rosterId || '');
+            if (rosterId && personas[rosterId]?.teamName) return personas[rosterId].teamName;
+            if (slot?.ownerName) return slot.ownerName;
+            if (pick?.isUser || rosterId === userRosterId) return 'Your Team';
+            const slotNo = pick?.slot || slot?.slot;
+            return slotNo ? 'Team ' + slotNo : 'Draft Room';
+        };
+        const completedRows = picks.slice(Math.max(0, picks.length - 16)).map((pick, idx, arr) => {
+            const orderSlot = order[(Number(pick.overall) || 1) - 1] || {};
+            return {
+                kind: 'picked',
+                key: pick.id || ('picked-' + pick.overall + '-' + idx),
+                pick,
+                slot: orderSlot,
+                label: 'R' + (pick.round || orderSlot.round || '?') + '.' + String(pick.slot || orderSlot.slot || 0).padStart(2, '0'),
+                stale: idx < arr.length - 1,
+            };
+        });
+        const upcomingRows = order.slice(state.currentIdx || 0, (state.currentIdx || 0) + 20).map((slot, idx) => ({
+            kind: idx === 0 ? 'current' : 'upcoming',
+            key: 'upcoming-' + (slot.overall || idx),
+            slot,
+            pick: null,
+            label: 'R' + (slot.round || '?') + '.' + String(slot.slot || 0).padStart(2, '0'),
+        }));
+        const rows = [...completedRows, ...upcomingRows];
+        const currentOverall = currentSlot?.overall || order[state.currentIdx || 0]?.overall;
+
+        return (
+            <div style={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(212,175,55,0.14)',
+                borderRadius: '8px',
+                overflow: 'hidden',
+            }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 10px',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    background: 'rgba(0,0,0,0.18)',
+                }}>
+                    <span style={{ color: 'var(--gold)', fontFamily: FONT_DISPL, fontSize: '0.82rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                        Pick List
+                    </span>
+                    <em style={{ marginLeft: 'auto', color: 'var(--silver)', opacity: 0.62, fontSize: '0.56rem', fontStyle: 'normal', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        {picks.length} made / {order.length || '--'}
+                    </em>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
+                    {!rows.length && (
+                        <div style={{ color: 'var(--silver)', opacity: 0.6, fontSize: '0.68rem', padding: '10px' }}>
+                            Start the draft to see the room as a running pick list.
+                        </div>
+                    )}
+                    {rows.map(row => {
+                        const pick = row.pick;
+                        const slot = row.slot || {};
+                        const rosterId = String(pick?.rosterId || slot.rosterId || '');
+                        const isUser = pick?.isUser || (userRosterId && rosterId === userRosterId);
+                        const isCurrent = row.kind === 'current' || Number(slot.overall) === Number(currentOverall);
+                        const pos = pick?.pos || '';
+                        const posCol = posColors[pos] || 'var(--gold)';
+                        return (
+                            <div key={row.key} style={{
+                                display: 'grid',
+                                gridTemplateColumns: '48px minmax(0, 0.85fr) minmax(0, 1.35fr) 36px 54px',
+                                gap: '7px',
+                                alignItems: 'center',
+                                minHeight: 34,
+                                padding: '5px 7px',
+                                borderRadius: '6px',
+                                border: '1px solid ' + (isCurrent ? 'rgba(212,175,55,0.34)' : isUser ? 'rgba(212,175,55,0.18)' : 'rgba(255,255,255,0.04)'),
+                                background: isCurrent ? 'rgba(212,175,55,0.09)' : isUser ? 'rgba(212,175,55,0.045)' : 'rgba(255,255,255,0.012)',
+                                marginBottom: 4,
+                            }}>
+                                <span style={{ color: isCurrent || isUser ? 'var(--gold)' : 'var(--silver)', fontFamily: FONT_MONO, fontSize: '0.6rem', fontWeight: 800 }}>
+                                    {row.label}
+                                </span>
+                                <span style={{ color: isUser ? 'var(--gold)' : 'var(--silver)', fontSize: '0.6rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {ownerName(slot, pick)}
+                                </span>
+                                <span style={{ color: pick ? 'var(--white)' : isCurrent ? 'var(--gold)' : 'var(--silver)', fontSize: '0.66rem', fontWeight: pick ? 800 : 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {pick ? pick.name : (isCurrent ? 'On clock' : 'Upcoming')}
+                                </span>
+                                <span style={{ color: pick ? posCol : 'var(--silver)', fontSize: '0.58rem', fontWeight: 900, textAlign: 'center' }}>
+                                    {pos || '--'}
+                                </span>
+                                <span style={{ color: pick ? 'var(--gold)' : 'var(--silver)', opacity: pick ? 1 : 0.5, fontFamily: FONT_MONO, fontSize: '0.58rem', textAlign: 'right' }}>
+                                    {pick ? fmt(pick.dhq) : '#' + (slot.overall || '--')}
+                                </span>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
     // ── Drafting / complete grid ─────────────────────────────────────
     function CommandCenterGrid({ state, dispatch, isUserTurn, currentSlot, onExit, viewport, onPropose }) {
         const L = DRAFT_CC_LAYOUT;
@@ -2532,10 +3027,8 @@
         const grade = window.DraftCC.state.gradeDraft(myPicks, state.originalPool);
 
         const BigBoardPanel = window.DraftCC.BigBoardPanel;
-        const DraftGridPanel = window.DraftCC.DraftGridPanel;
         const OpponentIntelPanel = window.DraftCC.OpponentIntelPanel;
         const AlexStreamPanel = window.DraftCC.AlexStreamPanel;
-        const LiveAnalyticsPanel = window.DraftCC.LiveAnalyticsPanel;
         const TradeModal = window.DraftCC.TradeModal;
         const TradeProposer = window.DraftCC.TradeProposer;
 
@@ -2893,19 +3386,19 @@
                     </div>
                 )}
 
-                {/* ── TOP ROW: Big Board / Draft Grid / Opponent Intel ───── */}
+                {/* ── TOP ROW: Big Board / Roster Build / Opponent Intel ───── */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: isTablet ? '1fr 1fr' : `${L.SPAN.BIG_BOARD}fr ${L.SPAN.DRAFT_GRID}fr ${L.SPAN.OPP_INTEL}fr`,
+                    gridTemplateColumns: isTablet ? '1fr 1fr' : 'minmax(0, 1.55fr) minmax(320px, 0.7fr) minmax(340px, 0.8fr)',
                     gap: L.GRID_GAP + 'px',
-                    height: isTablet ? 'auto' : (L.ROW_TOP_H + 'px'),
+                    height: isTablet ? 'auto' : 'clamp(520px, 58vh, 680px)',
                     marginBottom: L.GRID_GAP + 'px',
                 }}>
                     <div style={{ minHeight: isTablet ? 500 : '100%', minWidth: 0 }}>
                         <BigBoardPanel state={state} dispatch={dispatch} isUserTurn={isUserTurn} />
                     </div>
                     <div style={{ minHeight: isTablet ? 500 : '100%', minWidth: 0 }}>
-                        <DraftGridPanel state={state} dispatch={dispatch} isUserTurn={isUserTurn} currentSlot={currentSlot} />
+                        <MyDraftRosterPanel state={state} />
                     </div>
                     {!isTablet && (
                         <div style={{ minHeight: '100%', minWidth: 0 }}>
@@ -2914,14 +3407,14 @@
                     )}
                 </div>
 
-                {/* ── BOTTOM ROW: Live Analytics / Alex Stream ───── */}
+                {/* ── BOTTOM ROW: Pick List / Alex Stream ───── */}
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: isTablet
                         ? '1fr 1fr'
-                        : '5fr 3fr 4fr',
+                        : 'minmax(0, 1.15fr) minmax(360px, 0.85fr)',
                     gap: L.GRID_GAP + 'px',
-                    height: isTablet ? 'auto' : L.ROW_BOTTOM_H + 'px',
+                    height: isTablet ? 'auto' : 'clamp(260px, 28vh, 360px)',
                 }}>
                     {isTablet && (
                         <div style={{ minHeight: 240, minWidth: 0 }}>
@@ -2929,10 +3422,7 @@
                         </div>
                     )}
                     <div style={{ minHeight: isTablet ? 240 : '100%', minWidth: 0 }}>
-                        <LiveAnalyticsPanel state={state} />
-                    </div>
-                    <div style={{ minHeight: isTablet ? 240 : '100%', minWidth: 0 }}>
-                        <MyDraftRosterPanel state={state} />
+                        <DraftPickListPanel state={state} currentSlot={currentSlot} />
                     </div>
                     <div style={{ minHeight: isTablet ? 240 : '100%', minWidth: 0 }}>
                         <AlexStreamPanel state={state} dispatch={dispatch} />
@@ -2966,6 +3456,53 @@
                     const orderedPositions = POS_ORDER.filter(p => posSummary[p]).concat(Object.keys(posSummary).filter(p => !POS_ORDER.includes(p)));
 
                     const gradeColor = grade.letter.startsWith('A') ? '#2ECC71' : grade.letter.startsWith('B') ? '#D4AF37' : grade.letter.startsWith('C') ? '#F0A500' : '#E74C3C';
+                    const teamRecaps = recap?.teamRecaps || [];
+                    const actionPlan = recap?.actionPlan || [];
+                    const leagueStorylines = recap?.leagueStorylines || [];
+                    const tradeImpact = recap?.tradeImpact || { count: 0, summary: 'No accepted draft trades on record.' };
+                    const bestPick = recap?.bestPick || null;
+                    const biggestReach = recap?.biggestReach || null;
+                    const missedTarget = recap?.missedTarget || null;
+                    const bestAlternative = recap?.bestAlternative || null;
+                    const postDraftMoves = recap?.postDraftMoves || {};
+                    const recapPositions = recap?.positionSummary?.length
+                        ? recap.positionSummary
+                        : orderedPositions.map(pos => ({ pos, ...posSummary[pos] }));
+                    const fmtDhq = value => {
+                        const n = Number(value || 0);
+                        return n ? n.toLocaleString() : '—';
+                    };
+                    const openRecapPlayer = pid => {
+                        if (!pid) return;
+                        if (typeof window.openPlayerModal === 'function') {
+                            try { window.openPlayerModal(pid); return; } catch (_) {}
+                        }
+                        if (window.WR?.openPlayerCard) {
+                            try { window.WR.openPlayerCard(pid); } catch (_) {}
+                        }
+                    };
+                    const insightCard = (label, value, detail, color, onClick) => (
+                        <button
+                            type="button"
+                            onClick={onClick}
+                            disabled={!onClick}
+                            style={{
+                                textAlign: 'left',
+                                padding: '12px 14px',
+                                background: 'rgba(255,255,255,0.03)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                borderLeft: '3px solid ' + (color || 'rgba(212,175,55,0.55)'),
+                                borderRadius: '8px',
+                                cursor: onClick ? 'pointer' : 'default',
+                                fontFamily: FONT_UI,
+                                minHeight: '92px',
+                            }}
+                        >
+                            <div style={{ fontSize: '0.62rem', color: 'var(--silver)', opacity: 0.68, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>{label}</div>
+                            <div style={{ color: color || 'var(--white)', fontWeight: 800, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value || '—'}</div>
+                            <div style={{ color: 'var(--silver)', opacity: 0.74, fontSize: '0.68rem', lineHeight: 1.45, marginTop: '4px' }}>{detail || 'No signal yet.'}</div>
+                        </button>
+                    );
 
                     // League-wide percentile — how our total DHQ ranks
                     const allDraftTotals = recap?.leagueTotals || (stateHelpers.leagueTotalsFromPicks ? stateHelpers.leagueTotalsFromPicks(state.picks || []) : {});
@@ -2980,7 +3517,7 @@
                             padding: '24px', animation: 'wrFadeIn 0.2s ease'
                         }} onClick={e => { if (e.target === e.currentTarget) onExit && onExit(); }}>
                             <div style={{
-                                width: '100%', maxWidth: '820px', maxHeight: '92vh', overflowY: 'auto',
+                                width: '100%', maxWidth: '1080px', maxHeight: '92vh', overflowY: 'auto',
                                 background: '#0a0b0d', border: '2px solid ' + gradeColor + '55',
                                 borderRadius: '16px', boxShadow: '0 32px 96px rgba(0,0,0,0.8)',
                             }}>
@@ -3003,13 +3540,107 @@
                                     </div>
                                 </div>
 
+                                {/* P4 strategic readout */}
+                                <div style={{ padding: '22px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>Strategic Readout</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '10px' }}>
+                                        {insightCard(
+                                            'Best Pick',
+                                            bestPick ? `${bestPick.name} #${bestPick.overall}` : 'No pick',
+                                            bestPick ? `${bestPick.pos || '?'} · ${fmtDhq(bestPick.dhq)} DHQ${bestPick.valueDelta > 0 ? ' · +' + bestPick.valueDelta + ' value slots' : ''}` : 'Make a pick to generate a value read.',
+                                            '#2ECC71',
+                                            bestPick?.pid ? () => openRecapPlayer(bestPick.pid) : null
+                                        )}
+                                        {insightCard(
+                                            'Biggest Reach',
+                                            biggestReach ? `${biggestReach.name} #${biggestReach.overall}` : 'None flagged',
+                                            biggestReach ? `${Math.abs(biggestReach.valueDelta || 0)} slots ahead of board. Check if your note justified the bet.` : 'No user pick was far enough off board to flag.',
+                                            biggestReach ? '#F0A500' : 'var(--silver)',
+                                            biggestReach?.pid ? () => openRecapPlayer(biggestReach.pid) : null
+                                        )}
+                                        {insightCard(
+                                            'Missed Target',
+                                            missedTarget ? `${missedTarget.name} #${missedTarget.overall}` : 'No tagged loss',
+                                            missedTarget ? missedTarget.message : 'Targets and Must tags survived or were not set.',
+                                            missedTarget ? '#E74C3C' : 'var(--silver)',
+                                            missedTarget?.pid ? () => openRecapPlayer(missedTarget.pid) : null
+                                        )}
+                                        {insightCard(
+                                            'Best Alternative',
+                                            bestAlternative?.alternative ? bestAlternative.alternative.name : 'No better DHQ miss',
+                                            bestAlternative?.message || 'Your selections did not leave a higher-DHQ player behind at the same slot.',
+                                            bestAlternative?.alternative ? '#3498DB' : 'var(--silver)',
+                                            bestAlternative?.alternative?.pid ? () => openRecapPlayer(bestAlternative.alternative.pid) : null
+                                        )}
+                                        {insightCard(
+                                            'Trade Impact',
+                                            tradeImpact.count ? `${tradeImpact.netDHQ >= 0 ? '+' : ''}${fmtDhq(tradeImpact.netDHQ)} DHQ` : 'No trades',
+                                            tradeImpact.summary,
+                                            tradeImpact.netDHQ >= 0 ? '#2ECC71' : '#E74C3C',
+                                            null
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Action plan */}
+                                <div style={{ padding: '22px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>Post-Draft Action Plan</div>
+                                    <div style={{ display: 'grid', gap: '8px' }}>
+                                        {(actionPlan.length ? actionPlan : [{ title: 'Save this recap', detail: 'Use it as the next mock draft input.', type: 'prep_loop' }]).map((item, i) => (
+                                            <div key={item.type || i} style={{ display: 'grid', gridTemplateColumns: '28px minmax(0,1fr)', gap: '10px', alignItems: 'start', padding: '10px 12px', background: 'rgba(212,175,55,0.045)', border: '1px solid rgba(212,175,55,0.10)', borderRadius: '8px' }}>
+                                                <div style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(212,175,55,0.16)', color: 'var(--gold)', fontWeight: 900, fontSize: '0.68rem' }}>{i + 1}</div>
+                                                <div>
+                                                    <div style={{ color: 'var(--white)', fontWeight: 800, fontSize: '0.82rem' }}>{item.title}</div>
+                                                    <div style={{ color: 'var(--silver)', opacity: 0.78, fontSize: '0.74rem', lineHeight: 1.5, marginTop: '2px' }}>{item.detail}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* P4B next moves */}
+                                <div style={{ padding: '22px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>Next Moves</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+                                        <div style={{ padding: '11px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)' }}>
+                                            <div style={{ color: '#2ECC71', fontWeight: 800, fontSize: '0.72rem', marginBottom: 6 }}>Waiver Watch</div>
+                                            {(postDraftMoves.waiverTargets || []).slice(0, 3).map(p => (
+                                                <button key={p.pid || p.name} type="button" onClick={() => p.pid && openRecapPlayer(p.pid)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '5px 0', border: 'none', background: 'transparent', color: 'var(--white)', fontFamily: FONT_UI, cursor: p.pid ? 'pointer' : 'default' }}>
+                                                    <span style={{ fontWeight: 800 }}>{p.name}</span>
+                                                    <span style={{ color: 'var(--silver)', opacity: 0.72, fontSize: '0.66rem' }}> - {p.pos} - {fmtDhq(p.dhq)} DHQ</span>
+                                                </button>
+                                            ))}
+                                            {!(postDraftMoves.waiverTargets || []).length && <div style={{ color: 'var(--silver)', opacity: 0.62, fontSize: '0.7rem' }}>No immediate waiver watchlist from this recap.</div>}
+                                        </div>
+                                        <div style={{ padding: '11px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)' }}>
+                                            <div style={{ color: '#3498DB', fontWeight: 800, fontSize: '0.72rem', marginBottom: 6 }}>Trade Map</div>
+                                            {(postDraftMoves.tradeTargets || []).slice(0, 3).map((t, i) => (
+                                                <div key={(t.rosterId || t.teamName || i) + '-' + t.pos} style={{ color: 'var(--silver)', fontSize: '0.68rem', lineHeight: 1.45, padding: '4px 0' }}>
+                                                    <strong style={{ color: 'var(--white)' }}>{t.teamName}</strong> - {t.pos} surplus around {t.player?.name || 'new draft capital'}
+                                                </div>
+                                            ))}
+                                            {!(postDraftMoves.tradeTargets || []).length && <div style={{ color: 'var(--silver)', opacity: 0.62, fontSize: '0.7rem' }}>No clear surplus trade lane yet.</div>}
+                                        </div>
+                                        <div style={{ padding: '11px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)' }}>
+                                            <div style={{ color: '#F0A500', fontWeight: 800, fontSize: '0.72rem', marginBottom: 6 }}>Cut Review</div>
+                                            {(postDraftMoves.cutCandidates || []).slice(0, 3).map(p => (
+                                                <button key={p.pid || p.name} type="button" onClick={() => p.pid && openRecapPlayer(p.pid)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '5px 0', border: 'none', background: 'transparent', color: 'var(--white)', fontFamily: FONT_UI, cursor: p.pid ? 'pointer' : 'default' }}>
+                                                    <span style={{ fontWeight: 800 }}>{p.name}</span>
+                                                    <span style={{ color: 'var(--silver)', opacity: 0.72, fontSize: '0.66rem' }}> - {p.pos || 'depth'} - {fmtDhq(p.dhq)} DHQ</span>
+                                                </button>
+                                            ))}
+                                            {!(postDraftMoves.cutCandidates || []).length && <div style={{ color: 'var(--silver)', opacity: 0.62, fontSize: '0.7rem' }}>No cut-pressure candidates available from loaded roster data.</div>}
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Per-position breakdown */}
                                 <div style={{ padding: '22px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>Positional Breakdown</div>
-                                    {orderedPositions.length ? (
+                                    {recapPositions.length ? (
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
-                                            {orderedPositions.map(pos => {
-                                                const s = posSummary[pos];
+                                            {recapPositions.map(s => {
+                                                const pos = s.pos;
                                                 const posCol = (window.App?.POS_COLORS || {})[pos] || 'var(--silver)';
                                                 return <div key={pos} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', borderLeft: '3px solid ' + posCol }}>
                                                     <div style={{ fontSize: '0.82rem', fontWeight: 700, color: posCol, letterSpacing: '0.04em' }}>{pos}</div>
@@ -3033,7 +3664,11 @@
                                                 const posCol = (window.App?.POS_COLORS || {})[pos] || 'var(--silver)';
                                                 const dhq = normalized?.dhq || p.dhq || pk.dhq || 0;
                                                 const dhqCol = dhq >= 7000 ? '#2ECC71' : dhq >= 4000 ? '#3498DB' : 'var(--silver)';
-                                                return <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.02)' }}>
+                                                return <div
+                                                    key={i}
+                                                    onClick={() => openRecapPlayer(normalized?.pid || pk.pid)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.02)', cursor: (normalized?.pid || pk.pid) ? 'pointer' : 'default' }}
+                                                >
                                                     <span style={{ fontFamily: FONT_DISPL, fontSize: '0.72rem', color: 'var(--gold)', width: '48px' }}>
                                                         {pk.round && pk.pickInRound ? (pk.round + '.' + String(pk.pickInRound).padStart(2, '0')) : ('#' + (i + 1))}
                                                     </span>
@@ -3047,6 +3682,65 @@
                                     ) : <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6 }}>No picks made.</div>}
                                 </div>
 
+                                {/* League-wide recap */}
+                                <div style={{ padding: '22px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '10px' }}>League Recap</div>
+                                    {leagueStorylines.length > 0 && (
+                                        <div style={{ display: 'grid', gap: '6px', marginBottom: '12px' }}>
+                                            {leagueStorylines.slice(0, 4).map((line, i) => (
+                                                <div key={i} style={{ fontSize: '0.76rem', color: 'var(--silver)', lineHeight: 1.45, padding: '7px 10px', background: 'rgba(255,255,255,0.025)', borderRadius: '6px' }}>{line}</div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {teamRecaps.length ? (
+                                        <div style={{ display: 'grid', gap: '6px' }}>
+                                            {teamRecaps.slice(0, 12).map(team => {
+                                                const isUser = String(team.rosterId) === String(state.userRosterId);
+                                                const topPlayer = team.topPick || team.picks?.[0];
+                                                const gradeCol = team.grade?.startsWith('A') ? '#2ECC71' : team.grade?.startsWith('B') ? 'var(--gold)' : team.grade?.startsWith('C') ? '#F0A500' : '#E74C3C';
+                                                return (
+                                                    <div key={team.rosterId || team.teamName} style={{
+                                                        display: 'grid',
+                                                        gridTemplateColumns: '36px minmax(0,1.35fr) 56px 86px minmax(0,1fr) 84px',
+                                                        gap: '10px',
+                                                        alignItems: 'center',
+                                                        padding: '8px 10px',
+                                                        borderRadius: '7px',
+                                                        border: '1px solid ' + (isUser ? 'rgba(212,175,55,0.28)' : 'rgba(255,255,255,0.06)'),
+                                                        background: isUser ? 'rgba(212,175,55,0.07)' : 'rgba(255,255,255,0.022)',
+                                                    }}>
+                                                        <div style={{ color: isUser ? 'var(--gold)' : 'var(--silver)', fontFamily: FONT_MONO, fontSize: '0.72rem', fontWeight: 800 }}>#{team.rank}</div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                dispatch({ type: 'PIN_TEAM', rosterId: team.rosterId });
+                                                            }}
+                                                            style={{ minWidth: 0, padding: 0, border: 'none', background: 'transparent', color: 'var(--white)', textAlign: 'left', cursor: 'pointer', fontFamily: FONT_UI }}
+                                                            title="Pin this team in opponent intel"
+                                                        >
+                                                            <div style={{ fontWeight: 800, fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team.teamName}</div>
+                                                            <div style={{ color: 'var(--silver)', opacity: 0.62, fontSize: '0.62rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team.buildLabel}</div>
+                                                        </button>
+                                                        <div style={{ color: gradeCol, fontFamily: FONT_DISPL, fontSize: '1rem', fontWeight: 900 }}>{team.grade}</div>
+                                                        <div style={{ color: 'var(--silver)', fontSize: '0.7rem', fontFamily: FONT_MONO, textAlign: 'right' }}>{fmtDhq(team.totalDHQ)} DHQ</div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => topPlayer?.pid && openRecapPlayer(topPlayer.pid)}
+                                                            disabled={!topPlayer?.pid}
+                                                            style={{ minWidth: 0, padding: 0, border: 'none', background: 'transparent', color: topPlayer?.pid ? 'var(--gold)' : 'var(--silver)', textAlign: 'left', cursor: topPlayer?.pid ? 'pointer' : 'default', fontFamily: FONT_UI, fontSize: '0.68rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                                        >
+                                                            {topPlayer ? topPlayer.name : 'No top pick'}
+                                                        </button>
+                                                        <div style={{ color: 'var(--silver)', opacity: 0.72, fontSize: '0.66rem', textAlign: 'right' }}>
+                                                            {team.steals?.length || 0} steal{team.steals?.length === 1 ? '' : 's'} · {team.reaches?.length || 0} reach{team.reaches?.length === 1 ? '' : 'es'}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : <div style={{ fontSize: '0.78rem', color: 'var(--silver)', opacity: 0.6 }}>No league picks available for recap.</div>}
+                                </div>
+
                                 {/* Alex commentary */}
                                 <div style={{ padding: '22px 32px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -3055,9 +3749,10 @@
                                     </div>
                                     <div style={{ padding: '10px 14px', background: 'rgba(212,175,55,0.05)', borderLeft: '3px solid rgba(212,175,55,0.4)', borderRadius: '0 6px 6px 0', fontSize: '0.84rem', color: 'var(--silver)', lineHeight: 1.55 }}>
                                         {(() => {
-                                            const topPos = orderedPositions[0] || 'skill positions';
+                                            const topPos = recapPositions[0]?.pos || 'skill positions';
+                                            const topPosCount = recapPositions[0]?.count || 0;
                                             const letterPhrase = grade.letter.startsWith('A') ? "one of the best drafts in the league — you captured elite value" : grade.letter.startsWith('B') ? "a solid class with clear upside" : grade.letter.startsWith('C') ? "a middling haul, with room for growth" : "a tough draft — the value just wasn't there at your slots";
-                                            return "This was " + letterPhrase + ". You leaned heaviest at " + topPos + " (" + (posSummary[orderedPositions[0]]?.count || 0) + " picks) and banked " + grade.totalDHQ.toLocaleString() + " DHQ across " + myPicks.length + " selections. " + (myRank <= 3 ? "You're top-3 by draft DHQ — this class sets you up for a run." : myRank <= totals.length / 2 ? "You're in the upper half — now the work is in the development window." : "You'll need to work the waiver wire and trade market to close the gap.");
+                                            return "This was " + letterPhrase + ". You leaned heaviest at " + topPos + " (" + topPosCount + " picks) and banked " + grade.totalDHQ.toLocaleString() + " DHQ across " + myPicks.length + " selections. " + (myRank <= 3 ? "You're top-3 by draft DHQ — this class sets you up for a run." : myRank <= totals.length / 2 ? "You're in the upper half — now the work is in the development window." : "You'll need to work the waiver wire and trade market to close the gap.");
                                         })()}
                                     </div>
                                 </div>
@@ -3071,18 +3766,29 @@
                                                 ? stateHelpers.saveDraftRecap(state, { grade, key })
                                                 : recap;
                                             if (!payload) localStorage.setItem(key, JSON.stringify(recap || {}));
-                                            alert('Draft recap saved locally (' + key + ')');
+                                            alert('Draft recap saved to archive (' + key + ')');
                                         } catch (e) { alert('Save failed: ' + e.message); }
                                     }} style={{ padding: '10px 22px', background: 'rgba(212,175,55,0.12)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.35)', borderRadius: '6px', fontFamily: FONT_DISPL, fontSize: '0.86rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}>SAVE RECAP</button>
                                     <button onClick={() => {
                                         try {
-                                            const text = stateHelpers.formatDraftRecapText
-                                                ? stateHelpers.formatDraftRecapText(recap || stateHelpers.buildDraftRecap(state, { grade }))
-                                                : 'Draft Recap - ' + grade.letter;
-                                            const blob = new Blob([text], { type: 'text/plain' });
-                                            const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'draft-recap-' + Date.now() + '.txt'; a.click(); URL.revokeObjectURL(url);
+                                            const text = stateHelpers.formatDraftShareReport
+                                                ? stateHelpers.formatDraftShareReport(recap || stateHelpers.buildDraftRecap(state, { grade }))
+                                                : stateHelpers.formatDraftRecapText?.(recap || stateHelpers.buildDraftRecap(state, { grade }));
+                                            if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(() => alert('Share report copied.'));
+                                            else alert('Clipboard unavailable in this browser.');
+                                        } catch (e) { alert('Copy failed: ' + e.message); }
+                                    }} style={{ padding: '10px 22px', background: 'rgba(255,255,255,0.035)', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '6px', fontFamily: FONT_DISPL, fontSize: '0.86rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}>COPY REPORT</button>
+                                    <button onClick={() => {
+                                        try {
+                                            const text = stateHelpers.formatDraftShareReport
+                                                ? stateHelpers.formatDraftShareReport(recap || stateHelpers.buildDraftRecap(state, { grade }))
+                                                : stateHelpers.formatDraftRecapText
+                                                    ? stateHelpers.formatDraftRecapText(recap || stateHelpers.buildDraftRecap(state, { grade }))
+                                                    : 'Draft Recap - ' + grade.letter;
+                                            const blob = new Blob([text], { type: 'text/markdown' });
+                                            const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'draft-recap-' + Date.now() + '.md'; a.click(); URL.revokeObjectURL(url);
                                         } catch (e) { alert('Export failed: ' + e.message); }
-                                    }} style={{ padding: '10px 22px', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', fontFamily: FONT_DISPL, fontSize: '0.86rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}>EXPORT .TXT</button>
+                                    }} style={{ padding: '10px 22px', background: 'transparent', color: 'var(--silver)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', fontFamily: FONT_DISPL, fontSize: '0.86rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}>EXPORT REPORT</button>
                                     <button onClick={onExit} style={{ padding: '10px 22px', background: 'var(--gold)', color: 'var(--black)', border: 'none', borderRadius: '6px', fontFamily: FONT_DISPL, fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' }}>DRAFT AGAIN</button>
                                 </div>
                             </div>
@@ -3115,6 +3821,16 @@
         const current = currentSlot
             ? 'Next local slot: R' + currentSlot.round + '.' + String(currentSlot.slot || 0).padStart(2, '0') + ' · #' + currentSlot.overall
             : 'No next slot';
+        const missing = Array.isArray(liveSync?.missingPickNos) ? liveSync.missingPickNos : [];
+        const integrity = liveSync?.remoteBehind
+            ? 'Remote feed behind local mirror'
+            : missing.length
+                ? 'Missing pick ' + missing.slice(0, 3).join(', ') + (missing.length > 3 ? '+' : '')
+                : '';
+        const syncCounters = [
+            (liveSync?.duplicateCount || 0) ? (liveSync.duplicateCount + ' duplicate read') : '',
+            (liveSync?.missedPickCount || 0) ? (liveSync.missedPickCount + ' gap') : '',
+        ].filter(Boolean).join(' · ');
         return (
             <div style={{
                 padding: '9px 14px',
@@ -3136,12 +3852,12 @@
                         {text}
                     </div>
                     <div style={{ color: 'var(--silver)', opacity: 0.62, fontSize: '0.56rem', marginTop: 2 }}>
-                        {current} · Sleeper picks seen: {liveSync?.remotePickCount || 0} · Applied: {state.currentIdx || 0}
+                        {current} · Sleeper picks seen: {liveSync?.remotePickCount || 0} · Applied: {state.currentIdx || 0}{integrity ? ' · ' + integrity : ''}
                     </div>
                 </div>
-                {(liveSync?.duplicateCount || liveSync?.missedPickCount) > 0 && (
+                {!!syncCounters && (
                     <div style={{ color: '#F0A500', fontSize: '0.58rem', fontWeight: 800, textAlign: 'right', flexShrink: 0 }}>
-                        {liveSync?.duplicateCount || 0} dup · {liveSync?.missedPickCount || 0} gap
+                        {syncCounters}
                     </div>
                 )}
                 {dispatch && state.phase === 'drafting' && (
@@ -3500,7 +4216,6 @@
         // ── Mobile: read-only feed ───────────────────────────────────────
         function MobileFeed({ state, dispatch, onStart, isUserTurn, currentSlot }) {
         const BigBoardPanel = window.DraftCC.BigBoardPanel;
-        const DraftGridPanel = window.DraftCC.DraftGridPanel;
         const AlexStreamPanel = window.DraftCC.AlexStreamPanel;
 
         if (state.phase === 'setup') {
@@ -3547,7 +4262,7 @@
                     <AlexStreamPanel state={state} dispatch={dispatch} />
                 </div>
                 <div style={{ height: 300 }}>
-                    <DraftGridPanel state={state} dispatch={dispatch} isUserTurn={isUserTurn} currentSlot={currentSlot} />
+                    <DraftPickListPanel state={state} currentSlot={currentSlot} />
                 </div>
             </div>
         );

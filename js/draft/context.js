@@ -356,6 +356,13 @@
         }
     }
 
+    function clampAiBoardScore(adjusted, base) {
+        const rawBase = Number(base || 0);
+        if (!rawBase) return Number(adjusted || 0);
+        const rawAdjusted = Number(adjusted || rawBase);
+        return clamp(rawAdjusted, rawBase * 0.82, rawBase * 1.22, rawBase);
+    }
+
     function buildAiRecommendedOrder(pool, input) {
         const data = input || {};
         const strategy = data.strategy || {};
@@ -374,7 +381,8 @@
         return asArray(pool).slice().sort((a, b) => {
             const score = p => {
                 const pos = p?.pos || p?.position || '';
-                let value = projectedValue(p, adapter.projectionYears);
+                const baseValue = projectedValue(p, adapter.projectionYears);
+                let value = baseValue;
                 value *= Number(adapter.positionMultipliers?.[pos] || 1);
                 if (adapter.id === 'best_ball' && p?.tier && Number(p.tier) <= 2) value *= 1.035;
                 if (needs.has(pos)) value *= (1 + 0.12 * needBias * Number(adapter.needBias || 1));
@@ -383,7 +391,7 @@
                 const age = Number(p?.age || p?.csv?.age || 0);
                 if (age && age <= 24 && ['RB', 'WR', 'TE'].includes(p?.pos) && adapter.id !== 'redraft') value *= youthPremium * Number(adapter.youthPremium || 1);
                 if (p?.tier === 1 || p?.csv?.tier === 1) value *= 1.04;
-                return value;
+                return clampAiBoardScore(value, baseValue);
             };
             const delta = score(b) - score(a);
             if (Math.abs(delta) > 0.001) return delta;
@@ -405,7 +413,7 @@
                 .sort((a, b) => Number(b?.dhq || 0) - Number(a?.dhq || 0))
                 .map(p => p?.pid)
         );
-        const aiOrder = uniqueIds(saved.aiOrder && saved.aiOrder.length ? saved.aiOrder : buildAiRecommendedOrder(pool, {
+        const aiOrder = uniqueIds(buildAiRecommendedOrder(pool, {
             strategy: strategyInfo.strategy,
             draftWeights: strategyInfo.draftWeights,
             assessment: data.userAssessment,

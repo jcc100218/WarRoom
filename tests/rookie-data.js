@@ -73,6 +73,11 @@ test('War Room draft scouting delegates to rookie-data instead of fetching CSVs 
   ok(!/calculateTier|calculateGrade|rankToTierBase|pickToBase/.test(scouting), 'draft/scouting.js should not own scoring logic');
 });
 
+test('War Room prospect matching does not merge players by last name only', () => {
+  ok(!scouting.includes('keys.add(last)'), 'last-name-only aliasing can merge distinct prospects');
+  ok(scouting.includes('keys.add(`${first[0]} ${last}`)'), 'first-initial alias should remain for nickname matches');
+});
+
 test('standalone csv-loader delegates to canonical rookie-data when available', () => {
   ok(csvLoader.includes('loadPlayersFromCanonicalRookieData'), 'canonical wrapper missing');
   ok(csvLoader.includes('window.RookieData?.loadRookieProspects'), 'shared provider lookup missing');

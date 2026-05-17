@@ -785,7 +785,7 @@
                 ? window.App.Intelligence.recommendationWhyLines(x.intelligence, 3)
                 : []);
             return (
-                <button key={x.pid} className={'fa-hq-candidate' + (isPrimary ? ' is-primary' : '')} onClick={() => openFaPlayer(x.pid)}>
+                <button key={x.pid} className={'fa-hq-candidate' + (isPrimary ? ' is-primary' : '')} title="Open player card" onClick={() => openFaPlayer(x.pid)}>
                     <span className="fa-hq-rank">{i + 1}</span>
                     <span className="fa-hq-player-main">
                         <strong>{playerName(x.p)}</strong>
@@ -846,7 +846,7 @@
                             </div>
                             <div className="fa-hq-stack">
                                 {topAdds.length ? topAdds.map((x, i) => (
-                                    <button key={x.pid} className="fa-hq-mini-card" onClick={() => openFaPlayer(x.pid)}>
+                                    <button key={x.pid} className="fa-hq-mini-card" title="Open player card" onClick={() => openFaPlayer(x.pid)}>
                                         <strong>{playerName(x.p)} <span style={{ color: posColors[x.pos] || 'var(--silver)' }}>{x.pos}</span></strong>
                                         <em>{x.fit.label} · {x.dhq.toLocaleString()} DHQ{x.faab ? ' · $' + x.faab.lo + '-' + x.faab.hi : ''}</em>
                                     </button>
@@ -856,7 +856,7 @@
                             <div className="fa-hq-subhead">Best Add/Drop Upgrades</div>
                             <div className="fa-hq-stack">
                                 {swapRows.length ? swapRows.map(pair => (
-                                    <button key={pair.drop.pid + '-' + pair.add.pid} className="fa-hq-swap" onClick={() => openFaPlayer(pair.add.pid)}>
+                                    <button key={pair.drop.pid + '-' + pair.add.pid} className="fa-hq-swap" title="Open player card" onClick={() => openFaPlayer(pair.add.pid)}>
                                         <span><b>Drop</b>{pair.drop.name}<em>{pair.drop.dhq.toLocaleString()}</em></span>
                                         <span><b>Add</b>{playerName(pair.add.p)}<em>+{pair.gain.toLocaleString()}</em></span>
                                     </button>
@@ -866,7 +866,7 @@
                             <div className="fa-hq-subhead">Fresh Drop Alerts</div>
                             <div className="fa-hq-stack">
                                 {freshRows.length ? freshRows.map(d => (
-                                    <button key={d.pid} className="fa-hq-mini-card is-alert" onClick={() => openFaPlayer(d.pid)}>
+                                    <button key={d.pid} className="fa-hq-mini-card is-alert" title="Open player card" onClick={() => openFaPlayer(d.pid)}>
                                         <strong>{d.name} <span>{d.pos}</span></strong>
                                         <em>Dropped W{d.week} · {d.dhq.toLocaleString()} DHQ</em>
                                     </button>
@@ -1163,9 +1163,9 @@
                                         default:           return <span>—</span>;
                                     }
                                 };
-                                return <div key={pid} onClick={() => {
+                                return <div key={pid} role="button" tabIndex={0} title="Open player card" onClick={() => {
                                     openFaPlayer(pid);
-                                }} style={{ display: 'grid', gridTemplateColumns: gridTemplate, background: faSelectedPid === pid ? 'rgba(212,175,55,0.08)' : 'transparent', gap: '4px', padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFaPlayer(pid); } }} style={{ display: 'grid', gridTemplateColumns: gridTemplate, background: faSelectedPid === pid ? 'rgba(212,175,55,0.08)' : 'transparent', gap: '4px', padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                     <div className={'wr-ring wr-ring-' + pos} style={{ width: '26px', height: '26px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                         <img src={'https://sleepercdn.com/content/nfl/players/' + pid + '.jpg'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { e.target.style.display='none'; const s=document.createElement('span'); s.style.cssText='font-size:10px;font-weight:700;color:var(--gold)'; s.textContent=((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase(); e.target.after(s); }} />
                                     </div>

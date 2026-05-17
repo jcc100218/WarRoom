@@ -1255,10 +1255,10 @@
 	    .draft-run-list span, .draft-trade-read span { color: var(--silver); opacity: 0.74; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	    .draft-empty { color: var(--silver); opacity: 0.6; border: 1px dashed rgba(212,175,55,0.18); border-radius: 8px; padding: 16px; text-align: center; font-size: 0.76rem; }
 
-	    .draft-setup-shell { max-width: 1500px; font-family: var(--font-body); }
-	    .draft-setup-head { margin-bottom: 16px; }
-	    .draft-setup-head h2 { margin: 0; font-family: 'Rajdhani', sans-serif; color: var(--gold); font-size: 1.8rem; letter-spacing: 0.06em; }
-	    .draft-setup-head p { margin: 4px 0 0; color: var(--silver); opacity: 0.7; font-size: 0.78rem; }
+	    .draft-setup-shell { max-width: 1760px; font-family: var(--font-body); }
+	    .draft-setup-head { margin-bottom: 10px; }
+	    .draft-setup-head h2 { margin: 0; font-family: 'Rajdhani', sans-serif; color: var(--gold); font-size: 1.42rem; letter-spacing: 0.06em; line-height: 1; }
+	    .draft-setup-head p { margin: 3px 0 0; color: var(--silver); opacity: 0.7; font-size: 0.72rem; max-width: 720px; }
 	    .draft-setup-grid { display: grid; grid-template-columns: minmax(320px, 0.95fr) minmax(420px, 1.12fr) minmax(310px, 0.82fr); gap: 12px; align-items: start; }
 	    .draft-setup-panel { padding: 13px; }
 	    .draft-setup-panel.is-start { border-color: rgba(46,204,113,0.28); background: linear-gradient(135deg, rgba(46,204,113,0.08), rgba(255,255,255,0.02)); }
@@ -1283,6 +1283,45 @@
 	    .draft-setup-other { margin-top: 10px; padding: 12px; border: 1px solid rgba(255,255,255,0.06); border-radius: 7px; background: rgba(255,255,255,0.02); }
 	    @media(max-width:1280px){ .draft-hq-hero, .draft-hq-grid, .draft-setup-grid { grid-template-columns: 1fr; } .draft-hq-actions { display: grid; grid-template-columns: 1fr 1fr; } }
 	    @media(max-width:760px){ .draft-hq-kpis, .draft-setup-two, .draft-setup-choice, .draft-setup-kpis, .draft-hq-actions { grid-template-columns: 1fr; } .draft-rec-card { grid-template-columns: 22px minmax(0, 1fr) auto; } .draft-rec-photo { display: none; } .draft-rec-score, .draft-rec-reason, .draft-rec-actions { grid-column: 2 / -1; text-align: left; } }
+
+	    .draft-setup-head-pro { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 9px 12px; border: 1px solid rgba(212,175,55,0.13); border-radius: 9px; background: rgba(255,255,255,0.018); }
+	    .draft-setup-eyebrow { color: var(--gold); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.16em; font-weight: 900; margin-bottom: 3px; }
+	    .draft-setup-head-summary { display: flex; align-items: center; gap: 8px; min-width: 250px; justify-content: flex-end; color: var(--silver); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+	    .draft-setup-head-summary span { overflow: hidden; text-overflow: ellipsis; }
+	    .draft-setup-head-summary strong { color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; }
+	    .draft-setup-hero-action { min-width: 260px; border: 1px solid rgba(46,204,113,0.38); background: linear-gradient(135deg, rgba(46,204,113,0.18), rgba(212,175,55,0.12)); color: var(--white); border-radius: 8px; padding: 10px 14px; cursor: pointer; text-align: left; font-family: var(--font-body); box-shadow: 0 10px 24px rgba(0,0,0,0.22); }
+	    .draft-setup-hero-action strong { display: block; color: #2ECC71; font-family: 'Rajdhani', sans-serif; font-size: 1rem; letter-spacing: 0.06em; }
+	    .draft-setup-hero-action span { display: block; color: var(--silver); opacity: 0.74; font-size: 0.68rem; margin-top: 2px; }
+	    .draft-setup-hero-action:disabled { opacity: 0.55; cursor: not-allowed; border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.035); }
+	    .draft-setup-grid.draft-setup-grid-pro { grid-template-columns: minmax(0, 1.42fr) minmax(360px, 0.58fr); grid-template-rows: auto 1fr; gap: 10px; align-items: stretch; }
+	    .draft-setup-league-card { grid-column: 1; grid-row: 1; border-color: rgba(46,204,113,0.22); background: linear-gradient(135deg, rgba(46,204,113,0.08), rgba(212,175,55,0.045), rgba(255,255,255,0.018)); }
+	    .draft-setup-league-card.is-synced { border-color: rgba(46,204,113,0.34); }
+	    .draft-league-primary { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; margin-bottom: 9px; }
+	    .draft-league-copy { min-width: 0; }
+	    .draft-league-copy span { display: block; color: #2ECC71; font-size: 0.66rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; }
+	    .draft-league-copy strong { display: block; color: var(--white); font-family: 'Rajdhani', sans-serif; font-size: 1.28rem; letter-spacing: 0.035em; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-league-copy em { display: block; color: var(--silver); opacity: 0.72; font-style: normal; font-size: 0.72rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-league-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+	    .draft-league-actions button { border: 1px solid rgba(212,175,55,0.24); background: rgba(212,175,55,0.09); color: var(--gold); border-radius: 6px; padding: 8px 11px; font-family: var(--font-body); font-size: 0.68rem; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; }
+	    .draft-league-actions button.is-primary { border-color: rgba(46,204,113,0.52); background: #2ECC71; color: #07100b; }
+	    .draft-league-actions button:disabled { opacity: 0.52; cursor: not-allowed; }
+	    .draft-league-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 7px; }
+	    .draft-league-metrics div { border: 1px solid rgba(255,255,255,0.065); background: rgba(0,0,0,0.18); border-radius: 7px; padding: 7px 8px; min-width: 0; }
+	    .draft-league-metrics span { display: block; color: var(--silver); opacity: 0.62; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.09em; }
+	    .draft-league-metrics strong { display: block; color: var(--white); font-family: 'JetBrains Mono', monospace; font-size: 0.98rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-league-metrics em { display: block; color: var(--silver); opacity: 0.66; font-size: 0.62rem; font-style: normal; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-setup-choice-pro { margin-top: 6px; margin-bottom: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+	    .draft-setup-field-grid { display: grid; grid-template-columns: repeat(4, minmax(128px, 1fr)); gap: 8px; }
+	    .draft-setup-config-card { grid-column: 1; grid-row: 2; min-height: 0; }
+	    .draft-setup-launch-card { grid-column: 2; grid-row: 1 / span 2; min-height: 0; display: flex; flex-direction: column; }
+	    .draft-setup-launch-card .draft-setup-start { margin: 0 0 10px; }
+	    .draft-setup-launch-card .draft-setup-timeline { flex: 1; }
+	    .draft-setup-strategy-card { margin-top: 10px; padding: 12px; }
+	    .draft-setup-strategy-card > .draft-setup-label { margin-top: 0 !important; }
+	    @media(min-width:1281px){ .draft-setup-grid.draft-setup-grid-pro { grid-template-columns: minmax(0, 1.42fr) minmax(360px, 0.58fr); } }
+	    @media(max-width:1280px){ .draft-setup-grid.draft-setup-grid-pro { grid-template-columns: 1fr; grid-template-rows: auto; } .draft-setup-league-card, .draft-setup-config-card, .draft-setup-launch-card { grid-column: auto; grid-row: auto; } }
+	    @media(max-width:980px){ .draft-setup-head-pro, .draft-league-primary { grid-template-columns: 1fr; display: grid; } .draft-setup-head-summary { justify-content: flex-start; min-width: 0; white-space: normal; } .draft-setup-hero-action { width: 100%; min-width: 0; } .draft-league-actions { justify-content: flex-start; } .draft-league-metrics, .draft-setup-field-grid, .draft-setup-choice-pro { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+	    @media(max-width:560px){ .draft-league-metrics, .draft-setup-field-grid, .draft-setup-choice-pro { grid-template-columns: 1fr; } .draft-league-copy strong { white-space: normal; } .draft-league-actions { flex-direction: column; align-items: stretch; } .draft-league-actions button { width: 100%; } }
 
 	    /* Featured team card */
 	    .tc-featured-wrap { display: grid; grid-template-columns: 1fr; gap: 1rem; background: var(--off-black); border: 2px solid var(--gold); border-radius: 10px; padding: 1rem; margin-bottom: 1.25rem; box-shadow: 0 0 24px rgba(212,175,55,0.1); }
@@ -1378,6 +1417,10 @@
     .analytics-report-preview-head, .analytics-report-preview-row { display: grid; gap: 8px; align-items: center; padding: 7px 9px; }
     .analytics-report-preview-head { color: var(--gold); background: rgba(212,175,55,0.075); border-radius: 6px 6px 0 0; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
     .analytics-report-preview-row { border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.72rem; color: var(--silver); }
+    .analytics-report-preview-row.is-clickable { cursor: pointer; outline: none; }
+    .analytics-report-preview-row.is-clickable:hover,
+    .analytics-report-preview-row.is-clickable:focus-visible,
+    .is-clickable-report-row:focus-visible { background: rgba(212,175,55,0.07); box-shadow: inset 0 0 0 1px rgba(212,175,55,0.24); }
     .analytics-report-preview-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .analytics-report-preview-empty { color: var(--silver); opacity: 0.62; border: 1px dashed rgba(212,175,55,0.14); border-radius: 7px; padding: 16px; text-align: center; font-size: 0.76rem; }
     .analytics-command-panel { border: 1px solid rgba(212,175,55,0.18); background: linear-gradient(135deg, rgba(212,175,55,0.08), rgba(78,205,196,0.035) 46%, rgba(124,107,248,0.04)); border-radius: 10px; padding: 13px; margin-bottom: 12px; display: grid; grid-template-columns: minmax(0,1.3fr) minmax(260px,0.7fr); gap: 14px; }
@@ -1669,58 +1712,58 @@ WRShared.loadMany(WR_SHARED_FILES);
 <script type="text/babel" src="js/utils/player-value.js"></script>
 <!-- 4. Feature modules (no internal dependencies between these) -->
 <script type="text/babel" src="js/settings.js?v=20260427nav2"></script>
-<script type="text/babel" src="js/trade-calc.js?v=20260502ui4"></script>
-<script type="text/babel" src="js/free-agency.js?v=20260502pos1"></script>
+<script type="text/babel" src="js/trade-calc.js?v=20260516click2"></script>
+<script type="text/babel" src="js/free-agency.js?v=20260516click3"></script>
 <!-- Phase 5: mock-draft.js retired — Draft Command Center is the only surface now. -->
 <!-- Archive preserved at js/mock-draft.deprecated.js for one release. -->
 <!-- 4b. Draft Command Center modules — must load before draft-room.js -->
 <script type="text/babel" src="js/draft/styles.js?v=20260427font1"></script>
-<script type="text/babel" src="js/draft/scouting.js?v=20260426i"></script>
+<script type="text/babel" src="js/draft/scouting.js?v=20260517baileymerge"></script>
 <script type="text/babel" src="js/draft/trade-helpers.js?v=20260415cd8"></script>
-<script type="text/babel" src="js/draft/context.js?v=20260516p0"></script>
+<script type="text/babel" src="js/draft/context.js?v=20260517aiguard"></script>
 <script type="text/babel" src="js/draft/persona.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft/cpu-engine.js?v=20260415cd8"></script>
-<script type="text/babel" src="js/draft/state.js?v=20260426a"></script>
+<script type="text/babel" src="js/draft/state.js?v=20260517mockux"></script>
 <script type="text/babel" src="js/draft/big-board.js?v=20260426a"></script>
 <script type="text/babel" src="js/draft/draft-grid.js?v=20260418a"></script>
 <script type="text/babel" src="js/draft/opponent-intel.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft/alex-stream.js?v=20260418b"></script>
 <script type="text/babel" src="js/draft/live-analytics.js?v=20260418b"></script>
 <script type="text/babel" src="js/draft/exports.js?v=20260415cd8"></script>
-<script type="text/babel" src="js/draft/trade-simulator.js?v=20260418b"></script>
+<script type="text/babel" src="js/draft/trade-simulator.js?v=20260516p6redo"></script>
 <script type="text/babel" src="js/draft/trade-modal.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft/trade-proposer.js?v=20260418b"></script>
 <!-- Phase 5 modules -->
 <script type="text/babel" src="js/draft/persistence.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft/scenarios.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft/ghost-replay.js?v=20260415cd8"></script>
-<script type="text/babel" src="js/draft/live-sync.js?v=20260415cd8"></script>
+<script type="text/babel" src="js/draft/live-sync.js?v=20260516p6redo"></script>
 <script type="text/babel" src="js/draft/live-decision-engine.js?v=20260516p3"></script>
 <script type="text/babel" src="js/draft/analyst-mock.js?v=20260516p2"></script>
-<script type="text/babel" src="js/draft/command-center.js?v=20260427font1"></script>
-<script type="text/babel" src="js/draft-room.js?v=20260427nav2"></script>
+<script type="text/babel" src="js/draft/command-center.js?v=20260517mockux"></script>
+<script type="text/babel" src="js/draft-room.js?v=20260517cardfocus"></script>
 <!-- 5. League detail tab components (extracted from league-detail.js) -->
 <!-- v2 widget modules (load before dashboard.js which consumes them) -->
-<script type="text/babel" src="js/widgets/roster-pulse.js?v=20260502pulse1"></script>
+<script type="text/babel" src="js/widgets/roster-pulse.js?v=20260516liveclick1"></script>
 <script type="text/babel" src="js/widgets/league-landscape.js?v=20260426p6"></script>
-<script type="text/babel" src="js/widgets/market-radar.js?v=20260426p10"></script>
-<script type="text/babel" src="js/widgets/draft-capital.js?v=20260426p10"></script>
+<script type="text/babel" src="js/widgets/market-radar.js?v=20260516liveclick1"></script>
+<script type="text/babel" src="js/widgets/draft-capital.js?v=20260516liveclick1"></script>
 <!-- SI-3: Tag-driven widgets (Trade Block / Cut Candidates / Waiver Targets) -->
-<script type="text/babel" src="js/widgets/player-tags.js?v=20260427font1"></script>
+<script type="text/babel" src="js/widgets/player-tags.js?v=20260516liveclick1"></script>
 <!-- Phase 3: League intel widgets (Competitive Tiers, Power Rankings) — ex-League Map -->
 <script type="text/babel" src="js/widgets/competitive-tiers.js?v=20260427font1"></script>
 <script type="text/babel" src="js/widgets/power-rankings.js?v=20260427font1"></script>
 <!-- Phase 9: My Trophies widget -->
 <script type="text/babel" src="js/widgets/my-trophies.js?v=20260427font1"></script>
-<script type="text/babel" src="js/tabs/dashboard.js?v=20260426p12"></script>
+<script type="text/babel" src="js/tabs/dashboard.js?v=20260516liveclick1"></script>
 <script type="text/babel" src="js/tabs/flash-brief.js?v=20260502pos1"></script>
-<script type="text/babel" src="js/tabs/league-map.js?v=20260427nav2"></script>
-<script type="text/babel" src="js/tabs/my-team.js?v=20260502ui5"></script>
+<script type="text/babel" src="js/tabs/league-map.js?v=20260516click3"></script>
+<script type="text/babel" src="js/tabs/my-team.js?v=20260516p6redo"></script>
 <!-- Compare: extracted from My Roster's former sub-view, now a top-level ROSTER-group tab. -->
-<script type="text/babel" src="js/tabs/compare.js?v=20260502ui1"></script>
-<script type="text/babel" src="js/tabs/analytics.js?v=20260516trim1"></script>
+<script type="text/babel" src="js/tabs/compare.js?v=20260516click2"></script>
+<script type="text/babel" src="js/tabs/analytics.js?v=20260516click2"></script>
 <script type="text/babel" src="js/tabs/trophy-room.js?v=20260427font1"></script>
-<script type="text/babel" src="js/tabs/calendar.js?v=20260420a"></script>
+<script type="text/babel" src="js/tabs/calendar.js?v=20260516click2"></script>
 <!-- Alex Insights (Option A): top-level tab for behavioral analysis + AI settings -->
 <script type="text/babel" src="js/tabs/alex-insights.js?v=20260502office4"></script>
 <script type="text/babel" src="js/tabs/global-view.js?v=20260427font1"></script>
@@ -1728,7 +1771,7 @@ WRShared.loadMany(WR_SHARED_FILES);
 <!-- 6. Strategy editor: calls shared GMStrategy API, no logic duplication -->
 <script type="text/babel" src="js/tabs/strategy-editor.js?v=20260502office1"></script>
 <!-- 7. League detail: coordinator shell, depends on all above -->
-    <script type="text/babel" src="js/league-detail.js?v=20260502office1"></script>
+    <script type="text/babel" src="js/league-detail.js?v=20260516click2"></script>
 <!-- 8. App: OwnerDashboard + ReactDOM.render (loads last) -->
 <script type="text/babel" src="js/app.js?v=20260427font1"></script>
 

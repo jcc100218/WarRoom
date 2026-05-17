@@ -653,7 +653,13 @@ function CompareTab({
             const isMine = column.profile.isMine;
             const dhqCol = player.dhq >= 7000 ? '#2ECC71' : player.dhq >= 4000 ? '#3498DB' : player.dhq >= 1000 ? 'var(--silver)' : 'rgba(255,255,255,0.5)';
             return (
-                <div onClick={() => openPlayerCard(player.pid)} style={{
+                <div
+                    role="button"
+                    tabIndex={0}
+                    title="Open player card"
+                    onClick={() => openPlayerCard(player.pid)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayerCard(player.pid); } }}
+                    style={{
                     minHeight: '46px',
                     padding: '8px',
                     borderRadius: '6px',
@@ -1095,7 +1101,13 @@ function CompareTab({
                 const dhqCol = r.dhq >= 7000 ? '#2ECC71' : r.dhq >= 4000 ? '#3498DB' : r.dhq >= 1000 ? 'var(--silver)' : 'rgba(255,255,255,0.5)';
                 const winsDhq = rival && r.dhq > rival.dhq;
                 return (
-                    <div onClick={() => openCard(r.pid)} style={{
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        title="Open player card"
+                        onClick={() => openCard(r.pid)}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCard(r.pid); } }}
+                        style={{
                         padding: '7px 10px',
                         display: 'flex',
                         alignItems: 'center',

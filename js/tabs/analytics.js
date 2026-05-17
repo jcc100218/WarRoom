@@ -16,6 +16,10 @@ window.AnalyticsLeagueEmbed = function AnalyticsLeagueEmbed(props) {
     const [leagueSelectedTeam, setLeagueSelectedTeam] = React.useState(null);
     const [leagueSort, setLeagueSort] = React.useState('health');
     const [leagueViewMode, setLeagueViewMode] = React.useState('cards');
+    React.useEffect(() => {
+        setLeagueSelectedTeam(null);
+        setLeagueViewMode('cards');
+    }, [analyticsTab]);
     if (typeof window.LeagueMapTab !== 'function') {
         return React.createElement('div', { style: { padding: '40px', textAlign: 'center', color: 'var(--silver)' } }, 'League Map module not loaded.');
     }

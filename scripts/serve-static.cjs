@@ -4,6 +4,7 @@
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
+const { spawn } = require('child_process');
 
 const LIVE_AI_ENDPOINT = 'https://sxshiqyxhhifvtfqawbq.supabase.co/functions/v1/ai-analyze';
 
@@ -36,6 +37,7 @@ function getArg(name, fallback) {
 const host = getArg('host', '127.0.0.1');
 const port = Number(getArg('port', process.env.PORT || 3001));
 const root = path.resolve(getArg('root', process.cwd()));
+const openPath = getArg('open', '');
 
 function loadLocalEnv() {
   ['.env.local', '.env'].forEach(file => {
@@ -63,6 +65,7 @@ function resolveRequestPath(reqUrl) {
   const url = new URL(reqUrl, `http://${host}:${port}`);
   let pathname = decodeURIComponent(url.pathname);
   if (pathname.endsWith('/')) pathname += 'index.html';
+  if (pathname === '/favicon.ico') pathname = '/icon-192.png';
 
   const directPath = path.join(root, pathname);
   if (isInsideRoot(directPath) && fs.existsSync(directPath) && fs.statSync(directPath).isFile()) {
@@ -90,6 +93,46 @@ async function readJson(req) {
   for await (const chunk of req) chunks.push(chunk);
   const raw = Buffer.concat(chunks).toString('utf8');
   return raw ? JSON.parse(raw) : {};
+}
+
+function landingContentPath() {
+  return path.join(root, 'content', 'landing-pages.json');
+}
+
+async function handleLandingContent(req, res) {
+  const filePath = landingContentPath();
+
+  if (req.method === 'GET') {
+    if (!fs.existsSync(filePath)) {
+      sendJson(res, 404, { error: 'Landing content file not found.' });
+      return;
+    }
+    try {
+      sendJson(res, 200, JSON.parse(fs.readFileSync(filePath, 'utf8')));
+    } catch (error) {
+      sendJson(res, 500, { error: error.message || 'Landing content could not be read.' });
+    }
+    return;
+  }
+
+  if (req.method === 'PUT') {
+    try {
+      const body = await readJson(req);
+      if (!body || typeof body !== 'object' || !body.pages || typeof body.pages !== 'object') {
+        sendJson(res, 400, { error: 'Landing content must include a pages object.' });
+        return;
+      }
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, `${JSON.stringify(body, null, 2)}\n`, 'utf8');
+      sendJson(res, 200, { ok: true });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message || 'Landing content could not be saved.' });
+    }
+    return;
+  }
+
+  res.writeHead(405, { Allow: 'GET, PUT' });
+  res.end('Method Not Allowed');
 }
 
 function localAIProvider() {
@@ -292,6 +335,10 @@ const server = http.createServer((req, res) => {
     handleDevAI(req, res);
     return;
   }
+  if (url.pathname === '/api/landing-content') {
+    handleLandingContent(req, res);
+    return;
+  }
 
   if (!['GET', 'HEAD'].includes(req.method)) {
     res.writeHead(405, { Allow: 'GET, HEAD' });
@@ -330,4 +377,9 @@ const server = http.createServer((req, res) => {
 
 server.listen(port, host, () => {
   console.log(`Serving ${root} at http://${host}:${port}/`);
+  if (openPath) {
+    const target = new URL(openPath.replace(/^\/+/, ''), `http://${host}:${port}/`).toString();
+    const opener = spawn('open', [target], { detached: true, stdio: 'ignore' });
+    opener.unref();
+  }
 });

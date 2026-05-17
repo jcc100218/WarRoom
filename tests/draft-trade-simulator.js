@@ -240,6 +240,29 @@ test('trade desk sweetener suggestion loads likely counter shape', () => {
   ok((sweetener.proposal.myGive || []).length > 1 || sweetener.proposal.myGiveFaab > 0, 'sweetener improves user side');
 });
 
+test('impossible packages are blocked before negotiation odds', () => {
+  const result = ctx.DraftCC.tradeSimulator.evaluateUserProposal(baseState, {
+    targetRosterId: 2,
+    myGive: [pickOrder[9]],
+    theirGive: [pickOrder[9]],
+    myGivePlayers: ['rb1'],
+  });
+  eq(result.accepted, false, 'not accepted');
+  eq(result.verdict, 'declined', 'declined');
+  ok(result.realism.blocked, 'blocked by realism guard');
+  ok(result.realismFlags.some(flag => flag.code === 'same_pick_both_sides'), 'same pick flagged');
+  ok(result.realismFlags.some(flag => flag.code === 'user_player_unavailable'), 'unavailable player flagged');
+  ok(result.likelihood <= 2, 'likelihood capped');
+
+  const direct = ctx.DraftCC.tradeSimulator.validateProposalRealism(baseState, {
+    targetRosterId: 1,
+    myGiveFaab: -5,
+  });
+  ok(direct.blocked, 'direct validator blocks self/negative package');
+  ok(direct.flags.some(flag => flag.code === 'self_trade'), 'self trade flagged');
+  ok(direct.flags.some(flag => flag.code === 'negative_faab'), 'negative FAAB flagged');
+});
+
 test('live trade windows rank actionable upcoming owners', () => {
   const liveState = {
     ...baseState,

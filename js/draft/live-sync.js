@@ -71,14 +71,24 @@
                 _lastSuccessAt = Date.now();
 
                 if (onStatus) onStatus({
-                    status: statusFor(meta?.status, snapshot.remotePickCount),
+                    status: snapshot.remoteBehind || snapshot.missingPickNos.length
+                        ? 'stale'
+                        : statusFor(meta?.status, snapshot.remotePickCount),
                     draftStatus: meta?.status || '',
                     lastPollAt: _lastSuccessAt,
                     lastPickNo: snapshot.lastPickNo,
+                    remoteMaxPickNo: snapshot.remoteMaxPickNo,
                     remotePickCount: snapshot.remotePickCount,
                     duplicateCount: snapshot.duplicateCount,
-                    stale: false,
-                    error: null,
+                    missedPickCount: snapshot.gapCount,
+                    missingPickNos: snapshot.missingPickNos,
+                    remoteBehind: snapshot.remoteBehind,
+                    stale: !!(snapshot.remoteBehind || snapshot.missingPickNos.length),
+                    error: snapshot.remoteBehind
+                        ? 'Sleeper returned fewer picks than War Room has already mirrored.'
+                        : snapshot.missingPickNos.length
+                            ? 'Sleeper feed is missing pick ' + snapshot.missingPickNos.join(', ') + '.'
+                            : null,
                 });
                 if (snapshot.newPicks.length) onNewPicks(snapshot.newPicks, snapshot);
             } catch (e) {
@@ -122,6 +132,18 @@
         const newPicks = [];
         let duplicateCount = 0;
         let lastPickNo = initialPickNo;
+        const remotePickNos = sorted
+            .map(pick => Number(pick.pick_no || 0))
+            .filter(pickNo => pickNo > 0);
+        const remotePickNoSet = new Set(remotePickNos);
+        const remoteMaxPickNo = remotePickNos.length ? Math.max(...remotePickNos) : 0;
+        const remoteBehind = remoteMaxPickNo > 0 && remoteMaxPickNo < initialPickNo;
+        const missingPickNos = [];
+        if (!remoteBehind && remoteMaxPickNo > initialPickNo + 1) {
+            for (let pickNo = initialPickNo + 1; pickNo < remoteMaxPickNo; pickNo += 1) {
+                if (!remotePickNoSet.has(pickNo)) missingPickNos.push(pickNo);
+            }
+        }
 
         sorted.forEach(pick => {
             const pickNo = Number(pick.pick_no || 0);
@@ -146,7 +168,11 @@
             newPicks,
             duplicateCount,
             lastPickNo,
+            remoteMaxPickNo,
             remotePickCount: sorted.length,
+            missingPickNos,
+            gapCount: missingPickNos.length,
+            remoteBehind,
             seenPickKeys: Array.from(seen),
             draftStatus: opts.draftStatus || '',
         };

@@ -104,6 +104,7 @@ const dashboardSrc = read('js/tabs/dashboard.js');
 const flashBriefSrc = read('js/tabs/flash-brief.js');
 const freeAgencySrc = read('js/free-agency.js');
 const analyticsSrc = read('js/tabs/analytics.js');
+const leagueMapSrc = read('js/tabs/league-map.js');
 const leagueHistorySrc = read('js/shared/league-history.js');
 const trophyRoomSrc = read('js/tabs/trophy-room.js');
 
@@ -169,6 +170,20 @@ test('analytics module keeps only value-producing sub-tabs', () => {
   ok(!analyticsSrc.includes("analyticsTab === 'playoffs'"), 'Playoffs render branch should be removed');
   ok(!analyticsSrc.includes("analyticsTab === 'timeline'"), 'Timeline render branch should be removed');
   sourceHas(analyticsSrc, 'const analyticsViewTab = activeSubTab.key;', 'legacy analytics sub-tab routes should fall back to a valid tab');
+});
+
+group('click-through paths');
+
+test('custom report player rows open the unified player card', () => {
+  sourceHas(leagueMapSrc, 'function canOpenReportPlayer(row, report)', 'custom reports need a player-row gate');
+  sourceHas(leagueMapSrc, "report?.dataSource === 'players' && row?.pid", 'custom report rows must only be clickable when player-backed');
+  sourceHas(leagueMapSrc, "context: 'custom_report'", 'custom report player-card context missing');
+  sourceHas(leagueMapSrc, 'window.WR.openPlayerCard(row.pid, options);', 'custom reports should prefer the unified player card');
+  sourceHas(leagueMapSrc, 'window.openPlayerModal(row.pid);', 'custom reports should fall back to the shared player modal');
+  sourceHas(leagueMapSrc, "role: 'button'", 'custom report player rows should be accessible controls');
+  sourceHas(leagueMapSrc, 'handleReportPlayerRowKey(e, row, report)', 'custom report player rows need keyboard activation');
+  sourceHas(leagueMapSrc, '{...reportPlayerRowProps(row, previewReport)}', 'analytics report preview rows must carry player-card click props');
+  sourceHas(leagueMapSrc, '{...reportPlayerRowProps(row, report)}', 'full report rows must carry player-card click props');
 });
 
 group('live platform gate');

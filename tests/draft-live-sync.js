@@ -100,6 +100,33 @@ test('live sync reconciliation skips already-seen picks and returns only new pic
   eq(result.lastPickNo, 3, 'last pick no');
 });
 
+test('live sync reconciliation reports missing remote pick numbers', () => {
+  const result = ctx.DraftCC.liveSync._private.reconcilePicks([
+    { pick_no: 1, player_id: 'p1', roster_id: 1 },
+    { pick_no: 3, player_id: 'p3', roster_id: 3 },
+  ], {
+    initialPickNo: 0,
+    seenPickKeys: [],
+    draftStatus: 'drafting',
+  });
+  eq(result.missingPickNos[0], 2, 'missing pick');
+  eq(result.gapCount, 1, 'gap count');
+  eq(result.remoteBehind, false, 'not remote behind');
+});
+
+test('live sync reconciliation flags a remote feed behind the local mirror', () => {
+  const result = ctx.DraftCC.liveSync._private.reconcilePicks([
+    { pick_no: 1, player_id: 'p1', roster_id: 1 },
+  ], {
+    initialPickNo: 2,
+    seenPickKeys: ['no:1', 'no:2'],
+    draftStatus: 'drafting',
+  });
+  ok(result.remoteBehind, 'remote behind flagged');
+  eq(result.remoteMaxPickNo, 1, 'remote max pick');
+  eq(result.missingPickNos.length, 0, 'missing pick list suppressed for rollback case');
+});
+
 test('state applies live picks in order without duplicating sleeper picks', () => {
   const initial = ctx.DraftCC.state.initialDraftState({
     mode: 'live-sync',
@@ -136,7 +163,7 @@ test('state applies live picks in order without duplicating sleeper picks', () =
   });
   eq(duplicate.currentIdx, 1, 'duplicate does not advance');
   eq(duplicate.picks.length, 1, 'duplicate does not append');
-  ok(duplicate.liveSync.duplicateCount >= 1, 'duplicate counted');
+  eq(duplicate.liveSync.duplicateCount, 1, 'duplicate counted for current sync pass');
 });
 
 test('state flags a skipped live pick instead of applying it to the wrong slot', () => {
@@ -160,6 +187,7 @@ test('state flags a skipped live pick instead of applying it to the wrong slot',
   eq(next.picks.length, 0, 'gap does not append wrong slot');
   eq(next.liveSync.status, 'stale', 'gap marks stale');
   ok(next.liveSync.missedPickCount > 0, 'gap counted');
+  eq(next.liveSync.missingPickNos[0], 1, 'expected local pick preserved');
 });
 
 test('state stores staged live offers for handoff', () => {

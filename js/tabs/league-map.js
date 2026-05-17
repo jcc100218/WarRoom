@@ -10,7 +10,7 @@
 function ReportSubView({
   runReport, loadSavedReports, saveReportsToStorage, DEFAULT_REPORTS,
   getPlayerColumns, getTeamColumns, getFilterableFields, getFilterOps, getFilterOptionSet, sortBtnStyle,
-  analyticsEmbedMode,
+  analyticsEmbedMode, openTeamContext,
 }) {
   const [reportView, setReportView] = React.useState('list'); // 'list' | 'edit' | 'view'
   const [reports, setReports] = React.useState(() => {
@@ -84,6 +84,71 @@ function ReportSubView({
     setViewResult({ report: viewResult.report, ...re });
   }
 
+  function canOpenReportPlayer(row, report) {
+    return !!(report?.dataSource === 'players' && row?.pid && !row._groupHeader);
+  }
+
+  function openReportPlayerRow(row, report) {
+    if (!canOpenReportPlayer(row, report)) return;
+    const options = { context: 'custom_report', reportId: report?.id || null, reportName: report?.name || null };
+    if (window.WR && typeof window.WR.openPlayerCard === 'function') {
+      window.WR.openPlayerCard(row.pid, options);
+      return;
+    }
+    if (typeof window.openPlayerModal === 'function') {
+      window.openPlayerModal(row.pid);
+      return;
+    }
+    if (typeof window.openFWPlayerModal === 'function') {
+      window.openFWPlayerModal(row.pid);
+    }
+  }
+
+  function handleReportPlayerRowKey(e, row, report) {
+    if (!canOpenReportPlayer(row, report)) return;
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    openReportPlayerRow(row, report);
+  }
+
+  function reportPlayerRowProps(row, report) {
+    if (!canOpenReportPlayer(row, report)) return {};
+    return {
+      role: 'button',
+      tabIndex: 0,
+      title: 'Open player card',
+      onClick: () => openReportPlayerRow(row, report),
+      onKeyDown: (e) => handleReportPlayerRowKey(e, row, report),
+    };
+  }
+
+  function canOpenReportTeam(row, report) {
+    return !!(report?.dataSource === 'teams' && row?.rosterId && !row._groupHeader && typeof openTeamContext === 'function');
+  }
+
+  function openReportTeamRow(row, report) {
+    if (!canOpenReportTeam(row, report)) return;
+    openTeamContext(row, report);
+  }
+
+  function handleReportTeamRowKey(e, row, report) {
+    if (!canOpenReportTeam(row, report)) return;
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    openReportTeamRow(row, report);
+  }
+
+  function reportTeamRowProps(row, report) {
+    if (!canOpenReportTeam(row, report)) return {};
+    return {
+      role: 'button',
+      tabIndex: 0,
+      title: 'Open team context',
+      onClick: () => openReportTeamRow(row, report),
+      onKeyDown: (e) => handleReportTeamRowKey(e, row, report),
+    };
+  }
+
   // ── List View ───────────────────────────────────────────────────
   if (reportView === 'list') {
     const previewReport = reports[0] || DEFAULT_REPORTS[0];
@@ -116,10 +181,11 @@ function ReportSubView({
         {reports.length === 0 && <div style={{ color: 'var(--silver)', fontSize: '0.82rem', padding: '24px', textAlign: 'center' }}>No reports yet. Create one to get started.</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {reports.map(r => (
-            <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px', padding: '10px 14px', cursor: 'pointer', transition: 'border-color 0.15s' }}
+            <div key={r.id} role="button" tabIndex={0} title="Open report" data-report-id={r.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--black)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px', padding: '10px 14px', cursor: 'pointer', transition: 'border-color 0.15s', outline: 'none' }}
               onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(212,175,55,0.4)'}
               onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(212,175,55,0.15)'}
               onClick={() => handleViewReport(r)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewReport(r); } }}
             >
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--white)' }}>{r.name || 'Untitled Report'}</div>
@@ -149,11 +215,21 @@ function ReportSubView({
                 <div className="analytics-report-preview-head" style={{ gridTemplateColumns: previewCols.map(() => '1fr').join(' ') }}>
                   {previewCols.map(col => <span key={col.key}>{col.label}</span>)}
                 </div>
-                {previewRows.map((row, idx) => (
-                  <div key={idx} className="analytics-report-preview-row" style={{ gridTemplateColumns: previewCols.map(() => '1fr').join(' ') }}>
-                    {previewCols.map(col => <span key={col.key}>{row[col.key] == null ? '\u2014' : String(row[col.key])}</span>)}
-                  </div>
-                ))}
+                {previewRows.map((row, idx) => {
+                  const canOpenPlayer = canOpenReportPlayer(row, previewReport);
+                  const canOpenTeam = canOpenReportTeam(row, previewReport);
+                  return (
+                    <div
+                      key={idx}
+                      className={'analytics-report-preview-row' + ((canOpenPlayer || canOpenTeam) ? ' is-clickable' : '')}
+                      style={{ gridTemplateColumns: previewCols.map(() => '1fr').join(' ') }}
+                      {...reportPlayerRowProps(row, previewReport)}
+                      {...reportTeamRowProps(row, previewReport)}
+                    >
+                      {previewCols.map(col => <span key={col.key}>{row[col.key] == null ? '\u2014' : String(row[col.key])}</span>)}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="analytics-report-preview-empty">No rows match this report yet.</div>
@@ -364,8 +440,12 @@ function ReportSubView({
                   </div>
                 );
               }
+              const canOpenPlayer = canOpenReportPlayer(row, report);
+              const canOpenTeam = canOpenReportTeam(row, report);
               return (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: columns.map(() => '1fr').join(' '), gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '0.74rem', alignItems: 'center', transition: 'background 0.1s' }}
+                <div key={idx} className={(canOpenPlayer || canOpenTeam) ? 'is-clickable-report-row' : ''} style={{ display: 'grid', gridTemplateColumns: columns.map(() => '1fr').join(' '), gap: '4px', padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '0.74rem', alignItems: 'center', transition: 'background 0.1s', cursor: (canOpenPlayer || canOpenTeam) ? 'pointer' : 'default', outline: 'none' }}
+                  {...reportPlayerRowProps(row, report)}
+                  {...reportTeamRowProps(row, report)}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(212,175,55,0.05)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
@@ -435,6 +515,7 @@ function LeagueMapTab({
   setTimeRecomputeTs,
   getAcquisitionInfo: getAcquisitionInfoProp,
   getOwnerName: getOwnerNameProp,
+  setActiveTab,
 }) {
   // Defensive fallback — any render path that mounts LeagueMapTab without a
   // getAcquisitionInfo function (stale prop chain during initial mount, legacy
@@ -773,6 +854,77 @@ function LeagueMapTab({
     color: active ? 'var(--black)' : 'var(--gold)',
   });
 
+  function openLeagueTeamContext(team, roster) {
+    const resolvedRoster = roster || currentLeague.rosters?.find(r => sameId(r.roster_id, team?.rosterId) || sameId(r.owner_id, team?.userId) || sameId(r.owner_id, team?.ownerId));
+    if (!resolvedRoster) return;
+    const standingTeam = sortedStandings.find(t => sameId(t.userId, resolvedRoster.owner_id) || sameId(t.rosterId, resolvedRoster.roster_id)) || {};
+    setLeagueViewMode('roster');
+    setSelectedTeam({
+      ...standingTeam,
+      ...team,
+      roster: resolvedRoster,
+      rosterId: resolvedRoster.roster_id,
+      userId: resolvedRoster.owner_id,
+      displayName: team?.displayName || team?.teamName || standingTeam.displayName || getOwnerName(resolvedRoster.roster_id),
+    });
+  }
+
+  function handleLeagueTeamKey(e, team, roster) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    openLeagueTeamContext(team, roster);
+  }
+
+  function openTeamContext(row) {
+    if (!row?.rosterId) return;
+    const roster = currentLeague.rosters?.find(r => sameId(r.roster_id, row.rosterId));
+    openLeagueTeamContext({
+      rosterId: row.rosterId,
+      displayName: row.teamName,
+      teamName: row.teamName,
+      wins: row.wins,
+      losses: row.losses,
+    }, roster);
+  }
+
+  function openPickContext(row) {
+    if (!row) return;
+    const detail = {
+      context: 'league_pick_ledger',
+      year: row.year,
+      round: row.round,
+      label: row.label,
+      status: row.status,
+      value: row.value || 0,
+      traded: !!row.traded,
+      isMine: !!row.isMyPick,
+      originalRosterId: row.originalRid,
+      currentOwnerRosterId: row.currentOwnerRid,
+      originalOwnerName: getOwnerName(row.originalRid),
+      currentOwnerName: getOwnerName(row.currentOwnerRid),
+    };
+    window._wrDraftPickFocus = detail;
+    try { window.dispatchEvent(new CustomEvent('wr:open-draft-pick-context', { detail })); } catch (_) {}
+    if (typeof setActiveTab === 'function') setActiveTab('draft');
+    else if (typeof window.wrNavigateTab === 'function') window.wrNavigateTab('draft');
+  }
+
+  function handlePickRowKey(e, row) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    openPickContext(row);
+  }
+
+  function pickRowProps(row) {
+    return {
+      role: 'button',
+      tabIndex: 0,
+      title: 'Open draft pick context',
+      onClick: () => openPickContext(row),
+      onKeyDown: (e) => handlePickRowKey(e, row),
+    };
+  }
+
   // Phase 8: when Analytics embeds this component, force the requested sub-view
   // and skip the outer chrome entirely. We still use all the local helpers/state.
   const _isEmbed = !!embedSubView;
@@ -952,11 +1104,11 @@ function LeagueMapTab({
           const isMe = team.userId === sleeperUserId;
           const user = currentLeague.users?.find(u => u.user_id === team.userId);
           return (
-            <div key={team.rosterId} onClick={() => setSelectedTeam({ ...team, roster })}
+            <div key={team.rosterId} role="button" tabIndex={0} title="Open team context" onClick={() => openLeagueTeamContext(team, roster)} onKeyDown={e => handleLeagueTeamKey(e, team, roster)}
               style={{
                 background: 'var(--black)', border: '2px solid ' + (isMe ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'),
                 borderRadius: '10px', padding: '14px', cursor: 'pointer',
-                transition: 'all 0.15s'
+                transition: 'all 0.15s', outline: 'none'
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = isMe ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'; e.currentTarget.style.transform = 'none'; }}
@@ -1467,11 +1619,12 @@ function LeagueMapTab({
                             </div>
                             <div style={_analyticsEmbed ? {} : { maxHeight: '500px', overflow: 'auto' }}>
                                 {filteredRows.filter(row => row.year === yr).map(row => (
-                                            <div key={yr+'-'+row.round+'-'+row.originalRid} style={{
+                                            <div key={yr+'-'+row.round+'-'+row.originalRid} {...pickRowProps(row)} style={{
                                                 display: 'grid', gridTemplateColumns: '70px 1fr 1fr 90px 80px', gap: '4px',
                                                 padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.03)',
                                                 fontSize: '0.72rem', alignItems: 'center',
-                                                background: row.isMyPick ? 'rgba(212,175,55,0.04)' : 'transparent'
+                                                background: row.isMyPick ? 'rgba(212,175,55,0.04)' : 'transparent',
+                                                cursor: 'pointer', outline: 'none'
                                             }}>
                                                 <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, color: row.round === 1 ? 'var(--gold)' : 'var(--silver)' }}>{row.label}</span>
                                                 <span style={{ color: row.isMyPick ? 'var(--gold)' : 'var(--white)', fontWeight: row.isMyPick ? 700 : 400 }}>
@@ -1502,6 +1655,7 @@ function LeagueMapTab({
           runReport, loadSavedReports, saveReportsToStorage, DEFAULT_REPORTS,
           getPlayerColumns, getTeamColumns, getFilterableFields, getFilterOps, getFilterOptionSet, sortBtnStyle,
           analyticsEmbedMode: _analyticsEmbed,
+          openTeamContext,
         });
       })()}
       </React.Fragment>}

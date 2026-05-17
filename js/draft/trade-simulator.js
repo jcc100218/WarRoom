@@ -205,6 +205,7 @@
         const theirGiveDHQ = sumPickValue(state, proposal.theirGive)
             + sumPlayerValue(proposal.theirGivePlayers)
             + faabToDhq(proposal.theirGiveFaab);
+        const realism = validateProposalRealism(state, proposal);
 
         const taxes = helpers.calcPsychTaxes(
             myPersona.assessment,
@@ -248,12 +249,15 @@
         const acceptanceLine = acceptanceLineFor(state, theirPersona);
         const counterLine = Math.max(34, acceptanceLine - 20);
         const grade = helpers.fairnessGrade(myGiveDHQ, theirGiveDHQ);
+        if (realism.blocked) likelihood = Math.min(2, likelihood);
 
         return {
             likelihood,
             grade,
             taxes,
             modifiers,
+            realism,
+            realismFlags: realism.flags,
             myGiveDHQ,
             theirGiveDHQ,
             acceptanceLine,
@@ -292,6 +296,79 @@
             if (pid && !picked.has(pid)) players.add(pid);
         });
         return Array.from(players);
+    }
+
+    function duplicateKeys(list) {
+        const seen = new Set();
+        const dupes = new Set();
+        (list || []).forEach(item => {
+            const key = String(item || '');
+            if (!key) return;
+            if (seen.has(key)) dupes.add(key);
+            seen.add(key);
+        });
+        return Array.from(dupes);
+    }
+
+    function validateProposalRealism(state, proposal) {
+        const flags = [];
+        const add = (severity, code, label, detail) => flags.push({ severity, code, label, detail });
+        if (!proposal) {
+            add('blocker', 'missing_proposal', 'Missing package', 'No trade package was supplied.');
+            return { blocked: true, flags };
+        }
+
+        const targetRosterId = idKey(proposal.targetRosterId);
+        const userRosterId = idKey(state?.userRosterId);
+        if (!targetRosterId) add('blocker', 'missing_partner', 'Missing partner', 'Choose a trade partner before evaluating the offer.');
+        if (targetRosterId && userRosterId && targetRosterId === userRosterId) {
+            add('blocker', 'self_trade', 'Invalid partner', 'The user cannot negotiate against their own roster.');
+        }
+
+        const myPickKeys = (proposal.myGive || []).map(pickKey);
+        const theirPickKeys = (proposal.theirGive || []).map(pickKey);
+        duplicateKeys(myPickKeys).forEach(key => add('blocker', 'duplicate_user_pick', 'Duplicate outgoing pick', key + ' appears more than once on your side.'));
+        duplicateKeys(theirPickKeys).forEach(key => add('blocker', 'duplicate_partner_pick', 'Duplicate incoming pick', key + ' appears more than once on their side.'));
+        myPickKeys.filter(key => theirPickKeys.includes(key)).forEach(key => {
+            add('blocker', 'same_pick_both_sides', 'Same pick on both sides', key + ' cannot be given and received in the same package.');
+        });
+
+        const userPickSet = new Set(remainingPicksFor(state, state?.userRosterId, []).map(pickKey));
+        const targetPickSet = new Set(remainingPicksFor(state, proposal.targetRosterId, []).map(pickKey));
+        (proposal.myGive || []).forEach(pick => {
+            if (!userPickSet.has(pickKey(pick))) add('blocker', 'user_pick_unavailable', 'Outgoing pick unavailable', 'That pick is no longer controlled by your roster in this draft state.');
+        });
+        (proposal.theirGive || []).forEach(pick => {
+            if (!targetPickSet.has(pickKey(pick))) add('blocker', 'partner_pick_unavailable', 'Incoming pick unavailable', 'That pick is no longer controlled by the selected partner.');
+        });
+
+        const myPlayers = (proposal.myGivePlayers || []).map(idKey).filter(Boolean);
+        const theirPlayers = (proposal.theirGivePlayers || []).map(idKey).filter(Boolean);
+        duplicateKeys(myPlayers).forEach(pid => add('blocker', 'duplicate_user_player', 'Duplicate outgoing player', playerNameFor(pid) + ' appears more than once on your side.'));
+        duplicateKeys(theirPlayers).forEach(pid => add('blocker', 'duplicate_partner_player', 'Duplicate incoming player', playerNameFor(pid) + ' appears more than once on their side.'));
+        myPlayers.filter(pid => theirPlayers.includes(pid)).forEach(pid => {
+            add('blocker', 'same_player_both_sides', 'Same player on both sides', playerNameFor(pid) + ' cannot be both sent and received.');
+        });
+
+        const userRosterPlayers = new Set(effectiveRosterPlayers(state, state?.userRosterId).map(idKey));
+        const targetRosterPlayers = new Set(effectiveRosterPlayers(state, proposal.targetRosterId).map(idKey));
+        myPlayers.forEach(pid => {
+            if (!userRosterPlayers.has(pid)) add('blocker', 'user_player_unavailable', 'Outgoing player unavailable', playerNameFor(pid) + ' is not currently controlled by your roster.');
+        });
+        theirPlayers.forEach(pid => {
+            if (!targetRosterPlayers.has(pid)) add('blocker', 'partner_player_unavailable', 'Incoming player unavailable', playerNameFor(pid) + ' is not currently controlled by the selected partner.');
+        });
+
+        ['myGiveFaab', 'theirGiveFaab'].forEach(key => {
+            const value = Number(proposal[key] || 0);
+            if (value < 0) add('blocker', 'negative_faab', 'Invalid FAAB', 'FAAB cannot be negative.');
+            if (value > 1000) add('warning', 'large_faab', 'Large FAAB ask', 'FAAB over $1,000 is treated as unusual and should be confirmed manually.');
+        });
+
+        return {
+            blocked: flags.some(f => f.severity === 'blocker'),
+            flags,
+        };
     }
 
     function topPlayersFor(state, rosterId, limit = 6, opts = {}) {
@@ -760,6 +837,21 @@
         const theirPersona = result.theirPersona || state.personas?.[proposal?.targetRosterId];
         if (!theirPersona) return { accepted: false, verdict: 'declined', likelihood: 0, grade: null, taxes: [], modifiers: [] };
 
+        if (result.realism?.blocked) {
+            const blockers = (result.realism.flags || [])
+                .filter(flag => flag.severity === 'blocker')
+                .map(flag => flag.label)
+                .filter(Boolean);
+            return {
+                ...result,
+                accepted: false,
+                verdict: 'declined',
+                counterOffer: null,
+                reason: 'Trade package is not valid in the current draft state' + (blockers.length ? ': ' + blockers.join(', ') + '.' : '.'),
+                ownerIntel: theirPersona.ownerIntel || null,
+            };
+        }
+
         if (theirPersona.posture?.key === 'LOCKED') {
             const locked = {
                 ...result,
@@ -801,6 +893,7 @@
         buildTradeSuggestions,
         buildLiveTradeWindows,
         describeTradePartner,
+        validateProposalRealism,
         offerShape,
         acceptanceLineFor,
         pickValueFor,

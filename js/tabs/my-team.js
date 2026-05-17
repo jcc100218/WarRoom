@@ -441,22 +441,33 @@ function MyTeamTab({
   const activePresetKey = Object.entries(COLUMN_PRESETS).find(([, cols]) => sameColumnSet(cols, visibleCols))?.[0] || 'custom';
   const activePresetMeta = COLUMN_PRESET_META[activePresetKey] || { label: 'Custom', tone: visibleCols.length + ' fields' };
   const isDeepData = activePresetKey === 'full';
+  const [rosterViewportWidth, setRosterViewportWidth] = React.useState(() => typeof window !== 'undefined' ? window.innerWidth : 1024);
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onResize = () => setRosterViewportWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const isNarrowRoster = rosterViewportWidth <= 560;
+  const rosterTableCols = isNarrowRoster
+    ? ['pos', 'dhq', 'action'].filter(key => ROSTER_COLUMNS[key])
+    : visibleCols;
   const visibleColGroupStarts = new Set();
-  visibleCols.forEach((key, idx) => {
-    const prev = visibleCols[idx - 1];
+  rosterTableCols.forEach((key, idx) => {
+    const prev = rosterTableCols[idx - 1];
     if (idx > 0 && ROSTER_COLUMNS[key]?.group !== ROSTER_COLUMNS[prev]?.group) visibleColGroupStarts.add(key);
   });
   const columnGroupLabelFor = (key) => ROSTER_COLUMNS[key]?.group ? ROSTER_COLUMNS[key].group.toUpperCase() : '';
-  const isCompactRows = rowDensity === 'compact';
+  const isCompactRows = rowDensity === 'compact' || isNarrowRoster;
   const rowHeight = isCompactRows ? 38 : 46;
-  const avatarSize = isCompactRows ? 26 : 30;
-  const playerNameSize = isCompactRows ? '0.78rem' : '0.84rem';
+  const avatarSize = isNarrowRoster ? 22 : (isCompactRows ? 26 : 30);
+  const playerNameSize = isNarrowRoster ? '0.74rem' : (isCompactRows ? '0.78rem' : '0.84rem');
   const columnGroups = ['core', 'dynasty', 'stats', 'scout'].map(group => ({
     group,
     columns: Object.entries(ROSTER_COLUMNS).filter(([, col]) => col.group === group),
   })).filter(g => g.columns.length > 0);
-  const playerColWidth = 292;
-  const visibleDataWidth = visibleCols.reduce((sum, key) => sum + parseInt(ROSTER_COLUMNS[key]?.width || '0', 10), 0);
+  const playerColWidth = isNarrowRoster ? 156 : 292;
+  const visibleDataWidth = rosterTableCols.reduce((sum, key) => sum + parseInt(ROSTER_COLUMNS[key]?.width || '0', 10), 0);
   const tableMinWidth = playerColWidth + visibleDataWidth;
   const setCustomColumns = (updater) => {
     setVisibleCols(prev => typeof updater === 'function' ? updater(prev) : updater);
@@ -791,7 +802,7 @@ function MyTeamTab({
                 Player{rosterSort.key === 'name' ? (rosterSort.dir === -1 ? ' \u25BC' : ' \u25B2') : ''}
               </div>
               <div style={{ flex: 1, display: 'flex' }}>
-                {visibleCols.map(colKey => {
+                {rosterTableCols.map(colKey => {
                   const col = ROSTER_COLUMNS[colKey];
                   if (!col) return null;
                   const isSorted = rosterSort.key === colKey;
@@ -834,8 +845,9 @@ function MyTeamTab({
                 </div>
               )}
               {/* Normal row */}
-              <div className={[actionClass, isUntouchable ? 'wr-untouchable' : ''].filter(Boolean).join(' ')} style={{ display: 'flex', overflow: 'visible', borderTop: 'none', borderBottom: isExpanded ? 'none' : '1px solid rgba(255,255,255,0.035)', cursor: 'pointer', background: rowBg, transition: 'background 0.1s' }}
+              <div className={[actionClass, isUntouchable ? 'wr-untouchable' : ''].filter(Boolean).join(' ')} role="button" tabIndex={0} title="Open roster player detail" style={{ display: 'flex', overflow: 'visible', borderTop: 'none', borderBottom: isExpanded ? 'none' : '1px solid rgba(255,255,255,0.035)', cursor: 'pointer', background: rowBg, transition: 'background 0.1s' }}
                 onClick={() => setExpandedPid(prev => prev === r.pid ? null : r.pid)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedPid(prev => prev === r.pid ? null : r.pid); } }}
                 onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'rgba(212,175,55,0.06)'; }}
                 onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = rowBg; }}>
                 {/* Frozen player info */}
@@ -854,7 +866,7 @@ function MyTeamTab({
                 </div>
                 {/* Data columns */}
                 <div style={{ flex: 1, display: 'flex', height: rowHeight + 'px', overflow: 'hidden' }}>
-                  {visibleCols.map(colKey => ROSTER_COLUMNS[colKey] ? renderCell(colKey, r) : null)}
+                  {rosterTableCols.map(colKey => ROSTER_COLUMNS[colKey] ? renderCell(colKey, r) : null)}
                 </div>
               </div>
 

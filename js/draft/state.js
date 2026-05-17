@@ -24,6 +24,246 @@
         const mode = forcedMode === 'live-sync' ? 'live' : 'mock';
         return 'wr_draft_cc_current_' + mode + '_' + (leagueId || 'default');
     };
+    const DRAFT_TUNING_KEYS = ['ownerDna', 'classValue', 'needFit', 'tradeActivity', 'variance'];
+    const DEFAULT_DRAFT_TUNING = {
+        ownerDna: 70,
+        classValue: 65,
+        needFit: 60,
+        tradeActivity: 50,
+        variance: 45,
+    };
+    const DRAFT_STRATEGY_PRESETS = [
+        {
+            id: 'front-office-blend',
+            label: 'League Blend',
+            shortLabel: 'Blend',
+            philosophy: 'Balanced board, owner history, roster fit, and normal trade pressure.',
+            tuning: { ownerDna: 72, classValue: 70, needFit: 62, tradeActivity: 50, variance: 28 },
+        },
+        {
+            id: 'owner-dna-mirror',
+            label: 'Owner DNA Mirror',
+            shortLabel: 'DNA',
+            philosophy: 'Historical owner tendencies lead the room.',
+            tuning: { ownerDna: 94, classValue: 54, needFit: 48, tradeActivity: 48, variance: 24 },
+        },
+        {
+            id: 'class-scout',
+            label: 'Board Scout',
+            shortLabel: 'Board',
+            philosophy: 'The player crop, board tiers, and roster fit drive the room.',
+            tuning: { ownerDna: 46, classValue: 90, needFit: 72, tradeActivity: 38, variance: 18 },
+        },
+        {
+            id: 'need-pressure',
+            label: 'Need Pressure',
+            shortLabel: 'Needs',
+            philosophy: 'Teams draft to fix roster pressure points early.',
+            tuning: { ownerDna: 58, classValue: 52, needFit: 94, tradeActivity: 44, variance: 22 },
+            hidden: true,
+        },
+        {
+            id: 'trade-market',
+            label: 'Trade Market',
+            shortLabel: 'Trades',
+            philosophy: 'Tier chases and owner leverage create a more active room.',
+            tuning: { ownerDna: 76, classValue: 60, needFit: 62, tradeActivity: 92, variance: 34 },
+            hidden: true,
+        },
+        {
+            id: 'no-trades',
+            label: 'No Trades',
+            shortLabel: 'Locked',
+            philosophy: 'The room stays on its own picks.',
+            tuning: { ownerDna: 70, classValue: 74, needFit: 58, tradeActivity: 0, variance: 14 },
+            lockedTradeActivity: 0,
+            hidden: true,
+        },
+        {
+            id: 'chaos-room',
+            label: 'Chaos Room',
+            shortLabel: 'Chaos',
+            philosophy: 'Wider variance, more smoke, and less board discipline.',
+            tuning: { ownerDna: 58, classValue: 38, needFit: 50, tradeActivity: 72, variance: 88 },
+            hidden: true,
+        },
+        {
+            id: 'custom-studio',
+            label: 'Custom Studio',
+            shortLabel: 'Custom',
+            philosophy: 'Hand-tuned by the GM.',
+            tuning: DEFAULT_DRAFT_TUNING,
+            hidden: true,
+        },
+    ];
+
+    function clampPct(value, fallback) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return Number(fallback || 0);
+        return Math.max(0, Math.min(100, Math.round(n)));
+    }
+
+    function mergeDraftTuning(base, patch) {
+        const out = {};
+        DRAFT_TUNING_KEYS.forEach(key => {
+            out[key] = clampPct((patch || {})[key] ?? (base || {})[key], DEFAULT_DRAFT_TUNING[key]);
+        });
+        return out;
+    }
+
+    function draftStrategyStudioKey(leagueId) {
+        return 'wr_draft_strategy_studio_' + (leagueId || 'default');
+    }
+
+    function getDraftStrategyPresets() {
+        return DRAFT_STRATEGY_PRESETS.map(preset => ({
+            ...preset,
+            tuning: { ...preset.tuning },
+        }));
+    }
+
+    function findDraftStrategyPreset(id) {
+        return DRAFT_STRATEGY_PRESETS.find(preset => preset.id === id) || DRAFT_STRATEGY_PRESETS[0];
+    }
+
+    function gmModeDraftAdjustment(gmMode) {
+        const mode = String(gmMode || '').toLowerCase();
+        if (mode === 'rebuild') {
+            return { ownerDna: 2, classValue: 6, needFit: -8, tradeActivity: 4, variance: -4 };
+        }
+        if (mode === 'win_now' || mode === 'contend') {
+            return { ownerDna: 0, classValue: -5, needFit: 12, tradeActivity: 8, variance: 2 };
+        }
+        return { ownerDna: 0, classValue: 0, needFit: 0, tradeActivity: 0, variance: 0 };
+    }
+
+    function inferGmMode(leagueId, opts = {}) {
+        const explicit = opts.gmMode || opts.gmStrategy?.mode || opts.strategy?.mode;
+        if (explicit) return String(explicit);
+        try {
+            if (window.WR?.GmMode?.getMode) return window.WR.GmMode.getMode(leagueId);
+        } catch (_) {}
+        return 'compete';
+    }
+
+    function buildDraftStrategyProfile(opts = {}) {
+        const leagueId = opts.leagueId || '';
+        const preset = findDraftStrategyPreset(opts.presetId || opts.id);
+        const base = mergeDraftTuning(DEFAULT_DRAFT_TUNING, opts.baseTuning || {});
+        const learning = opts.recapLearning || null;
+        const gmMode = inferGmMode(leagueId, opts);
+        const gmAdjust = gmModeDraftAdjustment(gmMode);
+        let tuning = mergeDraftTuning(base, preset.tuning);
+
+        DRAFT_TUNING_KEYS.forEach(key => {
+            tuning[key] = clampPct(tuning[key] + (gmAdjust[key] || 0), tuning[key]);
+        });
+
+        if (learning?.sampleSize && learning.suggestedTuning && preset.id !== 'no-trades') {
+            DRAFT_TUNING_KEYS.forEach(key => {
+                const learned = Number(learning.suggestedTuning[key]);
+                if (Number.isFinite(learned)) {
+                    tuning[key] = clampPct(tuning[key] * 0.76 + learned * 0.24, tuning[key]);
+                }
+            });
+        }
+        if (preset.lockedTradeActivity != null) tuning.tradeActivity = clampPct(preset.lockedTradeActivity, 0);
+        if (opts.tuning) tuning = mergeDraftTuning(tuning, opts.tuning);
+        if (preset.lockedTradeActivity != null) tuning.tradeActivity = clampPct(preset.lockedTradeActivity, 0);
+
+        const now = opts.updatedAt || Date.now();
+        return {
+            schemaVersion: 'draft-strategy-profile-v1',
+            id: opts.profileId || opts.profile?.id || ('draft_strategy_' + now),
+            leagueId,
+            presetId: preset.id,
+            label: opts.label || preset.label,
+            shortLabel: preset.shortLabel || preset.label,
+            philosophy: opts.philosophy || preset.philosophy,
+            gmMode,
+            variant: opts.variant || opts.draftType || 'all',
+            tuning,
+            aiSignals: {
+                ownerHistory: tuning.ownerDna,
+                classCrop: tuning.classValue,
+                rosterFit: tuning.needFit,
+                tradeMode: tuning.tradeActivity <= 3 ? 'off' : tuning.tradeActivity >= 75 ? 'aggressive' : 'normal',
+                varianceModel: tuning.variance >= 70 ? 'wide' : tuning.variance <= 20 ? 'tight' : 'balanced',
+            },
+            recapLearningSample: learning?.sampleSize || 0,
+            source: opts.source || (opts.saved ? 'saved_profile' : 'strategy_studio'),
+            saved: !!opts.saved,
+            updatedAt: now,
+        };
+    }
+
+    function normalizeDraftStrategyProfile(profile, opts = {}) {
+        if (!profile) return null;
+        return buildDraftStrategyProfile({
+            ...profile,
+            presetId: profile.presetId || profile.id,
+            profileId: profile.id,
+            leagueId: profile.leagueId || opts.leagueId,
+            baseTuning: opts.baseTuning,
+            recapLearning: opts.recapLearning,
+            gmMode: profile.gmMode || opts.gmMode,
+            tuning: profile.tuning,
+            label: profile.label,
+            philosophy: profile.philosophy,
+            variant: profile.variant || opts.variant,
+            saved: opts.saved ?? profile.saved,
+            source: profile.source || opts.source,
+            updatedAt: profile.updatedAt || Date.now(),
+        });
+    }
+
+    function loadDraftStrategyProfile(leagueId, opts = {}) {
+        if (!leagueId || typeof localStorage === 'undefined') {
+            return buildDraftStrategyProfile({ ...opts, leagueId, source: 'default_profile' });
+        }
+        try {
+            const raw = localStorage.getItem(draftStrategyStudioKey(leagueId));
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                return normalizeDraftStrategyProfile(parsed, {
+                    ...opts,
+                    leagueId,
+                    saved: true,
+                    source: 'saved_profile',
+                });
+            }
+        } catch (e) {
+            if (window.wrLog) window.wrLog('draftState.loadStrategyProfile', e);
+        }
+        return buildDraftStrategyProfile({ ...opts, leagueId, source: 'gm_mode_default' });
+    }
+
+    function saveDraftStrategyProfile(leagueId, profile) {
+        if (!leagueId || typeof localStorage === 'undefined') return null;
+        const normalized = normalizeDraftStrategyProfile(profile, {
+            leagueId,
+            saved: true,
+            source: 'saved_profile',
+        });
+        if (!normalized) return null;
+        const saved = {
+            ...normalized,
+            leagueId,
+            saved: true,
+            source: 'saved_profile',
+            updatedAt: Date.now(),
+        };
+        try {
+            localStorage.setItem(draftStrategyStudioKey(leagueId), JSON.stringify(saved));
+        } catch (e) {
+            if (window.wrLog) window.wrLog('draftState.saveStrategyProfile', e);
+        }
+        return saved;
+    }
+
+    function applyDraftStrategyProfileToTuning(profile, baseTuning) {
+        return mergeDraftTuning(baseTuning || DEFAULT_DRAFT_TUNING, profile?.tuning || {});
+    }
 
     function initialLiveSyncState(patch = {}) {
         return {
@@ -33,9 +273,12 @@
             startedAt: null,
             lastPickNo: 0,
             expectedPickNo: 1,
+            remoteMaxPickNo: 0,
             remotePickCount: 0,
             duplicateCount: 0,
             missedPickCount: 0,
+            missingPickNos: [],
+            remoteBehind: false,
             stale: false,
             error: null,
             ...(patch || {}),
@@ -67,13 +310,10 @@
             variant:  opts.variant || 'startup', // 'rookie' | 'startup' | 'redraft' | 'best_ball'
             speed:    opts.speed || 'medium',    // 'slow' | 'medium' | 'fast'
             draftTuning: {
-                ownerDna: 70,
-                classValue: 65,
-                needFit: 60,
-                tradeActivity: 50,
-                variance: 45,
+                ...DEFAULT_DRAFT_TUNING,
                 ...(opts.draftTuning || {}),
             },
+            strategyProfile: opts.strategyProfile || null,
 
             // Setup config
             rounds: opts.rounds || 5,
@@ -134,6 +374,7 @@
             replay: null,
             scenarioId: null,
             scenarioNarrative: null,
+            recapLearning: null,
             liveSync: initialLiveSyncState(),
             stagedLiveOffers: [],
             manualCorrections: [],
@@ -316,6 +557,489 @@
         }, {});
     }
 
+    const RECAP_POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'];
+
+    function rosterKey(value) {
+        return value == null ? 'unknown' : String(value);
+    }
+
+    function rosterName(state, rosterId, fallback) {
+        const key = rosterKey(rosterId);
+        const persona = state?.personas?.[key] || state?.personas?.[rosterId];
+        const ownerIntel = state?.draftContext?.ownerContext?.[key];
+        return persona?.teamName || ownerIntel?.teamName || fallback || ('Team ' + key);
+    }
+
+    function pickConsensusRank(pick) {
+        return Number(pick?.consensusRank || pick?.rank || pick?.analystBoardRank || 0) || 0;
+    }
+
+    function pickValueDelta(pick) {
+        const rank = pickConsensusRank(pick);
+        const overall = Number(pick?.overall || 0);
+        return rank && overall ? overall - rank : 0;
+    }
+
+    function recapLetter(percentile, valuePct) {
+        const pct = Number(percentile || 0);
+        const value = Number(valuePct || 0);
+        const score = Math.round((pct * 0.65) + (value * 0.35));
+        const letter =
+            score >= 88 ? 'A+' :
+            score >= 78 ? 'A' :
+            score >= 68 ? 'B+' :
+            score >= 56 ? 'B' :
+            score >= 44 ? 'C+' :
+            score >= 32 ? 'C' : 'D';
+        return { letter, score };
+    }
+
+    function emptyPositionSummary() {
+        return {};
+    }
+
+    function addPickToPositionSummary(summary, pick) {
+        const pos = pickPos(pick) || '?';
+        if (!summary[pos]) summary[pos] = { pos, count: 0, dhq: 0, players: [] };
+        summary[pos].count += 1;
+        summary[pos].dhq += pickDhq(pick);
+        summary[pos].players.push({
+            pid: pick?.pid || null,
+            name: pickName(pick),
+            overall: pick?.overall || null,
+            dhq: pickDhq(pick),
+        });
+        return summary;
+    }
+
+    function orderedPositionSummary(summary) {
+        const order = new Map(RECAP_POS_ORDER.map((pos, idx) => [pos, idx]));
+        return Object.values(summary || {}).sort((a, b) => {
+            const ao = order.has(a.pos) ? order.get(a.pos) : 99;
+            const bo = order.has(b.pos) ? order.get(b.pos) : 99;
+            if (ao !== bo) return ao - bo;
+            return b.dhq - a.dhq;
+        });
+    }
+
+    function pickSnapshot(pick) {
+        if (!pick) return null;
+        return {
+            round: pick.round || null,
+            slot: pick.slot || null,
+            overall: pick.overall || null,
+            pickInRound: pick.pickInRound || pick.slot || null,
+            rosterId: pick.rosterId ?? null,
+            pid: pick.pid || null,
+            name: pickName(pick),
+            pos: pickPos(pick),
+            dhq: pickDhq(pick),
+            consensusRank: pickConsensusRank(pick) || null,
+            valueDelta: pickValueDelta(pick),
+        };
+    }
+
+    function buildBestAlternative(state, myPicks, allPicks) {
+        const originalPool = state?.originalPool || [];
+        if (!originalPool.length || !myPicks.length) return null;
+        const pool = originalPool.map(normalizePickRecord).filter(p => p?.pid);
+        const draftedBefore = new Set();
+        let best = null;
+        allPicks
+            .slice()
+            .sort((a, b) => Number(a.overall || 0) - Number(b.overall || 0))
+            .forEach(pick => {
+                const isMine = myPicks.some(my => String(my.pid) === String(pick.pid) && Number(my.overall) === Number(pick.overall));
+                if (isMine) {
+                    const selected = pickSnapshot(pick);
+                    const alternative = pool
+                        .filter(player => String(player.pid) !== String(pick.pid) && !draftedBefore.has(String(player.pid)))
+                        .sort((a, b) => pickDhq(b) - pickDhq(a))[0];
+                    const dhqGap = alternative ? pickDhq(alternative) - pickDhq(pick) : 0;
+                    if (alternative && dhqGap > 0 && (!best || dhqGap > best.dhqGap)) {
+                        best = {
+                            pick: selected,
+                            alternative: pickSnapshot({
+                                ...alternative,
+                                overall: pick.overall,
+                                round: pick.round,
+                                slot: pick.slot,
+                            }),
+                            dhqGap,
+                            message: `At #${pick.overall}, ${pickName(alternative)} carried ${dhqGap.toLocaleString()} more DHQ than ${pickName(pick)}.`,
+                        };
+                    }
+                }
+                if (pick?.pid) draftedBefore.add(String(pick.pid));
+            });
+        return best;
+    }
+
+    function buildMissedTarget(state, allPicks, userRosterId) {
+        const entries = state?.draftContext?.boardContext?.entries || {};
+        const targets = new Set(Object.entries(entries)
+            .filter(([, entry]) => entry?.target || entry?.tag === 'target' || entry?.tag === 'must')
+            .map(([pid]) => String(pid)));
+        if (!targets.size) return null;
+        const missed = allPicks
+            .filter(pick => targets.has(String(pick.pid)) && String(pick.rosterId) !== String(userRosterId))
+            .sort((a, b) => Number(a.overall || 0) - Number(b.overall || 0))[0];
+        if (!missed) return null;
+        const entry = entries[String(missed.pid)] || {};
+        return {
+            ...pickSnapshot(missed),
+            takenBy: rosterName(state, missed.rosterId, missed.ownerName),
+            myRank: entry.myRank || null,
+            note: entry.note || '',
+            message: `${pickName(missed)} was tagged on My Board and went to ${rosterName(state, missed.rosterId, missed.ownerName)} at #${missed.overall}.`,
+        };
+    }
+
+    function buildTradeImpact(state) {
+        const trades = state?.completedTrades || [];
+        const rows = trades.map((trade, idx) => {
+            const myGiveDHQ = Number(trade.myGiveDHQ || trade.theirGainDHQ || 0);
+            const myGainDHQ = Number(trade.myGainDHQ || trade.theirGiveDHQ || 0);
+            return {
+                id: trade.id || ('trade_' + idx),
+                partnerRosterId: trade.fromRosterId || trade.toRosterId || trade.targetRosterId || null,
+                partnerName: rosterName(state, trade.fromRosterId || trade.toRosterId || trade.targetRosterId, trade.partnerName),
+                userInitiated: !!trade.userInitiated,
+                acceptedAt: trade.acceptedAt ?? null,
+                grade: trade.grade?.grade || trade.grade || null,
+                likelihood: trade.likelihood || null,
+                myGiveDHQ,
+                myGainDHQ,
+                netDHQ: myGainDHQ - myGiveDHQ,
+                myGiveCount: (trade.myGive || []).length + (trade.myGivePlayers || []).length + (trade.myGiveFaab ? 1 : 0),
+                myGainCount: (trade.theirGive || []).length + (trade.theirGivePlayers || []).length + (trade.theirGiveFaab ? 1 : 0),
+            };
+        });
+        const netDHQ = rows.reduce((sum, row) => sum + row.netDHQ, 0);
+        return {
+            count: rows.length,
+            accepted: rows.length,
+            userInitiated: rows.filter(row => row.userInitiated).length,
+            netDHQ,
+            rows,
+            summary: rows.length
+                ? `${rows.length} accepted trade${rows.length === 1 ? '' : 's'} with ${netDHQ >= 0 ? '+' : ''}${netDHQ.toLocaleString()} net DHQ.`
+                : 'No accepted draft trades on record.',
+        };
+    }
+
+    function playerInfo(pid) {
+        const id = String(pid || '');
+        const player = window.S?.players?.[id] || {};
+        const name = player.full_name || [player.first_name, player.last_name].filter(Boolean).join(' ') || id;
+        const pos = String(player.position || player.pos || '').toUpperCase();
+        const dhq = Number(window.App?.LI?.playerScores?.[id] || window.App?.PlayerValue?.scores?.[id] || player.dhq || player.val || 0) || 0;
+        return { pid: id, name, pos, dhq };
+    }
+
+    function teamTopPlayersByPosition(team, pos) {
+        return (team?.picks || [])
+            .filter(p => !pos || String(p.pos || '').toUpperCase() === String(pos).toUpperCase())
+            .sort((a, b) => Number(b.dhq || 0) - Number(a.dhq || 0));
+    }
+
+    function buildPostDraftMoves(state, input = {}) {
+        const userRosterId = input.userRosterId ?? state?.userRosterId;
+        const picks = input.picks || [];
+        const drafted = new Set(picks.map(p => String(p.pid)).filter(Boolean));
+        const needs = (state?.personas?.[userRosterId]?.assessment?.needs || state?.draftContext?.teamContext?.needs || [])
+            .map(n => (typeof n === 'string' ? n : n?.pos))
+            .map(pos => String(pos || '').toUpperCase())
+            .filter(Boolean);
+        const userPositions = input.positionSummary || [];
+        const userTopPos = userPositions[0]?.pos || null;
+        const available = (state?.originalPool || [])
+            .map(normalizePickRecord)
+            .filter(p => p?.pid && !drafted.has(String(p.pid)))
+            .sort((a, b) => pickDhq(b) - pickDhq(a));
+        const waiverTargets = available
+            .filter(p => !needs.length || needs.includes(pickPos(p)))
+            .slice(0, 5)
+            .map(p => ({
+                pid: p.pid,
+                name: pickName(p),
+                pos: pickPos(p),
+                dhq: pickDhq(p),
+                reason: needs.includes(pickPos(p)) ? 'Matches a remaining roster need.' : 'Best undrafted value left on the board.',
+            }));
+        const fallbackTargets = waiverTargets.length ? waiverTargets : available.slice(0, 3).map(p => ({
+            pid: p.pid,
+            name: pickName(p),
+            pos: pickPos(p),
+            dhq: pickDhq(p),
+            reason: 'Best undrafted value left on the board.',
+        }));
+
+        const tradeTargets = [];
+        (input.teamRecaps || []).forEach(team => {
+            if (String(team.rosterId) === String(userRosterId)) return;
+            needs.forEach(pos => {
+                const count = (team.positionSummary || []).find(row => row.pos === pos)?.count || 0;
+                const players = teamTopPlayersByPosition(team, pos);
+                if (!count || !players.length) return;
+                tradeTargets.push({
+                    rosterId: team.rosterId,
+                    teamName: team.teamName,
+                    pos,
+                    player: players[0],
+                    reason: `${team.teamName} added ${count} ${pos}; that roster may have a post-draft surplus.`,
+                });
+            });
+        });
+
+        const currentRosterIds = state?.draftContext?.teamContext?.currentRoster || [];
+        const cutCandidates = currentRosterIds
+            .map(playerInfo)
+            .filter(p => p.pid && p.name)
+            .sort((a, b) => (a.dhq || 0) - (b.dhq || 0))
+            .slice(0, 4)
+            .map(p => ({
+                ...p,
+                reason: p.pos === userTopPos
+                    ? `Review after adding ${userTopPos} draft depth.`
+                    : 'Lowest-value current roster pocket to reassess after the draft.',
+            }));
+
+        return {
+            waiverTargets: fallbackTargets,
+            tradeTargets: tradeTargets.slice(0, 5),
+            cutCandidates,
+        };
+    }
+
+    function buildTeamRecaps(state, picks, leagueTotals) {
+        const byRoster = {};
+        picks.forEach(pick => {
+            const key = rosterKey(pick.rosterId ?? pick.slot);
+            if (!byRoster[key]) {
+                byRoster[key] = {
+                    rosterId: pick.rosterId ?? null,
+                    teamName: rosterName(state, pick.rosterId ?? pick.slot, pick.ownerName),
+                    picks: [],
+                    positionSummary: emptyPositionSummary(),
+                    totalDHQ: 0,
+                    reaches: [],
+                    steals: [],
+                    earlyPositions: [],
+                    topPick: null,
+                    bestValue: null,
+                    biggestReach: null,
+                };
+            }
+            const row = byRoster[key];
+            row.picks.push(pickSnapshot(pick));
+            row.totalDHQ += pickDhq(pick);
+            addPickToPositionSummary(row.positionSummary, pick);
+            if (Number(pick.round || 0) <= 2) row.earlyPositions.push(pickPos(pick) || '?');
+            const delta = pickValueDelta(pick);
+            if (delta >= 8) row.steals.push(pickSnapshot(pick));
+            if (delta <= -8) row.reaches.push(pickSnapshot(pick));
+            if (!row.topPick || pickDhq(pick) > row.topPick.dhq) row.topPick = pickSnapshot(pick);
+            if (delta > (row.bestValue?.valueDelta ?? -999)) row.bestValue = pickSnapshot(pick);
+            if (delta < (row.biggestReach?.valueDelta ?? 999)) row.biggestReach = pickSnapshot(pick);
+        });
+
+        Object.keys(state?.personas || {}).forEach(rid => {
+            const key = rosterKey(rid);
+            if (!byRoster[key]) {
+                byRoster[key] = {
+                    rosterId: rid,
+                    teamName: rosterName(state, rid),
+                    picks: [],
+                    positionSummary: emptyPositionSummary(),
+                    totalDHQ: Number(leagueTotals?.[rid] || 0),
+                    reaches: [],
+                    steals: [],
+                    earlyPositions: [],
+                    topPick: null,
+                    bestValue: null,
+                    biggestReach: null,
+                };
+            }
+        });
+
+        const ranked = Object.values(byRoster).sort((a, b) => b.totalDHQ - a.totalDHQ);
+        const maxTotal = Math.max(1, ...ranked.map(row => row.totalDHQ));
+        ranked.forEach((row, idx) => {
+            const rank = idx + 1;
+            const percentile = ranked.length > 1
+                ? Math.round(((ranked.length - rank) / (ranked.length - 1)) * 100)
+                : 100;
+            const valuePct = row.picks.length
+                ? Math.round((row.picks.filter(p => !p.consensusRank || p.consensusRank <= Number(p.overall || 0) * 1.3).length / row.picks.length) * 100)
+                : 0;
+            const primaryPos = orderedPositionSummary(row.positionSummary)[0]?.pos || '';
+            const grade = recapLetter(percentile, valuePct);
+            row.rank = rank;
+            row.percentile = percentile;
+            row.valuePct = valuePct;
+            row.grade = grade.letter;
+            row.score = grade.score;
+            row.totalShare = Math.round((row.totalDHQ / maxTotal) * 100);
+            row.positionSummary = orderedPositionSummary(row.positionSummary);
+            row.buildLabel = row.picks.length
+                ? (primaryPos ? `${primaryPos}-led build` : 'Balanced build')
+                : 'No tracked picks';
+            row.story = row.picks.length
+                ? `${row.teamName} finished #${rank} by draft DHQ with ${row.steals.length} steal${row.steals.length === 1 ? '' : 's'} and ${row.reaches.length} reach${row.reaches.length === 1 ? '' : 'es'}.`
+                : `${row.teamName} has no tracked draft picks in this recap.`;
+        });
+        return ranked;
+    }
+
+    function buildOwnerLearning(teamRecaps) {
+        return (teamRecaps || []).reduce((acc, team) => {
+            const key = rosterKey(team.rosterId);
+            const earlyCounts = team.earlyPositions.reduce((out, pos) => {
+                out[pos] = (out[pos] || 0) + 1;
+                return out;
+            }, {});
+            const primaryEarly = Object.entries(earlyCounts).sort((a, b) => b[1] - a[1])[0] || null;
+            const topPosition = team.positionSummary?.[0]?.pos || null;
+            const signals = [];
+            if (primaryEarly) signals.push(`Early-round lean: ${primaryEarly[0]}`);
+            if (topPosition) signals.push(`Class build: ${topPosition}`);
+            if (team.reaches.length) signals.push(`${team.reaches.length} reach${team.reaches.length === 1 ? '' : 'es'} against board`);
+            if (team.steals.length) signals.push(`${team.steals.length} value hit${team.steals.length === 1 ? '' : 's'}`);
+            acc[key] = {
+                rosterId: team.rosterId,
+                ownerName: team.teamName,
+                picks: team.picks.length,
+                totalDHQ: team.totalDHQ,
+                posCounts: team.positionSummary.reduce((out, pos) => {
+                    out[pos.pos] = pos.count;
+                    return out;
+                }, {}),
+                earlyPositions: team.earlyPositions,
+                reaches: team.reaches.length,
+                steals: team.steals.length,
+                buildLabel: team.buildLabel,
+                grade: team.grade,
+                confidence: team.picks.length >= 5 ? 'high' : team.picks.length >= 3 ? 'medium' : team.picks.length ? 'low' : 'inferred',
+                reasonCodes: signals.map((detail, idx) => ({
+                    code: idx === 0 ? 'draft_recap_signal' : 'draft_recap_signal_' + idx,
+                    label: 'Draft recap signal',
+                    detail,
+                    source: 'draft_recap',
+                    confidence: team.picks.length >= 3 ? 'medium' : 'low',
+                })),
+                signals,
+            };
+            return acc;
+        }, {});
+    }
+
+    function buildLeagueStorylines(teamRecaps, userRosterId) {
+        const leaders = (teamRecaps || []).filter(t => t.picks.length);
+        const winner = leaders[0] || null;
+        const valueTeam = leaders.slice().sort((a, b) => (b.steals.length - a.steals.length) || (b.valuePct - a.valuePct))[0] || null;
+        const risky = leaders.slice().sort((a, b) => (b.reaches.length - a.reaches.length) || (a.valuePct - b.valuePct))[0] || null;
+        const userTeam = leaders.find(t => String(t.rosterId) === String(userRosterId)) || null;
+        return [
+            winner ? `${winner.teamName} led the room by draft DHQ with ${winner.totalDHQ.toLocaleString()} captured.` : '',
+            valueTeam ? `${valueTeam.teamName} showed the cleanest value discipline with ${valueTeam.steals.length} value hit${valueTeam.steals.length === 1 ? '' : 's'}.` : '',
+            risky && risky.reaches.length ? `${risky.teamName} took on the most board risk with ${risky.reaches.length} reach${risky.reaches.length === 1 ? '' : 'es'}.` : '',
+            userTeam ? `Your class finished #${userTeam.rank} of ${leaders.length} tracked teams with a ${userTeam.grade}.` : '',
+        ].filter(Boolean);
+    }
+
+    function buildActionPlan(state, recapBits) {
+        const {
+            grade,
+            positionSummary,
+            bestAlternative,
+            missedTarget,
+            tradeImpact,
+            postDraftMoves,
+            userTeam,
+        } = recapBits;
+        const actions = [];
+        const positions = positionSummary || [];
+        const topPos = positions[0];
+        const needs = (state?.personas?.[state?.userRosterId]?.assessment?.needs || state?.draftContext?.teamContext?.needs || [])
+            .map(n => (typeof n === 'string' ? n : n?.pos))
+            .filter(Boolean);
+        if (bestAlternative?.alternative) {
+            actions.push({
+                title: 'Recheck the passed value',
+                detail: `Price ${bestAlternative.alternative.name} against ${bestAlternative.pick.name}; the board showed a ${bestAlternative.dhqGap.toLocaleString()} DHQ gap at #${bestAlternative.pick.overall}.`,
+                type: 'value_review',
+            });
+        }
+        if (missedTarget) {
+            actions.push({
+                title: 'Put the missed target on the trade watchlist',
+                detail: `${missedTarget.name} was tagged on My Board and landed with ${missedTarget.takenBy}. Track that roster after waivers settle.`,
+                type: 'target_followup',
+            });
+        }
+        if (tradeImpact?.count) {
+            actions.push({
+                title: 'Audit draft-trade leverage',
+                detail: `${tradeImpact.summary} Use the accepted deal history to update trade partner reads before the next mock.`,
+                type: 'trade_audit',
+            });
+        }
+        if (postDraftMoves?.waiverTargets?.length) {
+            const names = postDraftMoves.waiverTargets.slice(0, 3).map(p => `${p.name} (${p.pos})`).join(', ');
+            actions.push({
+                title: 'Build the immediate waiver watchlist',
+                detail: `${names} should be checked first if they are still available after the room closes.`,
+                type: 'waiver_followup',
+            });
+        }
+        if (postDraftMoves?.tradeTargets?.length) {
+            const target = postDraftMoves.tradeTargets[0];
+            actions.push({
+                title: `Open a ${target.pos} trade lane`,
+                detail: `${target.reason} Start with ${target.player?.name || 'their new pick'} as the price anchor.`,
+                type: 'post_draft_trade_map',
+            });
+        }
+        if (postDraftMoves?.cutCandidates?.length) {
+            const names = postDraftMoves.cutCandidates.slice(0, 2).map(p => `${p.name}${p.pos ? ' (' + p.pos + ')' : ''}`).join(', ');
+            actions.push({
+                title: 'Review cut and taxi pressure',
+                detail: `Recheck ${names} before roster locks; draft additions may have changed the bottom of the roster.`,
+                type: 'cut_review',
+            });
+        }
+        if (topPos && topPos.count >= 3) {
+            actions.push({
+                title: `Shop surplus ${topPos.pos} depth`,
+                detail: `You added ${topPos.count} ${topPos.pos} picks. Package the bottom of that group if it can solve ${needs[0] || 'a weaker roster pocket'}.`,
+                type: 'roster_balance',
+            });
+        }
+        if (needs.length && !positions.some(pos => pos.pos === needs[0])) {
+            actions.push({
+                title: `Address the remaining ${needs[0]} need`,
+                detail: `Your pre-draft need at ${needs[0]} was not directly covered. Prioritize waiver targets or a two-for-one trade path there.`,
+                type: 'need_followup',
+            });
+        }
+        if (grade?.letter && !grade.letter.startsWith('A') && userTeam?.rank > 1) {
+            actions.push({
+                title: 'Use the league recap to find imbalance',
+                detail: `You finished behind ${Math.max(0, userTeam.rank - 1)} team${userTeam.rank - 1 === 1 ? '' : 's'} by draft DHQ. Start with teams that overbuilt one position.`,
+                type: 'league_trade_map',
+            });
+        }
+        if (!actions.length) {
+            actions.push({
+                title: 'Preserve the board edge',
+                detail: 'Save this recap and rerun an analyst mock from the updated board before the next draft room decision.',
+                type: 'prep_loop',
+            });
+        }
+        return actions.slice(0, 5);
+    }
+
     function slimPlayer(player) {
         if (!player) return null;
         return {
@@ -391,15 +1115,20 @@
                 const originalPool = action.originalPool && action.originalPool.length
                     ? action.originalPool.slice()
                     : action.pool.slice().concat(prePicks.map(p => ({ pid: p.pid, name: p.name, pos: p.pos, dhq: p.dhq })));
+                const setupPatch = action.setupPatch || {};
+                const nextMode = setupPatch.mode || state.mode;
 
                 return {
                     ...state,
+                    ...setupPatch,
                     phase: 'drafting',
                     pool: action.pool,
                     originalPool,
                     pickOrder: action.pickOrder,
                     personas: action.personas || {},
                     draftContext: action.draftContext || null,
+                    draftTuning: action.draftTuning || state.draftTuning,
+                    strategyProfile: action.strategyProfile || state.strategyProfile || null,
                     picks: prePicks.slice(),
                     pickedByIdx: derived.pickedByIdx,
                     draftedPids: derived.draftedPids,
@@ -407,7 +1136,8 @@
                     teamRosters: derived.teamRosters,
                     replay: action.replay || null,
                     scenarioNarrative: action.narrative || null,
-                    liveSync: state.mode === 'live-sync'
+                    recapLearning: action.recapLearning || state.recapLearning || null,
+                    liveSync: nextMode === 'live-sync'
                         ? initialLiveSyncState({
                             status: action.liveDraftStatus === 'drafting' ? 'mirroring' : 'waiting',
                             draftStatus: action.liveDraftStatus || '',
@@ -417,7 +1147,7 @@
                             remotePickCount: prePicks.length,
                         })
                         : state.liveSync,
-                    stagedLiveOffers: state.mode === 'live-sync' ? [] : state.stagedLiveOffers,
+                    stagedLiveOffers: nextMode === 'live-sync' ? [] : state.stagedLiveOffers,
                 };
             }
 
@@ -699,6 +1429,11 @@
                 let missedPickCount = 0;
                 let lastPickNo = state.liveSync?.lastPickNo || 0;
                 const existingPickNos = new Set(picks.map(livePickNo).filter(Boolean));
+                const statusDuplicateCount = Number(action.status?.duplicateCount || 0);
+                const statusMissedCount = Number(action.status?.missedPickCount || 0);
+                const statusMissingPickNos = Array.isArray(action.status?.missingPickNos)
+                    ? action.status.missingPickNos.slice()
+                    : [];
 
                 incoming.forEach(item => {
                     const sleeperPick = item.sleeperPick || item.raw || item;
@@ -783,12 +1518,17 @@
                     ...(action.status || {}),
                     lastPickNo,
                     expectedPickNo: currentIdx + 1,
-                    duplicateCount: (state.liveSync?.duplicateCount || 0) + duplicateCount,
-                    missedPickCount: (state.liveSync?.missedPickCount || 0) + missedPickCount,
+                    duplicateCount: statusDuplicateCount + duplicateCount,
+                    missedPickCount: Math.max(statusMissedCount, missedPickCount),
+                    missingPickNos: statusMissingPickNos,
+                    remoteBehind: !!action.status?.remoteBehind,
                 };
                 if (missedPickCount > 0) {
                     statusPatch.status = 'stale';
                     statusPatch.stale = true;
+                    statusPatch.missingPickNos = statusPatch.missingPickNos.length
+                        ? statusPatch.missingPickNos
+                        : [currentIdx + 1];
                     statusPatch.error = 'Sleeper pick order skipped ahead. War Room paused rather than applying picks to the wrong slots.';
                 }
 
@@ -1108,32 +1848,42 @@
         const percentile = totals.length && rank > 0
             ? Math.round(((totals.length - rank) / Math.max(1, totals.length - 1)) * 100)
             : 0;
-        const ownerLearning = {};
-        picks.forEach(p => {
-            const key = String(p.rosterId ?? p.slot ?? 'unknown');
-            if (!ownerLearning[key]) {
-                ownerLearning[key] = {
-                    rosterId: p.rosterId ?? null,
-                    ownerName: p.ownerName || null,
-                    picks: 0,
-                    totalDHQ: 0,
-                    posCounts: {},
-                    earlyPositions: [],
-                    reaches: 0,
-                    steals: 0,
-                };
-            }
-            const row = ownerLearning[key];
-            row.picks += 1;
-            row.totalDHQ += pickDhq(p);
-            const pos = pickPos(p) || '?';
-            row.posCounts[pos] = (row.posCounts[pos] || 0) + 1;
-            if (Number(p.round || 0) <= 2) row.earlyPositions.push(pos);
-            if (p.consensusRank && Number(p.consensusRank) > Number(p.overall || 0) + 8) row.reaches += 1;
-            if (p.consensusRank && Number(p.consensusRank) < Number(p.overall || 0) - 8) row.steals += 1;
+        const positionSummaryMap = emptyPositionSummary();
+        myPicks.forEach(pick => addPickToPositionSummary(positionSummaryMap, pick));
+        const positionSummary = orderedPositionSummary(positionSummaryMap);
+        const myPickSnapshots = myPicks.map(pickSnapshot);
+        const bestPick = myPickSnapshots.slice().sort((a, b) => {
+            const av = (a.valueDelta || 0) * 120 + (a.dhq || 0);
+            const bv = (b.valueDelta || 0) * 120 + (b.dhq || 0);
+            return bv - av;
+        })[0] || null;
+        const biggestReach = myPickSnapshots
+            .filter(p => p.consensusRank && p.valueDelta < 0)
+            .sort((a, b) => a.valueDelta - b.valueDelta)[0] || null;
+        const bestAlternative = buildBestAlternative(state, myPicks, picks);
+        const missedTarget = buildMissedTarget(state, picks, userRosterId);
+        const tradeImpact = buildTradeImpact(state);
+        const teamRecaps = buildTeamRecaps(state, picks, leagueTotals);
+        const ownerLearning = buildOwnerLearning(teamRecaps);
+        const userTeam = teamRecaps.find(t => String(t.rosterId) === String(userRosterId)) || null;
+        const leagueStorylines = buildLeagueStorylines(teamRecaps, userRosterId);
+        const postDraftMoves = buildPostDraftMoves(state, {
+            userRosterId,
+            picks,
+            positionSummary,
+            teamRecaps,
+        });
+        const actionPlan = buildActionPlan(state, {
+            grade,
+            positionSummary,
+            bestAlternative,
+            missedTarget,
+            tradeImpact,
+            postDraftMoves,
+            userTeam,
         });
         return {
-            schemaVersion: 'draft-recap-v2',
+            schemaVersion: 'draft-recap-v3',
             id: opts.id || ('recap_' + Date.now()),
             leagueId: state?.leagueId || '',
             season: state?.season || new Date().getFullYear(),
@@ -1144,18 +1894,18 @@
             pct: grade.pct,
             rank: rank || null,
             percentile,
-            picks: myPicks.map(p => ({
-                round: p.round,
-                slot: p.slot,
-                overall: p.overall,
-                pickInRound: p.pickInRound || p.slot,
-                rosterId: p.rosterId,
-                pid: p.pid,
-                name: pickName(p),
-                pos: pickPos(p),
-                dhq: pickDhq(p),
-            })),
+            picks: myPickSnapshots,
+            positionSummary,
+            bestPick,
+            biggestReach,
+            bestAlternative,
+            missedTarget,
+            tradeImpact,
+            postDraftMoves,
+            actionPlan,
             leagueTotals,
+            teamRecaps,
+            leagueStorylines,
             ownerLearning,
             savedAt: Date.now(),
         };
@@ -1165,6 +1915,115 @@
         return 'wr_draft_owner_learning_' + (leagueId || 'default');
     }
 
+    function draftRecapArchiveKey(leagueId) {
+        return 'wr_draft_recap_archive_' + (leagueId || 'default');
+    }
+
+    function readStoredArray(key) {
+        if (typeof localStorage === 'undefined') return [];
+        try {
+            const raw = localStorage.getItem(key);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            if (window.wrLog) window.wrLog('draftState.readStoredArray', e);
+            return [];
+        }
+    }
+
+    function archiveDraftRecap(recap, opts = {}) {
+        if (!recap?.leagueId || typeof localStorage === 'undefined') return [];
+        try {
+            const key = draftRecapArchiveKey(recap.leagueId);
+            const existing = readStoredArray(key);
+            const id = recap.id || ('recap_' + (recap.savedAt || Date.now()));
+            const archived = {
+                ...recap,
+                id,
+                archivedAt: opts.archivedAt || Date.now(),
+            };
+            const next = [archived, ...existing.filter(row => row?.id !== id)]
+                .sort((a, b) => Number(b.savedAt || b.archivedAt || 0) - Number(a.savedAt || a.archivedAt || 0))
+                .slice(0, opts.limit || 25);
+            localStorage.setItem(key, JSON.stringify(next));
+            return next;
+        } catch (e) {
+            if (window.wrLog) window.wrLog('draftState.archiveRecap', e);
+            return [];
+        }
+    }
+
+    function listDraftRecaps(leagueId) {
+        const archive = readStoredArray(draftRecapArchiveKey(leagueId));
+        const learning = readStoredArray(draftLearningKey(leagueId));
+        const seen = new Set();
+        return archive.concat(learning)
+            .filter(recap => {
+                if (!recap) return false;
+                const id = recap.id || String(recap.savedAt || '');
+                if (!id || seen.has(id)) return false;
+                seen.add(id);
+                return true;
+            })
+            .map(recap => ({ ...recap, id: recap.id || ('recap_' + recap.savedAt) }))
+            .sort((a, b) => Number(b.savedAt || b.archivedAt || 0) - Number(a.savedAt || a.archivedAt || 0));
+    }
+
+    function deleteDraftRecap(leagueId, recapId) {
+        if (!leagueId || !recapId || typeof localStorage === 'undefined') return [];
+        const removeFrom = key => {
+            const next = readStoredArray(key).filter(recap => recap?.id !== recapId);
+            localStorage.setItem(key, JSON.stringify(next));
+            return next;
+        };
+        removeFrom(draftLearningKey(leagueId));
+        return removeFrom(draftRecapArchiveKey(leagueId));
+    }
+
+    function buildRecapLearningDefaults(leagueId, opts = {}) {
+        const recaps = listDraftRecaps(leagueId).filter(recap => !opts.variant || recap.variant === opts.variant);
+        const sample = recaps.slice(0, opts.limit || 8);
+        const base = opts.baseTuning || {};
+        const totals = sample.reduce((acc, recap) => {
+            acc.picks += (recap.picks || []).length;
+            acc.reaches += recap.biggestReach ? 1 : 0;
+            acc.trades += recap.tradeImpact?.count || 0;
+            acc.missedTargets += recap.missedTarget ? 1 : 0;
+            acc.needActions += (recap.actionPlan || []).filter(a => ['need_followup', 'waiver_followup', 'post_draft_trade_map'].includes(a.type)).length;
+            acc.percentile += Number(recap.percentile || 0);
+            Object.values(recap.ownerLearning || {}).forEach(learning => {
+                acc.ownerSignals += learning?.reasonCodes?.length || 0;
+            });
+            return acc;
+        }, { picks: 0, reaches: 0, trades: 0, missedTargets: 0, needActions: 0, percentile: 0, ownerSignals: 0 });
+        const sampleSize = sample.length;
+        const avgPercentile = sampleSize ? Math.round(totals.percentile / sampleSize) : 0;
+        const suggestedTuning = {
+            ownerDna: Math.max(0, Math.min(100, Number(base.ownerDna ?? 70) + (totals.ownerSignals ? 6 : 0))),
+            classValue: Math.max(0, Math.min(100, Number(base.classValue ?? 65) + (totals.reaches ? 7 : 0))),
+            needFit: Math.max(0, Math.min(100, Number(base.needFit ?? 60) + (totals.needActions ? 6 : 0))),
+            tradeActivity: Math.max(0, Math.min(100, Number(base.tradeActivity ?? 50) + (totals.trades ? 8 : 0))),
+            variance: Math.max(0, Math.min(100, Number(base.variance ?? 45) - (totals.reaches ? 4 : 0))),
+        };
+        const notes = [];
+        if (totals.ownerSignals) notes.push(`${totals.ownerSignals} owner-learning signals from prior draft recaps.`);
+        if (totals.reaches) notes.push('Prior recaps flagged reach risk; class-value discipline is lifted.');
+        if (totals.missedTargets) notes.push('Missed targets are feeding target-survival and trade-up pressure.');
+        if (totals.trades) notes.push('Accepted draft trades are increasing room trade activity.');
+        if (totals.needActions) notes.push('Post-draft need gaps are increasing roster-fit pressure.');
+        return {
+            schemaVersion: 'draft-recap-learning-v1',
+            leagueId,
+            variant: opts.variant || 'all',
+            sampleSize,
+            latestSavedAt: sample[0]?.savedAt || null,
+            avgPercentile,
+            suggestedTuning,
+            notes,
+            sourceRecapIds: sample.map(recap => recap.id).filter(Boolean),
+        };
+    }
+
     function saveDraftLearning(recap) {
         if (!recap?.leagueId || typeof localStorage === 'undefined') return null;
         try {
@@ -1172,8 +2031,34 @@
             const existing = raw ? JSON.parse(raw) : [];
             const next = [recap, ...(Array.isArray(existing) ? existing : [])].slice(0, 20);
             localStorage.setItem(draftLearningKey(recap.leagueId), JSON.stringify(next));
+            archiveDraftRecap(recap);
             if (window.App?.LI) {
                 window.App.LI.draftOutcomes = next;
+                const existingProfiles = window.App.LI.ownerBehaviorProfiles || {};
+                const nextProfiles = { ...existingProfiles };
+                Object.entries(recap.ownerLearning || {}).forEach(([rid, learning]) => {
+                    nextProfiles[rid] = {
+                        ...(nextProfiles[rid] || {}),
+                        draftRecapLearning: {
+                            rosterId: learning.rosterId,
+                            ownerName: learning.ownerName,
+                            lastDraftAt: recap.savedAt,
+                            recapId: recap.id,
+                            buildLabel: learning.buildLabel,
+                            grade: learning.grade,
+                            picks: learning.picks,
+                            totalDHQ: learning.totalDHQ,
+                            posCounts: learning.posCounts,
+                            earlyPositions: learning.earlyPositions,
+                            reaches: learning.reaches,
+                            steals: learning.steals,
+                            confidence: learning.confidence,
+                            reasonCodes: learning.reasonCodes,
+                        },
+                    };
+                });
+                window.App.LI.ownerBehaviorProfiles = nextProfiles;
+                window.App.LI.ownerDraftLearning = recap.ownerLearning || {};
             }
             return next;
         } catch (e) {
@@ -1187,8 +2072,51 @@
         if (typeof localStorage !== 'undefined') {
             localStorage.setItem(opts.key || ('wr_draft_recap_' + Date.now()), JSON.stringify(recap));
         }
+        archiveDraftRecap(recap);
         saveDraftLearning(recap);
         return recap;
+    }
+
+    function formatDraftShareReport(recap) {
+        const lines = [
+            '# War Room Draft Recap',
+            '',
+            `Grade: ${recap?.grade?.letter || '?'} | DHQ: ${Number(recap?.totalDHQ || 0).toLocaleString()} | League Rank: ${recap?.rank ? '#' + recap.rank : 'N/A'} | Percentile: ${Number(recap?.percentile || 0)}th`,
+            `Format: ${recap?.variant || 'draft'} | Season: ${recap?.season || ''}`,
+            '',
+            '## Executive Read',
+        ];
+        (recap?.leagueStorylines || []).slice(0, 4).forEach(line => lines.push('- ' + line));
+        if (recap?.bestPick) lines.push(`- Best pick: ${recap.bestPick.name} at #${recap.bestPick.overall}.`);
+        if (recap?.missedTarget) lines.push(`- Missed target: ${recap.missedTarget.name} went to ${recap.missedTarget.takenBy} at #${recap.missedTarget.overall}.`);
+        if (recap?.tradeImpact?.summary) lines.push(`- Trade impact: ${recap.tradeImpact.summary}`);
+        lines.push('', '## Action Plan');
+        (recap?.actionPlan || []).forEach((item, i) => {
+            lines.push(`${i + 1}. ${item.title}: ${item.detail}`);
+        });
+        const moves = recap?.postDraftMoves || {};
+        if (moves.waiverTargets?.length || moves.tradeTargets?.length || moves.cutCandidates?.length) {
+            lines.push('', '## Next Moves');
+            if (moves.waiverTargets?.length) {
+                lines.push('Waiver watchlist: ' + moves.waiverTargets.slice(0, 5).map(p => `${p.name} (${p.pos}, ${Number(p.dhq || 0).toLocaleString()} DHQ)`).join('; '));
+            }
+            if (moves.tradeTargets?.length) {
+                lines.push('Trade map: ' + moves.tradeTargets.slice(0, 5).map(t => `${t.teamName} for ${t.pos} (${t.player?.name || 'new pick'})`).join('; '));
+            }
+            if (moves.cutCandidates?.length) {
+                lines.push('Cut review: ' + moves.cutCandidates.slice(0, 4).map(p => `${p.name}${p.pos ? ' (' + p.pos + ')' : ''}`).join('; '));
+            }
+        }
+        lines.push('', '## Team Grades');
+        (recap?.teamRecaps || []).slice(0, 12).forEach(team => {
+            lines.push(`- #${team.rank} ${team.teamName}: ${team.grade}, ${Number(team.totalDHQ || 0).toLocaleString()} DHQ, ${team.buildLabel}`);
+        });
+        lines.push('', '## Owner Learning Signals');
+        Object.values(recap?.ownerLearning || {}).slice(0, 12).forEach(learning => {
+            const signals = (learning.signals || []).slice(0, 3).join('; ') || 'No strong signal.';
+            lines.push(`- ${learning.ownerName || 'Team ' + learning.rosterId}: ${signals}`);
+        });
+        return lines.join('\n');
     }
 
     function formatDraftRecapText(recap) {
@@ -1196,12 +2124,45 @@
             'Draft Recap - ' + (recap?.grade?.letter || '?') + ' (' + Number(recap?.totalDHQ || 0).toLocaleString() + ' DHQ, ' + Number(recap?.pct || 0) + '% value)',
             '',
         ];
+        if (recap?.rank) {
+            lines.push('League rank: #' + recap.rank + ' · ' + recap.percentile + 'th percentile by draft DHQ');
+            lines.push('');
+        }
+        if (recap?.bestPick) {
+            lines.push('Best pick: ' + recap.bestPick.name + ' at #' + recap.bestPick.overall + ' (' + Number(recap.bestPick.dhq || 0).toLocaleString() + ' DHQ)');
+        }
+        if (recap?.biggestReach) {
+            lines.push('Biggest reach: ' + recap.biggestReach.name + ' at #' + recap.biggestReach.overall + ' (' + Math.abs(Number(recap.biggestReach.valueDelta || 0)) + ' picks early)');
+        }
+        if (recap?.missedTarget) {
+            lines.push('Missed target: ' + recap.missedTarget.name + ' to ' + recap.missedTarget.takenBy + ' at #' + recap.missedTarget.overall);
+        }
+        if (recap?.tradeImpact?.summary) {
+            lines.push('Trade impact: ' + recap.tradeImpact.summary);
+        }
+        if (recap?.actionPlan?.length) {
+            lines.push('');
+            lines.push('Action plan:');
+            recap.actionPlan.forEach((item, i) => {
+                lines.push('  ' + (i + 1) + '. ' + item.title + ' - ' + item.detail);
+            });
+        }
+        if (recap?.leagueStorylines?.length) {
+            lines.push('');
+            lines.push('League recap:');
+            recap.leagueStorylines.forEach(item => lines.push('  - ' + item));
+        }
+        lines.push('');
+        lines.push('Your draft class:');
         (recap?.picks || []).forEach((pk, i) => {
             lines.push('  ' + (i + 1) + '. ' + (pk.name || pk.pid) + ' - ' + (pk.pos || '?') + ' · ' + Number(pk.dhq || 0).toLocaleString() + ' DHQ');
         });
-        if (recap?.rank) {
+        if (recap?.teamRecaps?.length) {
             lines.push('');
-            lines.push('League rank: #' + recap.rank + ' · ' + recap.percentile + 'th percentile by draft DHQ');
+            lines.push('Team grades:');
+            recap.teamRecaps.slice(0, 12).forEach(team => {
+                lines.push('  #' + team.rank + ' ' + team.teamName + ' - ' + team.grade + ' · ' + Number(team.totalDHQ || 0).toLocaleString() + ' DHQ · ' + team.buildLabel);
+            });
         }
         return lines.join('\n');
     }
@@ -1224,6 +2185,13 @@
     window.DraftCC.state = {
         DRAFT_STATE_VERSION,
         LS_KEY,
+        DEFAULT_DRAFT_TUNING,
+        draftStrategyStudioKey,
+        getDraftStrategyPresets,
+        buildDraftStrategyProfile,
+        loadDraftStrategyProfile,
+        saveDraftStrategyProfile,
+        applyDraftStrategyProfileToTuning,
         initialDraftState,
         buildPool,
         buildPickOrder,
@@ -1238,7 +2206,12 @@
         buildDraftRecap,
         saveDraftRecap,
         saveDraftLearning,
+        archiveDraftRecap,
+        listDraftRecaps,
+        deleteDraftRecap,
+        buildRecapLearningDefaults,
         formatDraftRecapText,
+        formatDraftShareReport,
         getEffectivePlayers,
         getFaabDelta,
     };

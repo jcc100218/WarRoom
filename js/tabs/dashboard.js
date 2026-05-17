@@ -63,6 +63,24 @@ const WIDGET_MODULES = {
         sizes: ['sm', 'md', 'lg', 'tall', 'xl', 'xxl'],
         clickTarget: { sm: 'analytics', md: 'analytics' },
     },
+    'league-standings': {
+        label: 'League Standings',
+        icon: '📊',
+        description: 'Current records, DHQ, and roster strength by team',
+        accent: () => T().color?.('accent') || '#D4AF37',
+        metrics: [],
+        sizes: ['md', 'lg'],
+        clickTarget: { md: 'analytics' },
+    },
+    'transaction-ticker': {
+        label: 'Transaction Ticker',
+        icon: '📰',
+        description: 'Recent adds, drops, waivers, and trade drill-ins',
+        accent: () => T().color?.('info') || '#3498DB',
+        metrics: [],
+        sizes: ['md', 'lg'],
+        clickTarget: {},
+    },
     'market-radar': {
         label: 'Market Radar',
         icon: '📡',
@@ -681,7 +699,89 @@ function DashboardPanel({
     // TRANSACTION TICKER
     // ══════════════════════════════════════════════════════════════
     function renderTransactionTicker(size) {
-        const visibleTransactions = (transactions || []).slice(0, size === 'lg' ? 8 : 5);
+        const transactionLimit = size === 'lg' ? 8 : 5;
+        let visibleTransactions = (transactions || []).slice(0, transactionLimit);
+        if (size === 'lg' && !visibleTransactions.some(t => t.type === 'trade')) {
+            const firstTrade = (transactions || []).find(t => t.type === 'trade');
+            if (firstTrade && !visibleTransactions.includes(firstTrade)) {
+                visibleTransactions = [...visibleTransactions.slice(0, transactionLimit - 1), firstTrade];
+            }
+        }
+        function openTickerPlayer(pid) {
+            if (!pid) return;
+            if (window.WR?.openPlayerCard) {
+                window.WR.openPlayerCard(pid);
+                return;
+            }
+            if (typeof window._wrSelectPlayer === 'function') {
+                window._wrSelectPlayer(pid);
+                return;
+            }
+            if (typeof window.openPlayerModal === 'function') {
+                window.openPlayerModal(pid);
+            }
+        }
+        function tickerPlayerProps(pid) {
+            return {
+                role: 'button',
+                tabIndex: 0,
+                title: 'Open player card',
+                onClick: e => { e.stopPropagation(); openTickerPlayer(pid); },
+                onKeyDown: e => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openTickerPlayer(pid);
+                },
+            };
+        }
+        function buildTickerTradeContext(txn) {
+            const rosterIds = txn?.roster_ids || [];
+            const owners = rosterIds.map(rid => ({ rosterId: rid, name: getOwnerName(rid) || ('Team ' + rid) }));
+            const adds = Object.keys(txn?.adds || {}).map(pid => ({ pid, name: getPlayerName(pid) }));
+            const drops = Object.keys(txn?.drops || {}).map(pid => ({ pid, name: getPlayerName(pid) }));
+            const pickCount = txn?.draft_picks?.length || 0;
+            const assetSummary = [
+                adds.length ? adds.slice(0, 3).map(p => '+' + p.name).join(', ') : null,
+                drops.length ? drops.slice(0, 3).map(p => '-' + p.name).join(', ') : null,
+                pickCount ? pickCount + ' pick' + (pickCount === 1 ? '' : 's') : null,
+            ].filter(Boolean).join(' | ');
+            return {
+                context: 'transaction_ticker_trade',
+                transactionId: txn?.transaction_id || txn?.transactionId || txn?.created || null,
+                created: txn?.created || null,
+                rosterIds,
+                owners,
+                adds,
+                drops,
+                pickCount,
+                summary: owners.map(o => o.name).join(' vs ') + (assetSummary ? ': ' + assetSummary : ''),
+                transaction: txn,
+            };
+        }
+        function openTickerTrade(txn) {
+            if (txn?.type !== 'trade') return;
+            const detail = buildTickerTradeContext(txn);
+            window._wrTradeContext = detail;
+            try { window.dispatchEvent(new CustomEvent('wr:open-trade-context', { detail })); } catch (_) {}
+            if (navigateWidget) navigateWidget('trades');
+            else if (setActiveTab) setActiveTab('trades');
+            else if (typeof window.wrNavigateTab === 'function') window.wrNavigateTab('trades');
+        }
+        function tickerTradeProps(txn) {
+            if (txn?.type !== 'trade') return {};
+            return {
+                role: 'button',
+                tabIndex: 0,
+                title: 'Open trade context',
+                onClick: () => openTickerTrade(txn),
+                onKeyDown: e => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault();
+                    openTickerTrade(txn);
+                },
+            };
+        }
         return (
             <div style={{ ...cardBase, padding: 'var(--card-pad, 14px 16px)', maxHeight: size === 'lg' ? '100%' : '300px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ fontFamily: rajFont, fontSize: '0.9rem', fontWeight: 700, color: '#34D399', letterSpacing: '0.07em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -690,7 +790,7 @@ function DashboardPanel({
                 {(!transactions || transactions.length === 0) ? (
                     <SkeletonRows count={6} />
                 ) : visibleTransactions.map((txn, ti) => (
-                    <div key={ti} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div key={ti} {...tickerTradeProps(txn)} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: txn.type === 'trade' ? 'pointer' : 'default', outline: 'none' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.65rem', color: S, opacity: 0.55, minWidth: '36px' }}>{timeAgo(txn.created)}</span>
                             <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '1px 5px', borderRadius: '3px',
@@ -705,12 +805,15 @@ function DashboardPanel({
                         <div style={{ fontSize: '0.72rem', color: W, paddingLeft: '42px' }}>
                             {Object.keys(txn.adds || {}).map(pid => (
                                 <span key={'a'+pid} style={{ color: '#2ECC71', cursor: 'pointer', marginRight: '5px' }}
-                                    onClick={() => window._wrSelectPlayer?.(pid)}>
+                                    {...tickerPlayerProps(pid)}>
                                     +{getPlayerName(pid)}
                                 </span>
                             ))}
                             {Object.keys(txn.drops || {}).map(pid => (
-                                <span key={'d'+pid} style={{ color: '#E74C3C', marginRight: '5px' }}>-{getPlayerName(pid)}</span>
+                                <span key={'d'+pid} style={{ color: '#E74C3C', cursor: 'pointer', marginRight: '5px' }}
+                                    {...tickerPlayerProps(pid)}>
+                                    -{getPlayerName(pid)}
+                                </span>
                             ))}
                             {txn.settings?.waiver_bid > 0 && <span style={{ color: '#F0A500', marginLeft: '2px' }}>${txn.settings.waiver_bid}</span>}
                             {txn.type === 'trade' && txn.draft_picks?.length > 0 && (
@@ -814,6 +917,9 @@ function DashboardPanel({
         return (
             <div
                 className="wr-widget"
+                data-widget-id={widget.id || ''}
+                data-widget-key={widget.key || ''}
+                data-widget-size={widget.size || ''}
                 draggable
                 onDragStart={e => { setDragIdx(idx); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(idx)); }}
                 onDragOver={e => e.preventDefault()}

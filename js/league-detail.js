@@ -1491,7 +1491,12 @@
                     });
                     window.S.transactions = txnsByWeek;
                 }
-                setTransactions(allTxns.slice(0, 50));
+                let visibleTxns = allTxns.slice(0, 50);
+                if (!visibleTxns.some(t => t.type === 'trade')) {
+                    const firstTrade = allTxns.find(t => t.type === 'trade');
+                    if (firstTrade) visibleTxns = [...visibleTxns.slice(0, 49), firstTrade];
+                }
+                setTransactions(visibleTxns);
 
                 // Trending — if the provider supplied it (Sleeper), use that;
                 // otherwise fall back to Sleeper's global trending endpoint
@@ -2847,6 +2852,7 @@
                     timeRecomputeTs={timeRecomputeTs}
                     setTimeRecomputeTs={setTimeRecomputeTs}
                     getAcquisitionInfo={getAcquisitionInfo}
+                    setActiveTab={setActiveTab}
                 /> : activeTab === 'analytics' ? <AnalyticsPanel
                     analyticsData={analyticsData}
                     analyticsTab={analyticsTab}

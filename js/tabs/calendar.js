@@ -6,7 +6,7 @@
 
 function CalendarTab({ currentLeague, myRoster }) {
     const { useState, useMemo } = React;
-    const leagueId = currentLeague?.id || '';
+    const leagueId = currentLeague?.id || currentLeague?.league_id || '';
     const EVENTS_KEY = 'wr_calendar_' + leagueId;
 
     const [customEvents, setCustomEvents] = useState(() => {
@@ -178,7 +178,7 @@ function CalendarTab({ currentLeague, myRoster }) {
         // Header with Add button
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '12px' } },
             React.createElement('div', { style: { ...headerStyle, flex: 1 } }, 'LEAGUE CALENDAR'),
-            React.createElement('button', { onClick: () => setShowAdd(!showAdd), style: { background: 'none', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--gold)', fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' } }, showAdd ? 'Cancel' : '+ Add Event'),
+            React.createElement('button', { title: 'Add custom calendar event', onClick: () => setShowAdd(!showAdd), style: { background: 'none', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '6px', color: 'var(--gold)', fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' } }, showAdd ? 'Cancel' : '+ Add Event'),
         ),
 
         // Add event form
@@ -212,7 +212,7 @@ function CalendarTab({ currentLeague, myRoster }) {
                             ),
                             // Countdown or delete
                             countdown && React.createElement('span', { style: { fontSize: '0.72rem', fontWeight: 700, color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 } }, countdown),
-                            event.isCustom && React.createElement('button', { onClick: () => removeEvent(event.id), style: { background: 'none', border: 'none', color: 'var(--silver)', cursor: 'pointer', fontSize: '0.9rem', padding: '4px', flexShrink: 0, opacity: 0.5 } }, '\u2715'),
+                            event.isCustom && React.createElement('button', { title: 'Remove custom calendar event', onClick: () => removeEvent(event.id), style: { background: 'none', border: 'none', color: 'var(--silver)', cursor: 'pointer', fontSize: '0.9rem', padding: '4px', flexShrink: 0, opacity: 0.5 } }, '\u2715'),
                         );
                     })
                 ),

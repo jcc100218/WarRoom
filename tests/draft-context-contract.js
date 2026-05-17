@@ -235,6 +235,25 @@ test('buildBoardContext seeds My Board from AI when no manual board exists', () 
   eq(board.canSeedMyBoardFromAi, true, 'can seed flag');
 });
 
+test('AI board regenerates from current value context and does not float low-DHQ players to the top', () => {
+  ctx.App.WrStorage.set(ctx.App.WR_KEYS.BIGBOARD_DRAFT('L2B', 'rookie'), {
+    aiOrder: ['low', 'elite'],
+    activeLane: 'ai',
+  });
+  const board = ctx.DraftCC.context.buildBoardContext({
+    leagueId: 'L2B',
+    draftType: 'rookie',
+    currentLeague: league,
+    pool: [
+      { pid: 'elite', name: 'Elite WR', pos: 'WR', dhq: 6200, age: 22, tier: 1 },
+      { pid: 'low', name: 'Need LB', pos: 'LB', dhq: 1450, age: 22, tier: 1 },
+    ],
+    userAssessment: { needs: [{ pos: 'LB', urgency: 'deficit' }] },
+  });
+  eq(board.lanes.ai.order[0], 'elite', 'high-DHQ player remains AI board leader');
+  ok(board.entries.low.aiRank > board.entries.elite.aiRank, 'low-DHQ need fit stays below top value');
+});
+
 test('draft-type board storage overrides legacy board without losing fallback data', () => {
   ctx.App.WrStorage.set(ctx.App.WR_KEYS.BIGBOARD('L3'), {
     notes: { p1: 'legacy note' },

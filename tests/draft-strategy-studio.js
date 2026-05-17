@@ -1,0 +1,158 @@
+#!/usr/bin/env node
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const ROOT = path.join(__dirname, '..');
+
+let passed = 0;
+let failed = 0;
+const failures = [];
+
+function test(name, fn) {
+  try {
+    fn();
+    passed++;
+    process.stdout.write('.');
+  } catch (err) {
+    failed++;
+    failures.push(`  FAIL: ${name}\n        ${err.message}`);
+    process.stdout.write('F');
+  }
+}
+
+function ok(value, label) {
+  if (!value) throw new Error(label || 'expected truthy value');
+}
+
+function eq(actual, expected, label) {
+  if (actual !== expected) {
+    throw new Error(`${label || 'mismatch'}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+function makeStorage() {
+  const store = {};
+  return {
+    getItem: k => Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null,
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: k => { delete store[k]; },
+    clear: () => { Object.keys(store).forEach(k => delete store[k]); },
+    _store: store,
+  };
+}
+
+function buildCtx() {
+  const localStorage = makeStorage();
+  const ctx = {
+    console,
+    Math,
+    Number,
+    String,
+    Array,
+    Object,
+    Set,
+    Map,
+    Date,
+    JSON,
+    localStorage,
+    wrLog: () => {},
+    window: null,
+  };
+  ctx.window = ctx;
+  ctx.DraftCC = {};
+  ctx.WR = {
+    GmMode: {
+      getMode: () => 'win_now',
+    },
+  };
+  return vm.createContext(ctx);
+}
+
+function load(ctx, relPath) {
+  const source = fs.readFileSync(path.join(ROOT, relPath), 'utf8');
+  vm.runInContext(source, ctx, { filename: relPath });
+}
+
+const ctx = buildCtx();
+load(ctx, 'js/draft/state.js');
+const state = ctx.DraftCC.state;
+
+console.log('\nWar Room draft strategy studio contract');
+
+test('strategy studio exposes first-class mock presets', () => {
+  const presets = state.getDraftStrategyPresets();
+  const visible = presets.filter(p => !p.hidden);
+  eq(visible.length, 3, 'three smart templates visible');
+  ok(visible.some(p => p.id === 'front-office-blend'), 'league blend preset');
+  ok(visible.some(p => p.id === 'owner-dna-mirror'), 'owner DNA preset');
+  ok(visible.some(p => p.id === 'class-scout'), 'board scout preset');
+  ok(presets.some(p => p.id === 'no-trades' && p.hidden), 'no trades preset stays available for saved profiles');
+});
+
+test('buildDraftStrategyProfile blends GM mode and recap learning', () => {
+  const profile = state.buildDraftStrategyProfile({
+    leagueId: 'L1',
+    presetId: 'front-office-blend',
+    gmMode: 'win_now',
+    recapLearning: {
+      sampleSize: 2,
+      suggestedTuning: { ownerDna: 90, classValue: 80, needFit: 90, tradeActivity: 70, variance: 20 },
+    },
+  });
+  eq(profile.schemaVersion, 'draft-strategy-profile-v1', 'schema');
+  eq(profile.gmMode, 'win_now', 'gm mode');
+  ok(profile.tuning.needFit > 70, 'win-now need fit lifted');
+  ok(profile.tuning.tradeActivity > 55, 'trade activity lifted');
+  eq(profile.aiSignals.tradeMode, 'normal', 'signal label');
+});
+
+test('no-trades preset hard-locks trade activity', () => {
+  const profile = state.buildDraftStrategyProfile({
+    leagueId: 'L1',
+    presetId: 'no-trades',
+    gmMode: 'win_now',
+    recapLearning: {
+      sampleSize: 1,
+      suggestedTuning: { tradeActivity: 100 },
+    },
+    tuning: { tradeActivity: 100 },
+  });
+  eq(profile.tuning.tradeActivity, 0, 'trade activity locked');
+  eq(profile.aiSignals.tradeMode, 'off', 'trade signal off');
+});
+
+test('saved draft strategy profile round-trips by league', () => {
+  const profile = state.buildDraftStrategyProfile({
+    leagueId: 'L1',
+    presetId: 'custom-studio',
+    tuning: { ownerDna: 81, classValue: 44, needFit: 73, tradeActivity: 12, variance: 9 },
+    label: 'Custom Studio',
+  });
+  const saved = state.saveDraftStrategyProfile('L1', profile);
+  ok(saved.saved, 'saved flag');
+  const loaded = state.loadDraftStrategyProfile('L1');
+  eq(loaded.leagueId, 'L1', 'league id');
+  eq(loaded.presetId, 'custom-studio', 'preset id');
+  eq(loaded.tuning.ownerDna, 81, 'owner DNA');
+  eq(loaded.tuning.tradeActivity, 12, 'trade activity');
+});
+
+test('initial draft state can carry strategy profile tuning', () => {
+  const profile = state.loadDraftStrategyProfile('L1');
+  const tuning = state.applyDraftStrategyProfileToTuning(profile, state.DEFAULT_DRAFT_TUNING);
+  const draftState = state.initialDraftState({ leagueId: 'L1', draftTuning: tuning, strategyProfile: profile });
+  eq(draftState.strategyProfile.presetId, 'custom-studio', 'profile carried');
+  eq(draftState.draftTuning.needFit, 73, 'tuning applied');
+});
+
+console.log('\n');
+if (failures.length) {
+  console.log(failures.join('\n'));
+  console.log('');
+}
+
+console.log(`${failed ? 'FAIL' : 'PASS'} ${passed + failed} tests - ${passed} passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);

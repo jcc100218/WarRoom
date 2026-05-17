@@ -370,7 +370,7 @@
                         const pct = (p.dhq / max) * 100;
                         const col = p.dhq >= 5000 ? colors.positive : p.dhq >= 2000 ? colors.accent : colors.textMuted;
                         return (
-                            <div key={p.pid} onClick={() => { if (typeof window.openPlayerModal === 'function' && p.pid) window.openPlayerModal(p.pid); }} style={{
+                            <div key={p.pid} role="button" tabIndex={0} title="Open player card" onClick={() => { if (typeof window.openPlayerModal === 'function' && p.pid) window.openPlayerModal(p.pid); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (typeof window.openPlayerModal === 'function' && p.pid) window.openPlayerModal(p.pid); } }} style={{
                                 display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
                                 padding: '2px 0',
                             }}>
@@ -446,7 +446,7 @@
                                 <span style={{ fontSize: fs(0.54), color: colors.textFaint, fontFamily: fonts.ui }}>{players.length}</span>
                             </div>
                             {players.map((pl, i) => (
-                                <div key={pl.pid} onClick={() => onPlayerClick(pl.pid)} style={{
+                                <div key={pl.pid} role="button" tabIndex={0} title="Open player card" onClick={() => onPlayerClick(pl.pid)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlayerClick(pl.pid); } }} style={{
                                     display: 'flex', alignItems: 'center', gap: '4px',
                                     cursor: 'pointer', padding: '1px 0',
                                     borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',

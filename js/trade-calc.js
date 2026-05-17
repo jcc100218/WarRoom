@@ -453,6 +453,7 @@
         const [selectedDealPartnerId, setSelectedDealPartnerId] = useState(null);
         const [dealHqNotice, setDealHqNotice] = useState(null);
         const [showAllDeals, setShowAllDeals] = useState(false);
+        const [tradeContext, setTradeContext] = useState(() => window._wrTradeContext || null);
         useEffect(() => {
             if (!initialSubTab) return;
             if (initialSubTab === 'finder') {
@@ -596,6 +597,37 @@
         }, [leagueId, allRosters.length]);
 
         function ownerNameForRosterId(rid) { const r = allRosters.find(x => String(x.roster_id) === String(rid)); if (!r) return null; const u = leagueUsers.find(x => x.user_id === r.owner_id); return u?.display_name || null; }
+
+        useEffect(() => {
+            const openTradeContext = (event) => {
+                const next = event?.detail || window._wrTradeContext || null;
+                if (!next) return;
+                setTradeContext(next);
+                setTcTab('dealhq');
+                const partnerRid = (next.rosterIds || []).find(rid => String(rid) !== String(myRoster?.roster_id));
+                const partnerRoster = allRosters.find(r => String(r.roster_id) === String(partnerRid));
+                if (partnerRoster?.owner_id) setSelectedDealPartnerId(partnerRoster.owner_id);
+            };
+            window.addEventListener('wr:open-trade-context', openTradeContext);
+            openTradeContext({ detail: window._wrTradeContext });
+            return () => window.removeEventListener('wr:open-trade-context', openTradeContext);
+        }, [allRosters.length, myRoster?.roster_id]);
+
+        function clearTradeContext() {
+            window._wrTradeContext = null;
+            setTradeContext(null);
+        }
+
+        function formatTradeContextSummary(ctx) {
+            if (!ctx) return '';
+            if (ctx.summary) return ctx.summary;
+            const ownerNames = (ctx.rosterIds || []).map(rid => ownerNameForRosterId(rid) || ('Team ' + rid)).join(' vs ');
+            const addNames = Object.keys(ctx.transaction?.adds || {}).map(pid => '+' + (playersData[pid]?.full_name || pid)).slice(0, 3);
+            const dropNames = Object.keys(ctx.transaction?.drops || {}).map(pid => '-' + (playersData[pid]?.full_name || pid)).slice(0, 3);
+            const pickCount = ctx.transaction?.draft_picks?.length || ctx.pickCount || 0;
+            const assets = [...addNames, ...dropNames, pickCount ? pickCount + ' pick' + (pickCount === 1 ? '' : 's') : null].filter(Boolean).join(', ');
+            return ownerNames + (assets ? ': ' + assets : '');
+        }
 
         // Compute WEEKLY_TARGET
         const wt = useMemo(() => {
@@ -2943,6 +2975,16 @@
                     </div>
                     </div>
                 </div>
+                {tradeContext && (
+                    <div className="trade-context-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.24)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
+                        <div style={{ minWidth: 0 }}>
+                            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--gold)', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Trade Context</span>
+                            <strong style={{ display: 'block', color: 'var(--white)', fontSize: '0.9rem', fontFamily: 'Rajdhani, sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Opened from transaction ticker</strong>
+                            <em style={{ display: 'block', color: 'var(--silver)', fontSize: '0.74rem', fontStyle: 'normal' }}>{formatTradeContextSummary(tradeContext) || 'Use this deal as context while evaluating partner fit and packages.'}</em>
+                        </div>
+                        <button type="button" onClick={clearTradeContext} style={{ background: 'transparent', border: '1px solid rgba(212,175,55,0.32)', borderRadius: '4px', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '0.72rem', padding: '4px 10px', textTransform: 'uppercase' }}>Clear</button>
+                    </div>
+                )}
                 {_activeTcTab === 'dealhq' && (canAccess('trade-finder') ? renderDealHQ() : React.createElement(UpgradeGate, { feature:'trade-finder', title:'UNLOCK DEAL HQ', description:'Generate advisory trade packages with partner fit, owner psychology, pick capital, FAAB, and roster impact.', targetTier:'warroom' }))}
                 {_activeTcTab === 'profiles' && (canAccess('owner-dna') ? renderOwnerDna() : React.createElement(UpgradeGate, { feature:'owner-dna', title:'UNLOCK OWNER DNA', description:'Profile every manager\'s trading psychology. Know who\'s a Fleecer, who\'s Desperate, and exactly how to approach each trade conversation.', targetTier:'warroom' }))}
                 {_activeTcTab === 'analyzer' && renderTradeAnalyzer()}

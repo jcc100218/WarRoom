@@ -458,6 +458,7 @@
 
   <footer class="footer">&copy; 2026 Dynasty HQ &middot; All rights reserved</footer>
 
+  <script src="js/landing-content.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.101.1/dist/umd/supabase.min.js"></script>
   <script>
     const FW_API_BASE = 'https://sxshiqyxhhifvtfqawbq.supabase.co/functions/v1';
@@ -465,6 +466,7 @@
     const SUPABASE_URL = 'https://sxshiqyxhhifvtfqawbq.supabase.co';
     const SESSION_KEY = 'fw_session_v1';
     const SCOUT_URL = 'https://jcc100218.github.io/ReconAI/';
+    const LANDING_EDITOR_PREVIEW = new URLSearchParams(window.location.search).has('landingPreview');
 
     // ── OAuth sign-in helpers ────────────────────────────────────
     // Providers must be enabled in Supabase Dashboard:
@@ -507,6 +509,7 @@
     }
     function trackLandingEvent(eventName, metadata = {}) {
       try {
+        if (LANDING_EDITOR_PREVIEW) return;
         const db = getSbClient();
         if (!db || !eventName) return;
         db.from('analytics_events').insert([{
@@ -566,6 +569,7 @@
     // Handle OAuth redirect: if Supabase returns a session via hash, store it and redirect
     (async function handleOAuthCallback() {
       try {
+        if (LANDING_EDITOR_PREVIEW) return;
         const db = getSbClient();
         if (!db) return;
         const { data } = await db.auth.getSession();
@@ -592,6 +596,7 @@
     // Redirect if already signed in
     (function checkSession() {
       try {
+        if (LANDING_EDITOR_PREVIEW) return;
         const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
         if (s?.token && s?.user) {
           trackLandingEvent('landing_existing_session_redirected');

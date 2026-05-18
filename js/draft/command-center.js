@@ -184,7 +184,7 @@
         };
     }
 
-    function DraftCommandCenter({ playersData, myRoster, currentLeague, draftRounds: propRounds, forcedMode }) {
+    function DraftCommandCenter({ playersData, myRoster, currentLeague, draftRounds: propRounds, forcedMode, autoStartLiveToken }) {
         const stateFns = window.DraftCC.state;
 
         // Phase 5+: mount-time fetch for the league's drafts so upcomingSettings
@@ -494,6 +494,7 @@
             if (state.phase !== 'drafting') return;
             if (state.mode === 'live-sync') return; // Live sync: picks come from Sleeper poll, not AI
             if (state.mode === 'manual') return; // Manual mode: user records every pick
+            if (state.activeOffer) return;
             if (isUserTurn) return;
             if (isDone) return;
             if (state.speed === 'paused') return;
@@ -1098,6 +1099,27 @@
             currentLeague,
         ]);
 
+        const liveAutoStartedRef = React.useRef('');
+        React.useEffect(() => {
+            if (forcedMode !== 'live-sync') return;
+            if (!autoStartLiveToken) return;
+            if (state.phase !== 'setup') return;
+            if (!Array.isArray(fetchedDrafts)) return;
+            const liveDraft = fetchedDrafts
+                .filter(d => d.status === 'drafting' || d.status === 'pre_draft')
+                .sort((a, b) => {
+                    if (a.status !== b.status) return a.status === 'drafting' ? -1 : 1;
+                    return (a.start_time || Infinity) - (b.start_time || Infinity);
+                })[0];
+            if (!liveDraft?.draft_id) return;
+            const key = autoStartLiveToken + ':' + liveDraft.draft_id;
+            if (liveAutoStartedRef.current === key) return;
+            liveAutoStartedRef.current = key;
+            const patch = liveDraftSetupPatch(liveDraft);
+            dispatch({ type: 'SETUP_CHANGE', payload: patch });
+            onStartDraft(patch);
+        }, [forcedMode, autoStartLiveToken, state.phase, fetchedDrafts, onStartDraft]);
+
         // ── Phase 2: predictions refresh ────────────────────────────
         // Recompute willReach / willPassOn / likelyPick for every persona
         // at the start of each round. Cached per round in draftState.personas[rid].predictions.
@@ -1253,12 +1275,22 @@
         const ownedPreview = previewOrder.filter(p => Number(p.rosterId) === Number(state.userRosterId)).slice(0, 6);
         const userPickPreview = ownedPreview.length ? ownedPreview : previewOrder.filter(p => Number(p.slot) === Number(state.userSlot)).slice(0, 6);
         const slotOwner = draftMeta.slotToRoster?.[state.userSlot]?.ownerName || (state.userSlot === draftMeta.mySlot ? 'You' : 'Team ' + state.userSlot);
-        const fallbackPickPreview = Array.from({ length: Math.min(6, state.rounds || 0) }, (_, i) => {
-            const round = i + 1;
-            const slot = state.draftType === 'snake' && round % 2 === 0 ? state.leagueSize - state.userSlot + 1 : state.userSlot;
-            return { round, slot, overall: ((round - 1) * state.leagueSize) + slot, ownerName: slotOwner, traded: false };
-        });
-        const pickPreviewRows = userPickPreview.length ? userPickPreview : fallbackPickPreview;
+	        const fallbackPickPreview = Array.from({ length: Math.min(6, state.rounds || 0) }, (_, i) => {
+	            const round = i + 1;
+	            const slot = state.draftType === 'snake' && round % 2 === 0 ? state.leagueSize - state.userSlot + 1 : state.userSlot;
+	            const overall = ((round - 1) * state.leagueSize) + slot;
+	            const pickValue = window.DraftCC?.state?.resolveDraftPickValue?.({
+	                season: window.S?.season,
+	                round,
+	                slot,
+	                overall,
+	                leagueSize: state.leagueSize,
+	                rounds: state.rounds,
+	            });
+	            return { round, slot, overall, value: pickValue?.value || 0, ownerName: slotOwner, traded: false };
+	        });
+	        const pickPreviewRows = userPickPreview.length ? userPickPreview : fallbackPickPreview;
+	        const fmtDhqValue = n => Number(n || 0) > 0 ? Number(n || 0).toLocaleString() + ' DHQ' : 'value pending';
         const variantLabels = {
             startup: 'Dynasty Start Up pool',
             rookie: 'Rookie pool',
@@ -1372,20 +1404,39 @@
 
                 {forcedMode === 'live-sync' ? (
                     <section className="draft-setup-panel draft-live-only-picker" style={{ borderColor: 'rgba(124,107,248,0.26)' }}>
-                        <LiveSyncDraftPicker state={state} update={update} leagueId={state.leagueId} />
-                        <button
-                            type="button"
-                            className="draft-setup-start"
-                            onClick={() => onStartDraft()}
-                            disabled={!state.sleeperDraftId}
-                            style={{
-                                background: state.sleeperDraftId ? '#9b8afb' : 'rgba(155,138,251,0.24)',
-                                color: '#fff',
-                                borderColor: state.sleeperDraftId ? '#9b8afb' : 'rgba(155,138,251,0.24)',
-                            }}
-                        >
-                            FOLLOW SELECTED DRAFT
-                        </button>
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'minmax(0, 1fr) auto',
+                            gap: '16px',
+                            alignItems: 'center',
+                            padding: '4px 2px 14px',
+                            borderBottom: '1px solid rgba(255,255,255,0.06)',
+                            marginBottom: '14px',
+                        }}>
+                            <div>
+                                <div style={{ color: 'var(--gold)', fontFamily: FONT_DISPL, fontSize: '0.72rem', fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>
+                                    Follow Live Draft
+                                </div>
+                                <div style={{ color: 'var(--white)', fontFamily: FONT_DISPL, fontSize: '1.22rem', fontWeight: 900 }}>
+                                    Opening the live command room
+                                </div>
+                                <div style={{ color: 'var(--silver)', opacity: 0.72, fontSize: '0.76rem', marginTop: 4, lineHeight: 1.45 }}>
+                                    I will auto-select the league's active or next scheduled Sleeper draft, then mirror it with your board, roster build, and opponent intel.
+                                </div>
+                            </div>
+                            <div style={{
+                                minWidth: 150,
+                                padding: '10px 12px',
+                                borderRadius: 7,
+                                border: '1px solid rgba(155,138,251,0.28)',
+                                background: 'rgba(155,138,251,0.07)',
+                                textAlign: 'center',
+                            }}>
+                                <div style={{ color: 'rgba(214,208,255,0.98)', fontSize: '0.58rem', fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Live Sync</div>
+                                <div style={{ color: 'var(--white)', fontFamily: FONT_MONO, fontSize: '0.9rem', fontWeight: 800, marginTop: 3 }}>one-click</div>
+                            </div>
+                        </div>
+                        <LiveSyncDraftPicker state={state} update={update} leagueId={state.leagueId} launchOnly />
                     </section>
                 ) : (
                     <>
@@ -1518,12 +1569,12 @@
                         <div className="draft-setup-label" style={{ marginBottom: 6 }}>Your first picks</div>
                         <div className="draft-setup-timeline">
                             {pickPreviewRows.map((p, i) => (
-                                <div key={p.round + '-' + p.slot + '-' + i}>
-                                    <strong>{p.round}.{String(p.slot).padStart(2, '0')}</strong>
-                                    <span>Overall {p.overall} - {p.ownerName || slotOwner}</span>
-                                    <em>{p.traded ? 'acquired' : 'native'}</em>
-                                </div>
-                            ))}
+	                                <div key={p.round + '-' + p.slot + '-' + i}>
+	                                    <strong>{p.round}.{String(p.slot).padStart(2, '0')}</strong>
+	                                    <span>Overall {p.overall} - {p.ownerName || slotOwner}</span>
+	                                    <em>{fmtDhqValue(p.value)}{p.traded ? ' - acquired' : ''}</em>
+	                                </div>
+	                            ))}
                         </div>
                         <div className="draft-setup-note" style={{ marginTop: 10 }}>
                             {setupSummary}. Owner DNA, needs, draft history, and your saved Big Board order will drive the room.
@@ -1660,6 +1711,10 @@
         const [filters, setFilters] = React.useState({ team: 'all', round: 'all', pos: 'ALL', focus: 'all', query: '' });
         const [expandedOverall, setExpandedOverall] = React.useState(null);
         const active = reports.find(r => r.id === activeId) || reports[0] || null;
+        const analystRoundOptions = React.useMemo(() => {
+            const maxRounds = Math.max(1, Math.min(100, Number(state.rounds || 1)));
+            return Array.from({ length: maxRounds }, (_, idx) => String(idx + 1));
+        }, [state.rounds]);
         React.useEffect(() => {
             if (!active?.picks?.length) return;
             const stillValid = active.picks.some(p => Number(p.overall) === Number(expandedOverall));
@@ -1792,8 +1847,9 @@
                                 fontFamily: FONT_UI,
                                 outline: 'none',
                             }}>
-                                <option value="1" style={{ background: '#111' }}>1 round</option>
-                                <option value="3" style={{ background: '#111' }}>3 rounds</option>
+                                {analystRoundOptions.map(round => (
+                                    <option key={round} value={round} style={{ background: '#111' }}>{round} round{Number(round) === 1 ? '' : 's'}</option>
+                                ))}
                                 <option value="full" style={{ background: '#111' }}>Full draft</option>
                             </select>
                             <button type="button" onClick={generate} style={{
@@ -2490,7 +2546,7 @@
     // Shows only pre_draft / drafting status drafts from this league's chain.
     // A live sync source must be something currently scheduled or in-flight —
     // completed drafts would be ghost replay territory.
-    function LiveSyncDraftPicker({ state, update, leagueId }) {
+    function LiveSyncDraftPicker({ state, update, leagueId, launchOnly = false }) {
         const [drafts, setDrafts] = React.useState(null);
         const [loading, setLoading] = React.useState(false);
 
@@ -2517,6 +2573,77 @@
             if (loading || state.sleeperDraftId || !liveDrafts.length) return;
             update(liveDraftSetupPatch(liveDrafts[0]));
         }, [loading, state.sleeperDraftId, liveDraftSignature]);
+
+        if (launchOnly) {
+            const selectedDraft = liveDrafts.find(d => state.sleeperDraftId === d.draft_id) || liveDrafts[0] || null;
+            const statusLabel = loading
+                ? 'finding source'
+                : selectedDraft?.status === 'drafting'
+                    ? 'live now'
+                    : selectedDraft
+                        ? 'upcoming'
+                        : 'no source';
+            const statusColor = selectedDraft?.status === 'drafting' ? '#2ECC71' : selectedDraft ? '#F0A500' : '#E74C3C';
+            const startStr = selectedDraft?.start_time
+                ? new Date(selectedDraft.start_time).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+                : selectedDraft?.status === 'drafting'
+                    ? 'in progress'
+                    : 'not scheduled';
+            return (
+                <div>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(0, 1fr) auto',
+                        gap: '12px',
+                        alignItems: 'center',
+                        padding: '13px 14px',
+                        borderRadius: 8,
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'linear-gradient(90deg, rgba(255,255,255,0.035), rgba(155,138,251,0.045))',
+                    }}>
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ color: statusColor, fontSize: '0.58rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 5 }}>
+                                {statusLabel}
+                            </div>
+                            <div style={{ color: 'var(--white)', fontFamily: FONT_DISPL, fontSize: '1rem', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {loading ? 'Checking Sleeper draft sources...' : selectedDraft ? `${selectedDraft.season || state.season} · ${selectedDraft.type || state.draftType} · ${selectedDraft.settings?.rounds || state.rounds}R × ${selectedDraft.settings?.teams || state.leagueSize}T` : 'No upcoming or in-progress draft found'}
+                            </div>
+                            <div style={{ color: 'var(--silver)', opacity: 0.68, fontSize: '0.68rem', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {selectedDraft ? `${selectedDraft.leagueName || 'Sleeper draft'} · ${startStr}` : 'Live Draft will open as soon as Sleeper has a scheduled source.'}
+                            </div>
+                        </div>
+                        <div style={{
+                            padding: '7px 10px',
+                            borderRadius: 6,
+                            border: '1px solid rgba(212,175,55,0.24)',
+                            background: 'rgba(212,175,55,0.08)',
+                            color: 'var(--gold)',
+                            fontFamily: FONT_DISPL,
+                            fontSize: '0.66rem',
+                            fontWeight: 900,
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                        }}>
+                            {selectedDraft ? 'launching' : 'waiting'}
+                        </div>
+                    </div>
+                    {!loading && liveDrafts.length === 0 && (
+                        <div style={{
+                            marginTop: 10,
+                            padding: '10px 12px',
+                            borderRadius: 7,
+                            border: '1px solid rgba(231,76,60,0.24)',
+                            background: 'rgba(231,76,60,0.07)',
+                            color: '#E74C3C',
+                            fontSize: '0.72rem',
+                            lineHeight: 1.45,
+                        }}>
+                            No live source is available yet. Sleeper has not exposed an upcoming or in-progress draft for this league.
+                        </div>
+                    )}
+                </div>
+            );
+        }
 
         return (
             <div style={{ marginBottom: '16px' }}>
@@ -2962,9 +3089,9 @@
                     borderBottom: '1px solid rgba(255,255,255,0.06)',
                     background: 'rgba(0,0,0,0.18)',
                 }}>
-                    <span style={{ color: 'var(--gold)', fontFamily: FONT_DISPL, fontSize: '0.82rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                        Pick List
-                    </span>
+	                    <span style={{ color: 'var(--gold)', fontFamily: FONT_DISPL, fontSize: '0.82rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+	                        Ongoing Draft Log
+	                    </span>
                     <em style={{ marginLeft: 'auto', color: 'var(--silver)', opacity: 0.62, fontSize: '0.56rem', fontStyle: 'normal', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                         {picks.length} made / {order.length || '--'}
                     </em>
@@ -3008,12 +3135,623 @@
                                 <span style={{ color: pick ? posCol : 'var(--silver)', fontSize: '0.58rem', fontWeight: 900, textAlign: 'center' }}>
                                     {pos || '--'}
                                 </span>
-                                <span style={{ color: pick ? 'var(--gold)' : 'var(--silver)', opacity: pick ? 1 : 0.5, fontFamily: FONT_MONO, fontSize: '0.58rem', textAlign: 'right' }}>
-                                    {pick ? fmt(pick.dhq) : '#' + (slot.overall || '--')}
-                                </span>
+	                                <span style={{ color: pick ? 'var(--gold)' : 'var(--silver)', opacity: pick || slot.value ? 1 : 0.5, fontFamily: FONT_MONO, fontSize: '0.58rem', textAlign: 'right' }}>
+	                                    {pick ? fmt(pick.dhq) : (slot.value ? fmt(slot.value) : '#' + (slot.overall || '--'))}
+	                                </span>
                             </div>
                         );
                     })}
+                </div>
+            </div>
+        );
+    }
+
+    function mockFmt(value) {
+        const n = Number(value || 0);
+        if (!n) return '0';
+        return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(Math.round(n));
+    }
+
+    function mockPickLabel(slot) {
+        if (!slot) return '--';
+        return 'R' + (slot.round || '?') + '.' + String(slot.slot || 0).padStart(2, '0');
+    }
+
+    function mockPlayerTeam(player) {
+        return player?.nflTeam || player?.team || player?.csv?.nflTeam || player?.p?.team || 'FA';
+    }
+
+    function mockPlayerSchool(player) {
+        return player?.school || player?.college || player?.csv?.college || player?.p?.college || player?.p?.metadata?.college || 'School TBD';
+    }
+
+    function mockPlayerPhoto(player) {
+        if (!player) return '';
+        return player.photoUrl || player.avatar || player.p?.avatar || (player.pid ? 'https://sleepercdn.com/content/nfl/players/thumb/' + player.pid + '.jpg' : '');
+    }
+
+    function mockInitials(name) {
+        return String(name || '?')
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map(part => part[0])
+            .join('')
+            .toUpperCase() || '?';
+    }
+
+    function mockTeamName(state, rosterId, slot) {
+        const rid = String(rosterId || '');
+        if (rid && state.personas?.[rid]?.teamName) return state.personas[rid].teamName;
+        if (rid && String(rid) === String(state.userRosterId || '')) {
+            return slot?.ownerName || state.userTeamName || 'Our Team';
+        }
+        return slot?.ownerName || (slot?.slot ? 'Team ' + slot.slot : 'Draft Room');
+    }
+
+    function mockOpenPlayer(player) {
+        if (!player?.pid) return;
+        if (typeof window.openPlayerModal === 'function' && !player.isCSV) {
+            try { window.openPlayerModal(player.pid); return; } catch (_) {}
+        }
+        if (typeof window.WR?.openPlayerCard === 'function') {
+            try { window.WR.openPlayerCard(player.pid); } catch (_) {}
+        }
+    }
+
+    function mockRunText(state) {
+        const counts = {};
+        (state.picks || []).slice(-8).forEach(p => {
+            const pos = p.pos || '?';
+            counts[pos] = (counts[pos] || 0) + 1;
+        });
+        const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+        if (!top) return 'No run yet';
+        return top[0] + ' run started: ' + top[1] + ' ' + top[0] + ' in last 8 picks';
+    }
+
+    function mockMakePick(dispatch, state, isUserTurn, player) {
+        if (!player) return;
+        const canPick = isUserTurn || state.overrideMode || state.mode === 'manual';
+        if (!canPick) {
+            mockOpenPlayer(player);
+            return;
+        }
+        dispatch({
+            type: 'MAKE_PICK',
+            player,
+            isUser: isUserTurn,
+            reasoning: state.overrideMode
+                ? { primary: 'User override', baseVal: player.dhq, nudges: [] }
+                : state.mode === 'manual'
+                    ? { primary: 'Manual room entry', baseVal: player.dhq, nudges: [] }
+                    : { primary: 'User selection', baseVal: player.dhq, nudges: [] },
+            confidence: 1.0,
+            source: state.mode === 'manual' ? 'manual-draft' : null,
+        });
+    }
+
+    function mockBuildCounterProposal(state, offer) {
+        const targetRosterId = offer.fromRosterId;
+        const proposal = {
+            targetRosterId,
+            myGive: [...(offer.myGive || [])],
+            theirGive: [...(offer.theirGive || [])],
+            myGivePlayers: [...(offer.myGivePlayers || [])],
+            theirGivePlayers: [...(offer.theirGivePlayers || [])],
+            myGiveFaab: offer.myGiveFaab || 0,
+            theirGiveFaab: offer.theirGiveFaab || 0,
+        };
+        const sim = window.DraftCC?.tradeSimulator;
+        const key = p => [p?.round, p?.teamIdx, p?.slot].join(':');
+        const usedTheirPicks = new Set((proposal.theirGive || []).map(key));
+        const targetPicks = (state.pickOrder || [])
+            .slice(state.currentIdx || 0)
+            .filter(p => String(p?.rosterId) === String(targetRosterId) && !usedTheirPicks.has(key(p)))
+            .sort((a, b) => (sim?.pickValueFor?.(state, a) || 0) - (sim?.pickValueFor?.(state, b) || 0));
+        if (targetPicks[0]) {
+            proposal.theirGive = [...proposal.theirGive, targetPicks[0]];
+            return proposal;
+        }
+        if ((proposal.myGive || []).length > 1) {
+            const byValue = proposal.myGive.slice().sort((a, b) => (sim?.pickValueFor?.(state, a) || 0) - (sim?.pickValueFor?.(state, b) || 0));
+            const removeKey = key(byValue[0]);
+            proposal.myGive = proposal.myGive.filter(p => key(p) !== removeKey);
+            return proposal;
+        }
+        proposal.theirGiveFaab = Math.max(Number(proposal.theirGiveFaab || 0) + 25, 25);
+        return proposal;
+    }
+
+    function mockCounterCommentary(evaluation, round, maxRounds) {
+        if (evaluation?.accepted) return 'That is closer. I can accept that counter.';
+        if (round >= maxRounds) return "Come on, that's weak. I need more than that, so I'm moving on.";
+        if ((evaluation?.likelihood || 0) >= (evaluation?.counterLine || 50)) return "You're in the neighborhood, but I still need a sweetener to move this pick.";
+        return "I would counter. They are light by about 6%. Ask for the next clean pick or keep the board.";
+    }
+
+    function mockAssetText(picks, playerIds, faab) {
+        const items = [];
+        (picks || []).slice(0, 3).forEach(p => items.push(mockPickLabel(p)));
+        (playerIds || []).slice(0, 2).forEach(pid => items.push(formatTradeAssetPlayer(pid)));
+        if (Number(faab || 0) > 0) items.push('$' + faab + ' FAAB');
+        return items.length ? items.join(' + ') : 'No assets';
+    }
+
+    function MockTradeOfferPanel({ state, dispatch }) {
+        const offer = state.activeOffer;
+        if (!offer) return null;
+        const round = Number(offer.negotiationRound || 0);
+        const maxRounds = Number(offer.maxNegotiationRounds || 3);
+        const counterClosed = !!offer.counterClosed || round >= maxRounds;
+        const onCounter = () => {
+            if (counterClosed) return;
+            const sim = window.DraftCC?.tradeSimulator;
+            if (!sim?.evaluateUserProposal || !sim?.offerShape) return;
+            const nextRound = round + 1;
+            const proposal = mockBuildCounterProposal(state, offer);
+            const evaluation = sim.evaluateUserProposal(state, proposal);
+            const commentary = mockCounterCommentary(evaluation, nextRound, maxRounds);
+            if (evaluation.accepted) {
+                const acceptedOffer = sim.offerShape(state, proposal, evaluation, commentary, {
+                    countered: true,
+                    negotiationRound: nextRound,
+                    maxNegotiationRounds: maxRounds,
+                    resumeSpeed: offer.resumeSpeed,
+                    cpuMessage: 'Fine, that clears my line. I can live with it.',
+                });
+                dispatch({ type: 'ACCEPT_TRADE', offer: acceptedOffer });
+                return;
+            }
+            if (nextRound >= maxRounds) {
+                dispatch({
+                    type: 'UPDATE_ACTIVE_TRADE',
+                    offer: {
+                        negotiationRound: nextRound,
+                        counterClosed: true,
+                        cpuMessage: commentary,
+                        reason: commentary + ' Original offer is the last live deal.',
+                    },
+                });
+                return;
+            }
+            const nextOffer = evaluation.counterOffer || sim.offerShape(state, proposal, evaluation, commentary, { countered: true });
+            dispatch({
+                type: 'UPDATE_ACTIVE_TRADE',
+                offer: {
+                    ...nextOffer,
+                    negotiationRound: nextRound,
+                    maxNegotiationRounds: maxRounds,
+                    resumeSpeed: offer.resumeSpeed,
+                    cpuMessage: commentary,
+                    counterClosed: false,
+                },
+            });
+        };
+        const give = mockAssetText(offer.myGive, offer.myGivePlayers, offer.myGiveFaab);
+        const get = mockAssetText(offer.theirGive, offer.theirGivePlayers, offer.theirGiveFaab);
+        return (
+            <section className="mock-trade-card">
+                <div className="mock-panel-head">
+                    <span>Trade Offer Paused</span>
+                    <em>Round {Math.min(round + 1, maxRounds)} of {maxRounds}</em>
+                </div>
+                <div className="mock-trade-body">
+                    <div>
+                        <strong>{offer.fromName || 'Opponent'} wants the pick</strong>
+                        <span>You give {give}; you get {get}</span>
+                    </div>
+                    <b>{offer.likelihood || 0}%</b>
+                </div>
+                <div className="mock-alex-note">
+                    <strong>Alex</strong>
+                    <span>{offer.cpuMessage || offer.reason || "I would counter. They are light by about 6%. Ask for one more pick or keep the board."}</span>
+                </div>
+                <div className="mock-trade-actions">
+                    <button className="is-accept" type="button" onClick={() => dispatch({ type: 'ACCEPT_TRADE', offer })}>Accept</button>
+                    <button className="is-counter" type="button" onClick={onCounter} disabled={counterClosed}>Counter</button>
+                    <button className="is-decline" type="button" onClick={() => dispatch({ type: 'DECLINE_TRADE' })}>Decline</button>
+                </div>
+            </section>
+        );
+    }
+
+    function MockBigBoardTable({ state, dispatch, isUserTurn }) {
+        const [search, setSearch] = React.useState('');
+        const [posFilter, setPosFilter] = React.useState('');
+        const [sortKey, setSortKey] = React.useState('board');
+        const boardContext = state.draftContext?.boardContext || {};
+        const initialLane = ['dhq', 'ai', 'my'].includes(boardContext.activeLane) ? boardContext.activeLane : 'dhq';
+        const [boardLane, setBoardLane] = React.useState(initialLane);
+        const posColors = window.App?.POS_COLORS || {};
+        const canPick = isUserTurn || state.overrideMode || state.mode === 'manual';
+        const boardLaneMeta = {
+            dhq: { label: 'Default Board', detail: 'DHQ value' },
+            ai: { label: 'AI Recommended', detail: 'GM strategy' },
+            my: { label: 'User Board', detail: 'manual order' },
+        };
+        const positions = React.useMemo(() => {
+            const set = new Set();
+            (state.pool || []).slice(0, 160).forEach(p => { if (p.pos) set.add(p.pos); });
+            const order = { QB: 1, RB: 2, WR: 3, TE: 4, DL: 5, LB: 6, DB: 7, K: 8 };
+            return Array.from(set).sort((a, b) => (order[a] || 99) - (order[b] || 99));
+        }, [state.pool]);
+        const lanePool = React.useMemo(() => {
+            const pool = state.pool || [];
+            const laneOrder = boardContext?.lanes?.[boardLane]?.order || [];
+            if (!laneOrder.length) return pool.map((p, idx) => ({ ...p, boardRank: idx + 1 }));
+            const byId = new Map();
+            pool.forEach(p => {
+                if (p?.pid) byId.set(String(p.pid), p);
+                if (p?.csvPid) byId.set(String(p.csvPid), p);
+            });
+            const seen = new Set();
+            const ordered = [];
+            laneOrder.forEach(pid => {
+                const player = byId.get(String(pid));
+                if (!player || seen.has(String(player.pid))) return;
+                seen.add(String(player.pid));
+                ordered.push(player);
+            });
+            pool.forEach(player => {
+                if (!seen.has(String(player.pid))) ordered.push(player);
+            });
+            return ordered.map((p, idx) => ({ ...p, boardRank: idx + 1 }));
+        }, [state.pool, boardContext, boardLane]);
+        const rows = React.useMemo(() => {
+            const q = search.trim().toLowerCase();
+            return lanePool.filter(p => {
+                if (posFilter && p.pos !== posFilter) return false;
+                if (!q) return true;
+                const hay = [p.name, p.pos, mockPlayerTeam(p), mockPlayerSchool(p)].join(' ').toLowerCase();
+                return hay.includes(q);
+            }).sort((a, b) => {
+                if (sortKey === 'dhq') return (b.dhq || 0) - (a.dhq || 0);
+                if (sortKey === 'fit') return (b.fit?.score || 0) - (a.fit?.score || 0);
+                if (sortKey === 'tier') return (a.tier || a.csv?.tier || 99) - (b.tier || b.csv?.tier || 99);
+                return a.boardRank - b.boardRank;
+            }).slice(0, 72);
+        }, [lanePool, search, posFilter, sortKey]);
+        return (
+            <section className="mock-panel mock-big-board">
+                <div className="mock-panel-head">
+                    <span>Big Board</span>
+                    <em>{(state.pool || []).length} available · {boardLaneMeta[boardLane]?.detail}</em>
+                </div>
+                <div className="mock-board-lanes">
+                    {['dhq', 'ai', 'my'].map(lane => (
+                        <button key={lane} type="button" className={boardLane === lane ? 'is-active' : ''} onClick={() => { setBoardLane(lane); setSortKey('board'); }}>
+                            <strong>{boardLaneMeta[lane].label}</strong>
+                            <span>{boardLaneMeta[lane].detail}</span>
+                        </button>
+                    ))}
+                </div>
+                <div className="mock-board-tools">
+                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search players, teams, colleges..." />
+                    <select value={sortKey} onChange={e => setSortKey(e.target.value)}>
+                        <option value="board">Board</option>
+                        <option value="dhq">DHQ</option>
+                        <option value="fit">Fit</option>
+                        <option value="tier">Tier</option>
+                    </select>
+                </div>
+                <div className="mock-board-pos">
+                    <button type="button" className={!posFilter ? 'is-active' : ''} onClick={() => setPosFilter('')}>All</button>
+                    {positions.map(pos => (
+                        <button key={pos} type="button" className={posFilter === pos ? 'is-active' : ''} style={{ '--pos-color': posColors[pos] || 'var(--gold)' }} onClick={() => setPosFilter(posFilter === pos ? '' : pos)}>{pos}</button>
+                    ))}
+                </div>
+                <div className="mock-board-head">
+                    <span>Rank</span><span>Player</span><span>Pos</span><span>NFL</span><span>School</span><span>DHQ</span><span>Fit</span><span>Tier</span><span>Action</span>
+                </div>
+                <div className="mock-board-scroll">
+                    {rows.map(player => {
+                        const fitScore = player.fit?.score || player.fitScore || 0;
+                        const tier = player.tier || player.csv?.tier || '—';
+                        const rowClass = 'mock-board-row' + (player.boardRank === 1 ? ' is-board-one' : '') + (player.boardRank <= 8 ? ' is-premium' : '');
+                        return (
+                            <div key={player.pid} className={rowClass} onClick={() => mockOpenPlayer(player)}>
+                                <span className="mock-rank">{player.boardRank}</span>
+                                <strong>{player.name}</strong>
+                                <span style={{ color: posColors[player.pos] || 'var(--gold)' }}>{player.pos || '—'}</span>
+                                <span>{mockPlayerTeam(player)}</span>
+                                <span>{mockPlayerSchool(player)}</span>
+                                <span className="mock-dhq">{mockFmt(player.dhq)}</span>
+                                <span className={fitScore >= 70 ? 'is-good' : fitScore >= 45 ? 'is-ok' : ''}>{fitScore ? fitScore : '—'}</span>
+                                <span>{tier}</span>
+                                <button type="button" onClick={e => { e.stopPropagation(); mockMakePick(dispatch, state, isUserTurn, player); }}>{canPick ? 'Draft' : 'Open'}</button>
+                            </div>
+                        );
+                    })}
+                    {!rows.length && <div className="mock-empty">No players match the current board filters.</div>}
+                </div>
+            </section>
+        );
+    }
+
+    function MockDecisionDeck({ state, dispatch, isUserTurn, currentSlot, onOpenTradeDesk }) {
+        const pool = state.pool || [];
+        const posColors = window.App?.POS_COLORS || {};
+        const best = pool[0] || null;
+        const safe = pool.find(p => Number(p.tier || p.csv?.tier || 99) <= 2 && p !== best) || pool[1] || best;
+        const upside = pool.find(p => (p.fit?.score || 0) >= 55 && p !== best && p !== safe) || pool[2] || best;
+        const slotLabel = mockPickLabel(currentSlot);
+        const pickWhy = (player, lane) => {
+            if (!player) return 'I am waiting on the board to load.';
+            const pos = player.pos || 'this spot';
+            const team = mockPlayerTeam(player);
+            const school = mockPlayerSchool(player);
+            if (lane === 'safe') return 'This is the low-variance answer: ' + pos + ' value, clean capital, and no need to chase a thinner pocket later.';
+            if (lane === 'upside') return 'This is the ceiling swing: ' + school + ' profile, ' + team + ' landing spot, and enough fit to justify variance.';
+            return 'This is my preferred pick because the board value still lines up with our roster build. I am not taking him just because he is listed first.';
+        };
+        const cards = [
+            { key: 'rec', label: 'Recommended Pick', player: best, tone: '#2ECC71', text: pickWhy(best, 'rec') },
+            { key: 'safe', label: 'Safe Pick', player: safe, tone: '#3498DB', text: pickWhy(safe, 'safe') },
+            { key: 'upside', label: 'Upside Swing', player: upside, tone: '#9b8afb', text: pickWhy(upside, 'upside') },
+            { key: 'trade', label: 'Trade Window', player: null, tone: 'var(--gold)', text: currentSlot ? 'I would listen if someone overpays. Aim for a top-40 pick or better to move off ' + slotLabel + '.' : 'No active trade window yet.' },
+        ];
+        return (
+            <section className="mock-panel mock-decision-deck">
+                <div className="mock-panel-head">
+                    <span>Alex Decision Deck</span>
+                    <em>{currentSlot ? slotLabel : 'waiting'}</em>
+                </div>
+                <div className="mock-decision-grid">
+                    {cards.map(card => {
+                        const p = card.player;
+                        const photo = mockPlayerPhoto(p);
+                        return (
+                            <button key={card.key} type="button" className="mock-decision-card" style={{ '--accent': card.tone }} onClick={() => card.key === 'trade' ? onOpenTradeDesk?.() : mockMakePick(dispatch, state, isUserTurn, p)} disabled={card.key === 'trade' && !onOpenTradeDesk}>
+                                <span>{card.label}</span>
+                                {p ? (
+                                    <div className="mock-decision-player">
+                                        {photo ? <img src={photo} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} /> : <i>{mockInitials(p.name)}</i>}
+                                        <div>
+                                            <strong>{p.name}</strong>
+                                            <em>{p.pos || '—'} · {mockPlayerTeam(p)} · DHQ {mockFmt(p.dhq)}</em>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="mock-decision-player is-trade">
+                                        <i>⇄</i>
+                                        <div>
+                                            <strong>{currentSlot ? 'Value ' + slotLabel : 'No window'}</strong>
+                                            <em>Market: {state.activeOffer ? 'Paused' : 'Open'}</em>
+                                        </div>
+                                    </div>
+                                )}
+                                <p>{card.text}</p>
+                            </button>
+                        );
+                    })}
+                </div>
+            </section>
+        );
+    }
+
+    function MockPickLog({ state, currentSlot }) {
+        const posColors = window.App?.POS_COLORS || {};
+        const order = state.pickOrder || [];
+        const picks = state.picks || [];
+        const visible = picks.slice(-10).reverse();
+        return (
+            <section className="mock-panel mock-pick-log">
+                <div className="mock-panel-head">
+                    <span>Pick Log</span>
+                    <em>{picks.length} / {order.length || '--'}</em>
+                </div>
+                <div className="mock-log-scroll">
+                    {currentSlot && (
+                        <div className="mock-log-row is-current">
+                            <span>{mockPickLabel(currentSlot)}</span>
+                            <strong>{mockTeamName(state, currentSlot.rosterId, currentSlot)}</strong>
+                            <em>On clock</em>
+                            <b>#{currentSlot.overall || '--'}</b>
+                        </div>
+                    )}
+                    {visible.map(pick => {
+                        const slot = order[(Number(pick.overall) || 1) - 1] || pick;
+                        const valueNote = pick.reachSteal?.label || pick.valueLabel || (pick.dhq ? 'Value' : 'Logged');
+                        return (
+                            <div key={pick.id || pick.overall + '-' + pick.pid} className="mock-log-row" onClick={() => mockOpenPlayer(pick)}>
+                                <span>{mockPickLabel(pick)}</span>
+                                <strong>{mockTeamName(state, pick.rosterId, slot)}</strong>
+                                <em><i style={{ color: posColors[pick.pos] || 'var(--gold)' }}>{pick.pos || '--'}</i> {pick.name}</em>
+                                <b>{mockFmt(pick.dhq)} <small>{valueNote}</small></b>
+                            </div>
+                        );
+                    })}
+                    {!visible.length && !currentSlot && <div className="mock-empty">Start the draft to see picks as a running list.</div>}
+                </div>
+            </section>
+        );
+    }
+
+    function MockRosterBuildCard({ state }) {
+        const players = window.S?.players || {};
+        const rosters = window.S?.rosters || [];
+        const scores = window.App?.LI?.playerScores || {};
+        const normPos = window.App?.normPos || (p => p);
+        const posColors = window.App?.POS_COLORS || {};
+        const myPicks = (state.picks || []).filter(p => p.rosterId === state.userRosterId || p.isUser);
+        const baseRoster = rosters.find(r => String(r.roster_id) === String(state.userRosterId));
+        const grouped = {};
+        const ageFor = (player) => {
+            const rawAge = Number(player?.age || player?.csv?.age || 0);
+            if (rawAge) return rawAge;
+            if (player?.birth_date) {
+                const born = new Date(player.birth_date).getTime();
+                if (Number.isFinite(born)) return Math.floor((Date.now() - born) / 31557600000);
+            }
+            return 0;
+        };
+        const ageLimit = pos => ({ RB: 26, WR: 29, TE: 30, QB: 33, K: 34, DL: 30, LB: 29, DB: 29 }[pos] || 29);
+        const add = (pos, dhq, isPick, player) => {
+            const p = normPos(pos) || pos || '?';
+            if (!grouped[p]) grouped[p] = { count: 0, dhq: 0, picks: 0, ages: [], ageRisk: 0 };
+            const age = ageFor(player);
+            grouped[p].count += 1;
+            grouped[p].dhq += Number(dhq || 0);
+            if (age) {
+                grouped[p].ages.push(age);
+                if (age >= ageLimit(p)) grouped[p].ageRisk += 1;
+            }
+            if (isPick) grouped[p].picks += 1;
+        };
+        (baseRoster?.players || []).forEach(pid => {
+            const p = players[pid] || {};
+            add(p.position, scores[pid] || 0, false, p);
+        });
+        myPicks.forEach(p => add(p.pos, p.dhq || 0, true, p));
+        const positionTargets = { QB: 2, RB: 5, WR: 7, TE: 3, K: 1, DL: 4, LB: 4, DB: 4 };
+        const ordered = ['QB', 'RB', 'WR', 'TE', 'K', 'DL', 'LB', 'DB'].filter(pos => grouped[pos] || positionTargets[pos]);
+        const totalDhq = Object.values(grouped).reduce((sum, row) => sum + row.dhq, 0);
+        const draftDhq = myPicks.reduce((sum, p) => sum + Number(p.dhq || 0), 0);
+        const maxDhq = Math.max(1, ...ordered.map(pos => grouped[pos]?.dhq || 0));
+        const balanceScore = ordered.length
+            ? Math.round(ordered.reduce((sum, pos) => {
+                const row = grouped[pos] || { count: 0 };
+                const target = positionTargets[pos] || 3;
+                return sum + Math.min(1, row.count / target);
+            }, 0) / ordered.length * 100)
+            : 0;
+        const leverageScore = Math.min(100, Math.round((draftDhq / Math.max(1, totalDhq || 1)) * 1000));
+        const windowScore = Math.min(100, Math.round((totalDhq / 65000) * 100));
+        const shapeRows = [
+            { label: 'Contending Window', value: windowScore + '/100', pct: windowScore },
+            { label: 'Roster Balance', value: balanceScore + '/100', pct: balanceScore },
+            { label: 'Draft Leverage', value: leverageScore + '/100', pct: leverageScore },
+        ];
+        return (
+            <section className="mock-panel mock-roster-card">
+                <div className="mock-panel-head">
+                    <span>My Roster Build</span>
+                    <em>{myPicks.length} picks</em>
+                </div>
+                <div className="mock-roster-kpis">
+                    <div><span>Roster DHQ</span><strong>{mockFmt(totalDhq)}</strong></div>
+                    <div><span>Draft Added</span><strong>{mockFmt(draftDhq)}</strong></div>
+                </div>
+                <div className="mock-roster-section">Position Health</div>
+                <div className="mock-roster-matrix">
+                    {ordered.map(pos => {
+                        const row = grouped[pos] || { count: 0, dhq: 0, picks: 0, ages: [], ageRisk: 0 };
+                        const target = positionTargets[pos] || 3;
+                        const countPct = Math.min(100, Math.round((row.count / target) * 100));
+                        const valuePct = Math.min(100, Math.round((row.dhq / maxDhq) * 100));
+                        const avgAge = row.ages.length ? (row.ages.reduce((sum, age) => sum + age, 0) / row.ages.length).toFixed(1) : '--';
+                        const status = row.count < target ? 'thin players' : row.dhq < maxDhq * 0.55 ? 'thin value' : row.ageRisk ? 'age watch' : 'stable';
+                        return (
+                            <div key={pos} className="mock-roster-cell" style={{ '--pos-color': posColors[pos] || 'var(--gold)' }}>
+                                <header>
+                                    <span>{pos}</span>
+                                    <strong>{row.count}/{target}</strong>
+                                </header>
+                                <div className="mock-roster-bars">
+                                    <i style={{ width: countPct + '%' }} />
+                                    <b style={{ width: valuePct + '%' }} />
+                                </div>
+                                <footer>
+                                    <span>{mockFmt(row.dhq)} DHQ</span>
+                                    <em>{status} · age {avgAge}</em>
+                                </footer>
+                            </div>
+                        );
+                    })}
+                </div>
+                <div className="mock-roster-section is-shape">Roster Shape</div>
+                <div className="mock-shape-bars">
+                    {shapeRows.map(row => (
+                        <div key={row.label} className="mock-shape-row">
+                            <span>{row.label}</span>
+                            <div><i style={{ width: row.pct + '%' }} /></div>
+                            <em>{row.value}</em>
+                        </div>
+                    ))}
+                </div>
+            </section>
+        );
+    }
+
+    function MockDraftCockpit({ state, dispatch, isUserTurn, currentSlot, onExit, onPropose, tradeDeskTarget, openTradeDesk, grade, canUndoManualPick }) {
+        const OpponentIntelPanel = window.DraftCC.OpponentIntelPanel;
+        const totalPicks = state.pickOrder?.length || 0;
+        const progress = totalPicks ? Math.round(((state.currentIdx || 0) / totalPicks) * 100) : 0;
+        const lastPick = state.picks?.[state.picks.length - 1] || null;
+        const nextUserSlot = (state.pickOrder || []).slice(state.currentIdx || 0).find(slot =>
+            String(slot?.rosterId || '') === String(state.userRosterId || '')
+            || Number(slot?.slot) === Number(state.userSlot)
+        );
+        const currentName = currentSlot ? mockTeamName(state, currentSlot.rosterId, currentSlot) : 'Draft Room';
+        const currentDisplayName = currentName.length > 36 ? currentName.slice(0, 35) + '...' : currentName;
+        const timerLabel = state.activeOffer ? 'Paused' : state.speed === 'paused' ? 'Paused' : state.speed === 'fast' ? '0:35' : state.speed === 'slow' ? '4:00' : '2:15';
+        const statusTiles = [
+            { label: 'On Clock', value: currentName, detail: currentSlot ? '#' + (currentSlot.overall || '--') + ' · ' + mockPickLabel(currentSlot) : 'No active pick' },
+            { label: 'Our Next Pick', value: nextUserSlot ? mockPickLabel(nextUserSlot) : 'No pick left', detail: nextUserSlot ? Math.max(0, (nextUserSlot.overall || 0) - (state.currentIdx || 0)) + ' picks away' : 'Watch the room' },
+            { label: 'Last Pick', value: lastPick ? lastPick.name : 'No picks yet', detail: lastPick ? (lastPick.pos || '--') + ' · DHQ ' + mockFmt(lastPick.dhq) : 'Start the draft' },
+            { label: 'League Evolution', value: mockRunText(state), detail: state.activeOffer ? 'Draft paused for negotiation' : 'Room pressure updates every pick' },
+        ];
+        return (
+            <div className="mock-draft-cockpit">
+                <section className="mock-draftcast-rail">
+                    <div className="mock-cast-brand">
+                        <div>DHQ</div>
+                        <span>
+                            <strong>DRAFTCAST MOCK</strong>
+                            <em>{state.variant === 'startup' ? 'Dynasty Start Up' : state.variant} · {state.draftType} · {state.rounds} rounds · {state.leagueSize} teams</em>
+                            <button type="button" onClick={onExit}>Mock Upcoming Draft</button>
+                        </span>
+                    </div>
+                    <div className="mock-cast-clock">
+                        <span>{state.activeOffer ? 'TRADE OFFER PAUSED' : 'ON THE CLOCK'}</span>
+                        <strong>{currentDisplayName} - Pick {currentSlot ? mockPickLabel(currentSlot).replace('R', '') : '--'}</strong>
+                        <div><i style={{ width: progress + '%' }} /></div>
+                        <em>{state.currentIdx || 0} / {totalPicks || '--'}</em>
+                    </div>
+                    <div className="mock-cast-controls">
+                        <div><span>Pick Timer</span><strong>{timerLabel}</strong></div>
+                        <button type="button" onClick={() => dispatch({ type: 'SET_SPEED', speed: state.speed === 'paused' ? 'medium' : 'paused' })}>{state.speed === 'paused' ? 'Resume' : 'Pause'}</button>
+                        <label>Speed <select value={state.speed === 'paused' ? 'medium' : state.speed} onChange={e => dispatch({ type: 'SET_SPEED', speed: e.target.value })}><option value="slow">Slow</option><option value="medium">Medium</option><option value="fast">Fast</option></select></label>
+                        <button type="button" onClick={openTradeDesk} disabled={!tradeDeskTarget}>Trade Desk</button>
+                        {canUndoManualPick && <button type="button" onClick={() => dispatch({ type: 'UNDO_LAST_PICK', manualOnly: true })}>Undo</button>}
+                        <button type="button" onClick={onExit}>Exit</button>
+                    </div>
+                    <div className="mock-status-row">
+                        {statusTiles.map(tile => (
+                            <div key={tile.label}>
+                                <span>{tile.label}</span>
+                                <strong>{tile.value}</strong>
+                                <em>{tile.detail}</em>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+                {state.scenarioNarrative && (
+                    <div className="mock-scenario-strip">{state.scenarioNarrative}</div>
+                )}
+                <div className="mock-cockpit-grid">
+                    <MockBigBoardTable state={state} dispatch={dispatch} isUserTurn={isUserTurn} />
+                    <div className="mock-center-stack">
+                        <MockDecisionDeck state={state} dispatch={dispatch} isUserTurn={isUserTurn} currentSlot={currentSlot} onOpenTradeDesk={openTradeDesk} />
+                        <MockPickLog state={state} currentSlot={currentSlot} />
+                    </div>
+                    <div className={'mock-right-stack' + (state.activeOffer ? ' has-trade-offer' : '')}>
+                        <MockRosterBuildCard state={state} />
+                        <MockTradeOfferPanel state={state} dispatch={dispatch} />
+                        {OpponentIntelPanel && (
+                            <div className="mock-opponent-shell">
+                                <OpponentIntelPanel state={state} dispatch={dispatch} currentSlot={currentSlot} onPropose={onPropose} />
+                            </div>
+                        )}
+                        {grade?.letter && (
+                            <div className="mock-grade-strip">
+                                <span>Draft Grade</span>
+                                <strong>{grade.letter}</strong>
+                                <em>{mockFmt(grade.totalDHQ)} DHQ captured</em>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         );
@@ -3034,15 +3772,17 @@
 
         // Header styles
         const headerCss = {
-            height: L.HEADER_H + 'px',
+            minHeight: '118px',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'stretch',
             gap: '12px',
-            padding: '0 14px',
-            background: 'var(--black)',
-            border: '1px solid rgba(212,175,55,0.2)',
+            flexWrap: 'wrap',
+            padding: '12px 14px',
+            background: 'linear-gradient(90deg, rgba(7,9,14,0.98), rgba(17,23,33,0.96) 42%, rgba(30,24,10,0.92))',
+            border: '1px solid rgba(212,175,55,0.34)',
             borderRadius: '8px',
             marginBottom: (L.GRID_GAP) + 'px',
+            boxShadow: 'inset 0 -1px 0 rgba(255,255,255,0.05), 0 10px 26px rgba(0,0,0,0.24)',
         };
 
         const speedBtn = (v) => ({
@@ -3061,7 +3801,7 @@
         const liveTradeWindow = React.useMemo(() => {
             if (state.mode !== 'live-sync' || state.phase !== 'drafting') return null;
             try {
-                const windows = window.DraftCC.tradeSimulator?.buildLiveTradeWindows?.(state, { lookahead: 6 }) || [];
+                const windows = window.DraftCC.tradeSimulator?.buildLiveTradeWindows?.(state, { lookahead: 1, currentOnly: true }) || [];
                 return windows[0] || null;
             } catch (e) {
                 if (window.wrLog) window.wrLog('cc.liveTradeWindow', e);
@@ -3116,38 +3856,172 @@
         const canUndoManualPick = state.phase === 'drafting' && lastPick && (
             state.mode === 'manual' || lastPick.source === 'manual-live' || lastPick.source === 'manual-draft'
         );
+        const pickLabelFor = slot => slot ? ('R' + (slot.round || '?') + '.' + String(slot.slot || 0).padStart(2, '0')) : '--';
+        const shortDhq = n => {
+            const v = Number(n || 0);
+            return v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(Math.round(v));
+        };
+        const teamNameFor = (rosterId, slot) => {
+            const rid = String(rosterId || '');
+            if (rid && String(rid) === String(state.userRosterId || '')) return 'Your Team';
+            if (rid && state.personas?.[rid]?.teamName) return state.personas[rid].teamName;
+            return slot?.ownerName || (slot?.slot ? 'Team ' + slot.slot : 'Draft Room');
+        };
+        const nextUserSlot = (state.pickOrder || []).slice(state.currentIdx || 0).find(slot =>
+            String(slot?.rosterId || '') === String(state.userRosterId || '')
+            || (state.mode !== 'live-sync' && Number(slot?.slot) === Number(state.userSlot))
+        );
+        const trendText = (() => {
+            const counts = {};
+            (state.picks || []).slice(-12).forEach(p => {
+                const pos = p.pos || '?';
+                counts[pos] = (counts[pos] || 0) + 1;
+            });
+            const rows = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            return rows.length ? rows.map(([pos, count]) => pos + ' x' + count).join(' - ') : 'No run yet';
+        })();
+        const liveStatusText = state.activeOffer
+            ? 'Paused for trade offer'
+            : state.phase === 'drafting'
+                ? (isUserTurn ? 'You are on the clock' : 'CPU room is moving')
+                : state.phase === 'complete'
+                    ? 'Draft complete'
+                    : 'Draft setup';
+        const currentTeamName = currentSlot ? teamNameFor(currentSlot.rosterId, currentSlot) : 'Draft Room';
+        const currentPickLabel = currentSlot ? pickLabelFor(currentSlot) + ' - #' + (currentSlot.overall || '--') : 'No active pick';
+        const liveConfidenceCard = (() => {
+            if (state.mode !== 'live-sync') return null;
+            const live = state.liveSync || {};
+            const status = live.status || 'idle';
+            const stale = !!(live.stale || live.remoteBehind || (live.missingPickNos || []).length);
+            if (status === 'complete') {
+                return { label: 'Sync confidence', value: 'Complete', detail: 'Sleeper draft is finished', tone: 'var(--gold)' };
+            }
+            if (stale || status === 'stale' || status === 'error') {
+                return { label: 'Sync confidence', value: 'Review', detail: live.error || 'Sleeper feed needs reconciliation', tone: '#E74C3C' };
+            }
+            if (status === 'mirroring') {
+                return { label: 'Sync confidence', value: 'Healthy', detail: 'Last check ' + formatLiveClockTime(live.lastPollAt), tone: '#2ECC71' };
+            }
+            if (status === 'waiting') {
+                return { label: 'Sync confidence', value: 'Waiting', detail: 'Polling Sleeper for pick 1', tone: '#F0A500' };
+            }
+            return { label: 'Sync confidence', value: 'Connecting', detail: 'Preparing live mirror', tone: 'rgba(155,138,251,0.98)' };
+        })();
+        const baseStageSummaryCards = [
+            {
+                label: 'Your next pick',
+                value: nextUserSlot ? pickLabelFor(nextUserSlot) : 'No pick left',
+                detail: nextUserSlot ? Math.max(0, (nextUserSlot.overall || 0) - (state.currentIdx || 0)) + ' picks away' : 'Watch the room',
+                tone: '#2ECC71',
+            },
+            {
+                label: 'Last pick',
+                value: lastPick ? lastPick.name : 'No picks yet',
+                detail: lastPick ? pickLabelFor(lastPick) + ' - ' + (lastPick.pos || '--') + ' - ' + shortDhq(lastPick.dhq || 0) + ' DHQ' : 'Start the draft',
+                tone: 'var(--silver)',
+            },
+            {
+                label: 'Room run',
+                value: trendText,
+                detail: liveStatusText,
+                tone: 'rgba(155,138,251,0.98)',
+            },
+        ];
+        const stageSummaryCards = liveConfidenceCard ? [liveConfidenceCard, ...baseStageSummaryCards] : baseStageSummaryCards;
 
         // Desktop grid or tablet collapse
         const isTablet = viewport === 'tablet';
+
+        if (state.mode !== 'live-sync' && state.phase === 'drafting') {
+            return (
+                <MockDraftCockpit
+                    state={state}
+                    dispatch={dispatch}
+                    isUserTurn={isUserTurn}
+                    currentSlot={currentSlot}
+                    onExit={onExit}
+                    onPropose={onPropose}
+                    tradeDeskTarget={tradeDeskTarget}
+                    openTradeDesk={openTradeDesk}
+                    grade={grade}
+                    canUndoManualPick={canUndoManualPick}
+                />
+            );
+        }
 
         return (
             <div style={{ fontFamily: FONT_UI, paddingBottom: '12px' }}>
                 {/* ── HEADER ───────────────────────────────────────── */}
                 <div style={headerCss}>
                     <div style={{
-                        fontFamily: FONT_DISPL,
-                        fontSize: '1rem',
-                        fontWeight: 700,
-                        color: 'var(--gold)',
-                        letterSpacing: '0.06em',
-                        textTransform: 'uppercase',
-                        flexShrink: 0,
+                        display: 'grid',
+                        gridTemplateColumns: 'auto minmax(110px, 1fr)',
+                        gap: '10px',
+                        alignItems: 'center',
+                        minWidth: 210,
+                        flex: '0 0 230px',
                     }}>
-                        Draft Command
+                        <div style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: '7px',
+                            display: 'grid',
+                            placeItems: 'center',
+                            background: 'var(--gold)',
+                            color: 'var(--black)',
+                            fontFamily: FONT_DISPL,
+                            fontSize: '0.72rem',
+                            fontWeight: 900,
+                            letterSpacing: '0.08em',
+                        }}>DHQ</div>
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ color: 'var(--gold)', fontFamily: FONT_DISPL, fontSize: '0.84rem', fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase' }}>DraftCast</div>
+                            <div style={{ color: 'var(--silver)', opacity: 0.72, fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.09em' }}>{state.mode} - {state.variant}</div>
+                        </div>
                     </div>
+
                     <div style={{
-                        fontSize: '0.6rem',
-                        color: 'var(--silver)',
-                        opacity: 0.6,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                        flexShrink: 0,
+                        minWidth: 340,
+                        flex: '1 1 420px',
+                        borderLeft: '4px solid var(--gold)',
+                        padding: '7px 0 7px 14px',
                     }}>
-                        {state.mode} · {state.variant}
+                        <div style={{ color: state.activeOffer ? '#F0A500' : 'var(--gold)', fontSize: '0.56rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                            {state.activeOffer ? 'Trade offer on deck' : 'On the clock'}
+                        </div>
+                        <div style={{ color: 'var(--white)', fontFamily: FONT_DISPL, fontSize: '1.62rem', fontWeight: 900, lineHeight: 1.02, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {currentTeamName}
+                        </div>
+                        <div style={{ color: 'var(--silver)', opacity: 0.76, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {currentPickLabel} - {liveStatusText}
+                        </div>
+                    </div>
+
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(' + stageSummaryCards.length + ', minmax(110px, 1fr))',
+                        gap: '7px',
+                        minWidth: stageSummaryCards.length > 3 ? 480 : 360,
+                        flex: stageSummaryCards.length > 3 ? '1 1 560px' : '1 1 440px',
+                    }}>
+                        {stageSummaryCards.map(card => (
+                            <div key={card.label} style={{
+                                minWidth: 0,
+                                border: '1px solid rgba(212,175,55,0.14)',
+                                background: 'rgba(255,255,255,0.024)',
+                                borderRadius: '7px',
+                                padding: '8px 9px',
+                            }}>
+                                <div style={{ color: card.tone, fontSize: '0.52rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: 3 }}>{card.label}</div>
+                                <div style={{ color: 'var(--white)', fontSize: '0.76rem', fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.value}</div>
+                                <div style={{ color: 'var(--silver)', opacity: 0.66, fontSize: '0.58rem', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.detail}</div>
+                            </div>
+                        ))}
                     </div>
 
                     {/* Progress */}
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <div style={{ flex: '1 1 220px', display: 'flex', alignItems: 'center', gap: '8px', minWidth: 180 }}>
                         <div style={{
                             flex: 1,
                             height: 4,
@@ -3302,15 +4176,36 @@
                         fontSize: '0.68rem',
                         fontFamily: FONT_UI,
                         flexShrink: 0,
-                    }}>Exit</button>
-                </div>
+	                    }}>Exit</button>
+	                </div>
 
-                {state.mode === 'live-sync' && (
-                    <LiveSyncStatusBanner
-                        state={state}
-                        liveSync={state.liveSync}
-                        currentSlot={currentSlot}
-                        dispatch={dispatch}
+                {state.mode === 'live-sync' ? (
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: liveTradeWindow ? 'repeat(auto-fit, minmax(320px, 1fr))' : '1fr',
+                        gap: L.GRID_GAP + 'px',
+                        alignItems: 'stretch',
+                        marginBottom: L.GRID_GAP + 'px',
+                    }}>
+	                    <LiveSyncCommandReadPanel
+                            state={state}
+                            liveSync={state.liveSync}
+                            currentSlot={currentSlot}
+                            nextUserSlot={nextUserSlot}
+                            trendText={trendText}
+                            dispatch={dispatch}
+                            inline
+                        />
+                        <LiveTradeWindowBanner
+                            tradeWindow={liveTradeWindow}
+                            onOpen={() => liveTradeWindow?.rosterId && onPropose(liveTradeWindow.rosterId)}
+                            inline
+                        />
+                    </div>
+                ) : (
+                    <LiveTradeWindowBanner
+                        tradeWindow={liveTradeWindow}
+                        onOpen={() => liveTradeWindow?.rosterId && onPropose(liveTradeWindow.rosterId)}
                         layoutGap={L.GRID_GAP}
                     />
                 )}
@@ -3324,12 +4219,6 @@
                     />
                 )}
 
-                <LiveTradeWindowBanner
-                    tradeWindow={liveTradeWindow}
-                    onOpen={() => liveTradeWindow?.rosterId && onPropose(liveTradeWindow.rosterId)}
-                    layoutGap={L.GRID_GAP}
-                />
-
                 {state.mode === 'live-sync' && liveDecisionDeck && (
                     <LiveDecisionDeckPanel
                         deck={liveDecisionDeck}
@@ -3339,7 +4228,7 @@
                 )}
 
                 {/* Phase 5: Scenario / Ghost replay narrative banner */}
-                {state.scenarioNarrative && (
+                {state.scenarioNarrative && state.mode !== 'live-sync' && (
                     <div style={{
                         padding: '8px 14px',
                         marginBottom: L.GRID_GAP + 'px',
@@ -3421,8 +4310,8 @@
                             <OpponentIntelPanel state={state} dispatch={dispatch} currentSlot={currentSlot} onPropose={onPropose} />
                         </div>
                     )}
-                    <div style={{ minHeight: isTablet ? 240 : '100%', minWidth: 0 }}>
-                        <DraftPickListPanel state={state} currentSlot={currentSlot} />
+	                    <div style={{ minHeight: isTablet ? 240 : '100%', minWidth: 0 }}>
+	                        <DraftPickListPanel state={state} currentSlot={currentSlot} />
                     </div>
                     <div style={{ minHeight: isTablet ? 240 : '100%', minWidth: 0 }}>
                         <AlexStreamPanel state={state} dispatch={dispatch} />
@@ -3799,67 +4688,53 @@
         );
     }
 
-    function LiveSyncStatusBanner({ state, liveSync, currentSlot, dispatch, layoutGap }) {
+    function LiveSyncCommandReadPanel({ state, liveSync, currentSlot, nextUserSlot, trendText, dispatch, inline = false }) {
         const status = liveSync?.status || 'idle';
         const color = status === 'mirroring' ? '#2ECC71'
             : status === 'waiting' ? '#F0A500'
                 : status === 'complete' ? 'var(--gold)'
                     : '#E74C3C';
-        const label = status === 'mirroring' ? 'Mirror Healthy'
-            : status === 'waiting' ? 'Waiting Room'
+        const label = status === 'mirroring' ? 'Live mirror healthy'
+            : status === 'waiting' ? 'Waiting for pick 1'
                 : status === 'complete' ? 'Draft Complete'
                     : status === 'stale' ? 'Sync Needs Attention'
                         : status === 'error' ? 'Poll Error'
-                            : 'Live Sync';
-        const text = status === 'waiting'
-            ? 'Sleeper has not posted picks yet. War Room is polling and will mirror the room when pick 1 lands.'
-            : status === 'mirroring'
-                ? 'Read-only mirror active. Last checked ' + formatLiveClockTime(liveSync?.lastPollAt) + '.'
-                : status === 'complete'
-                    ? 'Sleeper marked this draft complete. Review your class and next moves.'
-                    : (liveSync?.error || 'War Room paused live application until the Sleeper feed reconciles.');
-        const current = currentSlot
-            ? 'Next local slot: R' + currentSlot.round + '.' + String(currentSlot.slot || 0).padStart(2, '0') + ' · #' + currentSlot.overall
-            : 'No next slot';
-        const missing = Array.isArray(liveSync?.missingPickNos) ? liveSync.missingPickNos : [];
-        const integrity = liveSync?.remoteBehind
-            ? 'Remote feed behind local mirror'
-            : missing.length
-                ? 'Missing pick ' + missing.slice(0, 3).join(', ') + (missing.length > 3 ? '+' : '')
-                : '';
-        const syncCounters = [
-            (liveSync?.duplicateCount || 0) ? (liveSync.duplicateCount + ' duplicate read') : '',
-            (liveSync?.missedPickCount || 0) ? (liveSync.missedPickCount + ' gap') : '',
-        ].filter(Boolean).join(' · ');
+                            : 'Connecting live sync';
+        const pickLabel = pick => pick ? 'R' + (pick.round || '?') + '.' + String(pick.slot || 0).padStart(2, '0') : '';
+        const liveRead = (() => {
+            if (state.activeOffer) return 'I paused the room for the trade offer. Resolve or counter before the clock moves.';
+            if (nextUserSlot && currentSlot) {
+                const picksAway = Math.max(0, (nextUserSlot.overall || 0) - (state.currentIdx || 0));
+                return 'Your next decision is ' + pickLabel(nextUserSlot) + ' in ' + picksAway + ' picks. I am watching ' + (trendText || 'the board') + ' and will flag the best value pocket before you are on deck.';
+            }
+            return 'No user pick is currently loaded. I will keep the board and opponent intel synced while the room moves.';
+        })();
         return (
             <div style={{
-                padding: '9px 14px',
-                marginBottom: (layoutGap || 8) + 'px',
-                background: 'rgba(255,255,255,0.025)',
+                padding: '10px 12px',
+                marginBottom: inline ? 0 : '8px',
+                background: 'linear-gradient(90deg, rgba(155,138,251,0.07), rgba(255,255,255,0.024) 42%, rgba(212,175,55,0.045))',
                 border: '1px solid rgba(155,138,251,0.24)',
                 borderLeft: '3px solid ' + color,
-                borderRadius: '6px',
-                display: 'flex',
+                borderRadius: '8px',
+                display: 'grid',
+                gridTemplateColumns: dispatch && state.phase === 'drafting' ? 'minmax(0, 1fr) auto' : '1fr',
                 alignItems: 'center',
                 gap: '12px',
                 fontFamily: FONT_UI,
+                height: inline ? '100%' : 'auto',
             }}>
-                <div style={{ color, fontWeight: 900, fontFamily: FONT_DISPL, fontSize: '0.78rem', minWidth: 92 }}>
-                    {label}
-                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: 'var(--silver)', fontSize: '0.66rem', lineHeight: 1.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {text}
+                    <div style={{ color, fontWeight: 900, fontFamily: FONT_DISPL, fontSize: '0.74rem', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+                        Alex Live Read
                     </div>
-                    <div style={{ color: 'var(--silver)', opacity: 0.62, fontSize: '0.56rem', marginTop: 2 }}>
-                        {current} · Sleeper picks seen: {liveSync?.remotePickCount || 0} · Applied: {state.currentIdx || 0}{integrity ? ' · ' + integrity : ''}
+                    <div style={{ color: 'var(--white)', fontSize: '0.78rem', fontWeight: 800, lineHeight: 1.25 }}>
+                        {label}
+                    </div>
+                    <div style={{ color: 'var(--silver)', opacity: 0.78, fontSize: '0.64rem', lineHeight: 1.35, marginTop: 3 }}>
+                        {liveRead}
                     </div>
                 </div>
-                {!!syncCounters && (
-                    <div style={{ color: '#F0A500', fontSize: '0.58rem', fontWeight: 800, textAlign: 'right', flexShrink: 0 }}>
-                        {syncCounters}
-                    </div>
-                )}
                 {dispatch && state.phase === 'drafting' && (
                     <button
                         onClick={() => dispatch({ type: 'SET_OVERRIDE', enabled: !state.overrideMode })}
@@ -4125,7 +5000,7 @@
         );
     }
 
-    function LiveTradeWindowBanner({ tradeWindow, onOpen, layoutGap }) {
+    function LiveTradeWindowBanner({ tradeWindow, onOpen, layoutGap, inline = false }) {
         if (!tradeWindow) return null;
             const suggestion = tradeWindow.suggestion || {};
             const proposal = suggestion.proposal || {};
@@ -4136,7 +5011,7 @@
             return (
                 <div style={{
                     padding: '9px 14px',
-                    marginBottom: (layoutGap || 8) + 'px',
+                    marginBottom: inline ? 0 : (layoutGap || 8) + 'px',
                     background: 'rgba(124,107,248,0.055)',
                     border: '1px solid rgba(155,138,251,0.28)',
                     borderRadius: '6px',
@@ -4145,6 +5020,7 @@
                     gap: '12px',
                     minHeight: 48,
                     fontFamily: FONT_UI,
+                    height: inline ? '100%' : 'auto',
                 }}>
                     <div style={{
                         width: 26,
@@ -4168,7 +5044,7 @@
                             marginBottom: 2,
                         }}>
                             <span style={{ fontSize: '0.58rem', color: 'rgba(155,138,251,1)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 800, flexShrink: 0 }}>
-                                Live Trade Window
+                                Current Pick Trade Window
                             </span>
                             <span style={{ color: 'var(--white)', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {tradeWindow.teamName} · {tradeWindow.pickLabel}

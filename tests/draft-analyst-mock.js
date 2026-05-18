@@ -244,6 +244,105 @@ test('compareReports highlights volatility, target risk, and team grades', () =>
   ok(comparison.summary.volatility > 0, 'volatility computed');
 });
 
+test('league-history projection constrains impossible early IDP runs', () => {
+  const idpPool = [];
+  ['DL', 'LB', 'DB'].forEach((pos, groupIdx) => {
+    for (let i = 1; i <= 10; i++) {
+      const overall = groupIdx * 10 + i;
+      idpPool.push({ pid: 'idp' + overall, name: pos + ' Defender ' + i, pos, dhq: 10500 - overall * 20, consensusRank: overall, tier: 1 });
+    }
+  });
+  ['WR', 'RB', 'QB', 'TE'].forEach((pos, groupIdx) => {
+    for (let i = 1; i <= 8; i++) {
+      const overall = groupIdx * 8 + i;
+      idpPool.push({ pid: 'off' + pos + i, name: pos + ' Prospect ' + i, pos, dhq: 9200 - overall * 25, consensusRank: 30 + overall, tier: overall <= 8 ? 1 : 2 });
+    }
+  });
+  const idpPickOrder = Array.from({ length: 24 }, (_, idx) => ({
+    round: Math.floor(idx / 12) + 1,
+    slot: (idx % 12) + 1,
+    overall: idx + 1,
+    teamIdx: idx % 12,
+    rosterId: (idx % 12) + 1,
+    ownerName: 'Team ' + ((idx % 12) + 1),
+  }));
+  const personas = {};
+  for (let rid = 1; rid <= 12; rid++) {
+    personas[rid] = {
+      draftDna: {
+        label: 'Offense First',
+        posPct: { WR: 34, RB: 28, QB: 14, TE: 14, EDGE: 4, LB: 3, CB: 2, S: 1 },
+        r1Positions: ['WR', 'RB', 'WR', 'QB'],
+        earlyDefPct: 4,
+        overallDefPct: 10,
+        picksAnalyzed: 64,
+      },
+      assessment: { needs: [{ pos: 'WR', urgency: 'thin' }] },
+    };
+  }
+  const report = ctx.DraftCC.analystMock.generateProjectedMock({
+    state: {
+      ...baseState,
+      leagueSize: 12,
+      rounds: 2,
+      userRosterId: 6,
+      userSlot: 6,
+      pool: idpPool,
+      personas,
+    },
+    pickOrder: idpPickOrder,
+    presetId: 'league-history',
+    roundLimit: 2,
+  });
+  const idpCount = report.picks.slice(0, 24).filter(p => ['DL', 'LB', 'DB'].includes(p.pos)).length;
+  ok(idpCount <= 4, 'early IDP count follows league history instead of raw rankings');
+  ok(report.assumptions.historicalPace.ready, 'historical pace metadata included');
+});
+
+test('early projected mocks do not chase specialists over real roster value', () => {
+  const specialistPool = [
+    { pid: 'k1', name: 'Boom Leg', pos: 'K', dhq: 9800, consensusRank: 1, tier: 1 },
+    { pid: 'wr1', name: 'Alpha WR', pos: 'WR', dhq: 7800, consensusRank: 2, tier: 1 },
+    { pid: 'rb1', name: 'Gamma RB', pos: 'RB', dhq: 7200, consensusRank: 3, tier: 2 },
+    { pid: 'qb1', name: 'Beta QB', pos: 'QB', dhq: 7000, consensusRank: 4, tier: 2 },
+    { pid: 'te1', name: 'Delta TE', pos: 'TE', dhq: 6800, consensusRank: 5, tier: 2 },
+  ];
+  const report = ctx.DraftCC.analystMock.generateProjectedMock({
+    state: {
+      ...baseState,
+      leagueSize: 4,
+      rounds: 1,
+      pool: specialistPool,
+      personas: {
+        1: { assessment: { needs: [{ pos: 'K', urgency: 'deficit' }] }, draftDna: { posPct: { K: 90 } } },
+        2: { assessment: { needs: [{ pos: 'K', urgency: 'deficit' }] }, draftDna: { posPct: { K: 90 } } },
+        3: { assessment: { needs: [{ pos: 'K', urgency: 'deficit' }] }, draftDna: { posPct: { K: 90 } } },
+        4: { assessment: { needs: [{ pos: 'K', urgency: 'deficit' }] }, draftDna: { posPct: { K: 90 } } },
+      },
+    },
+    pickOrder,
+    presetId: 'league-history',
+    roundLimit: 1,
+  });
+  ok(report.picks.slice(0, 4).every(p => p.pos !== 'K'), 'round one should not spend premium picks on specialists');
+});
+
+test('formatAlexSlackBrief emits Slack-style pick value lines', () => {
+  const report = ctx.DraftCC.analystMock.generateProjectedMock({
+    state: baseState,
+    pickOrder,
+    presetId: 'league-history',
+    roundLimit: 1,
+  });
+  const brief = ctx.DraftCC.analystMock.formatAlexSlackBrief(report, baseState, { maxLines: 2 });
+  eq(brief.author, 'Alex Ingram', 'author');
+  ok(brief.headline.includes('1 round'), 'round count in headline');
+  eq(brief.pickLines.length, 2, 'line limit respected');
+  ok(brief.pickLines[0].dhq, 'DHQ shown');
+  ok(brief.pickLines[0].value, 'value phrase shown');
+  ok(brief.userPath.includes('1.03'), 'user path summarized');
+});
+
 console.log('\n');
 if (failures.length) {
   console.log(failures.join('\n'));

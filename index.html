@@ -129,6 +129,15 @@
         border-radius: 8px;
         background: rgba(255,255,255,0.024);
     }
+    .wr-module-strip.is-compact {
+        justify-content: flex-end;
+        min-height: 0;
+        padding: 0;
+        margin-bottom: 8px;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+    }
     .wr-module-context {
         display: flex;
         align-items: baseline;
@@ -227,6 +236,27 @@
     }
     .wr-module-nav button.is-active span {
         opacity: 0.75;
+    }
+    .wr-live-draft-action {
+        border: 1px solid rgba(155,138,251,0.42);
+        border-radius: 7px;
+        background: rgba(155,138,251,0.12);
+        color: #d8d0ff;
+        cursor: pointer;
+        font-family: var(--font-body);
+        font-size: 0.7rem;
+        font-weight: 900;
+        letter-spacing: 0.055em;
+        line-height: 1;
+        padding: 8px 12px;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    .wr-live-draft-action:hover,
+    .wr-live-draft-action.is-active {
+        border-color: rgba(155,138,251,0.72);
+        background: rgba(155,138,251,0.22);
+        color: #f0ecff;
     }
     .wr-module-select {
         min-height: 30px;
@@ -933,6 +963,21 @@
     .tc-ta-side { background: var(--off-black); border: 1px solid rgba(212,175,55,0.2); border-radius: 8px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.82rem; }
     .tc-ta-side.tc-side-a { border-color: rgba(93,173,226,0.35); }
     .tc-ta-side.tc-side-b { border-color: rgba(231,76,60,0.35); }
+    .tc-trade-root { -webkit-font-smoothing: subpixel-antialiased; text-rendering: optimizeLegibility; }
+    .tc-trade-root .wr-fade-in { animation: none; transform: none; }
+    .tc-trade-root .wr-module-strip { background: rgba(255,255,255,0.038); border-color: rgba(212,175,55,0.22); }
+    .tc-trade-root .wr-module-context strong { font-size: 1.05rem; }
+    .tc-trade-root .wr-module-context em { color: rgba(207,207,214,0.92); opacity: 1; }
+    .tc-trade-root .tc-dhq-panel,
+    .tc-trade-root .tc-ta-side,
+    .tc-trade-root .tc-scout-panel { background: rgba(16,16,22,0.96); }
+    .tc-trade-root .tc-dhq-hero p,
+    .tc-trade-root .tc-dhq-partner-main span,
+    .tc-trade-root .tc-dhq-dossier-card p,
+    .tc-trade-root .tc-dhq-dossier-block p,
+    .tc-trade-root .tc-dhq-dossier-block li,
+    .tc-trade-root .tc-ta-player-meta,
+    .tc-trade-root .tc-ta-total-label { color: rgba(207,207,214,0.88); opacity: 1; }
     .tc-ta-player-row { background: var(--charcoal); border-radius: 5px; padding: 0.5rem 0.65rem; display: flex; align-items: center; gap: 0.5rem; }
     .tc-ta-remove { background: transparent; border: none; color: rgba(231,76,60,0.6); cursor: pointer; font-size: 0.75rem; flex-shrink: 0; padding: 0; }
     .tc-ta-remove:hover { color: var(--loss-red); }
@@ -1204,36 +1249,49 @@
 
 	    /* Draft Room Action HQ */
 	    .draft-hq-shell, .draft-setup-shell { width: 100%; max-width: 1760px; margin: 0 auto; }
-	    .draft-hq-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(440px, 0.85fr); gap: 12px; margin-bottom: 12px; }
-	    .draft-hq-main-card, .draft-hq-panel, .draft-setup-panel { border: 1px solid rgba(212,175,55,0.16); background: var(--off-black); border-radius: 9px; min-width: 0; }
-	    .draft-hq-main-card { padding: 15px 17px; background: linear-gradient(135deg, rgba(212,175,55,0.075), rgba(124,107,248,0.035)); }
+	    .draft-gm-command { display: grid; grid-template-columns: 38px minmax(0, 1fr) minmax(420px, 0.7fr); gap: 11px; align-items: stretch; border: 1px solid rgba(212,175,55,0.22); background: linear-gradient(135deg, rgba(255,255,255,0.035), rgba(212,175,55,0.07) 50%, rgba(0,0,0,0.18)); border-radius: 9px; padding: 12px; margin-bottom: 12px; }
+	    .draft-gm-avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: var(--black); font-family: 'Rajdhani', sans-serif; font-size: 0.82rem; font-weight: 900; box-shadow: 0 8px 18px rgba(212,175,55,0.18); }
+	    .draft-gm-command-main { min-width: 0; }
+	    .draft-gm-command-main span { display: block; color: var(--gold); font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 900; margin-bottom: 5px; }
+	    .draft-gm-command-main strong { display: block; color: var(--white); font-family: 'Rajdhani', sans-serif; font-size: 1.18rem; letter-spacing: 0.02em; line-height: 1.18; }
+	    .draft-gm-command-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; min-width: 0; }
+	    .draft-gm-command-chips div { border: 1px solid rgba(255,255,255,0.065); background: rgba(0,0,0,0.16); border-radius: 7px; padding: 8px 9px; min-width: 0; }
+	    .draft-gm-command-chips span { display: block; color: var(--silver); opacity: 0.64; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 800; }
+	    .draft-gm-command-chips strong { display: block; color: var(--white); font-size: 0.72rem; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-hq-hero { display: grid; grid-template-columns: minmax(0, 1.34fr) minmax(430px, 0.66fr); gap: 12px; margin-bottom: 12px; align-items: start; }
+	    .draft-hq-panel, .draft-setup-panel { border: 1px solid rgba(212,175,55,0.16); background: var(--off-black); border-radius: 9px; min-width: 0; }
 	    .draft-hq-kicker, .draft-hq-panel-head span, .draft-hq-subhead, .draft-setup-label { color: var(--gold); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; }
 	    .draft-hq-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 	    .draft-hq-title-row h2 { margin: 3px 0 0; color: var(--white); font-family: 'Rajdhani', sans-serif; font-size: 1.75rem; letter-spacing: 0.04em; }
 	    .draft-hq-title-row em { color: var(--silver); opacity: 0.66; font-size: 0.72rem; font-style: normal; text-align: right; }
-	    .draft-hq-main-card p { margin: 7px 0 0; color: var(--silver); opacity: 0.74; font-size: 0.78rem; line-height: 1.45; max-width: 840px; }
 	    .draft-hq-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 13px; }
 	    .draft-hq-kpis div, .draft-setup-kpis div { border: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.16); border-radius: 7px; padding: 8px 9px; min-width: 0; }
 	    .draft-hq-kpis span, .draft-setup-kpis span { display: block; color: var(--silver); opacity: 0.62; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; }
 	    .draft-hq-kpis strong, .draft-setup-kpis strong { display: block; color: var(--white); font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	    .draft-hq-kpis em, .draft-setup-kpis em { display: block; color: var(--silver); opacity: 0.68; font-size: 0.64rem; font-style: normal; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	    .draft-hq-actions { display: flex; flex-direction: column; gap: 8px; }
+	    .draft-hq-actions { display: flex; flex-direction: column; gap: 8px; min-height: 100%; }
 	    .draft-hq-action-card { border: 1px solid rgba(212,175,55,0.14); background: rgba(255,255,255,0.025); border-radius: 8px; padding: 11px 12px; }
 	    .draft-hq-action-card strong { display: block; color: var(--white); font-size: 0.86rem; }
 	    .draft-hq-action-card p { margin: 4px 0 9px; color: var(--silver); opacity: 0.7; font-size: 0.72rem; line-height: 1.4; }
+	    .draft-card-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 	    .draft-hq-action-card button, .draft-rec-actions button, .draft-setup-start, .draft-setup-secondary button { border: 1px solid rgba(212,175,55,0.28); background: rgba(212,175,55,0.1); color: var(--gold); border-radius: 6px; font-family: var(--font-body); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 10px; cursor: pointer; }
 	    .draft-hq-action-card button:hover, .draft-rec-actions button:hover, .draft-setup-secondary button:hover { border-color: rgba(212,175,55,0.55); background: rgba(212,175,55,0.16); }
 	    .draft-hq-action-card button:disabled { cursor: not-allowed; opacity: 0.45; border-color: rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: var(--silver); }
-	    .draft-hq-grid { display: grid; grid-template-columns: minmax(270px, 0.82fr) minmax(470px, 1.35fr) minmax(290px, 0.86fr); gap: 12px; align-items: start; }
+	    .draft-hq-grid { display: grid; grid-template-columns: minmax(520px, 1.25fr) minmax(340px, 0.86fr); gap: 12px; align-items: start; }
 	    .draft-hq-panel { padding: 12px; }
 	    .draft-hq-panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid rgba(212,175,55,0.1); padding-bottom: 8px; margin-bottom: 10px; }
 	    .draft-hq-panel-head em { color: var(--silver); opacity: 0.62; font-size: 0.68rem; font-style: normal; text-align: right; }
-	    .draft-pick-group, .draft-run-list, .draft-trade-read { display: flex; flex-direction: column; gap: 6px; }
-	    .draft-pick-year { color: var(--gold); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; margin: 9px 0 4px; }
+	    .draft-pick-group, .draft-run-list { display: flex; flex-direction: column; gap: 6px; }
+	    .draft-pick-year { color: var(--gold); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; margin: 9px 0 4px; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+	    .draft-pick-year em { color: var(--silver); opacity: 0.64; font-size: 0.58rem; font-style: normal; letter-spacing: 0.04em; text-align: right; }
 	    .draft-pick-chipline { display: flex; flex-wrap: wrap; gap: 5px; }
 	    .draft-pick-chipline span { border: 1px solid rgba(212,175,55,0.18); background: rgba(212,175,55,0.045); color: var(--silver); border-radius: 4px; padding: 3px 7px; font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; }
 	    .draft-pick-chipline span.is-next { border-color: var(--gold); color: var(--gold); background: rgba(212,175,55,0.14); font-weight: 800; }
 	    .draft-pick-chipline span.is-acquired { border-color: rgba(124,107,248,0.34); color: #9b8afb; background: rgba(124,107,248,0.08); }
+	    .draft-future-toggle { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 7px; align-items: center; border: 1px dashed rgba(212,175,55,0.2); background: rgba(255,255,255,0.018); color: var(--silver); border-radius: 6px; padding: 7px 8px; cursor: pointer; font-family: var(--font-body); text-align: left; }
+	    .draft-future-toggle strong { color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; }
+	    .draft-future-toggle span { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-future-toggle em { color: var(--silver); opacity: 0.68; font-size: 0.62rem; font-style: normal; white-space: nowrap; }
 	    .draft-hq-subhead { margin: 12px 0 6px; }
 	    .draft-rec-list { display: flex; flex-direction: column; gap: 8px; }
 	    .draft-rec-card { width: 100%; display: grid; grid-template-columns: 24px 34px minmax(120px, 1fr) 56px; gap: 8px; align-items: center; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.025); color: var(--white); border-radius: 8px; padding: 9px; cursor: pointer; text-align: left; }
@@ -1243,17 +1301,207 @@
 	    .draft-rec-photo { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,0.05); }
 	    .draft-rec-main { min-width: 0; }
 	    .draft-rec-main strong { display: block; color: var(--white); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	    .draft-rec-main em, .draft-rec-reason, .draft-run-list em, .draft-trade-read em { display: block; color: var(--silver); opacity: 0.68; font-size: 0.66rem; font-style: normal; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-rec-main strong small { color: var(--gold); font-size: 0.58rem; font-weight: 800; }
+	    .draft-rec-main em, .draft-rec-reason, .draft-run-list em { display: block; color: var(--silver); opacity: 0.68; font-size: 0.66rem; font-style: normal; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	    .draft-rec-score { text-align: right; min-width: 52px; }
 	    .draft-rec-score strong { display: block; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; }
 	    .draft-rec-score span { display: block; color: var(--silver); opacity: 0.62; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; }
 	    .draft-rec-reason { grid-column: 3 / -1; white-space: normal; line-height: 1.35; }
 	    .draft-rec-actions { grid-column: 3 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
 	    .draft-rec-actions button { padding: 4px 8px; font-size: 0.62rem; }
-	    .draft-run-list div, .draft-trade-read div, .draft-setup-timeline div { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; align-items: center; border: 1px solid rgba(255,255,255,0.045); background: rgba(255,255,255,0.022); border-radius: 6px; padding: 7px 8px; }
-	    .draft-run-list strong, .draft-trade-read strong { color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
-	    .draft-run-list span, .draft-trade-read span { color: var(--silver); opacity: 0.74; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-user-mock-card { grid-template-columns: 46px 34px minmax(150px, 1fr) 70px; }
+	    .draft-run-list div, .draft-setup-timeline div { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; align-items: center; border: 1px solid rgba(255,255,255,0.045); background: rgba(255,255,255,0.022); border-radius: 6px; padding: 7px 8px; }
+	    .draft-run-list strong { color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
+	    .draft-run-list span { color: var(--silver); opacity: 0.74; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-run-list .draft-run-note-row { align-items: start; row-gap: 5px; }
+	    .draft-run-list .draft-run-note-row p { grid-column: 1 / -1; margin: 0; color: var(--silver); opacity: 0.72; font-size: 0.66rem; line-height: 1.35; }
+	    .draft-target-header { display: grid; grid-template-columns: 42px minmax(88px, 0.46fr) minmax(160px, 0.72fr) minmax(220px, 1fr); gap: 8px; align-items: center; color: var(--silver); opacity: 0.58; font-size: 0.56rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 900; margin-bottom: 5px; padding: 0 8px; }
+	    .draft-run-list .draft-target-row { grid-template-columns: 42px minmax(88px, 0.46fr) minmax(160px, 0.72fr) minmax(220px, 1fr); }
+	    .draft-run-list .draft-target-row p { grid-column: auto; align-self: center; }
 	    .draft-empty { color: var(--silver); opacity: 0.6; border: 1px dashed rgba(212,175,55,0.18); border-radius: 8px; padding: 16px; text-align: center; font-size: 0.76rem; }
+
+	    .draft-alex-toolbar { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 10px; }
+	    .draft-alex-presets { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+	    .draft-alex-presets button { border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.025); color: var(--silver); border-radius: 6px; padding: 6px 9px; cursor: pointer; font-family: var(--font-body); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+	    .draft-alex-presets button.is-active { border-color: rgba(212,175,55,0.48); background: rgba(212,175,55,0.13); color: var(--gold); }
+	    .draft-alex-presets span { color: var(--silver); opacity: 0.64; font-size: 0.72rem; }
+	    .draft-alex-rounds { display: flex; align-items: center; gap: 7px; color: var(--silver); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
+	    .draft-alex-rounds select { border: 1px solid rgba(212,175,55,0.22); background: rgba(255,255,255,0.04); color: var(--white); border-radius: 6px; padding: 6px 9px; font-family: var(--font-body); font-size: 0.7rem; outline: none; }
+	    .draft-alex-generate { border: 1px solid rgba(212,175,55,0.34); background: rgba(212,175,55,0.1); color: var(--gold); border-radius: 6px; padding: 7px 11px; cursor: pointer; font-family: var(--font-body); font-size: 0.64rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+	    .draft-alex-generate:disabled { opacity: 0.5; cursor: wait; }
+	    .draft-alex-empty { border: 1px dashed rgba(212,175,55,0.18); background: rgba(255,255,255,0.018); border-radius: 8px; padding: 11px 12px; }
+	    .draft-alex-empty strong { display: block; color: var(--white); font-size: 0.76rem; }
+	    .draft-alex-empty span { display: block; color: var(--silver); opacity: 0.66; font-size: 0.68rem; margin-top: 3px; }
+	    .draft-alex-message { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; border: 1px solid rgba(212,175,55,0.15); background: rgba(255,255,255,0.022); border-radius: 9px; padding: 11px; }
+	    .draft-alex-avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: var(--black); font-family: 'Rajdhani', sans-serif; font-size: 1.02rem; font-weight: 900; }
+	    .draft-alex-body { min-width: 0; }
+	    .draft-alex-meta { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+	    .draft-alex-meta strong { color: var(--white); font-size: 0.84rem; }
+	    .draft-alex-meta span { color: var(--silver); opacity: 0.64; font-size: 0.64rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-alex-body p { margin: 4px 0 8px; color: var(--silver); opacity: 0.78; font-size: 0.72rem; line-height: 1.42; }
+	    .draft-alex-user-path { border: 1px solid rgba(46,204,113,0.18); background: rgba(46,204,113,0.045); border-radius: 7px; padding: 7px 8px; margin-bottom: 8px; }
+	    .draft-alex-user-path strong { color: #2ECC71; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; display: block; }
+	    .draft-alex-user-path span { color: var(--white); font-size: 0.7rem; display: block; margin-top: 2px; }
+	    .draft-alex-pick-list { display: grid; gap: 5px; max-height: 310px; overflow-y: auto; padding-right: 2px; }
+	    .draft-alex-pick-line { display: grid; grid-template-columns: 46px 32px minmax(0, 1fr) minmax(116px, 0.32fr); gap: 8px; align-items: start; border: 1px solid rgba(255,255,255,0.055); background: rgba(0,0,0,0.13); border-radius: 7px; padding: 7px 8px; cursor: pointer; }
+	    .draft-alex-pick-line.is-user { border-color: rgba(46,204,113,0.32); background: rgba(46,204,113,0.045); }
+	    .draft-alex-pick-no { color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; }
+	    .draft-alex-player-photo { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,0.05); }
+	    .draft-alex-pick-main, .draft-alex-pick-value { min-width: 0; }
+	    .draft-alex-pick-main strong { color: var(--white); display: block; font-size: 0.74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-alex-pick-main strong em { color: var(--gold); font-style: normal; font-size: 0.58rem; }
+	    .draft-alex-pick-main small, .draft-alex-pick-value small, .draft-alex-pick-value em { color: var(--silver); opacity: 0.66; display: block; font-size: 0.58rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .draft-alex-pick-main i { color: var(--silver); opacity: 0.72; display: block; font-size: 0.62rem; font-style: normal; line-height: 1.32; margin-top: 3px; }
+	    .draft-alex-pick-value { text-align: right; }
+	    .draft-alex-pick-value strong { color: var(--gold); display: block; font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; }
+	    .draft-alex-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 9px; color: var(--silver); opacity: 0.72; font-size: 0.64rem; }
+	    .draft-alex-footer button { border: 1px solid rgba(212,175,55,0.32); background: rgba(212,175,55,0.1); color: var(--gold); border-radius: 6px; padding: 6px 10px; cursor: pointer; font-family: var(--font-body); font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+	    .draft-hq-action-card.draft-analyst-flash { flex: 1; min-height: 260px; max-height: 340px; display: flex; flex-direction: column; overflow: hidden; }
+	    .draft-hq-action-card.draft-analyst-flash .draft-hq-panel-head { flex-shrink: 0; }
+	    .draft-alex-preview-board { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+	    .draft-alex-preview-picks { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding-right: 2px; align-content: start; }
+	    .draft-alex-preview-picks button { width: 100%; min-height: 58px; text-align: left; border: 1px solid rgba(255,255,255,0.055); background: rgba(255,255,255,0.018); border-radius: 6px; padding: 6px 7px; cursor: pointer; }
+	    .draft-alex-preview-picks button:hover { border-color: rgba(212,175,55,0.28); background: rgba(212,175,55,0.045); }
+	    .draft-alex-preview-picks span { display: block; color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.54rem; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	    .draft-alex-preview-picks em { display: block; color: var(--silver); opacity: 0.62; font-size: 0.54rem; font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+	    .draft-alex-preview-picks b { display: block; color: var(--white); font-size: 0.66rem; font-weight: 800; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+
+	    /* Mock Draft Center DraftCast cockpit */
+	    .mock-draft-cockpit { width: 100%; max-width: 1760px; margin: 0 auto; font-family: var(--font-body); color: var(--white); }
+	    .mock-draftcast-rail { border: 1px solid rgba(212,175,55,0.28); background: linear-gradient(135deg, rgba(16,18,22,0.98), rgba(7,8,11,0.98) 48%, rgba(26,21,10,0.94)); border-radius: 9px; overflow: hidden; margin-bottom: 12px; box-shadow: 0 18px 36px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.06); }
+	    .mock-draftcast-rail > .mock-cast-brand, .mock-draftcast-rail > .mock-cast-clock, .mock-draftcast-rail > .mock-cast-controls { display: inline-grid; vertical-align: top; }
+	    .mock-draftcast-rail { display: grid; grid-template-columns: minmax(305px,0.66fr) minmax(560px,1.12fr) minmax(400px,0.72fr); }
+	    .mock-cast-brand { grid-template-columns: 54px minmax(0,1fr); gap: 13px; align-items: center; padding: 17px 18px; border-right: 1px solid rgba(255,255,255,0.07); min-width: 0; }
+	    .mock-cast-brand > div { width: 48px; height: 48px; border-radius: 9px; display: grid; place-items: center; background: linear-gradient(180deg, #F2D76A, var(--gold)); color: var(--black); font-family: 'Rajdhani', sans-serif; font-weight: 900; letter-spacing: 0.08em; box-shadow: 0 8px 22px rgba(212,175,55,0.24), inset 0 -2px 0 rgba(0,0,0,0.18); }
+	    .mock-cast-brand span { min-width: 0; }
+	    .mock-cast-brand strong { display: block; color: var(--white); font-family: 'Rajdhani', sans-serif; font-size: 1.1rem; letter-spacing: 0.07em; }
+	    .mock-cast-brand em { display: block; color: var(--silver); opacity: 0.68; font-style: normal; font-size: 0.62rem; line-height: 1.25; margin-top: 2px; white-space: normal; }
+	    .mock-cast-brand button { margin-top: 8px; border: 1px solid rgba(212,175,55,0.38); background: rgba(212,175,55,0.1); color: var(--gold); border-radius: 6px; padding: 5px 8px; font-size: 0.58rem; font-family: var(--font-body); font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }
+	    .mock-cast-clock { padding: 18px 22px; align-content: center; position: relative; min-width: 0; background: linear-gradient(90deg, rgba(212,175,55,0.035), rgba(255,255,255,0.012)); }
+	    .mock-cast-clock span { color: var(--gold); font-size: 0.58rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+	    .mock-cast-clock strong { color: var(--white); font-family: 'Rajdhani', sans-serif; font-size: 1.95rem; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; text-shadow: 0 1px 0 rgba(0,0,0,0.32); }
+	    .mock-cast-clock div { height: 5px; background: rgba(255,255,255,0.09); border-radius: 999px; overflow: hidden; margin-top: 11px; margin-right: 74px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.38); }
+	    .mock-cast-clock i { display: block; height: 100%; background: linear-gradient(90deg, #F7D759, var(--gold)); border-radius: inherit; box-shadow: 0 0 14px rgba(212,175,55,0.36); }
+	    .mock-cast-clock em { position: absolute; right: 16px; bottom: 9px; color: var(--silver); opacity: 0.72; font-style: normal; font-size: 0.62rem; font-family: 'JetBrains Mono', monospace; min-width: 58px; text-align: right; }
+	    .mock-cast-controls { grid-template-columns: auto auto minmax(118px,auto) auto auto auto; gap: 9px; align-items: center; justify-content: end; padding: 15px 16px; border-left: 1px solid rgba(255,255,255,0.07); }
+	    .mock-cast-controls div { padding: 8px 11px; border: 1px solid rgba(212,175,55,0.18); border-radius: 7px; background: rgba(0,0,0,0.2); min-width: 78px; }
+	    .mock-cast-controls div span { display: block; color: var(--silver); opacity: 0.62; font-size: 0.52rem; text-transform: uppercase; letter-spacing: 0.08em; }
+	    .mock-cast-controls div strong { display: block; color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; margin-top: 2px; }
+	    .mock-cast-controls button, .mock-cast-controls select { border: 1px solid rgba(212,175,55,0.28); background: rgba(255,255,255,0.045); color: var(--white); border-radius: 7px; padding: 9px 11px; font-family: var(--font-body); font-size: 0.68rem; font-weight: 800; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); }
+	    .mock-cast-controls button:disabled { opacity: 0.42; cursor: not-allowed; }
+	    .mock-cast-controls label { color: var(--silver); font-size: 0.62rem; display: flex; align-items: center; gap: 6px; }
+	    .mock-status-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); border-top: 1px solid rgba(255,255,255,0.06); }
+	    .mock-status-row div { padding: 12px 15px; border-right: 1px solid rgba(255,255,255,0.06); min-width: 0; background: rgba(0,0,0,0.14); }
+	    .mock-status-row div:last-child { border-right: 0; }
+	    .mock-status-row span, .mock-panel-head span { color: var(--gold); font-size: 0.62rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; }
+	    .mock-status-row strong { display: block; color: var(--white); font-size: 0.84rem; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	    .mock-status-row em { display: block; color: var(--silver); opacity: 0.67; font-style: normal; font-size: 0.62rem; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	    .mock-scenario-strip { margin-bottom: 10px; padding: 8px 12px; border: 1px solid rgba(212,175,55,0.24); background: rgba(212,175,55,0.07); border-radius: 7px; color: var(--gold); font-size: 0.68rem; font-weight: 800; }
+	    .mock-cockpit-grid { display: grid; grid-template-columns: minmax(430px, 0.96fr) minmax(470px, 1.12fr) minmax(310px, 0.72fr); gap: 12px; height: clamp(700px, calc(100vh - 285px), 900px); min-height: 680px; }
+	    .mock-center-stack, .mock-right-stack { display: grid; gap: 10px; min-height: 0; }
+	    .mock-center-stack { grid-template-rows: minmax(330px,1.08fr) minmax(305px,0.92fr); }
+	    .mock-right-stack { grid-template-rows: minmax(250px,0.68fr) minmax(260px,0.9fr) auto; }
+	    .mock-right-stack.has-trade-offer { grid-template-rows: minmax(230px,0.58fr) auto minmax(220px,0.68fr) auto; }
+	    .mock-panel, .mock-opponent-shell, .mock-trade-card, .mock-grade-strip { border: 1px solid rgba(212,175,55,0.19); background: linear-gradient(160deg, rgba(35,36,42,0.96), rgba(18,20,25,0.98) 52%, rgba(11,13,17,0.98)); border-radius: 9px; min-width: 0; overflow: hidden; box-shadow: 0 14px 28px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.04); }
+	    .mock-panel { padding: 12px 13px; display: flex; flex-direction: column; min-height: 0; }
+	    .mock-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-bottom: 9px; border-bottom: 1px solid rgba(212,175,55,0.12); margin-bottom: 10px; }
+	    .mock-panel-head em { color: var(--silver); opacity: 0.62; font-style: normal; font-size: 0.62rem; text-align: right; }
+	    .mock-board-lanes { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; margin-bottom: 8px; }
+	    .mock-board-lanes button { min-width: 0; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.024); color: var(--silver); border-radius: 7px; padding: 7px 8px; cursor: pointer; text-align: left; font-family: var(--font-body); }
+	    .mock-board-lanes button.is-active { border-color: rgba(212,175,55,0.52); background: linear-gradient(135deg, rgba(212,175,55,0.16), rgba(212,175,55,0.055)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06); }
+	    .mock-board-lanes strong { display: block; color: var(--white); font-size: 0.62rem; font-weight: 900; letter-spacing: 0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	    .mock-board-lanes button.is-active strong { color: var(--gold); }
+	    .mock-board-lanes span { display: block; color: var(--silver); opacity: 0.64; font-size: 0.54rem; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	    .mock-board-tools { display: grid; grid-template-columns: minmax(0,1fr) 92px; gap: 7px; margin-bottom: 7px; }
+	    .mock-board-tools input, .mock-board-tools select { border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.18); color: var(--white); border-radius: 6px; padding: 8px 9px; font-family: var(--font-body); font-size: 0.68rem; min-width: 0; }
+	    .mock-board-pos { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+	    .mock-board-pos button { border: 1px solid rgba(255,255,255,0.08); background: transparent; color: var(--silver); border-radius: 10px; padding: 3px 8px; font-family: var(--font-body); font-size: 0.58rem; font-weight: 800; cursor: pointer; }
+	    .mock-board-pos button.is-active { border-color: color-mix(in srgb, var(--pos-color, var(--gold)) 55%, transparent); background: color-mix(in srgb, var(--pos-color, var(--gold)) 18%, transparent); color: var(--pos-color, var(--gold)); }
+	    .mock-board-head, .mock-board-row { display: grid; grid-template-columns: 32px minmax(96px,1.5fr) 34px 40px minmax(68px,0.8fr) 50px 34px 30px 48px; gap: 5px; align-items: center; }
+	    .mock-board-head { color: var(--silver); opacity: 0.58; font-size: 0.51rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; padding: 0 6px 5px; }
+	    .mock-board-scroll { flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px; }
+	    .mock-board-row { min-height: 36px; border: 1px solid transparent; border-bottom-color: rgba(255,255,255,0.035); padding: 5px 6px; border-radius: 6px; cursor: pointer; color: var(--silver); font-size: 0.6rem; transition: border-color 0.15s ease, background 0.15s ease; }
+	    .mock-board-row:hover { border-color: rgba(212,175,55,0.22); background: rgba(212,175,55,0.055); }
+	    .mock-board-row.is-premium { background: rgba(255,255,255,0.012); }
+	    .mock-board-row.is-board-one { border-color: rgba(212,175,55,0.34); background: linear-gradient(90deg, rgba(212,175,55,0.12), rgba(255,255,255,0.018)); box-shadow: inset 3px 0 0 var(--gold); }
+	    .mock-board-row strong { color: var(--white); font-size: 0.66rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	    .mock-board-row span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	    .mock-board-row .mock-rank, .mock-board-row .mock-dhq { color: var(--gold); font-family: 'JetBrains Mono', monospace; font-weight: 900; }
+	    .mock-board-row .is-good { color: #2ECC71; font-weight: 900; }
+	    .mock-board-row .is-ok { color: #F0A500; font-weight: 900; }
+	    .mock-board-row button { border: 1px solid rgba(212,175,55,0.3); background: rgba(212,175,55,0.11); color: var(--gold); border-radius: 4px; padding: 4px 5px; font-size: 0.52rem; font-family: var(--font-body); font-weight: 900; text-transform: uppercase; cursor: pointer; }
+	    .mock-decision-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; flex: 1; min-height: 0; }
+	    .mock-decision-card { text-align: left; border: 1px solid rgba(255,255,255,0.09); border-left: 3px solid var(--accent); background: linear-gradient(145deg, rgba(255,255,255,0.045), rgba(0,0,0,0.1)); border-radius: 8px; padding: 11px 12px; min-width: 0; min-height: 130px; cursor: pointer; font-family: var(--font-body); box-shadow: inset 0 1px 0 rgba(255,255,255,0.035); transition: transform 0.15s ease, border-color 0.15s ease; }
+	    .mock-decision-card:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 48%, rgba(255,255,255,0.12)); }
+	    .mock-decision-card span { display: block; color: var(--accent); font-size: 0.6rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; }
+	    .mock-decision-card strong { display: block; color: var(--white); font-size: 0.82rem; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	    .mock-decision-card em { display: block; color: var(--silver); opacity: 0.68; font-style: normal; font-size: 0.64rem; margin-top: 2px; }
+	    .mock-decision-card p { color: var(--silver); opacity: 0.82; font-size: 0.66rem; line-height: 1.38; margin: 8px 0 0; }
+	    .mock-decision-player { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 9px; align-items: center; margin-top: 8px; min-width: 0; }
+	    .mock-decision-player img, .mock-decision-player i { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1px solid color-mix(in srgb, var(--accent) 52%, rgba(255,255,255,0.16)); background: rgba(0,0,0,0.22); display: grid; place-items: center; color: var(--accent); font-style: normal; font-size: 0.62rem; font-weight: 900; }
+	    .mock-decision-player.is-trade i { border-radius: 8px; background: rgba(212,175,55,0.12); color: var(--gold); font-size: 1rem; }
+	    .mock-decision-player strong { margin-top: 0; }
+	    .mock-log-scroll { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 5px; align-content: start; }
+	    .mock-log-row { display: grid; grid-template-columns: 48px minmax(0,0.82fr) minmax(0,1.38fr) 82px; gap: 8px; align-items: center; min-height: 36px; border: 1px solid rgba(255,255,255,0.055); background: rgba(255,255,255,0.02); border-radius: 7px; padding: 7px 9px; cursor: pointer; }
+	    .mock-log-row.is-current { border-color: rgba(212,175,55,0.34); background: rgba(212,175,55,0.08); }
+	    .mock-log-row span { color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; font-weight: 900; }
+	    .mock-log-row strong, .mock-log-row em { color: var(--white); font-style: normal; font-size: 0.64rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	    .mock-log-row em { color: var(--silver); opacity: 0.76; }
+	    .mock-log-row b { color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; text-align: right; }
+	    .mock-log-row small { color: #2ECC71; font-family: var(--font-body); font-size: 0.52rem; margin-left: 4px; }
+	    .mock-roster-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 10px; }
+	    .mock-roster-kpis div { border: 1px solid rgba(255,255,255,0.075); background: rgba(0,0,0,0.16); border-radius: 7px; padding: 9px 10px; }
+	    .mock-roster-kpis span { display: block; color: var(--silver); opacity: 0.62; font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.08em; }
+	    .mock-roster-kpis strong { display: block; color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.98rem; margin-top: 2px; }
+	    .mock-roster-section { color: var(--gold); font-size: 0.54rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; margin: 7px 0 6px; }
+	    .mock-roster-section.is-shape { margin-top: 9px; }
+	    .mock-roster-matrix { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+	    .mock-roster-cell { border: 1px solid rgba(255,255,255,0.07); background: rgba(0,0,0,0.14); border-radius: 7px; padding: 7px 8px; min-width: 0; }
+	    .mock-roster-cell header, .mock-roster-cell footer { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; min-width: 0; }
+	    .mock-roster-cell header span { color: var(--pos-color); font-size: 0.62rem; font-weight: 900; }
+	    .mock-roster-cell header strong { color: var(--white); font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; }
+	    .mock-roster-cell .mock-roster-bars { position: relative; height: 13px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,0.075); margin: 6px 0; display: block; }
+	    .mock-roster-cell .mock-roster-bars i, .mock-roster-cell .mock-roster-bars b { position: absolute; left: 0; height: 100%; border-radius: inherit; }
+	    .mock-roster-cell .mock-roster-bars i { top: 0; background: color-mix(in srgb, var(--pos-color) 28%, transparent); }
+	    .mock-roster-cell .mock-roster-bars b { top: 4px; height: 5px; background: linear-gradient(90deg, var(--pos-color), color-mix(in srgb, var(--pos-color) 72%, white)); box-shadow: 0 0 10px color-mix(in srgb, var(--pos-color) 36%, transparent); }
+	    .mock-roster-cell footer span { color: var(--silver); opacity: 0.82; font-family: 'JetBrains Mono', monospace; font-size: 0.54rem; white-space: nowrap; }
+	    .mock-roster-cell footer em { color: var(--silver); opacity: 0.62; font-style: normal; font-size: 0.52rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	    .mock-roster-bars { display: grid; gap: 6px; }
+	    .mock-roster-pos { display: grid; grid-template-columns: 28px 42px minmax(0,1fr) 44px; gap: 7px; align-items: center; color: var(--silver); font-size: 0.6rem; }
+	    .mock-roster-pos span { color: var(--pos-color); font-weight: 900; }
+	    .mock-roster-pos strong { color: var(--white); font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; }
+	    .mock-roster-pos div { height: 6px; background: rgba(255,255,255,0.09); border-radius: 999px; overflow: hidden; }
+	    .mock-roster-pos i { display: block; height: 100%; background: linear-gradient(90deg, var(--pos-color), color-mix(in srgb, var(--pos-color) 70%, white)); border-radius: inherit; }
+	    .mock-roster-pos em { color: var(--silver); opacity: 0.72; font-family: 'JetBrains Mono', monospace; font-size: 0.56rem; font-style: normal; text-align: right; }
+	    .mock-shape-bars { display: grid; gap: 6px; }
+	    .mock-shape-row { display: grid; grid-template-columns: minmax(92px,0.62fr) minmax(0,1fr) 52px; gap: 8px; align-items: center; color: var(--silver); font-size: 0.62rem; }
+	    .mock-shape-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	    .mock-shape-row div { height: 6px; background: rgba(255,255,255,0.09); border-radius: 999px; overflow: hidden; }
+	    .mock-shape-row i { display: block; height: 100%; background: linear-gradient(90deg, #8BC34A, var(--gold)); border-radius: inherit; }
+	    .mock-shape-row em { color: var(--silver); opacity: 0.76; font-style: normal; font-family: 'JetBrains Mono', monospace; font-size: 0.56rem; text-align: right; }
+	    .mock-opponent-shell { min-height: 0; background: linear-gradient(155deg, rgba(28,30,36,0.98), rgba(11,13,17,0.98)); }
+	    .mock-opponent-shell > div { border: 0 !important; border-radius: 0 !important; background: transparent !important; }
+	    .mock-trade-card { padding: 11px 12px 12px; min-height: 190px; border-color: rgba(240,165,0,0.36); background: linear-gradient(135deg, rgba(240,165,0,0.08), rgba(255,255,255,0.02)); }
+	    .mock-trade-body { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+	    .mock-trade-body strong { display: block; color: var(--white); font-size: 0.76rem; }
+	    .mock-trade-body span { display: block; color: var(--silver); opacity: 0.78; font-size: 0.66rem; line-height: 1.35; margin-top: 2px; }
+	    .mock-trade-body b { color: var(--gold); font-family: 'JetBrains Mono', monospace; }
+	    .mock-alex-note { display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 8px; align-items: start; margin: 9px 0; }
+	    .mock-alex-note strong { color: var(--gold); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; }
+	    .mock-alex-note span { color: var(--silver); opacity: 0.82; font-size: 0.66rem; line-height: 1.35; }
+	    .mock-trade-actions { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
+	    .mock-trade-actions button { border: 0; border-radius: 6px; padding: 8px 9px; color: #fff; font-family: var(--font-body); font-weight: 900; cursor: pointer; }
+	    .mock-trade-actions button:disabled { opacity: 0.42; cursor: not-allowed; }
+	    .mock-trade-actions .is-accept { background: #2ECC71; }
+	    .mock-trade-actions .is-counter { background: rgba(212,175,55,0.72); color: var(--black); }
+	    .mock-trade-actions .is-decline { background: rgba(231,76,60,0.72); }
+	    .mock-grade-strip { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; align-items: center; padding: 9px 11px; }
+	    .mock-grade-strip span { color: var(--silver); opacity: 0.66; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; }
+	    .mock-grade-strip strong { grid-row: 1 / 3; grid-column: 2; color: var(--gold); font-family: 'Rajdhani', sans-serif; font-size: 1.6rem; line-height: 1; }
+	    .mock-grade-strip em { color: var(--silver); opacity: 0.72; font-style: normal; font-size: 0.62rem; }
+	    .mock-empty { color: var(--silver); opacity: 0.58; border: 1px dashed rgba(212,175,55,0.18); border-radius: 7px; padding: 14px; text-align: center; font-size: 0.7rem; }
+	    @media(max-width:1320px){ .mock-draftcast-rail, .mock-cockpit-grid { grid-template-columns: 1fr; height: auto; } .mock-center-stack, .mock-right-stack { grid-template-rows: auto; } .mock-status-row { grid-template-columns: repeat(2, minmax(0,1fr)); } .mock-cast-controls { justify-content: start; grid-template-columns: repeat(auto-fit, minmax(90px, auto)); } .mock-board-scroll, .mock-log-scroll { max-height: 420px; } }
+	    @media(max-width:760px){ .mock-status-row, .mock-decision-grid, .mock-roster-kpis { grid-template-columns: 1fr; } .mock-board-head { display: none; } .mock-board-row { grid-template-columns: 34px minmax(0,1fr) 42px 54px; } .mock-board-row span:nth-child(4), .mock-board-row span:nth-child(5), .mock-board-row span:nth-child(7), .mock-board-row span:nth-child(8) { display: none; } .mock-log-row { grid-template-columns: 46px minmax(0,1fr); } .mock-log-row em, .mock-log-row b { grid-column: 2; text-align: left; } }
 
 	    .draft-setup-shell { max-width: 1760px; font-family: var(--font-body); }
 	    .draft-setup-head { margin-bottom: 10px; }
@@ -1281,8 +1529,8 @@
 	    .draft-setup-secondary { margin-top: 12px; }
 	    .draft-setup-secondary > button { width: 100%; display: flex; justify-content: space-between; align-items: center; background: transparent; color: var(--silver); border-style: dashed; }
 	    .draft-setup-other { margin-top: 10px; padding: 12px; border: 1px solid rgba(255,255,255,0.06); border-radius: 7px; background: rgba(255,255,255,0.02); }
-	    @media(max-width:1280px){ .draft-hq-hero, .draft-hq-grid, .draft-setup-grid { grid-template-columns: 1fr; } .draft-hq-actions { display: grid; grid-template-columns: 1fr 1fr; } }
-	    @media(max-width:760px){ .draft-hq-kpis, .draft-setup-two, .draft-setup-choice, .draft-setup-kpis, .draft-hq-actions { grid-template-columns: 1fr; } .draft-rec-card { grid-template-columns: 22px minmax(0, 1fr) auto; } .draft-rec-photo { display: none; } .draft-rec-score, .draft-rec-reason, .draft-rec-actions { grid-column: 2 / -1; text-align: left; } }
+	    @media(max-width:1280px){ .draft-gm-command, .draft-hq-hero, .draft-hq-grid, .draft-setup-grid { grid-template-columns: 1fr; } .draft-hq-actions { display: grid; grid-template-columns: 1fr 1fr; } }
+	    @media(max-width:760px){ .draft-gm-command-chips, .draft-hq-kpis, .draft-setup-two, .draft-setup-choice, .draft-setup-kpis, .draft-hq-actions { grid-template-columns: 1fr; } .draft-target-header { display: none; } .draft-run-list .draft-target-row { grid-template-columns: 42px minmax(0, 1fr); } .draft-run-list .draft-target-row em, .draft-run-list .draft-target-row p { grid-column: 2 / -1; } .draft-rec-card, .draft-user-mock-card { grid-template-columns: 42px minmax(0, 1fr) auto; } .draft-rec-photo { display: none; } .draft-rec-score, .draft-rec-reason, .draft-rec-actions { grid-column: 2 / -1; text-align: left; } .draft-alex-toolbar, .draft-alex-footer { align-items: stretch; flex-direction: column; } .draft-alex-preview-picks { grid-template-columns: 1fr; } .draft-alex-pick-line { grid-template-columns: 42px 30px minmax(0, 1fr); } .draft-alex-pick-value { grid-column: 3 / -1; text-align: left; } }
 
 	    .draft-setup-head-pro { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 9px 12px; border: 1px solid rgba(212,175,55,0.13); border-radius: 9px; background: rgba(255,255,255,0.018); }
 	    .draft-setup-eyebrow { color: var(--gold); font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.16em; font-weight: 900; margin-bottom: 3px; }
@@ -1624,7 +1872,7 @@
     <div id="root"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.101.1/dist/umd/supabase.min.js"></script>
-<script src="js/shared/shared-loader.js?v=20260515phase4fc"></script>
+<script src="js/shared/shared-loader.js?v=20260517rookie-fano"></script>
 <script>
 window.DYNASTY_HQ_APP = 'warroom';
 const WR_PLATFORM_SANDBOX_ACCESS = (window.location.hostname || '').includes('sandbox')
@@ -1709,10 +1957,10 @@ WRShared.loadMany(WR_SHARED_FILES);
 <script src="js/shared/league-history.js?v=20260426p20"></script>
 <!-- 3. Shared utilities: player valuation constants + projection engine -->
 <script type="text/babel" src="js/utils/sos-engine.js"></script>
-<script type="text/babel" src="js/utils/player-value.js"></script>
+<script type="text/babel" src="js/utils/player-value.js?v=20260517valuefix"></script>
 <!-- 4. Feature modules (no internal dependencies between these) -->
 <script type="text/babel" src="js/settings.js?v=20260427nav2"></script>
-<script type="text/babel" src="js/trade-calc.js?v=20260516click2"></script>
+<script type="text/babel" src="js/trade-calc.js?v=20260517tradepolish"></script>
 <script type="text/babel" src="js/free-agency.js?v=20260516click3"></script>
 <!-- Phase 5: mock-draft.js retired — Draft Command Center is the only surface now. -->
 <!-- Archive preserved at js/mock-draft.deprecated.js for one release. -->
@@ -1723,15 +1971,15 @@ WRShared.loadMany(WR_SHARED_FILES);
 <script type="text/babel" src="js/draft/context.js?v=20260517aiguard"></script>
 <script type="text/babel" src="js/draft/persona.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft/cpu-engine.js?v=20260415cd8"></script>
-<script type="text/babel" src="js/draft/state.js?v=20260517mockux"></script>
+<script type="text/babel" src="js/draft/state.js?v=20260517negotiation"></script>
 <script type="text/babel" src="js/draft/big-board.js?v=20260426a"></script>
 <script type="text/babel" src="js/draft/draft-grid.js?v=20260418a"></script>
 <script type="text/babel" src="js/draft/opponent-intel.js?v=20260415cd8"></script>
-<script type="text/babel" src="js/draft/alex-stream.js?v=20260418b"></script>
+<script type="text/babel" src="js/draft/alex-stream.js?v=20260517streamdedupe"></script>
 <script type="text/babel" src="js/draft/live-analytics.js?v=20260418b"></script>
 <script type="text/babel" src="js/draft/exports.js?v=20260415cd8"></script>
-<script type="text/babel" src="js/draft/trade-simulator.js?v=20260516p6redo"></script>
-<script type="text/babel" src="js/draft/trade-modal.js?v=20260415cd8"></script>
+<script type="text/babel" src="js/draft/trade-simulator.js?v=20260517currentpick"></script>
+<script type="text/babel" src="js/draft/trade-modal.js?v=20260517negotiation"></script>
 <script type="text/babel" src="js/draft/trade-proposer.js?v=20260418b"></script>
 <!-- Phase 5 modules -->
 <script type="text/babel" src="js/draft/persistence.js?v=20260415cd8"></script>
@@ -1739,9 +1987,9 @@ WRShared.loadMany(WR_SHARED_FILES);
 <script type="text/babel" src="js/draft/ghost-replay.js?v=20260415cd8"></script>
 <script type="text/babel" src="js/draft/live-sync.js?v=20260516p6redo"></script>
 <script type="text/babel" src="js/draft/live-decision-engine.js?v=20260516p3"></script>
-<script type="text/babel" src="js/draft/analyst-mock.js?v=20260516p2"></script>
-<script type="text/babel" src="js/draft/command-center.js?v=20260517mockux"></script>
-<script type="text/babel" src="js/draft-room.js?v=20260517cardfocus"></script>
+<script type="text/babel" src="js/draft/analyst-mock.js?v=20260517historyreal"></script>
+<script type="text/babel" src="js/draft/command-center.js?v=20260517mockreadability"></script>
+<script type="text/babel" src="js/draft-room.js?v=20260517teamfit"></script>
 <!-- 5. League detail tab components (extracted from league-detail.js) -->
 <!-- v2 widget modules (load before dashboard.js which consumes them) -->
 <script type="text/babel" src="js/widgets/roster-pulse.js?v=20260516liveclick1"></script>
@@ -1771,9 +2019,9 @@ WRShared.loadMany(WR_SHARED_FILES);
 <!-- 6. Strategy editor: calls shared GMStrategy API, no logic duplication -->
 <script type="text/babel" src="js/tabs/strategy-editor.js?v=20260502office1"></script>
 <!-- 7. League detail: coordinator shell, depends on all above -->
-    <script type="text/babel" src="js/league-detail.js?v=20260516click2"></script>
+    <script type="text/babel" src="js/league-detail.js?v=20260517draftclock"></script>
 <!-- 8. App: OwnerDashboard + ReactDOM.render (loads last) -->
-<script type="text/babel" src="js/app.js?v=20260427font1"></script>
+<script type="text/babel" src="js/app.js?v=20260517pickscope"></script>
 
 <!-- All JSX code extracted to js/ modules. Only bootstrap remains. -->
 <script>

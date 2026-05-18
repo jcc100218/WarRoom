@@ -45,17 +45,47 @@
     }
 
     function pickValueFor(state, pick) {
+        if (!pick) return 0;
+        if (Number(pick.value) > 0) return Math.round(Number(pick.value));
         const teams = state.leagueSize || 12;
-        const getPickValue = window.App?.PlayerValue?.getPickValue;
-        if (typeof getPickValue === 'function') {
+        const slot = pick.slot || pick.pickInRound || Math.ceil(teams / 2);
+        const overall = pick.overall || ((Number(pick.round || 1) - 1) * teams + slot);
+        const resolver = window.DraftCC?.state?.resolveDraftPickValue;
+        if (typeof resolver === 'function') {
+            const resolved = resolver({
+                season: state.season,
+                round: pick.round,
+                slot,
+                overall,
+                leagueSize: teams,
+                rounds: state.rounds,
+            });
+            if (resolved?.value > 0) return resolved.value;
+        }
+        const playerValue = window.App?.PlayerValue || {};
+        if (typeof playerValue.getPickValue === 'function') {
             try {
-                return getPickValue(state.season, pick.round, teams, pick.slot || Math.ceil(teams / 2));
+                const value = playerValue.getPickValue(state.season, pick.round, teams, slot, state.rounds);
+                if (value > 0) return Math.round(value);
             } catch (e) {}
         }
-        // Fallback: logarithmic decay from 10000 at pick 1 → 500 at last pick
-        const totalPicks = state.rounds * teams;
-        const idx = (pick.round - 1) * teams + ((pick.slot || 1) - 1);
-        return Math.max(500, Math.round(10000 * Math.pow(0.97, idx)));
+        if (typeof playerValue.pickValueBySlot === 'function') {
+            try {
+                const value = playerValue.pickValueBySlot(pick.round, slot, teams, state.rounds);
+                if (value > 0) return Math.round(value);
+            } catch (e) {}
+        }
+        if (typeof window.getPickValueBySlot === 'function') {
+            const value = window.getPickValueBySlot(pick.round, slot, teams, state.rounds || 7);
+            if (value > 0) return Math.round(value);
+        }
+        if (typeof window.getIndustryPickValue === 'function') {
+            const value = window.getIndustryPickValue(overall, teams, state.rounds || 7);
+            if (value > 0) return Math.round(value);
+        }
+        if (playerValue.PICK_VALUES_BY_SLOT?.[overall]) return Math.round(Number(playerValue.PICK_VALUES_BY_SLOT[overall]) || 0);
+        if (playerValue.PICK_VALUES?.[pick.round]) return Math.round(Number(playerValue.PICK_VALUES[pick.round]) || 0);
+        return 0;
     }
 
     function sumPickValue(state, picks) {
@@ -66,6 +96,8 @@
     // Player DHQ is read from the LI store; FAAB converts at a conservative 0.7x
     // ratio so $100 FAAB ≈ 70 DHQ — prevents FAAB dumps from inflating offers.
     function playerValueFor(pid) {
+        const resolved = window.DraftCC?.state?.resolvePlayerDhq?.({ pid });
+        if (resolved?.value > 0) return resolved.value;
         const scores = window.App?.LI?.playerScores || {};
         return Math.round(scores[pid] || 0);
     }
@@ -623,10 +655,11 @@
     function buildLiveTradeWindows(state, opts = {}) {
         if (!state || state.phase !== 'drafting') return [];
         const lookahead = Math.max(1, Math.min(12, opts.lookahead || 6));
+        const currentOnly = !!opts.currentOnly;
         const userRosterId = idKey(state.userRosterId);
         const seen = new Set();
         const windows = [];
-        const slots = (state.pickOrder || []).slice(state.currentIdx || 0, (state.currentIdx || 0) + lookahead);
+        const slots = (state.pickOrder || []).slice(state.currentIdx || 0, (state.currentIdx || 0) + (currentOnly ? 1 : lookahead));
 
         slots.forEach((slot, idx) => {
             const rosterId = idKey(slot?.rosterId);

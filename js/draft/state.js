@@ -406,7 +406,90 @@
         return null;
     }
 
-    // ── Pool builder — use CSV prospects (rookie) or Sleeper DHQ (startup) ──
+    function firstPositiveNumber(values) {
+        for (const value of values) {
+            const n = Number(value);
+            if (Number.isFinite(n) && n > 0) return Math.round(n);
+        }
+        return 0;
+    }
+
+    function canonicalRookieValue(input) {
+        const source = input?.csv || input || {};
+        const direct = firstPositiveNumber([
+            source.dynastyValue,
+            source.baseDynastyValue,
+            source.draftCapitalValue,
+        ]);
+        if (direct > 0) return direct;
+        const name = source.name || input?.name || input?.full_name || '';
+        if (name && window.RookieData?.findProspect) {
+            try {
+                const prospect = window.RookieData.findProspect(name);
+                return firstPositiveNumber([
+                    prospect?.dynastyValue,
+                    prospect?.baseDynastyValue,
+                    prospect?.draftCapitalValue,
+                ]);
+            } catch (e) {}
+        }
+        return 0;
+    }
+
+    function resolvePlayerDhq(input) {
+        const player = input?.player || input || {};
+        const pid = input?.pid || input?.player_id || input?.playerId || player.pid || player.player_id || player.playerId || player.sleeperId;
+        if (pid != null) {
+            const engine = Number(window.App?.LI?.playerScores?.[pid] || 0);
+            if (engine > 0) return { value: Math.round(engine), source: 'App.LI.playerScores' };
+        }
+        const rookieValue = canonicalRookieValue(input);
+        if (rookieValue > 0) return { value: rookieValue, source: 'RookieData.dynastyValue' };
+        const attached = firstPositiveNumber([player.dhq, player.val, input?.dhq, input?.val]);
+        return { value: attached, source: attached ? 'attached-dhq' : 'missing' };
+    }
+
+    function resolveDraftPickValue(input = {}) {
+        const round = Math.max(1, Number(input.round) || 1);
+        const teams = Math.max(1, Number(input.leagueSize || input.totalTeams || input.teams) || 12);
+        const slot = Math.max(1, Number(input.slot || input.pickInRound) || Math.ceil(teams / 2));
+        const defaultRounds = window.App?.PlayerValue?.DRAFT_ROUNDS || 7;
+        const rounds = Math.max(1, Number(input.rounds || input.draftRounds) || defaultRounds);
+        const season = input.season || window.S?.season || new Date().getFullYear();
+        const overall = Number(input.overall || ((round - 1) * teams + slot));
+        const playerValue = window.App?.PlayerValue || {};
+        let value = 0;
+        let source = 'missing';
+        try {
+            if (typeof playerValue.getPickValue === 'function') {
+                value = Number(playerValue.getPickValue(season, round, teams, slot, rounds)) || 0;
+                if (value > 0) source = 'App.PlayerValue.getPickValue';
+            }
+            if (!value && typeof playerValue.pickValueBySlot === 'function') {
+                value = Number(playerValue.pickValueBySlot(round, slot, teams, rounds)) || 0;
+                if (value > 0) source = 'App.PlayerValue.pickValueBySlot';
+            }
+            if (!value && typeof window.getPickValueBySlot === 'function') {
+                value = Number(window.getPickValueBySlot(round, slot, teams, rounds)) || 0;
+                if (value > 0) source = 'RookieData.pickValueBySlot';
+            }
+            if (!value && typeof window.getIndustryPickValue === 'function') {
+                value = Number(window.getIndustryPickValue(overall, teams, rounds)) || 0;
+                if (value > 0) source = 'getIndustryPickValue';
+            }
+            if (!value && playerValue.PICK_VALUES_BY_SLOT?.[overall]) {
+                value = Number(playerValue.PICK_VALUES_BY_SLOT[overall]) || 0;
+                if (value > 0) source = 'App.PlayerValue.PICK_VALUES_BY_SLOT';
+            }
+            if (!value && playerValue.PICK_VALUES?.[round]) {
+                value = Number(playerValue.PICK_VALUES[round]) || 0;
+                if (value > 0) source = 'App.PlayerValue.PICK_VALUES';
+            }
+        } catch (e) {}
+        return { value: Math.max(0, Math.round(value || 0)), source, overall };
+    }
+
+    // ── Pool builder — use canonical rookie data or Sleeper DHQ scores ──
     function buildPool(opts = {}) {
         const { variant = 'startup', playersData, maxSize = 200 } = opts;
         const normPos = window.App?.normPos || (p => p);
@@ -419,17 +502,16 @@
                     return prospects.slice(0, maxSize).map(p => {
                         const sleeper = matchSleeperRookie(p, playersData);
                         const sid = sleeper?.pid || p.sleeperId || p.player_id || p.playerId || p.pid;
-                        const engineDHQ = sid ? (window.App?.LI?.playerScores?.[sid] || 0) : 0;
-                        const dhq = engineDHQ || p.dynastyValue || p.draftScore * 1000 || 0;
+                        const resolved = resolvePlayerDhq({ ...p, pid: sid, csv: p, player: sleeper?.player, name: sleeper?.player?.full_name || p.name });
                         return {
-                            pid: sid,
+                            pid: sid || p.pid,
                             csvPid: p.pid,
                             name: sleeper?.player?.full_name || p.name,
                             pos: p.pos || p.mappedPos || normPos(sleeper?.player?.position) || 'WR',
                             team: sleeper?.player?.team || '',
                             college: p.college || p.school || sleeper?.player?.college || '',
                             age: p.age || p.csv?.age || sleeper?.player?.age || null,
-                            dhq,
+                            dhq: resolved.value,
                             csv: p,
                             photoUrl: sleeper
                                 ? 'https://sleepercdn.com/content/nfl/players/thumb/' + sid + '.jpg'
@@ -440,7 +522,7 @@
                             weight: p.weight,
                             speed: p.speed,
                             summary: p.summary,
-                            source: engineDHQ ? 'DHQ_ENGINE' : 'CSV_PROSPECT',
+                            source: resolved.source,
                             isCSV: true,
                         };
                     }).sort((a, b) => (b.dhq || 0) - (a.dhq || 0));
@@ -455,7 +537,7 @@
                 const v = window.dynastyValue(pid);
                 if (v > 0) return v;
             }
-            return window.App?.LI?.playerScores?.[pid] || 0;
+            return resolvePlayerDhq({ pid }).value;
         };
         const VALID = (typeof window.getLeaguePositions === 'function')
             ? window.getLeaguePositions({ asSet: true })
@@ -495,16 +577,27 @@
                 const origInfo = slotToRoster[slot] || {};
                 const ownershipKey = r + '-' + slot;
                 const owner = pickOwnership[ownershipKey] || { rosterId: origInfo.rosterId, ownerName: origInfo.ownerName, traded: false };
+                const overall = order.length + 1;
+                const pickValue = resolveDraftPickValue({
+                    season: window.S?.season,
+                    round: r,
+                    slot,
+                    overall,
+                    leagueSize,
+                    rounds,
+                });
                 order.push({
                     round: r,
                     slot,
                     teamIdx,
-                    overall: order.length + 1,
+                    overall,
                     originalRosterId: origInfo.rosterId || null,
                     rosterId: owner.rosterId || origInfo.rosterId || null,
                     originalOwnerName: origInfo.ownerName || ('Team ' + slot),
                     ownerName: owner.ownerName || origInfo.ownerName || ('Team ' + slot),
                     traded: !!owner.traded,
+                    value: pickValue.value,
+                    valueSource: pickValue.source,
                     actualPick: null,
                 });
             }
@@ -524,7 +617,8 @@
 
     function pickDhq(pick) {
         const player = pick?.player || {};
-        return Number(player.dhq ?? player.val ?? pick?.dhq ?? pick?.val ?? 0) || 0;
+        const pid = pick?.pid || pick?.player_id || player.pid || player.player_id || null;
+        return resolvePlayerDhq({ ...player, ...pick, pid, csv: pick?.csv || player.csv }).value;
     }
 
     function normalizePickRecord(pick) {
@@ -733,7 +827,7 @@
         const player = window.S?.players?.[id] || {};
         const name = player.full_name || [player.first_name, player.last_name].filter(Boolean).join(' ') || id;
         const pos = String(player.position || player.pos || '').toUpperCase();
-        const dhq = Number(window.App?.LI?.playerScores?.[id] || window.App?.PlayerValue?.scores?.[id] || player.dhq || player.val || 0) || 0;
+        const dhq = resolvePlayerDhq({ ...player, pid: id }).value;
         return { pid: id, name, pos, dhq };
     }
 
@@ -1151,11 +1245,12 @@
                 };
             }
 
-            case 'MAKE_PICK': {
-                const { player, isUser, reasoning, confidence } = action;
-                const slot = state.pickOrder[state.currentIdx];
-                if (!slot || !player) return state;
-                const newPool = state.pool.filter(p => p.pid !== player.pid);
+	            case 'MAKE_PICK': {
+	                const { player, isUser, reasoning, confidence } = action;
+	                const slot = state.pickOrder[state.currentIdx];
+	                if (!slot || !player) return state;
+	                const resolvedDhq = resolvePlayerDhq(player).value;
+	                const newPool = state.pool.filter(p => p.pid !== player.pid);
                 const newDrafted = { ...state.draftedPids, [player.pid]: true };
                 const pickSource = action.source || (state.mode === 'live-sync' && state.overrideMode ? 'manual-live' : state.mode === 'manual' ? 'manual-draft' : null);
                 const newPick = {
@@ -1167,10 +1262,10 @@
                     teamIdx: slot.teamIdx,
                     rosterId: slot.rosterId,
                     isUser: !!isUser,
-                    pid: player.pid,
-                    name: player.name,
-                    pos: player.pos,
-                    dhq: player.dhq,
+	                    pid: player.pid,
+	                    name: player.name,
+	                    pos: player.pos,
+	                    dhq: resolvedDhq,
                     consensusRank: player.consensusRank || null,
                     photoUrl: player.photoUrl || '',
                     college: player.college || '',
@@ -1182,7 +1277,7 @@
                     source: pickSource,
                     ts: Date.now(),
                 };
-                const newCurrent = state.currentIdx + 1;
+	                const newCurrent = state.currentIdx + 1;
                 const teamPositions = state.teamRosters[slot.teamIdx] || [];
                 const nextPicks = [...state.picks, newPick];
                 const nextManualCorrections = (pickSource === 'manual-live' || pickSource === 'manual-draft')
@@ -1267,11 +1362,34 @@
             // ── Phase 3: Trades ────────────────────────────────────────
             case 'OFFER_TRADE': {
                 // payload: offer object { fromRosterId, toRosterId, theirGive: [picks], myGive: [picks], theirGainDHQ, myGainDHQ, likelihood, grade, taxes, reason }
-                return { ...state, activeOffer: action.offer };
+                return {
+                    ...state,
+                    speed: 'paused',
+                    activeOffer: {
+                        ...(action.offer || {}),
+                        negotiationRound: Number(action.offer?.negotiationRound || 0),
+                        maxNegotiationRounds: 3,
+                        resumeSpeed: action.offer?.resumeSpeed || state.speed,
+                        cpuMessage: action.offer?.cpuMessage || 'I paused the room while this offer is on the table.',
+                    },
+                };
             }
 
-            case 'DECLINE_TRADE':
-                return { ...state, activeOffer: null };
+            case 'UPDATE_ACTIVE_TRADE':
+                if (!state.activeOffer) return state;
+                return {
+                    ...state,
+                    activeOffer: {
+                        ...state.activeOffer,
+                        ...(action.offer || {}),
+                        resumeSpeed: state.activeOffer.resumeSpeed || state.speed,
+                    },
+                };
+
+            case 'DECLINE_TRADE': {
+                const resumeSpeed = state.activeOffer?.resumeSpeed || state.speed;
+                return { ...state, activeOffer: null, speed: resumeSpeed };
+            }
 
             case 'ACCEPT_TRADE': {
                 // Swap pick ownership in pickOrder: all user-given picks go to CPU, all CPU-given picks go to user.
@@ -1318,6 +1436,7 @@
                     pickOrder: newPickOrder,
                     tradedAssets: ta,
                     activeOffer: null,
+                    speed: offer.resumeSpeed || state.speed,
                     completedTrades: [
                         ...state.completedTrades,
                         {
@@ -1465,7 +1584,8 @@
 
                     pool = pool.filter(p => String(p.pid) !== String(player.pid));
                     draftedPids = { ...draftedPids, [player.pid]: true };
-                    const newPick = {
+	                    const resolvedDhq = resolvePlayerDhq(player).value;
+	                    const newPick = {
                         id: 'pick_' + adjustedSlot.overall + '_' + Date.now(),
                         round: adjustedSlot.round,
                         slot: adjustedSlot.slot,
@@ -1474,16 +1594,16 @@
                         teamIdx: adjustedSlot.teamIdx,
                         rosterId,
                         isUser: String(rosterId) === String(state.userRosterId),
-                        pid: player.pid,
-                        name: player.name,
-                        pos: player.pos,
-                        dhq: player.dhq,
+	                        pid: player.pid,
+	                        name: player.name,
+	                        pos: player.pos,
+	                        dhq: resolvedDhq,
                         consensusRank: player.consensusRank || null,
                         photoUrl: player.photoUrl || '',
                         college: player.college || '',
                         tier: player.tier || null,
                         csv: player.csv || null,
-                        reasoning: item.reasoning || { primary: 'Live Sleeper pick', baseVal: player.dhq, nudges: [] },
+	                        reasoning: item.reasoning || { primary: 'Live Sleeper pick', baseVal: resolvedDhq, nudges: [] },
                         confidence: item.confidence || 1.0,
                         alexReaction: null,
                         sleeperPickNo: pickNo,
@@ -2195,6 +2315,8 @@
         initialDraftState,
         buildPool,
         buildPickOrder,
+        resolvePlayerDhq,
+        resolveDraftPickValue,
         reducer,
         saveToLocal,
         loadFromLocal,

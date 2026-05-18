@@ -14,7 +14,7 @@
         const leagueKey = currentLeague?.league_id || currentLeague?.id || '';
         const leagueSeason = parseInt(currentLeague.season || new Date().getFullYear());
         const draftRounds = currentLeague.settings?.draft_rounds || 5;
-        const tradedPicks = window.S?.tradedPicks || [];
+        const sameId = (a, b) => String(a ?? '') === String(b ?? '');
         const [draftSort, setDraftSort] = useState({ key: 'dhq', dir: -1 });
         const [draftView, setDraftView] = useState('command'); // 'command' | 'board' | 'mock' | 'live'
         const [draftInfo, setDraftInfo] = useState(null);
@@ -29,13 +29,12 @@
         const [myBoardOrder, setMyBoardOrder] = useState([]); // custom ordered pid array
         const [boardPosFilter, setBoardPosFilter] = useState(''); // '' | 'QB' | 'RB' | 'WR' | 'TE' | 'DL' | 'LB' | 'DB'
         const [boardTeamFilter, setBoardTeamFilter] = useState(''); // '' | NFL team abbr
-        const [boardRoundFilter, setBoardRoundFilter] = useState(''); // '' | '1'..'7' | 'UDFA' | 'undrafted'
+        const [boardRoundFilter, setBoardRoundFilter] = useState(''); // '' | '1'..'7' | 'UDFA'
         const [boardSort, setBoardSort] = useState({ key: 'dhq', dir: -1 }); // sortable columns
         const [expandedDraftPid, setExpandedDraftPid] = useState(null);
         const [dragPid, setDragPid] = useState(null); // currently dragging pid
         const [editingRank, setEditingRank] = useState(null); // pid being rank-edited
         const [rankInput, setRankInput] = useState('');
-        const [countdownNow, setCountdownNow] = useState(Date.now());
         const [draftStrategyEditing, setDraftStrategyEditing] = useState(false);
         const draftStrategyKey = 'wr_draft_strategy_' + leagueKey;
         const [customDraftStrategy, setCustomDraftStrategy] = useState(() => {
@@ -43,6 +42,37 @@
         });
         const [pickFocus, setPickFocus] = useState(() => window._wrDraftPickFocus || null);
         const [flashAnalystPresetId, setFlashAnalystPresetId] = useState('league-history');
+        const [flashAnalystRoundLimit, setFlashAnalystRoundLimit] = useState('1');
+        const [flashAnalystReports, setFlashAnalystReports] = useState([]);
+        const [flashAnalystStatus, setFlashAnalystStatus] = useState('idle');
+        const [flashAnalystError, setFlashAnalystError] = useState('');
+        const [showFuturePickCapital, setShowFuturePickCapital] = useState(false);
+        const [liveAutoStartToken, setLiveAutoStartToken] = useState(0);
+
+        const tradedPicks = useMemo(() => {
+            const leagueRows = Array.isArray(currentLeague?.tradedPicks) ? currentLeague.tradedPicks : [];
+            const globalRows = Array.isArray(window.S?.tradedPicks) ? window.S.tradedPicks : [];
+            const taggedGlobalRows = globalRows.filter(p => {
+                const pickLeague = p?.league_id || p?.leagueId;
+                return pickLeague && sameId(pickLeague, leagueKey);
+            });
+            const rosterIds = new Set((currentLeague?.rosters || []).map(r => String(r?.roster_id ?? '')).filter(Boolean));
+            const activeSeasons = new Set([leagueSeason, leagueSeason + 1, leagueSeason + 2].map(String));
+            const untaggedGlobalRows = globalRows.filter(p => {
+                if (p?.league_id || p?.leagueId) return false;
+                if (!activeSeasons.has(String(p?.season ?? ''))) return false;
+                return rosterIds.has(String(p?.roster_id ?? '')) || rosterIds.has(String(p?.owner_id ?? ''));
+            });
+            const exactRows = [...leagueRows, ...taggedGlobalRows];
+            const sourceRows = exactRows.length ? exactRows : untaggedGlobalRows;
+            const seen = new Set();
+            return sourceRows.filter(p => {
+                const key = [p?.season, p?.round, p?.roster_id, p?.owner_id].map(v => String(v ?? '')).join(':');
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        }, [currentLeague?.tradedPicks, currentLeague?.rosters, leagueKey, leagueSeason, timeRecomputeTs]);
 
         useEffect(() => {
             const openPickFocus = (event) => {
@@ -160,16 +190,28 @@
         // Build my picks
         const myPicks = useMemo(() => {
             const picks = [];
+            const myRid = myRoster?.roster_id;
+            if (myRid == null) return picks;
             for (let yr = leagueSeason; yr <= leagueSeason + 2; yr++) {
                 for (let rd = 1; rd <= draftRounds; rd++) {
-                    const tradedAway = tradedPicks.find(p => parseInt(p.season) === yr && p.round === rd && p.roster_id === myRoster?.roster_id && p.owner_id !== myRoster?.roster_id);
-                    if (!tradedAway) picks.push({ year: yr, round: rd, own: true });
-                    const acquired = tradedPicks.filter(p => parseInt(p.season) === yr && p.round === rd && p.owner_id === myRoster?.roster_id && p.roster_id !== myRoster?.roster_id);
-                    acquired.forEach(a => picks.push({ year: yr, round: rd, own: false, from: a.roster_id }));
+                    const tradedAway = tradedPicks.find(p =>
+                        parseInt(p.season, 10) === yr
+                        && Number(p.round) === rd
+                        && sameId(p.roster_id, myRid)
+                        && !sameId(p.owner_id, myRid)
+                    );
+                    if (!tradedAway) picks.push({ year: yr, round: rd, own: true, originalRosterId: myRid });
+                    const acquired = tradedPicks.filter(p =>
+                        parseInt(p.season, 10) === yr
+                        && Number(p.round) === rd
+                        && sameId(p.owner_id, myRid)
+                        && !sameId(p.roster_id, myRid)
+                    );
+                    acquired.forEach(a => picks.push({ year: yr, round: rd, own: false, from: a.roster_id, originalRosterId: a.roster_id }));
                 }
             }
             return picks;
-        }, [tradedPicks, myRoster]);
+        }, [tradedPicks, myRoster?.roster_id, leagueSeason, draftRounds]);
 
         // Find rookies — Sleeper + CSV enrichment from The Beast
         const rookies = useMemo(() => {
@@ -331,13 +373,6 @@
                 .catch(err => window.wrLog('draft.draftFetch', err));
         }, [currentLeague]);
 
-        // Tick countdown clock every minute while a pre-draft is active
-        useEffect(() => {
-            if (!draftInfo?.start_time || draftInfo.status !== 'pre_draft') return;
-            const id = setInterval(() => setCountdownNow(Date.now()), 60000);
-            return () => clearInterval(id);
-        }, [draftInfo]);
-
         // Helper: get player display name
         const pName = (p) => p.full_name || ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || 'Unknown';
 
@@ -357,6 +392,9 @@
                 tier: r.csv?.tier || null,
                 consensusRank: r.csv?.consensusRank || r.csv?.rank || null,
                 rank: r.csv?.rank || null,
+                nflTeam: r.csv?.nflTeam || r.p?.team || null,
+                school: r.csv?.college || r.p?.college || r.p?.metadata?.college || null,
+                photoUrl: 'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg',
                 csv: r.csv || null,
             };
         }), [rookies]);
@@ -392,6 +430,27 @@
                 .map(r => r.pid);
         }, [boardContextForRoom, rookies, computeFitScore]);
 
+        const applyAiOrderToUserBoard = useCallback((scope = 'master') => {
+            if (!aiRecommendedOrder.length) return;
+            if (scope === 'position' && boardPosFilter) {
+                const positionSet = new Set(rookies.filter(r => normPos(r.p.position) === boardPosFilter).map(r => r.pid));
+                setMyBoardOrder(prev => {
+                    const base = prev.length ? prev.slice() : aiRecommendedOrder.slice();
+                    const locked = base.filter(pid => !positionSet.has(pid));
+                    const rankedPosition = aiRecommendedOrder.filter(pid => positionSet.has(pid));
+                    const insertAt = Math.max(0, base.findIndex(pid => positionSet.has(pid)));
+                    if (insertAt < 0) return rankedPosition.concat(locked);
+                    const next = locked.slice();
+                    next.splice(insertAt, 0, ...rankedPosition);
+                    return next;
+                });
+            } else {
+                setMyBoardOrder(aiRecommendedOrder.slice());
+            }
+            setBoardMode('my');
+            setDraftView('board');
+        }, [aiRecommendedOrder, boardPosFilter, rookies, normPos]);
+
         // Auto-save board data to localStorage on changes. The AI order is saved
         // so mocks, context, and the visible Big Board share one recommendation source.
         useEffect(() => {
@@ -424,8 +483,8 @@
 
             if (hasRealDraftOrder) {
                 Object.entries(sleeperOrder).forEach(([userId, slot]) => {
-                    const roster = rosters.find(r => r.owner_id === userId);
-                    const user = users.find(u => u.user_id === userId);
+                    const roster = rosters.find(r => sameId(r.owner_id, userId));
+                    const user = users.find(u => sameId(u.user_id, userId));
                     const name = user?.metadata?.team_name || user?.display_name || user?.username || 'Team ' + slot;
                     slotToRoster[slot] = { rosterId: roster?.roster_id, ownerName: name, userId };
                 });
@@ -439,7 +498,7 @@
                     return ap - bp;
                 });
                 sorted.forEach((r, i) => {
-                    const user = users.find(u => u.user_id === r.owner_id);
+                    const user = users.find(u => sameId(u.user_id, r.owner_id));
                     const name = user?.metadata?.team_name || user?.display_name || user?.username || 'Team ' + (i + 1);
                     slotToRoster[i + 1] = { rosterId: r.roster_id, ownerName: name, userId: r.owner_id };
                 });
@@ -452,14 +511,14 @@
             for (let slot = 1; slot <= totalTeams; slot++) {
                 if (slotToRoster[slot]) continue;
                 const r = unmappedRosters[ghostIdx++] || {};
-                const user = r.owner_id ? users.find(u => u.user_id === r.owner_id) : null;
+                const user = r.owner_id ? users.find(u => sameId(u.user_id, r.owner_id)) : null;
                 const name = user?.metadata?.team_name || user?.display_name || user?.username || 'Team ' + slot;
                 slotToRoster[slot] = { rosterId: r.roster_id || null, ownerName: name, userId: r.owner_id || null };
             }
 
             let mySlot = null;
             Object.entries(slotToRoster).some(([slot, info]) => {
-                if (info.userId === myUid || String(info.rosterId) === String(myRid)) {
+                if (sameId(info.userId, myUid) || sameId(info.rosterId, myRid)) {
                     mySlot = parseInt(slot, 10);
                     return true;
                 }
@@ -479,13 +538,13 @@
                     const origRid = origInfo.rosterId;
                     const traded = tradedPicks.find(tp =>
                         Number(tp.round) === rd
-                        && String(tp.roster_id) === String(origRid)
-                        && String(tp.owner_id) !== String(origRid)
-                        && String(tp.season) === String(leagueSeason)
+                        && sameId(tp.roster_id, origRid)
+                        && !sameId(tp.owner_id, origRid)
+                        && sameId(tp.season, leagueSeason)
                     );
                     if (traded) {
-                        const newOwner = rosters.find(r => String(r.roster_id) === String(traded.owner_id));
-                        const newUser = users.find(u => u.user_id === newOwner?.owner_id);
+                        const newOwner = rosters.find(r => sameId(r.roster_id, traded.owner_id));
+                        const newUser = users.find(u => sameId(u.user_id, newOwner?.owner_id));
                         pickOwnership[rd + '-' + slot] = {
                             ownerName: newUser?.metadata?.team_name || newUser?.display_name || 'Team',
                             rosterId: traded.owner_id,
@@ -577,31 +636,81 @@
             return next;
         }, [leagueKey, leagueSeason, currentLeague, myRoster, boardPoolForContext, draftProjectionMeta, draftStrategyProfile]);
 
-        const flashAnalystReports = useMemo(() => {
+        const flashRoundOptions = useMemo(() => {
+            const maxRounds = Math.max(1, Math.min(100, Number(draftProjectionMeta.rounds || draftRounds || 1)));
+            return Array.from({ length: maxRounds }, (_, idx) => String(idx + 1));
+        }, [draftProjectionMeta.rounds, draftRounds]);
+
+        const flashAnalystPresetOptions = useMemo(() => {
+            const presets = window.DraftCC?.analystMock?.PRESETS || [];
+            const realisticIds = ['league-history', 'my-board', 'trade-heavy'];
+            const labels = {
+                'league-history': 'League Reality',
+                'my-board': 'My Board Lens',
+                'trade-heavy': 'Trade Market',
+            };
+            return realisticIds
+                .map(id => {
+                    const preset = presets.find(p => p.id === id);
+                    return preset ? { ...preset, label: labels[id] || preset.label } : null;
+                })
+                .filter(Boolean);
+        }, []);
+
+        const flashAnalystPreviewReports = useMemo(() => {
             const engine = window.DraftCC?.analystMock;
-            const presets = engine?.PRESETS || [];
-            if (!engine?.generateProjectedMock || !presets.length || !boardPoolForContext.length) return [];
-            return presets.map(preset => {
+            if (!engine?.generateProjectedMock || !boardPoolForContext.length || !flashAnalystPresetOptions.length) return [];
+            return flashAnalystPresetOptions.map(preset => {
                 try {
-                    const report = engine.generateProjectedMock({
+                    return engine.generateProjectedMock({
                         state: draftProjectionState,
                         draftMeta: draftProjectionMeta,
                         playersData,
                         currentLeague,
                         myRoster,
                         presetId: preset.id,
-                        roundLimit: 'full',
+                        roundLimit: 1,
                         pickOrder: draftProjectionState.pickOrder,
                     });
-                    return { ...report, stablePresetId: preset.id, completed: true };
                 } catch (e) {
-                    if (window.wrLog) window.wrLog('draftRoom.flashAnalystMock', e);
+                    if (window.wrLog) window.wrLog('draftRoom.flashAnalystPreview', e);
                     return null;
                 }
             }).filter(Boolean);
-        }, [boardPoolForContext.length, draftProjectionState, draftProjectionMeta, playersData, currentLeague, myRoster]);
+        }, [boardPoolForContext.length, flashAnalystPresetOptions, draftProjectionState, draftProjectionMeta, playersData, currentLeague, myRoster]);
 
-        const activeFlashAnalystReport = flashAnalystReports.find(r => r.presetId === flashAnalystPresetId) || flashAnalystReports[0] || null;
+        const generateFlashAnalystMock = useCallback(() => {
+            const engine = window.DraftCC?.analystMock;
+            if (!engine?.generateProjectedMock || !boardPoolForContext.length) return;
+            setFlashAnalystStatus('running');
+            setFlashAnalystError('');
+            try {
+                const report = engine.generateProjectedMock({
+                    state: draftProjectionState,
+                    draftMeta: draftProjectionMeta,
+                    playersData,
+                    currentLeague,
+                    myRoster,
+                    presetId: flashAnalystPresetId,
+                    roundLimit: flashAnalystRoundLimit,
+                    pickOrder: draftProjectionState.pickOrder,
+                });
+                setFlashAnalystReports(prev => [report].concat(prev.filter(r => r.presetId !== report.presetId)).slice(0, 3));
+                setFlashAnalystStatus('ready');
+            } catch (e) {
+                if (window.wrLog) window.wrLog('draftRoom.flashAnalystMock', e);
+                setFlashAnalystError(e?.message || 'Projection failed.');
+                setFlashAnalystStatus('error');
+            }
+        }, [boardPoolForContext.length, draftProjectionState, draftProjectionMeta, playersData, currentLeague, myRoster, flashAnalystPresetId, flashAnalystRoundLimit]);
+
+        const activeFlashAnalystReport = flashAnalystReports.find(r => r.presetId === flashAnalystPresetId) || null;
+        const activeFlashPreviewReport = flashAnalystPreviewReports.find(r => r.presetId === flashAnalystPresetId) || flashAnalystPreviewReports[0] || null;
+        const activeFlashAlexBrief = useMemo(() => {
+            const engine = window.DraftCC?.analystMock;
+            if (!engine?.formatAlexSlackBrief || !activeFlashAnalystReport) return null;
+            return engine.formatAlexSlackBrief(activeFlashAnalystReport, draftProjectionState, { maxLines: 'all' });
+        }, [activeFlashAnalystReport, draftProjectionState]);
 
         const openDraftPlayer = useCallback((pid) => {
             if (!pid) return;
@@ -637,6 +746,44 @@
         }, [slotFor]);
 
         const pickYears = useMemo(() => [leagueSeason, leagueSeason + 1, leagueSeason + 2], [leagueSeason]);
+        const fmtDhq = n => Number(n || 0).toLocaleString();
+        const pickValueFor = useCallback((pk) => {
+            const slot = slotFor(pk);
+            if (!slot) return 0;
+            try {
+                const resolved = window.DraftCC?.state?.resolveDraftPickValue?.({
+                    season: pk.year,
+                    round: pk.round,
+                    slot,
+                    totalTeams: leagueSize,
+                    leagueSize,
+                    draftRounds,
+                });
+                return Number(resolved?.value || 0) || 0;
+            } catch (_) {
+                return 0;
+            }
+        }, [slotFor, leagueSize, draftRounds]);
+        const pickCapitalRows = useMemo(() => {
+            return pickYears.map(yr => {
+                const picks = myPicks
+                    .filter(pk => pk.year === yr)
+                    .sort((a, b) => {
+                        if (a.round !== b.round) return a.round - b.round;
+                        return (slotFor(a) || 99) - (slotFor(b) || 99);
+                    })
+                    .map(pk => ({ ...pk, slot: slotFor(pk), value: pickValueFor(pk) }));
+                return {
+                    year: yr,
+                    picks,
+                    totalValue: picks.reduce((sum, pk) => sum + Number(pk.value || 0), 0),
+                };
+            });
+        }, [pickYears, myPicks, slotFor, pickValueFor]);
+        const currentCapitalRow = pickCapitalRows.find(row => row.year === leagueSeason) || { year: leagueSeason, picks: [], totalValue: 0 };
+        const futureCapitalRows = pickCapitalRows.filter(row => row.year !== leagueSeason);
+        const totalPickCapital = pickCapitalRows.reduce((sum, row) => sum + row.totalValue, 0);
+        const futurePickCapital = futureCapitalRows.reduce((sum, row) => sum + row.totalValue, 0);
 
         // Next pick info
         const nextPick = useMemo(() => {
@@ -652,25 +799,85 @@
         const nextSlot = nextPick ? slotFor(nextPick) : null;
         const nextPickOverall = nextPick ? ((nextPick.round - 1) * leagueSize) + (nextSlot || Math.ceil(leagueSize / 2)) : null;
         const picksBeforeNext = nextPickOverall ? Math.max(0, nextPickOverall - 1) : 0;
+        const highestCurrentPickRound = Math.max(1, ...myPicks.filter(pk => pk.year === leagueSeason).map(pk => Number(pk.round || 1)));
+        const nextPickLabel = nextPick ? fmtPick(nextPick).replace(String(leagueSeason) + ' ', '') : 'next pick';
 
-        const draftCountdown = useMemo(() => {
-            if (!draftInfo?.start_time) {
-                return { title: 'No draft scheduled', detail: 'Use Mock Draft Center to rehearse from any slot.' };
-            }
-            if (draftInfo.status === 'drafting') {
-                return { title: 'Draft is live', detail: 'Follow Live Draft can mirror Sleeper when you are ready.' };
-            }
-            const diff = draftInfo.start_time - countdownNow;
-            if (diff <= 0) return { title: 'Draft window open', detail: 'Sleeper draft time has arrived.' };
-            const days = Math.floor(diff / 86400000);
-            const hours = Math.floor((diff % 86400000) / 3600000);
-            const mins = Math.floor((diff % 3600000) / 60000);
-            const clock = (days > 0 ? days + 'd ' : '') + hours + 'h ' + mins + 'm';
-            return {
-                title: clock,
-                detail: new Date(draftInfo.start_time).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }),
+        const leagueDraftProfile = useMemo(() => {
+            const scoring = currentLeague?.scoring_settings || {};
+            const rosterSlots = currentLeague?.roster_positions || [];
+            const starters = {};
+            rosterSlots.forEach(slot => {
+                const raw = String(slot || '').toUpperCase();
+                if (raw === 'BN' || raw === 'IR' || raw === 'TAXI') return;
+                const pos = raw === 'SUPER_FLEX' || raw === 'OP' || raw === 'QB_FLEX' ? 'QB'
+                    : raw === 'FLEX' || raw === 'WRRB_FLEX' ? 'WR'
+                    : raw === 'REC_FLEX' || raw === 'WRRBTE_FLEX' ? 'WR'
+                    : normPos(raw) || raw;
+                starters[pos] = (starters[pos] || 0) + 1;
+            });
+            const rec = Number(scoring.rec || 0);
+            const tePremium = Number(scoring.bonus_rec_te || scoring.rec_te_bonus || 0);
+            const passTd = Number(scoring.pass_td || 4);
+            const idpKeys = ['solo_tkl', 'tackle_solo', 'tackle', 'sack', 'int', 'pass_defended', 'idp_tkl_solo'];
+            const idpWeight = idpKeys.reduce((sum, key) => sum + Math.max(0, Number(scoring[key] || 0)), 0);
+            const multiplierFor = (pos) => {
+                const p = normPos(pos) || pos;
+                let mult = 1 + Math.min(0.22, (starters[p] || 0) * 0.035);
+                if (p === 'QB' && ((starters.QB || 0) >= 2 || rosterSlots.some(s => ['SUPER_FLEX', 'OP', 'QB_FLEX'].includes(String(s || '').toUpperCase())))) mult += 0.18;
+                if (p === 'TE' && (tePremium > 0 || rec >= 1)) mult += tePremium > 0 ? 0.16 : 0.06;
+                if (p === 'RB' && rec >= 1) mult += 0.05;
+                if (p === 'WR' && rec >= 1) mult += 0.04;
+                if (['DL', 'LB', 'DB'].includes(p) && idpWeight > 0) mult += Math.min(0.18, idpWeight / 55);
+                return mult;
             };
-        }, [draftInfo, countdownNow]);
+            const formatBits = [];
+            if ((starters.QB || 0) >= 2 || rosterSlots.some(s => ['SUPER_FLEX', 'OP', 'QB_FLEX'].includes(String(s || '').toUpperCase()))) formatBits.push('QB/SF');
+            if (rec >= 1) formatBits.push('PPR');
+            if (tePremium > 0) formatBits.push('TE premium');
+            if (idpWeight > 0) formatBits.push('IDP');
+            return { starters, multiplierFor, label: formatBits.length ? formatBits.join(' + ') : 'league format' };
+        }, [currentLeague?.scoring_settings, currentLeague?.roster_positions, normPos]);
+
+        const alexRosterNote = useCallback((pos, priorityScore, targetName, targetDhq) => {
+            const p = normPos(pos) || pos || 'this position';
+            const target = targetName || 'a clean tier fit';
+            const dhqText = targetDhq ? ' (' + fmtDhq(targetDhq) + ' DHQ)' : '';
+            const pickText = nextPickLabel || 'our next pick';
+            if (priorityScore >= 300) {
+                if (p === 'QB') return 'I see QB as a real lineup pressure point. If ' + target + dhqText + ' reaches ' + pickText + ', I would rather solve the weekly ceiling problem than chase a luxury tier.';
+                if (p === 'TE') return 'I see TE as the cleanest way to change our roster shape. If ' + target + dhqText + ' survives to ' + pickText + ', I want to attack it before the cliff turns ugly.';
+                if (['DL', 'LB', 'DB'].includes(p)) return 'I see ' + p + ' as an IDP pressure spot, not a vanity pick. If ' + target + dhqText + ' is there, it keeps us from paying future capital after the room realizes the tier is gone.';
+                return 'I see ' + p + ' as a real roster pressure point. If ' + target + dhqText + ' reaches ' + pickText + ', I want to close that gap while the DHQ value still lines up.';
+            }
+            if (priorityScore >= 200) {
+                if (p === 'RB') return 'I read RB as a depth and age-risk lane. I do not want to force it, but ' + target + dhqText + ' should be a tie-breaker if the board flattens.';
+                if (p === 'WR') return 'I read WR as a depth squeeze more than an emergency. Keep ' + target + dhqText + ' active, but only jump if the tier holds real value at ' + pickText + '.';
+                return 'I read ' + p + ' as an active lane, not a panic spot. ' + target + dhqText + ' matters if the board gives us the value, but I would still let DHQ settle the tie.';
+            }
+            return 'I would keep ' + p + ' on the watch list. ' + target + dhqText + ' is useful if the room lets value fall, but this should not pull us away from a better tier.';
+        }, [normPos, nextPickLabel, fmtDhq]);
+
+        const pressureProjectionReport = useMemo(() => {
+            const engine = window.DraftCC?.analystMock;
+            if (!engine?.generateProjectedMock || !boardPoolForContext.length) return null;
+            try {
+                const roundLimit = Math.max(1, Math.min(Number(draftProjectionMeta.rounds || draftRounds || 1), highestCurrentPickRound));
+                return engine.generateProjectedMock({
+                    state: draftProjectionState,
+                    draftMeta: draftProjectionMeta,
+                    playersData,
+                    currentLeague,
+                    myRoster,
+                    presetId: 'league-history',
+                    roundLimit,
+                    pickOrder: draftProjectionState.pickOrder,
+                });
+            } catch (e) {
+                if (window.wrLog) window.wrLog('draftRoom.pressureProjection', e);
+                return null;
+            }
+        }, [boardPoolForContext.length, draftProjectionState, draftProjectionMeta, playersData, currentLeague, myRoster, highestCurrentPickRound, draftRounds]);
+        const draftPredictionReport = activeFlashAnalystReport || pressureProjectionReport || activeFlashPreviewReport;
 
         // Top prospects with fit
         const topProspects = useMemo(() => {
@@ -698,6 +905,8 @@
                 .filter(r => !draftedPids.has(r.pid) && (!nextPickOverall || r.expectedRank > picksBeforeNext))
                 .map(r => {
                     const pos = normPos(r.p.position) || r.p.position;
+                    const hasCapital = Number(r.csv?.draftRound) > 0 || Number(r.csv?.draftPick) > 0;
+                    const isUdfaOnly = !!r.csv?.isUDFA && !hasCapital;
                     const needEntry = assess?.needs?.find(n => n.pos === pos);
                     const nearPickBonus = nextPickOverall ? Math.max(0, 22 - Math.abs(r.expectedRank - nextPickOverall)) * 18 : 0;
                     const needBonus = needEntry?.urgency === 'deficit' ? 1700 : needEntry ? 850 : 0;
@@ -709,11 +918,11 @@
                         : 88;
                     const draftCapital = r.csv?.draftRound
                         ? 'NFL R' + r.csv.draftRound + (r.csv.draftPick ? ' P' + r.csv.draftPick : '')
-                        : (r.csv?.isUDFA ? 'UDFA' : 'Capital TBD');
+                        : (isUdfaOnly ? 'UDFA' : 'Capital TBD');
                     const reason = needEntry
                         ? (needEntry.urgency === 'deficit' ? 'Closes a critical ' + pos + ' room while staying near board value.' : 'Adds useful ' + pos + ' depth without reaching past the tier.')
                         : 'Best-player-available candidate with enough value to override lesser needs.';
-                    const riskLabel = r.csv?.risk || (r.csv?.draftRound && r.csv.draftRound <= 2 ? 'Lower risk' : r.csv?.isUDFA ? 'Long shot' : 'Market risk');
+                    const riskLabel = r.csv?.risk || (r.csv?.draftRound && r.csv.draftRound <= 2 ? 'Lower risk' : isUdfaOnly ? 'Long shot' : 'Market risk');
                     return { ...r, pos, needEntry, score, availability, draftCapital, reason, riskLabel };
                 })
                 .sort((a, b) => {
@@ -724,36 +933,210 @@
 
         const likelyGoneBeforePick = useMemo(() => {
             if (!nextPickOverall) return [];
+            const projected = (draftPredictionReport?.picks || [])
+                .filter(p => Number(p.overall) < Number(nextPickOverall))
+                .map(p => ({
+                    pos: normPos(p.pos) || p.pos || 'UNK',
+                    name: p.name,
+                    source: 'analyst',
+                }));
+            if (projected.length) return projected;
             return topProspects
                 .filter(r => !draftedPids.has(r.pid))
-                .slice(0, Math.max(0, picksBeforeNext));
-        }, [topProspects, draftedPids, nextPickOverall, picksBeforeNext]);
+                .slice(0, Math.max(0, picksBeforeNext))
+                .map(r => ({
+                    pos: normPos(r.p.position) || r.p.position || 'UNK',
+                    name: pName(r.p),
+                    source: 'board',
+                }));
+        }, [draftPredictionReport, topProspects, draftedPids, nextPickOverall, picksBeforeNext]);
 
         const positionRunRows = useMemo(() => {
             const map = {};
             likelyGoneBeforePick.forEach(r => {
-                const pos = normPos(r.p.position) || r.p.position || 'UNK';
+                const pos = r.pos || 'UNK';
                 if (!map[pos]) map[pos] = { pos, count: 0, names: [] };
                 map[pos].count += 1;
-                if (map[pos].names.length < 2) map[pos].names.push(pName(r.p));
+                if (map[pos].names.length < 2) map[pos].names.push(r.name);
             });
             return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 6);
         }, [likelyGoneBeforePick]);
 
         const classDepthRows = useMemo(() => {
             const map = {};
-            topProspects.slice(0, 60).forEach(r => {
+            topProspects
+                .slice()
+                .sort((a, b) => {
+                    const aPos = normPos(a.p.position) || a.p.position || 'UNK';
+                    const bPos = normPos(b.p.position) || b.p.position || 'UNK';
+                    const aScore = Number(a.dhq || 0) * leagueDraftProfile.multiplierFor(aPos) + Number(a.fit?.score || 0) * 28;
+                    const bScore = Number(b.dhq || 0) * leagueDraftProfile.multiplierFor(bPos) + Number(b.fit?.score || 0) * 28;
+                    return bScore - aScore;
+                })
+                .slice(0, 60)
+                .forEach(r => {
                 const pos = normPos(r.p.position) || r.p.position || 'UNK';
-                if (!map[pos]) map[pos] = { pos, count: 0, top: pName(r.p) };
+                if (!map[pos]) map[pos] = { pos, count: 0, top: pName(r.p), topPid: r.pid };
                 map[pos].count += 1;
             });
-            return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 6);
-        }, [topProspects]);
+            return Object.values(map).sort((a, b) => b.count - a.count || a.pos.localeCompare(b.pos)).map(row => {
+                const starterCount = leagueDraftProfile.starters[row.pos] || 0;
+                const formatLabel = leagueDraftProfile.label;
+                let alexBlurb = 'I am reading this through ' + formatLabel + ', so the top-60 count is adjusted for lineup and scoring value. Track the next cliff, then let DHQ decide if the board stays flat.';
+                if (row.count >= 14) {
+                    alexBlurb = 'I see real depth here after adjusting for ' + formatLabel + '. We can stay patient, let the room spend early capital, then attack the value pocket before the tier dries up.';
+                } else if (row.count <= 6) {
+                    alexBlurb = 'I see a thinner group here' + (starterCount ? ' for a lineup that starts ' + starterCount + ' ' + row.pos : '') + '. If this matters to our build, the top name is fragile and should not be assumed to fall.';
+                }
+                return { ...row, alexBlurb };
+            });
+        }, [topProspects, normPos, leagueDraftProfile]);
 
         const needLabels = useMemo(() => {
             if (!rosterState.isUsable) return [];
-            return (assess?.needs || []).slice(0, 5).map(n => typeof n === 'string' ? { pos: n, urgency: 'thin' } : n);
-        }, [rosterState.isUsable, assess]);
+            const urgencyScore = urgency => {
+                const u = String(urgency || '').toLowerCase();
+                if (u.includes('deficit') || u.includes('critical')) return 300;
+                if (u.includes('thin') || u.includes('high')) return 200;
+                return 100;
+            };
+            const available = topProspects.filter(r => !draftedPids.has(r.pid));
+            return (assess?.needs || [])
+                .map((raw, idx) => {
+                    const item = typeof raw === 'string' ? { pos: raw, urgency: 'thin' } : raw;
+                    const pos = normPos(item?.pos) || item?.pos;
+                    const target = available.find(r => (normPos(r.p.position) || r.p.position) === pos);
+                    const urgency = item?.urgency || item?.level || 'thin';
+                    const score = urgencyScore(urgency) + Math.max(0, 40 - idx * 8) + (Number(item?.count || 0) ? Math.max(0, 18 - Number(item.count) * 3) : 0);
+                    const targetName = target ? pName(target.p) : null;
+                    const priorityScore = urgencyScore(urgency);
+                    const alexBlurb = alexRosterNote(pos, priorityScore, targetName, target?.dhq || 0);
+                    return {
+                        ...item,
+                        pos,
+                        urgency,
+                        score,
+                        priorityLabel: priorityScore >= 300 ? 'Critical priority' : priorityScore >= 200 ? 'High priority' : 'Watch priority',
+                        targetName,
+                        targetPid: target?.pid || '',
+                        targetDhq: target?.dhq || 0,
+                        alexBlurb,
+                    };
+                })
+                .filter(n => n.pos && !['K', 'P'].includes(n.pos))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 6);
+        }, [rosterState.isUsable, assess, topProspects, draftedPids, alexRosterNote]);
+
+        const userMockRows = useMemo(() => {
+            const picks = (draftPredictionReport?.picks || []).filter(p =>
+                sameId(p.rosterId, myRoster?.roster_id)
+                || (!p.rosterId && Number(p.slot) === Number(draftProjectionMeta.mySlot))
+            );
+            return picks
+                .filter(pick => !['K', 'P'].includes(normPos(pick.pos)) || Number(pick.round || 0) >= 6)
+                .map(pick => {
+                    const pos = normPos(pick.pos) || pick.pos;
+                    const fallback = 'We should take ' + pick.name + ' here only if the room leaves us this exact value pocket. The reason is ' + pos + ' utility for our build, not simply that he is the next player on the board.';
+                    const rawImpact = pick.alexCommentary?.roomImpact || pick.alexCommentary?.teamImpact || pick.note || fallback;
+                    let impact = String(rawImpact || fallback).trim()
+                        .replace(/^[^.]+ projects to take [^.]+\.?\s*/i, '')
+                        .replace(/^(This roster|The roster)\s+/i, 'We ');
+                    if (/^For your build,\s*this becomes/i.test(impact)) {
+                        impact = impact.replace(/^For your build,\s*this becomes/i, 'We should use this as');
+                    } else if (/^For your build,/i.test(impact)) {
+                        impact = impact.replace(/^For your build,\s*/i, 'We should ');
+                    } else if (/^For you,/i.test(impact)) {
+                        impact = impact.replace(/^For you,\s*/i, 'We should account for how ');
+                    }
+                    return {
+                        ...pick,
+                        pos,
+                        pickLabel: pick.round + '.' + String(pick.slot).padStart(2, '0'),
+                        school: pick.school || pick.college || 'School TBD',
+                        nflTeam: pick.nflTeam || pick.team || 'Team TBD',
+                        photoUrl: pick.photoUrl || (pick.pid ? 'https://sleepercdn.com/content/nfl/players/thumb/' + pick.pid + '.jpg' : ''),
+                        impact: /^we\b/i.test(impact) ? impact : 'We should ' + impact.charAt(0).toLowerCase() + impact.slice(1),
+                        driverText: (pick.drivers || []).slice(0, 3).map(d => d.label).join(' - ') || 'projection',
+                    };
+                });
+        }, [draftPredictionReport, myRoster?.roster_id, draftProjectionMeta.mySlot]);
+
+        const compactPickLabel = useCallback((pk) => {
+            if (!pk) return '--';
+            return fmtPick(pk).replace(String(leagueSeason) + ' ', '');
+        }, [fmtPick, leagueSeason]);
+
+        const alexPickPlanText = useCallback((pick, pos, targetName, targetNeed, idx) => {
+            const label = pick ? compactPickLabel(pick) : (idx ? 'later pick' : nextPickLabel);
+            const needWord = targetNeed?.priorityLabel ? targetNeed.priorityLabel.toLowerCase() : 'board value';
+            if (targetNeed) {
+                return 'At ' + label + ', I want ' + targetName + ' because ' + pos + ' is already one of our real roster pressure points. This is not just taking the top name left; it is using the pick to fix a lineup problem while the value is still defendable.';
+            }
+            if (pos === 'QB') return 'At ' + label + ', I would only take ' + targetName + ' if the room leaves us a real QB value pocket. The point is insulation and weekly ceiling, not collecting another name.';
+            if (pos === 'RB') return 'At ' + label + ', ' + targetName + ' makes sense if we need a younger value swing against the roster age curve. I would not force RB over a cleaner tier at another position.';
+            if (['DL', 'LB', 'DB'].includes(pos)) return 'At ' + label + ', ' + targetName + ' is an IDP value bet. I would take it only if the room has not already drained the tier before our pick.';
+            return 'At ' + label + ', I would use ' + targetName + ' as a ' + needWord + ' checkpoint. If the board is flat, this is the kind of pick that keeps our build flexible without sacrificing DHQ.';
+        }, [compactPickLabel, nextPickLabel]);
+
+        const alexCommand = useMemo(() => {
+            const nextLabel = nextPick ? compactPickLabel(nextPick) : 'our next pick';
+            const topNeed = needLabels[0];
+            const topTarget = (topNeed && recommendations.find(r => (normPos(r.pos || r.p?.position) || r.pos) === topNeed.pos && !['K', 'P'].includes(normPos(r.pos || r.p?.position))))
+                || recommendations.find(r => !['K', 'P'].includes(normPos(r.pos || r.p?.position)))
+                || recommendations[0];
+            const pressure = positionRunRows[0];
+            const pickPath = currentCapitalRow.picks.slice(0, 4).map(compactPickLabel).join(', ') || nextLabel;
+            if (topNeed && topTarget) {
+                return 'I am reading our actual current-year path (' + pickPath + '). At ' + nextLabel + ', I want ' + topNeed.pos + ' value if ' + pName(topTarget.p) + ' holds, keep DHQ as the tie-breaker, and do not burn future capital unless the tier cliff hits.';
+            }
+            if (pressure) {
+                return 'I am reading our actual current-year path (' + pickPath + ') and watching the ' + pressure.pos + ' run before ' + nextLabel + '. Use our board only if the DHQ edge is still clean.';
+            }
+            return 'I am keeping this draft value-led around our actual current-year path (' + pickPath + '): hold the board, keep future capital liquid, and only move when the next tier is clearly breaking.';
+        }, [nextPick, compactPickLabel, needLabels, recommendations, positionRunRows, currentCapitalRow.picks, normPos]);
+
+        const alexCommandChips = useMemo(() => {
+            const nextLabel = nextPick ? compactPickLabel(nextPick) : 'not set';
+            const pressure = positionRunRows[0];
+            const topNeed = needLabels[0];
+            const latePick = currentCapitalRow.picks.find(pk => Number(pk.round) >= 5) || currentCapitalRow.picks[currentCapitalRow.picks.length - 1];
+            return [
+                { label: 'Next pick', value: nextLabel },
+                { label: 'Board risk', value: pressure ? pressure.pos + ' cliff in ' + pressure.count + ' picks' : (topNeed ? topNeed.pos + ' priority' : 'value-led board') },
+                { label: 'Action', value: latePick ? 'shop ' + compactPickLabel(latePick) + ' if tier breaks' : 'hold future capital' },
+            ];
+        }, [nextPick, compactPickLabel, positionRunRows, needLabels, currentCapitalRow.picks]);
+
+        const aiDraftPathRows = useMemo(() => {
+            if (userMockRows.length) return userMockRows;
+            const cleanTargets = recommendations.filter(r => {
+                const pos = normPos(r.pos || r.p?.position);
+                return !['K', 'P'].includes(pos);
+            });
+            return currentCapitalRow.picks.slice(0, 5).map((pk, idx) => {
+                const target = cleanTargets[idx] || cleanTargets[0];
+                if (!target) return null;
+                const pos = normPos(target.pos || target.p?.position) || target.p?.position || 'POS';
+                const targetName = pName(target.p);
+                const targetNeed = needLabels.find(n => n.pos === pos);
+                const impact = alexPickPlanText(pk, pos, targetName, targetNeed, idx);
+                return {
+                    pid: target.pid,
+                    overall: ((Number(pk.round || 1) - 1) * leagueSize) + (slotFor(pk) || draftProjectionMeta.mySlot || idx + 1),
+                    pickLabel: compactPickLabel(pk),
+                    name: targetName,
+                    pos,
+                    school: target.csv?.college || target.p?.college || target.p?.metadata?.college || 'School TBD',
+                    nflTeam: target.csv?.nflTeam || target.p?.team || 'Team TBD',
+                    photoUrl: target.pid ? 'https://sleepercdn.com/content/nfl/players/thumb/' + target.pid + '.jpg' : '',
+                    dhq: target.dhq || 0,
+                    impact,
+                    driverText: targetNeed ? 'roster pressure' : 'DHQ tier value',
+                    source: 'recommendation',
+                };
+            }).filter(Boolean);
+        }, [userMockRows, recommendations, currentCapitalRow.picks, normPos, needLabels, leagueSize, slotFor, draftProjectionMeta.mySlot, compactPickLabel, alexPickPlanText]);
 
         const requestFullDraftReport = useCallback(() => {
             if (typeof setReconPanelOpen !== 'function' || typeof sendReconMessage !== 'function') return;
@@ -785,7 +1168,11 @@
             command: 'Your picks, board value, and draft-room priorities.',
             board: 'Prospect board, tags, tiers, and saved scouting views.',
             mock: 'Scenario testing, roster impact, and draft capital outcomes.',
-            live: 'Draft tracking when a live board is available.'
+            live: 'Live Sleeper mirror with your board, roster build, and opponent intel.'
+        };
+        const launchLiveDraft = () => {
+            setLiveAutoStartToken(Date.now());
+            setDraftView('live');
         };
         const pickFocusLabel = pickFocus?.label || (pickFocus ? `${pickFocus.year || ''} R${pickFocus.round || '?'}` : '');
         const pickFocusSummary = pickFocus
@@ -801,21 +1188,110 @@
             setPickFocus(null);
         };
 
+        const renderAnalystFlash = () => (
+            <section className="draft-hq-action-card draft-analyst-flash">
+                <div className="draft-hq-panel-head">
+                    <span>Alex Analyst Mock</span>
+                    <em>{activeFlashAnalystReport ? activeFlashAnalystReport.label + ' - ' + activeFlashAnalystReport.assumptions.rounds + ' round' + (Number(activeFlashAnalystReport.assumptions.rounds) === 1 ? '' : 's') : '1st round ready'}</em>
+                </div>
+                <div className="draft-alex-toolbar">
+                    <div className="draft-alex-presets">
+                        {flashAnalystPresetOptions.map(preset => (
+                            <button key={preset.id} type="button" className={flashAnalystPresetId === preset.id ? 'is-active' : ''} onClick={() => setFlashAnalystPresetId(preset.id)}>
+                                {preset.label}
+                            </button>
+                        ))}
+                    </div>
+                    <label className="draft-alex-rounds">
+                        <span>Rounds</span>
+                        <select value={flashAnalystRoundLimit} onChange={e => setFlashAnalystRoundLimit(e.target.value)}>
+                            {flashRoundOptions.map(round => (
+                                <option key={round} value={round} style={{ background: '#111' }}>{round} round{Number(round) === 1 ? '' : 's'}</option>
+                            ))}
+                            <option value="full" style={{ background: '#111' }}>Full draft</option>
+                        </select>
+                    </label>
+                    <button type="button" className="draft-alex-generate" disabled={flashAnalystStatus === 'running' || !boardPoolForContext.length} onClick={generateFlashAnalystMock}>
+                        {flashAnalystStatus === 'running' ? 'Generating' : activeFlashAnalystReport ? 'Refresh Insights' : 'Generate Insights'}
+                    </button>
+                </div>
+                {activeFlashAlexBrief ? (
+                    <div className="draft-alex-message">
+                        <div className="draft-alex-avatar">A</div>
+                        <div className="draft-alex-body">
+                            <div className="draft-alex-meta">
+                                <strong>{activeFlashAlexBrief.author}</strong>
+                                <span>{activeFlashAlexBrief.headline}</span>
+                            </div>
+                            <p>{activeFlashAlexBrief.intro}</p>
+                            <div className="draft-alex-user-path">
+                                <strong>Your path</strong>
+                                <span>{activeFlashAlexBrief.userPath}</span>
+                            </div>
+                            <div className="draft-alex-pick-list">
+                                {activeFlashAlexBrief.pickLines.map(line => (
+                                    <div key={line.overall} className={'draft-alex-pick-line' + (line.isUser ? ' is-user' : '')} role="button" tabIndex={0} title="Open player card" onClick={() => openDraftPlayer(line.pid)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDraftPlayer(line.pid); } }}>
+                                        <span className="draft-alex-pick-no">{line.pickLabel}</span>
+                                        <img className="draft-alex-player-photo" src={line.photoUrl} alt="" onError={e => e.currentTarget.style.visibility = 'hidden'} />
+                                        <span className="draft-alex-pick-main">
+                                            <strong>{line.player} <em>{line.pos}</em></strong>
+                                            <small>{line.nflTeam} - {line.school}</small>
+                                            <i>{line.commentary}</i>
+                                        </span>
+                                        <span className="draft-alex-pick-value">
+                                            <strong>{line.dhq}</strong>
+                                            <small>{line.value}</small>
+                                            <em>{line.driver}</em>
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="draft-alex-footer">
+                                <span>{activeFlashAlexBrief.footer}</span>
+                                <button type="button" onClick={() => setDraftView('mock')}>Open Mock Center</button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="draft-alex-preview-board">
+                        {activeFlashPreviewReport ? (
+                            <div className="draft-alex-preview-picks">
+                                {(activeFlashPreviewReport.picks || []).slice(0, draftProjectionMeta.numTeams || leagueSize).map(pick => (
+                                    <button key={activeFlashPreviewReport.presetId + '-' + pick.overall} type="button" title="Open player card" onClick={e => { e.stopPropagation(); openDraftPlayer(pick.pid); }}>
+                                        <span>{pick.round}.{String(pick.slot).padStart(2, '0')} · {pick.pos || 'POS'} · {pick.nflTeam || pick.team || 'NFL'}</span>
+                                        <em>{pick.ownerName || ('Team ' + pick.slot)}</em>
+                                        <b>{pick.name}</b>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="draft-alex-empty">
+                                <strong>First-round mocks are loading.</strong>
+                                <span>{flashAnalystError || 'Alex will publish league-reality, board-lens, and trade-market snapshots here.'}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </section>
+        );
+
         return (
             <div style={{ padding: 'var(--card-pad, 14px 16px)' }}>
-                <div className="wr-module-strip">
-                    <div className="wr-module-context">
-                        <span>Draft</span>
-                        <strong>{draftViewLabels[activeView] || 'Flash Brief'}</strong>
-                        <em>{draftViewContext[activeView] || draftViewContext.command}</em>
-                    </div>
+                <div className={'wr-module-strip' + (activeView === 'live' || activeView === 'mock' ? ' is-compact' : '')}>
+                    {(activeView !== 'live' && activeView !== 'mock') && (
+                        <div className="wr-module-context">
+                            <span>Draft</span>
+                            <strong>{draftViewLabels[activeView] || 'Flash Brief'}</strong>
+                            <em>{draftViewContext[activeView] || draftViewContext.command}</em>
+                        </div>
+                    )}
                     <div className="wr-module-actions">
                     <div className="wr-module-nav">
-                    <button className={activeView === 'command' ? 'is-active' : ''} onClick={() => setDraftView('command')}>Flash Brief</button>
-                    <button className={activeView === 'board' ? 'is-active' : ''} onClick={() => setDraftView('board')}>Big Board</button>
-                    <button className={activeView === 'mock' ? 'is-active' : ''} onClick={() => setDraftView('mock')}>Mock Draft Center</button>
-                    <button className={(activeView === 'live' ? 'is-active ' : '') + 'is-purple'} onClick={() => setDraftView('live')}>Live Draft</button>
+                    <button type="button" className={activeView === 'command' ? 'is-active' : ''} onClick={() => setDraftView('command')}>Flash Brief</button>
+                    <button type="button" className={activeView === 'board' ? 'is-active' : ''} onClick={() => setDraftView('board')}>Big Board</button>
+                    <button type="button" className={activeView === 'mock' ? 'is-active' : ''} onClick={() => setDraftView('mock')}>Mock Draft Center</button>
                     </div>
+                    <button type="button" className={'wr-live-draft-action' + (activeView === 'live' ? ' is-active' : '')} onClick={launchLiveDraft}>Follow Live Draft</button>
                     </div>
                 </div>
 
@@ -833,23 +1309,91 @@
                 {/* ═══════════════════ VIEW 1: FLASH BRIEF ═══════════════════ */}
                 {activeView === 'command' && (
                     <div className="draft-hq-shell">
-                        <div className="draft-hq-hero">
-                            <section className="draft-hq-main-card">
-                                <div className="draft-hq-title-row">
-                                    <div>
-                                        <div className="draft-hq-kicker">Draft HQ</div>
-                                        <h2>{nextPick ? fmtPick(nextPick) : 'No current picks'}</h2>
+                        <section className="draft-gm-command">
+                            <div className="draft-gm-avatar">A</div>
+                            <div className="draft-gm-command-main">
+                                <span>Alex Ingram · Draft room</span>
+                                <strong>{alexCommand}</strong>
+                            </div>
+                            <div className="draft-gm-command-chips">
+                                {alexCommandChips.map(chip => (
+                                    <div key={chip.label}>
+                                        <span>{chip.label}</span>
+                                        <strong>{chip.value}</strong>
                                     </div>
-                                    <em>{draftInfo?.type || 'rookie'} - {draftRounds} rounds - {leagueSize} teams</em>
+                                ))}
+                            </div>
+                        </section>
+                        <div className="draft-hq-hero">
+                            <section className="draft-hq-panel draft-hq-capital-targeting">
+                                <div className="draft-hq-panel-head">
+                                    <span>Draft Capital + Roster Targeting</span>
+                                    <em>{myPicks.length} picks - {fmtDhq(totalPickCapital)} DHQ</em>
                                 </div>
-                                <p>
-                                    Your next pick, likely board pocket, roster needs, pick inventory, and class leverage are on one screen. Use Big Board for full scouting depth and Mock Draft Center for rehearsal.
-                                </p>
-                                <div className="draft-hq-kpis">
-                                    <div><span>Next pick</span><strong>{nextPick ? fmtPick(nextPick) : '--'}</strong><em>{nextPick && !nextPick.own ? 'acquired pick' : 'native slot'}</em></div>
-                                    <div><span>Before you</span><strong>{nextPickOverall ? picksBeforeNext : '--'}</strong><em>{nextPickOverall ? 'expected selections' : 'no current pick'}</em></div>
-                                    <div><span>Clock</span><strong>{draftCountdown.title}</strong><em>{draftCountdown.detail}</em></div>
-                                    <div><span>Total capital</span><strong>{myPicks.length} picks</strong><em>{myPicks.filter(p => p.year === leagueSeason).length} this year</em></div>
+                                <div className="draft-pick-group">
+                                    {[currentCapitalRow].map(row => {
+                                        const yearPicks = row.picks;
+                                        return (
+                                            <div key={row.year}>
+                                                <div className="draft-pick-year"><span>{row.year}</span><em>{yearPicks.length} picks - {fmtDhq(row.totalValue)} DHQ</em></div>
+                                                {yearPicks.length ? (
+                                                    <div className="draft-pick-chipline">
+                                                        {yearPicks.map((pk, i) => {
+                                                            const cls = (pk === nextPick ? 'is-next ' : '') + (!pk.own ? 'is-acquired' : '');
+                                                            return <span key={row.year + '-' + pk.round + '-' + i} className={cls.trim()} title={(pk.own ? 'Your native pick' : ('Acquired from roster ' + pk.from)) + (pk.value ? ' - ' + fmtDhq(pk.value) + ' DHQ' : '')}>{fmtPick(pk)}{pk.value ? ' - ' + fmtDhq(pk.value) : ''}</span>;
+                                                        })}
+                                                    </div>
+                                                ) : <div className="draft-empty">No picks in this year.</div>}
+                                            </div>
+                                        );
+                                    })}
+                                    <button type="button" className="draft-future-toggle" onClick={() => setShowFuturePickCapital(v => !v)}>
+                                        <strong>{showFuturePickCapital ? 'v' : '>'}</strong>
+                                        <span>{showFuturePickCapital ? 'Hide future picks' : 'Show future picks'}</span>
+                                        <em>{futureCapitalRows.reduce((sum, row) => sum + row.picks.length, 0)} picks - {fmtDhq(futurePickCapital)} DHQ</em>
+                                    </button>
+                                    {showFuturePickCapital && futureCapitalRows.map(row => {
+                                        const yearPicks = row.picks;
+                                        return (
+                                            <div key={row.year}>
+                                                <div className="draft-pick-year"><span>{row.year}</span><em>{yearPicks.length} picks - {fmtDhq(row.totalValue)} DHQ</em></div>
+                                                {yearPicks.length ? (
+                                                    <div className="draft-pick-chipline">
+                                                        {yearPicks.map((pk, i) => {
+                                                            const cls = !pk.own ? 'is-acquired' : '';
+                                                            return <span key={row.year + '-' + pk.round + '-' + i} className={cls} title={(pk.own ? 'Your native pick' : ('Acquired from roster ' + pk.from)) + (pk.value ? ' - ' + fmtDhq(pk.value) + ' DHQ' : '')}>{fmtPick(pk)}{pk.value ? ' - ' + fmtDhq(pk.value) : ''}</span>;
+                                                        })}
+                                                    </div>
+                                                ) : <div className="draft-empty">No picks in this year.</div>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="draft-hq-subhead">Roster Targeting</div>
+                                <div className="draft-target-header">
+                                    <span>Pos</span>
+                                    <span>Urgency</span>
+                                    <span>Best Target</span>
+                                    <span>Alex Note</span>
+                                </div>
+                                <div className="draft-run-list">
+                                    {needLabels.length ? needLabels.map(n => (
+                                        <div key={n.pos} className="draft-run-note-row draft-target-row">
+                                            <strong style={{ color: posColors[n.pos] || 'var(--gold)' }}>{n.pos}</strong>
+                                            <span>{n.priorityLabel}</span>
+                                            <em>
+                                                {n.targetName ? (
+                                                    <>
+                                                        <button type="button" onClick={() => openDraftPlayer(n.targetPid)} style={{ border: 0, background: 'transparent', color: 'inherit', padding: 0, font: 'inherit', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(212,175,55,0.35)' }}>{n.targetName}</button>
+                                                        {n.targetDhq ? ' - ' + fmtDhq(n.targetDhq) + ' DHQ' : ''}
+                                                        <button type="button" onClick={() => setBoardTags(prev => ({ ...prev, [n.targetPid]: 'target' }))} style={{ marginLeft: 6, border: '1px solid rgba(212,175,55,0.24)', background: 'rgba(212,175,55,0.08)', color: 'var(--gold)', borderRadius: 5, padding: '2px 5px', fontSize: '0.54rem', fontFamily: 'var(--font-body)', cursor: 'pointer' }}>Tag</button>
+                                                    </>
+                                                ) : (n.count ? n.count + ' players' : 'no clean target loaded')}
+                                            </em>
+                                            <p>{n.alexBlurb}</p>
+                                        </div>
+                                    )) : <div className="draft-empty">No urgent roster gaps detected. Bias to value and tiers.</div>}
                                 </div>
                             </section>
 
@@ -857,18 +1401,21 @@
                                 <div className="draft-hq-action-card">
                                     <strong>Scouting Report</strong>
                                     <p>Generate a slot-aware draft plan using your current picks, roster needs, and class shape.</p>
-                                    <button type="button" disabled={!rosterState.isUsable} title={!rosterState.isUsable ? rosterState.message : 'Generate draft scouting report'} onClick={requestFullDraftReport}>{rosterState.isUsable ? 'Generate Report' : 'Sync Required'}</button>
+                                    <div className="draft-card-actions">
+                                        <button type="button" disabled={!rosterState.isUsable} title={!rosterState.isUsable ? rosterState.message : 'Generate draft scouting report'} onClick={requestFullDraftReport}>{rosterState.isUsable ? 'Generate Report' : 'Sync Required'}</button>
+                                        <button type="button" disabled={!aiRecommendedOrder.length} onClick={() => applyAiOrderToUserBoard('master')}>Apply to User Board</button>
+                                        <button type="button" disabled={!aiRecommendedOrder.length || !boardPosFilter} onClick={() => applyAiOrderToUserBoard('position')}>Apply Position</button>
+                                    </div>
                                 </div>
                                 <div className="draft-hq-action-card">
                                     <strong>Class Overview</strong>
                                     <p>Get the class cliff points and position strengths before you start moving picks.</p>
-                                    <button type="button" onClick={requestClassOverview}>Class Read</button>
+                                    <div className="draft-card-actions">
+                                        <button type="button" onClick={requestClassOverview}>Class Read</button>
+                                        <button type="button" onClick={() => { setBoardMode('my'); setDraftView('board'); }}>Tag Players</button>
+                                    </div>
                                 </div>
-                                <div className="draft-hq-action-card">
-                                    <strong>Current Strategy</strong>
-                                    <p>{strategyRec.reason}</p>
-                                    <button type="button" onClick={() => setDraftView('mock')}>Run Mock</button>
-                                </div>
+                                {renderAnalystFlash()}
                             </aside>
                         </div>
 
@@ -880,180 +1427,48 @@
                             style: { marginBottom: '14px', minHeight: '170px' },
                         })}
 
-                        <section className="draft-hq-panel draft-analyst-flash" style={{ marginBottom: 14 }}>
-                            <div className="draft-hq-panel-head">
-                                <span>Analyst Projected Mock</span>
-                                <em>{flashAnalystReports.length ? flashAnalystReports.length + ' completed projections' : 'building from league intel'}</em>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, alignItems: 'stretch' }}>
-                                <div style={{ minWidth: 0 }}>
-                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-                                        {flashAnalystReports.map(report => (
-                                            <button
-                                                key={report.presetId}
-                                                type="button"
-                                                onClick={() => setFlashAnalystPresetId(report.presetId)}
-                                                style={{
-                                                    padding: '6px 9px',
-                                                    borderRadius: 6,
-                                                    border: '1px solid ' + (activeFlashAnalystReport?.presetId === report.presetId ? 'rgba(212,175,55,0.48)' : 'rgba(255,255,255,0.08)'),
-                                                    background: activeFlashAnalystReport?.presetId === report.presetId ? 'rgba(212,175,55,0.13)' : 'rgba(255,255,255,0.025)',
-                                                    color: activeFlashAnalystReport?.presetId === report.presetId ? 'var(--gold)' : 'var(--silver)',
-                                                    cursor: 'pointer',
-                                                    fontFamily: 'var(--font-body)',
-                                                    fontSize: '0.64rem',
-                                                    fontWeight: 800,
-                                                    textTransform: 'uppercase',
-                                                    letterSpacing: '0.04em',
-                                                }}
-                                            >
-                                                {report.label}
-                                            </button>
-                                        ))}
-                                        {!flashAnalystReports.length && (
-                                            <span style={{ color: 'var(--silver)', opacity: 0.64, fontSize: '0.72rem' }}>Completed projections will appear here once the board finishes loading.</span>
-                                        )}
-                                    </div>
-                                    {activeFlashAnalystReport && (() => {
-                                        const brief = activeFlashAnalystReport.summary?.reportBrief || {};
-                                        const userPicks = activeFlashAnalystReport.summary?.userPicks || [];
-                                        const watchCount = (activeFlashAnalystReport.summary?.reaches?.length || 0)
-                                            + (activeFlashAnalystReport.summary?.steals?.length || 0)
-                                            + (activeFlashAnalystReport.summary?.tradeSignals?.length || 0);
-                                        const topPressure = brief.positionPressure?.[0];
-                                        return (
-                                            <div>
-                                                <div style={{ padding: '11px 12px', border: '1px solid rgba(212,175,55,0.16)', background: 'rgba(212,175,55,0.055)', borderRadius: 8, marginBottom: 9 }}>
-                                                    <div style={{ color: 'var(--gold)', fontFamily: 'var(--font-body)', fontWeight: 900, fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Completed Projection</div>
-                                                    <strong style={{ display: 'block', color: 'var(--white)', fontSize: '0.84rem', lineHeight: 1.25 }}>{brief.headline || activeFlashAnalystReport.assumptions?.description || 'League-specific projection is ready.'}</strong>
-                                                    <em style={{ display: 'block', color: 'var(--silver)', opacity: 0.74, fontStyle: 'normal', fontSize: '0.68rem', lineHeight: 1.45, marginTop: 4 }}>{brief.userPath || 'Toggle a projection to inspect how the room could fall before your picks.'}</em>
-                                                </div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 7, marginBottom: 10 }}>
-                                                    {[
-                                                        { label: 'Projected', value: activeFlashAnalystReport.summary?.totalPicks || activeFlashAnalystReport.picks?.length || 0, color: 'var(--gold)' },
-                                                        { label: 'Your Picks', value: userPicks.length, color: '#2ECC71' },
-                                                        { label: 'Watch Alerts', value: watchCount, color: watchCount ? '#F0A500' : '#2ECC71' },
-                                                        { label: 'Pressure', value: topPressure ? topPressure.key + ' x' + topPressure.count : 'Even', color: 'var(--white)' },
-                                                    ].map(item => (
-                                                        <div key={item.label} style={{ padding: '8px 9px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.025)' }}>
-                                                            <span style={{ display: 'block', color: 'var(--silver)', opacity: 0.62, fontSize: '0.52rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{item.label}</span>
-                                                            <strong style={{ display: 'block', color: item.color, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</strong>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <button type="button" onClick={() => setDraftView('mock')} style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid rgba(212,175,55,0.34)', background: 'rgba(212,175,55,0.1)', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Open Mock Center</button>
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                                <div style={{ minWidth: 0, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '9px 10px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginBottom: 7 }}>
-                                        <strong style={{ color: 'var(--white)', fontFamily: 'var(--font-body)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pick Ticker</strong>
-                                        <em style={{ color: 'var(--silver)', opacity: 0.6, fontStyle: 'normal', fontSize: '0.58rem' }}>{activeFlashAnalystReport?.label || 'Projection'}</em>
-                                    </div>
-                                    <div style={{ display: 'grid', gap: 5 }}>
-                                        {(activeFlashAnalystReport?.picks || []).slice(0, 10).map(pick => {
-                                            const isMine = String(pick.rosterId || '') === String(myRoster?.roster_id || '') || (!pick.rosterId && Number(pick.slot) === Number(draftProjectionMeta.mySlot));
-                                            return (
-                                                <div key={pick.overall} style={{ display: 'grid', gridTemplateColumns: '42px minmax(0,1fr) 48px', gap: 7, alignItems: 'center', padding: '5px 6px', borderRadius: 6, border: '1px solid ' + (isMine ? 'rgba(46,204,113,0.28)' : 'rgba(255,255,255,0.055)'), background: isMine ? 'rgba(46,204,113,0.045)' : 'rgba(255,255,255,0.018)' }}>
-                                                    <span style={{ color: isMine ? '#2ECC71' : 'var(--gold)', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.62rem' }}>{pick.round}.{String(pick.slot).padStart(2, '0')}</span>
-                                                    <span style={{ minWidth: 0 }}>
-                                                        <strong style={{ display: 'block', color: 'var(--white)', fontSize: '0.68rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pick.name}</strong>
-                                                        <em style={{ display: 'block', color: 'var(--silver)', opacity: 0.62, fontStyle: 'normal', fontSize: '0.56rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pick.ownerName}</em>
-                                                    </span>
-                                                    <strong style={{ color: posColors[pick.pos] || 'var(--silver)', fontFamily: 'var(--font-body)', fontSize: '0.62rem', textAlign: 'right' }}>{pick.pos}</strong>
-                                                </div>
-                                            );
-                                        })}
-                                        {activeFlashAnalystReport && !(activeFlashAnalystReport.picks || []).length && (
-                                            <div style={{ color: 'var(--silver)', opacity: 0.64, fontSize: '0.68rem', padding: 12, textAlign: 'center' }}>No projected picks available yet.</div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-
                         <div className="draft-hq-grid">
                             <section className="draft-hq-panel">
                                 <div className="draft-hq-panel-head">
-                                    <span>Pick Path</span>
-                                    <em>{pickYears[0]}-{pickYears[2]}</em>
-                                </div>
-                                <div className="draft-pick-group">
-                                    {pickYears.map(yr => {
-                                        const yearPicks = myPicks.filter(pk => pk.year === yr).sort((a, b) => {
-                                            if (a.round !== b.round) return a.round - b.round;
-                                            return (slotFor(a) || 99) - (slotFor(b) || 99);
-                                        });
-                                        return (
-                                            <div key={yr}>
-                                                <div className="draft-pick-year">{yr}</div>
-                                                {yearPicks.length ? (
-                                                    <div className="draft-pick-chipline">
-                                                        {yearPicks.map((pk, i) => {
-                                                            const cls = (pk === nextPick ? 'is-next ' : '') + (!pk.own ? 'is-acquired' : '');
-                                                            return <span key={yr + '-' + pk.round + '-' + i} className={cls.trim()} title={pk.own ? 'Your native pick' : ('Acquired from roster ' + pk.from)}>{fmtPick(pk)}</span>;
-                                                        })}
-                                                    </div>
-                                                ) : <div className="draft-empty">No picks in this year.</div>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                <div className="draft-hq-subhead">Roster Targeting</div>
-                                <div className="draft-run-list">
-                                    {needLabels.length ? needLabels.map(n => (
-                                        <div key={n.pos}>
-                                            <strong style={{ color: posColors[n.pos] || 'var(--gold)' }}>{n.pos}</strong>
-                                            <span>{n.urgency === 'deficit' ? 'Critical room' : 'Depth target'}</span>
-                                            <em>{n.count ? n.count + ' players' : strategyRec.type === 'target' && strategyRec.label.includes(n.pos) ? 'priority' : 'watch'}</em>
-                                        </div>
-                                    )) : <div className="draft-empty">No urgent roster gaps detected. Bias to value and tiers.</div>}
-                                </div>
-                            </section>
-
-                            <section className="draft-hq-panel">
-                                <div className="draft-hq-panel-head">
-                                    <span>Best Targets</span>
-                                    <em>{nextPick ? 'likely around ' + fmtPick(nextPick) : 'board value'}</em>
+                                    <span>Alex's Recommended Draft</span>
+                                    <em>{userMockRows.length ? userMockRows.length + ' projected picks' : 'waiting on projection'}</em>
                                 </div>
                                 <div className="draft-rec-list">
-                                    {recommendations.length ? recommendations.map((r, i) => (
+                                    {aiDraftPathRows.length ? aiDraftPathRows.map((pick, i) => (
                                         <div
-                                            key={r.pid}
-                                            className={'draft-rec-card' + (i === 0 ? ' is-primary' : '')}
+                                            key={pick.overall + '-' + pick.pid}
+                                            className={'draft-rec-card draft-user-mock-card' + (i === 0 ? ' is-primary' : '')}
                                             role="button"
                                             tabIndex={0}
                                             title="Open player card"
-                                            onClick={() => openDraftPlayer(r.pid)}
-                                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDraftPlayer(r.pid); } }}
+                                            onClick={() => openDraftPlayer(pick.pid)}
+                                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDraftPlayer(pick.pid); } }}
                                         >
-                                            <span className="draft-rec-rank">{i + 1}</span>
-                                            <img className="draft-rec-photo" src={'https://sleepercdn.com/content/nfl/players/thumb/' + r.pid + '.jpg'} alt="" onError={e => e.currentTarget.style.visibility = 'hidden'} />
+                                            <span className="draft-rec-rank">{pick.pickLabel}</span>
+                                            <img className="draft-rec-photo" src={pick.photoUrl} alt="" onError={e => e.currentTarget.style.visibility = 'hidden'} />
                                             <span className="draft-rec-main">
-                                                <strong>{pName(r.p)}</strong>
-                                                <em>{r.pos} - {r.csv?.college || r.p.college || r.p.metadata?.college || 'School TBD'} - {r.draftCapital}</em>
+                                                <strong>{pick.name} <small>{pick.pos}</small></strong>
+                                                <em>{pick.nflTeam} - {pick.school} - {pick.driverText}</em>
                                             </span>
                                             <span className="draft-rec-score">
-                                                <strong style={{ color: fitColor(r.fit.score) }}>{r.fit.score}%</strong>
-                                                <span>fit</span>
+                                                <strong style={{ color: 'var(--gold)' }}>{fmtDhq(pick.dhq)}</strong>
+                                                <span>DHQ</span>
                                             </span>
-                                            <span className="draft-rec-reason">{r.reason} Availability: {r.availability}%. Risk: {r.riskLabel}.</span>
+                                            <span className="draft-rec-reason">{pick.impact}</span>
                                             <span className="draft-rec-actions">
-                                                <button type="button" onClick={e => { e.stopPropagation(); openDraftPlayer(r.pid); }}>Scout</button>
-                                                <button type="button" onClick={e => { e.stopPropagation(); setBoardTags(prev => ({ ...prev, [r.pid]: 'target' })); }}>Tag Target</button>
+                                                <button type="button" onClick={e => { e.stopPropagation(); openDraftPlayer(pick.pid); }}>Scout</button>
+                                                <button type="button" onClick={e => { e.stopPropagation(); setBoardTags(prev => ({ ...prev, [pick.pid]: 'target' })); }}>Tag Target</button>
                                                 <button type="button" onClick={e => { e.stopPropagation(); setDraftView('mock'); }}>Mock It</button>
                                             </span>
                                         </div>
-                                    )) : <div className="draft-empty">No likely targets yet. Open Big Board after prospects finish loading.</div>}
+                                    )) : <div className="draft-empty">No clean AI path yet. Sync the draft board or roster data, then Alex will publish our pick plan here.</div>}
                                 </div>
                             </section>
 
                             <section className="draft-hq-panel">
                                 <div className="draft-hq-panel-head">
                                     <span>Board Pressure</span>
-                                    <em>{nextPickOverall ? 'through pick ' + picksBeforeNext : 'pre-draft'}</em>
+                                    <em>{nextPickOverall ? 'before ' + nextPickLabel : 'pre-draft'}</em>
                                 </div>
                                 <div className="draft-run-list">
                                     {positionRunRows.length ? positionRunRows.map(row => (
@@ -1065,27 +1480,17 @@
                                     )) : <div className="draft-empty">No pick-pressure read yet.</div>}
                                 </div>
 
-                                <div className="draft-hq-subhead">Trade Read</div>
-                                <div className="draft-trade-read">
-                                    <div>
-                                        <strong>{nextPickOverall && nextPickOverall <= leagueSize ? 'Up' : 'Down'}</strong>
-                                        <span>{nextPickOverall && nextPickOverall <= leagueSize ? 'Premium pick pocket' : 'Tier-chasing pocket'}</span>
-                                        <em>{nextPickOverall && nextPickOverall <= leagueSize ? 'move only for elite target' : 'shop back if tier is flat'}</em>
-                                    </div>
-                                    <div>
-                                        <strong>{recommendations[0]?.pos || '--'}</strong>
-                                        <span>{recommendations[0] ? 'Best swing room' : 'No target yet'}</span>
-                                        <em>{recommendations[0]?.availability ? recommendations[0].availability + '% avail' : 'wait'}</em>
-                                    </div>
-                                </div>
-
                                 <div className="draft-hq-subhead">Class Depth</div>
                                 <div className="draft-run-list">
                                     {classDepthRows.map(row => (
-                                        <div key={row.pos}>
+                                        <div key={row.pos} className="draft-run-note-row">
                                             <strong style={{ color: posColors[row.pos] || 'var(--gold)' }}>{row.pos}</strong>
                                             <span>{row.count} top-60 prospects</span>
-                                            <em>{row.top}</em>
+                                            <em>
+                                                <button type="button" onClick={() => openDraftPlayer(row.topPid)} style={{ border: 0, background: 'transparent', color: 'inherit', padding: 0, font: 'inherit', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(212,175,55,0.35)' }}>{row.top}</button>
+                                                <button type="button" onClick={() => setBoardTags(prev => ({ ...prev, [row.topPid]: 'target' }))} style={{ marginLeft: 6, border: '1px solid rgba(212,175,55,0.24)', background: 'rgba(212,175,55,0.08)', color: 'var(--gold)', borderRadius: 5, padding: '2px 5px', fontSize: '0.54rem', fontFamily: 'var(--font-body)', cursor: 'pointer' }}>Tag</button>
+                                            </em>
+                                            <p>{row.alexBlurb}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -1098,10 +1503,12 @@
                 {activeView === 'board' && (() => {
                     // Helpers: parse size like "6'4" → inches, draft sort key (drafted first)
                     const parseSizeIn = s => { const m = String(s||'').match(/(\d+)'?\s*(\d+)?/); return m ? parseInt(m[1])*12 + (parseInt(m[2])||0) : 0; };
+                    const hasDraftCapital = (cs = {}) => Number(cs.draftRound) > 0 || Number(cs.draftPick) > 0;
+                    const isTrueUdfa = (cs = {}) => !!cs.isUDFA && !hasDraftCapital(cs);
                     const draftSortKey = r => {
                         const cs = r.csv || {};
-                        if (cs.draftRound && cs.draftPick) return cs.draftRound * 1000 + cs.draftPick; // 1001..7256
-                        if (cs.isUDFA) return 9000;
+                        if (hasDraftCapital(cs)) return (Number(cs.draftRound) || 99) * 1000 + (Number(cs.draftPick) || 999);
+                        if (isTrueUdfa(cs)) return 9000;
                         return 9999;
                     };
 
@@ -1111,8 +1518,7 @@
                     if (boardTeamFilter) dhqBoardPlayers = dhqBoardPlayers.filter(r => (r.csv?.nflTeam || r.p?.team || '') === boardTeamFilter);
                     if (boardRoundFilter) dhqBoardPlayers = dhqBoardPlayers.filter(r => {
                         const cs = r.csv || {};
-                        if (boardRoundFilter === 'UDFA') return cs.isUDFA;
-                        if (boardRoundFilter === 'undrafted') return !cs.draftRound && !cs.isUDFA;
+                        if (boardRoundFilter === 'UDFA') return isTrueUdfa(cs);
                         return String(cs.draftRound) === boardRoundFilter;
                     });
                     if (boardSort.key) {
@@ -1172,6 +1578,19 @@
                         setRankInput('');
                         if (boardMode !== 'my') setBoardMode('my');
                     };
+                    const handleBoardMove = (pid, delta) => {
+                        setMyBoardOrder(prev => {
+                            const order = prev.length ? [...prev] : aiSeedOrder.slice();
+                            const fromIdx = order.indexOf(pid);
+                            if (fromIdx === -1) return order;
+                            const toIdx = Math.max(0, Math.min(order.length - 1, fromIdx + delta));
+                            if (fromIdx === toIdx) return order;
+                            const [moved] = order.splice(fromIdx, 1);
+                            order.splice(toIdx, 0, moved);
+                            return order;
+                        });
+                        if (boardMode !== 'my') setBoardMode('my');
+                    };
 
                     const buildOrderedPlayers = (order) => {
                         const cleanOrder = Array.isArray(order) && order.length ? order : rookies.map(r => r.pid);
@@ -1186,8 +1605,7 @@
                         if (boardTeamFilter) out = out.filter(r => (r.csv?.nflTeam || r.p?.team || '') === boardTeamFilter);
                         if (boardRoundFilter) out = out.filter(r => {
                             const cs = r.csv || {};
-                            if (boardRoundFilter === 'UDFA') return cs.isUDFA;
-                            if (boardRoundFilter === 'undrafted') return !cs.draftRound && !cs.isUDFA;
+                            if (boardRoundFilter === 'UDFA') return isTrueUdfa(cs);
                             return String(cs.draftRound) === boardRoundFilter;
                         });
                         return out;
@@ -1204,7 +1622,7 @@
                     const toggleSort = (key) => setBoardSort(prev => prev.key === key ? { ...prev, dir: prev.dir * -1 } : { key, dir: ['name','school','team','rank','tier','draft','speed','age'].includes(key) ? 1 : -1 });
                     const sortHdr = { cursor: 'pointer', userSelect: 'none' };
                     const renderCompactBoard = (players, isDhq) => {
-                        const boardGridCols = '36px minmax(205px, 1.15fr) minmax(128px, 0.82fr) 88px 108px 64px 58px 82px 64px 58px minmax(156px, 0.95fr) 82px';
+                        const boardGridCols = '58px minmax(205px, 1.15fr) minmax(128px, 0.82fr) 88px 108px 64px 58px 82px 64px 58px minmax(156px, 0.95fr) 92px';
                         const boardHeaderCell = (label, key, extra = {}) => (
                             <div onClick={key ? () => toggleSort(key) : undefined} style={{ ...sortHdr, ...extra }}>
                                 {label}{key ? sortArrow(key) : ''}
@@ -1222,8 +1640,8 @@
                         const detailBox = { border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.025)', borderRadius: 8, padding: '9px 10px', minWidth: 0 };
 
                         return (
-                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px', maxHeight: 'none', overflowX: 'auto', overflowY: 'visible' }}>
-                          <div style={{ minWidth: '1268px' }}>
+	                        <div style={{ background: 'var(--black)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px', maxHeight: 'none', overflowX: 'auto', overflowY: 'visible' }}>
+	                          <div style={{ minWidth: '100%' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: boardGridCols, minHeight: '34px', background: 'rgba(212,175,55,0.08)', borderBottom: '2px solid rgba(212,175,55,0.2)', fontSize: '0.66rem', fontWeight: 800, color: 'var(--gold)', fontFamily: 'var(--font-body)', textTransform: 'uppercase', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1 }}>
                                 <div style={{ textAlign: 'center' }}>#</div>
                                 {boardHeaderCell('Player', 'name', { padding: '0 8px' })}
@@ -1254,13 +1672,38 @@
                                 const sizeStr = cs.size || (r.p?.height ? Math.floor(r.p.height/12)+"'"+(r.p.height%12) : '');
                                 const wtStr = cs.weight || r.p?.weight || '';
                                 const speedStr = cs.speed || '';
-                                const draftStr = cs.draftRound && cs.draftPick
-                                    ? 'R' + cs.draftRound + '.' + String(cs.draftPick).padStart(2,'0')
-                                    : cs.isUDFA ? 'UDFA' : '';
-                                const draftCol = cs.draftRound === 1 ? '#2ECC71' : cs.draftRound && cs.draftRound <= 3 ? 'var(--gold)' : cs.isUDFA ? 'var(--silver)' : 'rgba(255,255,255,0.42)';
+                                const draftRound = Number(cs.draftRound) || 0;
+                                const draftPick = Number(cs.draftPick) || 0;
+                                const draftStr = draftRound
+                                    ? 'R' + draftRound + (draftPick ? '.' + String(draftPick).padStart(2,'0') : '')
+                                    : draftPick ? '#' + draftPick : isTrueUdfa(cs) ? 'UDFA' : '';
+                                const draftCol = draftRound === 1 ? '#2ECC71' : draftRound && draftRound <= 3 ? 'var(--gold)' : isTrueUdfa(cs) ? 'var(--silver)' : 'rgba(255,255,255,0.42)';
                                 const rankStr = (cs.consensusRank || cs.rank) ? '#' + Math.round(cs.consensusRank || cs.rank) : '-';
                                 const tierStr = cs.tier || '-';
                                 const compText = cs.nflComp || cs.comp || '';
+                                const teamFitInsight = team ? (() => {
+                                    const capitalTier = draftRound === 1
+                                        ? 'a priority-plan rookie'
+                                        : draftRound && draftRound <= 3
+                                            ? 'an early-rotation bet'
+                                            : draftRound
+                                                ? 'a developmental swing'
+                                                : isTrueUdfa(cs)
+                                                    ? 'a camp-competition flyer'
+                                                    : 'a landing-spot bet';
+                                    if (pos === 'QB') return 'I read ' + team + ' as a runway question: he stacks up as ' + capitalTier + ', but his DHQ only climbs fast if the depth chart gives him real starts or a clear succession path.';
+                                    if (pos === 'RB') return 'On ' + team + ', I am weighing touch path over raw traits. He stacks up as ' + capitalTier + '; the value jumps if pass-game work or goal-line access is actually available.';
+                                    if (pos === 'WR') return 'On ' + team + ', I care about target path and role clarity. He stacks up as ' + capitalTier + '; I want to know whether he is beating veterans for snaps or waiting on an injury.';
+                                    if (pos === 'TE') return 'On ' + team + ', I am checking patience versus payoff. He stacks up as ' + capitalTier + '; tight ends need route volume before the profile matters for our board.';
+                                    if (['DL', 'LB', 'DB', 'ED'].includes(pos)) return 'On ' + team + ', I am mapping role to scoring. He stacks up as ' + capitalTier + '; full-time snaps and stat-friendly alignment matter more than the helmet.';
+                                    if (pos === 'K') return 'On ' + team + ', I am treating this as a roster-stability read. He stacks up as ' + capitalTier + ', but I would not let kicker security outrank real roster value.';
+                                    return 'On ' + team + ', I am treating this as a role-and-capital check. He stacks up as ' + capitalTier + '; the question is whether the team gives him enough usage to make the DHQ real.';
+                                })() : '';
+                                const summaryBits = String(cs.summary || '')
+                                    .split(/(?<=[.!?])\s+/)
+                                    .map(s => s.trim())
+                                    .filter(Boolean)
+                                    .slice(0, 4);
                                 const profileStr = [sizeStr, wtStr && wtStr + ' lb', speedStr && speedStr + ' 40'].filter(Boolean).join(' / ') || '-';
                                 const photoSrc = r.isCSVOnly && cs.espnId ? `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${cs.espnId}.png&w=96&h=70` : `https://sleepercdn.com/content/nfl/players/thumb/${r.pid}.jpg`;
                                 const openPlayerDetail = () => setExpandedDraftPid(prev => {
@@ -1284,7 +1727,15 @@
                                         style={{ display: 'grid', gridTemplateColumns: boardGridCols, alignItems: 'center', minHeight: '42px', opacity: isDrafted ? 0.35 : 1, borderBottom: isExp ? 'none' : '1px solid rgba(255,255,255,0.035)', cursor: 'pointer', background: isExp ? 'rgba(212,175,55,0.065)' : idx % 2 === 1 ? 'rgba(255,255,255,0.016)' : 'transparent', transition: 'background 0.1s', position: 'relative' }}
                                         onMouseEnter={e => { if (!isExp) e.currentTarget.style.background = 'rgba(212,175,55,0.04)'; }}
                                         onMouseLeave={e => { if (!isExp) e.currentTarget.style.background = idx % 2 === 1 ? 'rgba(255,255,255,0.016)' : 'transparent'; }}>
-                                        <div style={{ textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: '0.74rem', color: idx < 3 ? 'var(--gold)' : 'var(--silver)', fontWeight: 800 }}>{idx + 1}</div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'var(--font-body)', fontSize: '0.74rem', color: idx < 3 ? 'var(--gold)' : 'var(--silver)', fontWeight: 800 }}>
+                                            <span>{idx + 1}</span>
+                                            {!isDhq && (
+                                                <span style={{ display: 'inline-grid', gap: 2 }}>
+                                                    <button type="button" title="Move up" onClick={e => { e.stopPropagation(); handleBoardMove(r.pid, -1); }} style={{ width: 16, height: 14, lineHeight: 1, border: '1px solid rgba(212,175,55,0.25)', borderRadius: 3, background: 'rgba(212,175,55,0.08)', color: 'var(--gold)', cursor: 'pointer', fontSize: '0.52rem', padding: 0 }}>▲</button>
+                                                    <button type="button" title="Move down" onClick={e => { e.stopPropagation(); handleBoardMove(r.pid, 1); }} style={{ width: 16, height: 14, lineHeight: 1, border: '1px solid rgba(212,175,55,0.25)', borderRadius: 3, background: 'rgba(212,175,55,0.08)', color: 'var(--gold)', cursor: 'pointer', fontSize: '0.52rem', padding: 0 }}>▼</button>
+                                                </span>
+                                            )}
+                                        </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0, padding: '5px 7px' }}>
                                             <div style={{ width: 28, height: 28, flexShrink: 0 }}>
                                                 <img src={photoSrc} alt="" onError={e => e.target.style.display='none'} style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', objectPosition: 'top', border: '1px solid rgba(212,175,55,0.22)' }} />
@@ -1301,7 +1752,7 @@
                                         {snapshotCell(fitObj.label + ' ' + fitObj.score, fitCol)}
                                         {snapshotCell(rankStr)}
                                         {snapshotCell(tierStr)}
-                                        {snapshotCell(draftStr || 'Undrafted', draftCol)}
+                                        {snapshotCell(draftStr || 'Capital TBD', draftCol)}
                                         {snapshotCell(team || 'TBD', team ? '#2ECC71' : 'var(--silver)')}
                                         {snapshotCell(age || '-')}
                                         {snapshotCell(profileStr, speedStr && parseFloat(speedStr) <= 4.45 ? '#2ECC71' : 'var(--white)')}
@@ -1329,7 +1780,7 @@
                                                             ['Fit', fitObj.label + ' ' + fitObj.score],
                                                             ['Rank', rankStr],
                                                             ['Tier', tierStr],
-                                                            ['Draft', draftStr || 'Undrafted'],
+                                                            ['Draft', draftStr || 'Capital TBD'],
                                                             ['Team', team || 'TBD'],
                                                             ['Age', age || '-'],
                                                             ['Profile', [sizeStr, wtStr && wtStr + ' lb', speedStr && speedStr + ' 40'].filter(Boolean).join(' / ') || '-'],
@@ -1343,8 +1794,22 @@
                                                 </div>
                                                 <div style={detailBox}>
                                                     <span style={detailLabel}>Scouting Report</span>
-                                                    <div style={{ color: 'var(--silver)', fontSize: '0.74rem', lineHeight: 1.62 }}>{cs.summary || 'No full scouting summary is loaded for this player yet.'}</div>
+                                                    {summaryBits.length ? (
+                                                        <div style={{ display: 'grid', gap: 6 }}>
+                                                            {summaryBits.map((bit, bi) => (
+                                                                <div key={bi} style={{ color: 'var(--silver)', fontSize: '0.72rem', lineHeight: 1.45, border: '1px solid rgba(255,255,255,0.055)', borderRadius: 6, padding: '7px 8px', background: 'rgba(255,255,255,0.018)' }}>{bit}</div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ color: 'var(--silver)', fontSize: '0.74rem', lineHeight: 1.62 }}>No full scouting summary is loaded for this player yet.</div>
+                                                    )}
                                                     {compText && <div style={{ color: 'var(--white)', opacity: 0.82, fontSize: '0.68rem', marginTop: 7 }}>Comp: {compText}</div>}
+                                                    {teamFitInsight && (
+                                                        <div style={{ border: '1px solid rgba(46,204,113,0.18)', background: 'rgba(46,204,113,0.045)', borderRadius: 6, padding: '7px 8px', marginTop: 7 }}>
+                                                            <span style={{ display: 'block', color: '#2ECC71', fontSize: '0.56rem', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Alex NFL Fit</span>
+                                                            <div style={{ color: 'var(--silver)', fontSize: '0.7rem', lineHeight: 1.42 }}>{teamFitInsight}</div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -1454,7 +1919,7 @@
                             {(typeof getLeaguePositions === 'function' ? getLeaguePositions() : ['QB','RB','WR','TE','DL','LB','DB']).map(pos => (
                                 <button key={pos} onClick={() => setBoardPosFilter(boardPosFilter === pos ? '' : pos)} style={{ padding: '4px 10px', fontSize: '0.72rem', fontFamily: 'var(--font-body)', borderRadius: '14px', cursor: 'pointer', border: '1px solid ' + (boardPosFilter === pos ? (posColors[pos] || '#666') + '55' : 'rgba(255,255,255,0.08)'), background: boardPosFilter === pos ? (posColors[pos] || '#666') + '18' : 'transparent', color: boardPosFilter === pos ? posColors[pos] : 'var(--silver)' }}>{pos}</button>
                             ))}
-                            <span style={{ marginLeft: 'auto', fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.4 }}>Click row to expand {'\u00B7'} Drag to reorder My Board</span>
+                            <span style={{ marginLeft: 'auto', fontSize: '0.64rem', color: 'var(--silver)', opacity: 0.4 }}>Click row to expand {'\u00B7'} Use arrows or drag to reorder My Board</span>
                         </div>
 
                         {/* Team & Round filters */}
@@ -1478,7 +1943,6 @@
                                     { k: '6', label: 'R6' },
                                     { k: '7', label: 'R7' },
                                     { k: 'UDFA', label: 'UDFA' },
-                                    { k: 'undrafted', label: 'Undrafted' },
                                 ].map(opt => (
                                     <button key={opt.k} onClick={() => setBoardRoundFilter(boardRoundFilter === opt.k ? '' : opt.k)} style={{ padding: '3px 8px', fontSize: '0.66rem', fontFamily: 'var(--font-body)', borderRadius: '10px', cursor: 'pointer', border: '1px solid ' + (boardRoundFilter === opt.k ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'), background: boardRoundFilter === opt.k ? 'rgba(212,175,55,0.14)' : 'transparent', color: boardRoundFilter === opt.k ? 'var(--gold)' : 'var(--silver)' }}>{opt.label}</button>
                                 ))}
@@ -1850,6 +2314,7 @@
                                 currentLeague={currentLeague}
                                 draftRounds={draftRounds}
                                 forcedMode="live-sync"
+                                autoStartLiveToken={liveAutoStartToken}
                             />
                         );
                     }

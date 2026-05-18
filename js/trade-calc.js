@@ -201,7 +201,9 @@
                 if (!picksByOwner[ownerUserId]) picksByOwner[ownerUserId] = [];
                 picksByOwner[ownerUserId].push({ year: y, round: rd, fromRosterId });
             }
-            for (const oid of Object.keys(picksByOwner)) { picksByOwner[oid].sort((a, b) => a.year - b.year || a.round - b.round); }
+            for (const oid of Object.keys(picksByOwner)) {
+                picksByOwner[oid].sort((a, b) => a.year - b.year || a.round - b.round || Number(a.fromRosterId) - Number(b.fromRosterId));
+            }
             return picksByOwner;
         }
 
@@ -771,6 +773,23 @@
             return `${year} R${round}`;
         }
 
+        function pickSlotForSort(year, fromRosterId) {
+            const mapped = Number(draftSlotMaps?.[Number(year)]?.[String(fromRosterId)] || 0);
+            if (mapped > 0) return mapped;
+            const fallback = Number(fromRosterId);
+            return Number.isFinite(fallback) && fallback > 0 ? fallback : 999;
+        }
+
+        function comparePicksByDraftOrder(a, b) {
+            const ay = Number(a?.year || a?.season || 0);
+            const by = Number(b?.year || b?.season || 0);
+            const ar = Number(a?.round || 0);
+            const br = Number(b?.round || 0);
+            const as = pickSlotForSort(ay, a?.fromRosterId || a?.roster_id || a?.originalRosterId);
+            const bs = pickSlotForSort(by, b?.fromRosterId || b?.roster_id || b?.originalRosterId);
+            return ay - by || ar - br || as - bs || String(a?.fromRosterId || '').localeCompare(String(b?.fromRosterId || ''));
+        }
+
         function makePickId(year, round, fromRosterId) {
             return `PICK-${year}-${round}-${fromRosterId}`;
         }
@@ -834,7 +853,7 @@
             return (picksByOwner[String(ownerId)] || [])
                 .map(pickAsset)
                 .filter(Boolean)
-                .sort((a, b) => b.value - a.value || a.year - b.year || a.round - b.round);
+                .sort((a, b) => b.value - a.value || comparePicksByDraftOrder(a, b));
         }
 
         function sideBreakdown(players = [], picks = [], faab = 0) {
@@ -2461,7 +2480,7 @@
                     + Math.round(faab * FAAB_RATE);
                 const rosterPlayers = rosterPlayersFor(side);
                 const ownerId = tradeOwner[side] || null;
-                const ownerPicksList = ownerId ? (picksByOwner[ownerId] || []) : [];
+                const ownerPicksList = ownerId ? (picksByOwner[ownerId] || []).slice().sort(comparePicksByDraftOrder) : [];
 
                 return (
                     <div className={`tc-ta-side tc-side-${side.toLowerCase()}`}>
@@ -2960,7 +2979,7 @@
             analyzer: 'Manual player, pick, and FAAB inspection.'
         };
         return (
-            <div style={{ padding: 'var(--card-pad, 14px 16px)' }}>
+            <div className="tc-trade-root" style={{ padding: 'var(--card-pad, 14px 16px)' }}>
                 <div className="wr-module-strip">
                     <div className="wr-module-context">
                         <span>Trade</span>

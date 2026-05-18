@@ -219,6 +219,12 @@ test('trade desk partner intel exposes owner profile and tradable assets', () =>
   ok(profile.ownerIntelSummary.includes('active-trader'), 'historical owner intel summarized');
 });
 
+test('mock pick values use the canonical exact-slot value source', () => {
+  eq(ctx.DraftCC.tradeSimulator.pickValueFor(baseState, pickOrder[0]), 10000, '1.01 exact slot');
+  eq(ctx.DraftCC.tradeSimulator.pickValueFor(baseState, pickOrder[5]), 6750, '2.02 exact slot');
+  eq(ctx.DraftCC.tradeSimulator.pickValueFor(baseState, { ...pickOrder[5], value: 2468 }), 2468, 'pre-resolved pick value respected');
+});
+
 test('trade desk suggestions build loadable packages with buyer-line reads', () => {
   const suggestions = ctx.DraftCC.tradeSimulator.buildTradeSuggestions(baseState, 2);
   ok(suggestions.length >= 3, 'multiple package ideas generated');

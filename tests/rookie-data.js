@@ -40,6 +40,7 @@ console.log('\nRookie data contract tests');
 
 const rookieShared = read(RECON_ROOT, 'shared/rookie-data.js');
 const scouting = read(ROOT, 'js/draft/scouting.js');
+const draftState = read(ROOT, 'js/draft/state.js');
 const csvLoader = read(ROOT, 'draft-war-room/csv-loader.js');
 const sharedLoader = read(ROOT, 'js/shared/shared-loader.js');
 const rootIndex = read(ROOT, 'index.html');
@@ -73,9 +74,21 @@ test('War Room draft scouting delegates to rookie-data instead of fetching CSVs 
   ok(!/calculateTier|calculateGrade|rankToTierBase|pickToBase/.test(scouting), 'draft/scouting.js should not own scoring logic');
 });
 
+test('War Room draft state does not rescale rookie scores locally', () => {
+  ok(draftState.includes('resolvePlayerDhq'), 'draft state value resolver missing');
+  ok(draftState.includes('RookieData.findProspect'), 'draft state should consult canonical rookie-data');
+  ok(!/draftScore\s*\*\s*1000/.test(draftState), 'draft state should not rescale draftScore into DHQ');
+});
+
 test('War Room prospect matching does not merge players by last name only', () => {
   ok(!scouting.includes('keys.add(last)'), 'last-name-only aliasing can merge distinct prospects');
   ok(scouting.includes('keys.add(`${first[0]} ${last}`)'), 'first-initial alias should remain for nickname matches');
+});
+
+test('canonical rookie-data does not transfer draft capital by surname and school', () => {
+  ok(!rookieShared.includes('keys.add(last)'), 'canonical last-name-only aliasing can merge distinct prospects');
+  ok(!rookieShared.includes('surnameSchoolIndex'), 'surname plus school matching can transfer draft capital to the wrong player');
+  ok(rookieShared.includes('applyPostDraftEnrichment(aliasMatch, e)'), 'safe alias enrichment path missing');
 });
 
 test('standalone csv-loader delegates to canonical rookie-data when available', () => {

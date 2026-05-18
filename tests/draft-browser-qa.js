@@ -105,10 +105,21 @@ async function assertNoOverflow(page, label, failures) {
 }
 
 async function clickTopDraftView(page, label) {
+  await page.waitForFunction(() => !document.body.innerText.includes('BUILDING LEAGUE INTELLIGENCE'), null, { timeout: 45000 }).catch(() => {});
   const button = page.getByRole('button', { name: label, exact: true });
   await button.waitFor({ state: 'visible', timeout: 20000 });
   const count = await button.count();
   if (count !== 1) throw new Error(`expected one ${label} button, found ${count}`);
+  await page.waitForFunction((buttonLabel) => {
+    const btn = Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim() === buttonLabel);
+    if (!btn) return false;
+    const rect = btn.getBoundingClientRect();
+    const key = [Math.round(rect.x), Math.round(rect.y), Math.round(rect.width), Math.round(rect.height)].join(':');
+    window.__draftNavStable = window.__draftNavStable || {};
+    const stable = window.__draftNavStable[buttonLabel] === key;
+    window.__draftNavStable[buttonLabel] = key;
+    return stable;
+  }, label, { timeout: 45000 });
   await button.click();
 }
 
@@ -159,35 +170,38 @@ async function main() {
       timeout: 45000,
     });
     await desktop.waitForFunction(() => document.body.innerText.includes('Draft'), null, { timeout: 25000 });
-    if (!(await desktop.evaluate(() => document.body.innerText.includes('Analyst Projected Mock')))) {
+    if (!(await desktop.evaluate(() => /Alex Analyst Mock/i.test(document.body.innerText)))) {
       await desktop.getByRole('button', { name: 'Draft', exact: true }).first().click().catch(() => {});
     }
-    await desktop.waitForFunction(() => document.body.innerText.includes('Analyst Projected Mock'), null, { timeout: 45000 });
+    await desktop.waitForFunction(() => /Alex Analyst Mock/i.test(document.body.innerText), null, { timeout: 45000 });
     const flashSnap = await assertNoOverflow(desktop, 'flash-brief@1365', failures);
-    ['Analyst Projected Mock', 'completed projections', 'League History', 'Pick Ticker'].forEach(text => {
-      if (!flashSnap.text.includes(text)) failures.push(`flash-brief@1365: missing ${text}`);
+    const flashTextLower = flashSnap.text.toLowerCase();
+    ['Alex Analyst Mock', 'League Reality', 'My Board Lens', 'Trade Market'].forEach(text => {
+      if (!flashTextLower.includes(text.toLowerCase())) failures.push(`flash-brief@1365: missing ${text}`);
     });
     process.stdout.write('.');
 
     await clickTopDraftView(desktop, 'Big Board');
-    await desktop.waitForFunction(() => document.body.innerText.includes('Draft Big Board'), null, { timeout: 45000 });
+    await desktop.waitForFunction(() => /Draft Big Board/i.test(document.body.innerText), null, { timeout: 45000 });
     const boardSnap = await assertNoOverflow(desktop, 'big-board@1365', failures);
+    const boardTextLower = boardSnap.text.toLowerCase();
     ['Default Board', 'AI Recommended', 'User Board'].forEach(text => {
-      if (!boardSnap.text.includes(text)) failures.push(`big-board@1365: missing ${text}`);
+      if (!boardTextLower.includes(text.toLowerCase())) failures.push(`big-board@1365: missing ${text}`);
     });
     process.stdout.write('.');
 
     await clickTopDraftView(desktop, 'Mock Draft Center');
-    await desktop.waitForFunction(() => document.body.innerText.includes('MOCK DRAFT CENTER'), null, { timeout: 25000 });
+    await desktop.waitForFunction(() => /Mock Draft Center/i.test(document.body.innerText), null, { timeout: 25000 });
     const mockSnap = await assertNoOverflow(desktop, 'mock-draft-center@1365', failures);
+    const mockTextLower = mockSnap.text.toLowerCase();
     ['MOCK UPCOMING DRAFT', 'AI GM STRATEGY STUDIO', 'MODEL TUNING', 'OWNER DNA', 'SAVE PROFILE', 'START MOCK DRAFT'].forEach(text => {
-      if (!mockSnap.text.includes(text)) failures.push(`mock-draft-center@1365: missing ${text}`);
+      if (!mockTextLower.includes(text.toLowerCase())) failures.push(`mock-draft-center@1365: missing ${text}`);
     });
     ['Custom Solo', 'bestball', 'Bestball'].forEach(text => {
-      if (mockSnap.text.includes(text)) failures.push(`mock-draft-center@1365: removed setup option still visible: ${text}`);
+      if (mockTextLower.includes(text.toLowerCase())) failures.push(`mock-draft-center@1365: removed setup option still visible: ${text}`);
     });
-    if (mockSnap.text.includes('Analyst Projected Mock')) {
-      failures.push('mock-draft-center@1365: Analyst Projected Mock should live on Flash Brief, not Mock Draft Center');
+    if (/Analyst Projected Mock|Alex Analyst Mock/i.test(mockSnap.text)) {
+      failures.push('mock-draft-center@1365: analyst mock should live on Flash Brief, not Mock Draft Center');
     }
     const roundOptions = await desktop.evaluate(() => [...document.querySelectorAll('option')].map(option => option.textContent.trim()));
     if (!roundOptions.includes('1 round') || !roundOptions.includes('100 rounds')) {
@@ -195,16 +209,19 @@ async function main() {
     }
     process.stdout.write('.');
 
-    await clickTopDraftView(desktop, 'Live Draft');
-    await desktop.waitForFunction(() => document.body.innerText.includes('LIVE SYNC SOURCE'), null, { timeout: 25000 });
+    await clickTopDraftView(desktop, 'Follow Live Draft');
+    await desktop.waitForFunction(() => /DraftCast|DRAFTCAST|LIVE SYNC SOURCE/.test(document.body.innerText), null, { timeout: 25000 });
     const liveSnap = await assertNoOverflow(desktop, 'live-draft@1365', failures);
-    ['LIVE SYNC SOURCE', 'FOLLOW SELECTED DRAFT'].forEach(text => {
-      if (!liveSnap.text.includes(text)) failures.push(`live-draft@1365: missing ${text}`);
-    });
+    if (!/DraftCast|DRAFTCAST|LIVE SYNC SOURCE/.test(liveSnap.text)) {
+      failures.push('live-draft@1365: missing live launch surface');
+    }
+    if (liveSnap.text.includes('FOLLOW SELECTED DRAFT')) {
+      failures.push('live-draft@1365: one-click follow should not require a second follow button');
+    }
     ['Draft Setup', 'AI GM STRATEGY STUDIO', 'MODEL TUNING', 'START MIRROR'].forEach(text => {
       if (liveSnap.text.includes(text)) failures.push(`live-draft@1365: picker-only screen leaked ${text}`);
     });
-    if (!liveSnap.text.includes('No upcoming') && !liveSnap.text.includes('upcoming')) {
+    if (!/No upcoming|upcoming|Live Sync|LIVE-SYNC|Sync confidence|Sleeper picks found|Mirrored in War Room/i.test(liveSnap.text)) {
       failures.push('live-draft@1365: missing real-league draft source state');
     }
     process.stdout.write('.');

@@ -71,6 +71,8 @@
         const setActiveTab = onTabChange || setLocalActiveTab;
         const [tradeSubTab, setTradeSubTab] = useState(null); // when set, TradeCalcTab opens this sub-tab
         const [selectedPlayerPid, setSelectedPlayerPid] = useState(null);
+        const [headerDraftInfo, setHeaderDraftInfo] = useState(null);
+        const [headerClockNow, setHeaderClockNow] = useState(Date.now());
 
         // ── TIME CONTEXT — the temporal lens of the entire app ──
         // Single source of truth. All modules read timeYear and derived helpers.
@@ -82,6 +84,45 @@
         const [timeLoading, setTimeLoading] = useState(false);
         const [timeRecomputeTs, setTimeRecomputeTs] = useState(Date.now());
         const [basePlayersData, setBasePlayersData] = useState(null);
+
+        useEffect(() => {
+            const leagueId = currentLeague?.league_id || currentLeague?.id;
+            if (!leagueId) return;
+            let cancelled = false;
+            const fetchDrafts = window.Sleeper?.fetchDrafts || (async (lid) => {
+                const resp = await fetch('https://api.sleeper.app/v1/league/' + lid + '/drafts');
+                return resp.ok ? resp.json() : [];
+            });
+            fetchDrafts(leagueId)
+                .then(rows => {
+                    if (cancelled) return;
+                    const drafts = Array.isArray(rows) ? rows : [];
+                    const active = drafts.find(d => d.status === 'drafting')
+                        || drafts.find(d => d.status === 'pre_draft')
+                        || null;
+                    setHeaderDraftInfo(active);
+                })
+                .catch(() => { if (!cancelled) setHeaderDraftInfo(null); });
+            return () => { cancelled = true; };
+        }, [currentLeague?.league_id, currentLeague?.id]);
+
+        useEffect(() => {
+            if (!headerDraftInfo?.start_time || headerDraftInfo.status !== 'pre_draft') return;
+            const id = setInterval(() => setHeaderClockNow(Date.now()), 60000);
+            return () => clearInterval(id);
+        }, [headerDraftInfo?.start_time, headerDraftInfo?.status]);
+
+        const headerDraftClock = useMemo(() => {
+            if (!headerDraftInfo) return null;
+            if (headerDraftInfo.status === 'drafting') return { label: 'Draft Live', clock: 'Now' };
+            if (!headerDraftInfo.start_time) return { label: 'Draft Upcoming', clock: 'Scheduled' };
+            const diff = Number(headerDraftInfo.start_time) - headerClockNow;
+            if (diff <= 0) return { label: 'Draft Upcoming', clock: 'Open' };
+            const days = Math.floor(diff / 86400000);
+            const hours = Math.floor((diff % 86400000) / 3600000);
+            const mins = Math.floor((diff % 3600000) / 60000);
+            return { label: 'Draft Upcoming', clock: (days > 0 ? days + 'd ' : '') + hours + 'h ' + mins + 'm' };
+        }, [headerDraftInfo, headerClockNow]);
 
         // ── SeasonContext state — reactive data shared with tab components ──
         const [seasonCtxData, setSeasonCtxData] = useState({
@@ -2689,6 +2730,23 @@
                                 'GM · ' + gm.label
                             );
                         })()}
+                        {headerDraftClock && React.createElement('div', {
+                            className: 'wr-draft-header-clock',
+                            title: headerDraftInfo?.start_time ? new Date(headerDraftInfo.start_time).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'League draft status',
+                            style: {
+                                display: 'inline-flex', alignItems: 'center', gap: '7px',
+                                padding: '4px 10px', borderRadius: '6px',
+                                border: '1px solid rgba(212,175,55,0.42)',
+                                background: 'rgba(212,175,55,0.12)',
+                                color: 'var(--gold)',
+                                fontFamily: 'var(--font-body)', fontSize: '0.66rem',
+                                fontWeight: 800, textTransform: 'uppercase',
+                                letterSpacing: '0.06em', whiteSpace: 'nowrap'
+                            }
+                        },
+                            React.createElement('span', { style: { color: 'var(--silver)', opacity: 0.78 } }, headerDraftClock.label),
+                            React.createElement('strong', { style: { color: 'var(--white)', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem' } }, headerDraftClock.clock)
+                        )}
                     </div>
                 </header>
 

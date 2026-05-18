@@ -5,7 +5,6 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const SOURCE = path.resolve(ROOT, '..', 'reconai', 'shared');
 const TARGET = path.join(ROOT, 'reconai-shared');
 
 const FILES = [
@@ -40,8 +39,27 @@ const FILES = [
   'rookie-data.js',
 ];
 
-if (!fs.existsSync(SOURCE)) {
-  console.error(`[sync-reconai-shared] Missing source directory: ${SOURCE}`);
+function findSourceDir() {
+  const candidates = [
+    process.env.RECONAI_SHARED_SOURCE,
+    path.resolve(ROOT, '..', 'reconai', 'shared'),
+  ].filter(Boolean);
+
+  return candidates.find(candidate => fs.existsSync(candidate)) || null;
+}
+
+function hasBundledSnapshot() {
+  return FILES.every(file => fs.existsSync(path.join(TARGET, file)));
+}
+
+const SOURCE = findSourceDir();
+
+if (!SOURCE) {
+  if (hasBundledSnapshot()) {
+    console.log('[sync-reconai-shared] Source checkout unavailable; using bundled reconai-shared snapshot');
+    process.exit(0);
+  }
+  console.error('[sync-reconai-shared] Missing ReconAI shared source and bundled snapshot');
   process.exit(1);
 }
 

@@ -63,6 +63,24 @@ function buildCtx() {
   };
   ctx.window = ctx;
   ctx.DraftCC = {};
+  ctx.App = {
+    LI: {
+      playerScores: {
+        vet1: 4321,
+      },
+    },
+    PlayerValue: {
+      DRAFT_ROUNDS: 7,
+      getPickValue(_season, round, teams, slot) {
+        return Number(round) * 1000 + Number(slot || Math.ceil(Number(teams || 12) / 2));
+      },
+    },
+  };
+  ctx.RookieData = {
+    findProspect: name => name === 'Fallback Rookie'
+      ? { dynastyValue: 3210, baseDynastyValue: 3100, draftCapitalValue: 2800 }
+      : null,
+  };
   ctx.WR = {
     GmMode: {
       getMode: () => 'win_now',
@@ -146,6 +164,19 @@ test('initial draft state can carry strategy profile tuning', () => {
   const draftState = state.initialDraftState({ leagueId: 'L1', draftTuning: tuning, strategyProfile: profile });
   eq(draftState.strategyProfile.presetId, 'custom-studio', 'profile carried');
   eq(draftState.draftTuning.needFit, 73, 'tuning applied');
+});
+
+test('mock player values resolve from existing DHQ and rookie data sources', () => {
+  eq(state.resolvePlayerDhq({ pid: 'vet1', dhq: 10 }).value, 4321, 'veteran LI score wins');
+  eq(state.resolvePlayerDhq({ name: 'Rookie One', csv: { dynastyValue: 2450, draftScore: 9 } }).value, 2450, 'rookie dynasty value wins');
+  eq(state.resolvePlayerDhq({ name: 'Fallback Rookie', csv: { draftScore: 9 } }).value, 3210, 'rookie-data lookup fills value');
+});
+
+test('mock pick order stores canonical slot pick values', () => {
+  const order = state.buildPickOrder(2, 4, 'snake');
+  eq(order[0].value, 1001, '1.01 value uses exact slot');
+  eq(order[3].value, 1004, '1.04 value uses exact slot');
+  eq(order[4].value, 2004, 'snake round two first pick uses exact original slot');
 });
 
 console.log('\n');

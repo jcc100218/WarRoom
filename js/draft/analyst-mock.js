@@ -23,8 +23,8 @@
             id: 'league-history',
             label: 'League History',
             basis: 'ai',
-            desc: 'Blends owner history, roster need, and AI board context.',
-            tuning: { ownerDna: 90, classValue: 62, needFit: 58, tradeActivity: 50, variance: 28 },
+            desc: 'Owner DNA plus league historical position pace.',
+            tuning: { ownerDna: 100, classValue: 26, needFit: 28, tradeActivity: 44, variance: 8 },
         },
         {
             id: 'my-board',
@@ -66,6 +66,19 @@
         return value == null ? '' : String(value);
     }
 
+    function stripLeadingTeamName(text, teamName) {
+        const raw = String(text || '').trim();
+        const team = String(teamName || '').trim();
+        if (!raw || !team) return raw;
+        if (raw.toLowerCase().startsWith(team.toLowerCase() + ' is ')) {
+            return 'This roster is ' + raw.slice(team.length + 4);
+        }
+        if (raw.toLowerCase().startsWith(team.toLowerCase() + ' has ')) {
+            return 'This roster has ' + raw.slice(team.length + 5);
+        }
+        return raw;
+    }
+
     function presetFor(id) {
         return PRESETS.find(p => p.id === id) || PRESETS[1];
     }
@@ -96,6 +109,31 @@
         if (['DE', 'DT', 'NT', 'IDL', 'EDGE'].includes(raw)) return 'DL';
         if (['OLB', 'ILB', 'MLB'].includes(raw)) return 'LB';
         return raw || '?';
+    }
+
+    function specialistDraftPenalty(pos, slot) {
+        const nPos = normalizedPos(pos);
+        if (!['K', 'P'].includes(nPos)) return 0;
+        const round = Number(slot?.round || 1);
+        const overall = Number(slot?.overall || 1);
+        if (round <= 3) return 250000;
+        if (round <= 5) return 65000;
+        return overall <= 80 ? 24000 : 6500;
+    }
+
+    const IDP_POSITIONS = new Set(['DL', 'LB', 'DB']);
+
+    function isIdpPos(pos) {
+        return IDP_POSITIONS.has(normalizedPos(pos));
+    }
+
+    function posPctValue(posPct, pos) {
+        const nPos = normalizedPos(pos);
+        let total = 0;
+        Object.entries(posPct || {}).forEach(([rawPos, pct]) => {
+            if (normalizedPos(rawPos) === nPos) total += Number(pct || 0);
+        });
+        return total;
     }
 
     function loadSavedBoard(state, draftType) {
@@ -139,9 +177,26 @@
         }).map((p, i) => ({ ...p, analystBoardRank: i + 1 }));
     }
 
+    function canonicalPlayerDhq(player) {
+        const resolved = window.DraftCC?.state?.resolvePlayerDhq?.(player);
+        if (resolved?.value > 0) return { value: resolved.value, source: resolved.source };
+        return { value: Number(player?.dhq || player?.val || 0) || 0, source: 'attached-dhq' };
+    }
+
+    function normalizePoolValues(pool) {
+        return (pool || []).map(player => {
+            const resolved = canonicalPlayerDhq(player);
+            return {
+                ...player,
+                dhq: resolved.value,
+                valueSource: resolved.source,
+            };
+        }).filter(player => Number(player.dhq || 0) > 0);
+    }
+
     function ownerBiasScore(persona, pos) {
         const nPos = normalizedPos(pos);
-        const pct = Number(persona?.draftDna?.posPct?.[nPos] || 0);
+        const pct = posPctValue(persona?.draftDna?.posPct, nPos);
         if (pct) return clamp(pct, 0, 100, 0);
         const early = persona?.draftDna?.r1Positions || persona?.draftDna?.earlyPositions || [];
         if (Array.isArray(early) && early.length) {
@@ -165,6 +220,189 @@
             return 60;
         }
         return 18;
+    }
+
+    function addWeightedPct(acc, rawPos, pct, weight) {
+        const pos = normalizedPos(rawPos);
+        const val = Number(pct || 0);
+        if (!pos || pos === '?' || !val) return;
+        acc[pos] = (acc[pos] || 0) + val * weight;
+    }
+
+    function normalizeShares(counts) {
+        const total = Object.values(counts || {}).reduce((sum, val) => sum + Number(val || 0), 0);
+        const out = {};
+        if (!total) return out;
+        Object.entries(counts || {}).forEach(([key, val]) => {
+            out[key] = Number(val || 0) / total;
+        });
+        return out;
+    }
+
+    function buildLeagueHistoryProfile(personas) {
+        const posPctCounts = {};
+        const r1Counts = {};
+        let posPctWeight = 0;
+        let r1Total = 0;
+        let earlyDefTotal = 0;
+        let earlyDefWeight = 0;
+        let overallDefTotal = 0;
+        let overallDefWeight = 0;
+        let samplePicks = 0;
+
+        Object.values(personas || {}).forEach(persona => {
+            const dna = persona?.draftDna || {};
+            const sample = clamp(dna.picksAnalyzed || dna.sample || 0, 0, 120, 0);
+            const weight = sample ? Math.max(6, Math.min(60, sample)) : 8;
+            const posPct = dna.posPct || {};
+            let hasPct = false;
+            Object.entries(posPct).forEach(([rawPos, pct]) => {
+                if (!Number(pct || 0)) return;
+                hasPct = true;
+                addWeightedPct(posPctCounts, rawPos, pct, weight);
+            });
+            if (hasPct) posPctWeight += weight;
+            const r1 = Array.isArray(dna.r1Positions) ? dna.r1Positions : [];
+            r1.forEach(rawPos => {
+                const pos = normalizedPos(rawPos);
+                if (!pos || pos === '?') return;
+                r1Counts[pos] = (r1Counts[pos] || 0) + 1;
+                r1Total += 1;
+            });
+            const earlyDefPct = Number(dna.earlyDefPct);
+            if (Number.isFinite(earlyDefPct) && (sample || earlyDefPct > 0)) {
+                earlyDefTotal += clamp(earlyDefPct, 0, 100, 0) * weight;
+                earlyDefWeight += weight;
+            }
+            const overallDefPct = Number(dna.overallDefPct);
+            if (Number.isFinite(overallDefPct) && (sample || overallDefPct > 0)) {
+                overallDefTotal += clamp(overallDefPct, 0, 100, 0) * weight;
+                overallDefWeight += weight;
+            }
+            samplePicks += sample;
+        });
+
+        const posShare = normalizeShares(posPctCounts);
+        const r1Share = normalizeShares(r1Counts);
+        const aggregateIdpShare = ['DL', 'LB', 'DB'].reduce((sum, pos) => sum + Number(posShare[pos] || 0), 0);
+        const overallIdpShare = overallDefWeight
+            ? overallDefTotal / overallDefWeight / 100
+            : aggregateIdpShare;
+        const earlyIdpShare = earlyDefWeight
+            ? earlyDefTotal / earlyDefWeight / 100
+            : Math.min(overallIdpShare || aggregateIdpShare || 0, 0.18);
+
+        return {
+            ready: posPctWeight > 0 || r1Total > 0 || earlyDefWeight > 0,
+            samplePicks,
+            posShare,
+            r1Share,
+            r1Total,
+            earlyIdpShare: clamp(earlyIdpShare, 0, 0.7, 0),
+            overallIdpShare: clamp(overallIdpShare || aggregateIdpShare, 0, 0.85, aggregateIdpShare),
+            aggregateIdpShare: clamp(aggregateIdpShare, 0, 0.85, 0),
+        };
+    }
+
+    function expectedIdpShare(profile, slot) {
+        if (!profile?.ready) return 0;
+        const round = Number(slot?.round || 1);
+        const early = Number(profile.earlyIdpShare || 0);
+        const overall = Number(profile.overallIdpShare || profile.aggregateIdpShare || 0);
+        if (round <= 2) return early || Math.min(overall, 0.18);
+        if (round <= 5) return (early || Math.min(overall, 0.18)) * 0.55 + overall * 0.45;
+        return overall;
+    }
+
+    function expectedPositionShare(profile, pos, slot) {
+        if (!profile?.ready) return 0;
+        const nPos = normalizedPos(pos);
+        const overall = Number(profile.posShare?.[nPos] || 0);
+        const r1 = Number(profile.r1Share?.[nPos] || 0);
+        if (Number(slot?.round || 1) === 1 && profile.r1Total >= 8) return r1 * 0.72 + overall * 0.28;
+        return overall;
+    }
+
+    function createPickedCounts() {
+        return { pos: {}, idp: 0, total: 0 };
+    }
+
+    function registerPicked(counts, pos) {
+        const nPos = normalizedPos(pos);
+        counts.total += 1;
+        counts.pos[nPos] = (counts.pos[nPos] || 0) + 1;
+        if (isIdpPos(nPos)) counts.idp += 1;
+    }
+
+    function historyPaceScore(player, slot, tuning, context) {
+        const profile = context?.profile;
+        const picked = context?.pickedCounts || createPickedCounts();
+        if (!profile?.ready) return { score: 0, code: null, detail: null };
+        const pos = normalizedPos(player?.pos);
+        const overall = Math.max(1, Number(slot?.overall || picked.total + 1 || 1));
+        const beforeTotal = Math.max(0, Number(picked.total || overall - 1));
+        const afterTotal = beforeTotal + 1;
+        const round = Number(slot?.round || 1);
+        const ownerWeight = clamp(tuning?.ownerDna, 0, 100, 50) / 100;
+        const historyHeavy = ownerWeight >= 0.9;
+        let score = 0;
+        let code = null;
+        let detail = null;
+
+        const expectedIdp = expectedIdpShare(profile, slot);
+        if (expectedIdp || profile.aggregateIdpShare) {
+            if (isIdpPos(pos)) {
+                const afterIdpShare = (Number(picked.idp || 0) + 1) / Math.max(1, afterTotal);
+                const tolerance = historyHeavy ? (round <= 2 ? 0.018 : 0.055) : (round <= 2 ? 0.04 : 0.085);
+                const over = afterIdpShare - expectedIdp - tolerance;
+                if (over > 0) {
+                    score -= Math.round(over * (historyHeavy ? 115000 : (30000 + ownerWeight * 30000)));
+                    code = 'history_pace_penalty';
+                    detail = 'IDP pace above league history';
+                } else if (expectedIdp - afterIdpShare > 0.035) {
+                    score += Math.round(Math.min(0.16, expectedIdp - afterIdpShare) * (historyHeavy ? 1100 : 2200));
+                    code = 'history_pace';
+                    detail = 'IDP pace still below league history';
+                }
+            } else if (beforeTotal >= 4) {
+                const currentIdpShare = Number(picked.idp || 0) / Math.max(1, beforeTotal);
+                const excess = currentIdpShare - expectedIdp - (round <= 2 ? 0.04 : 0.07);
+                if (excess > 0) {
+                    score += Math.round(Math.min(0.28, excess) * 2600);
+                    code = 'history_pace';
+                    detail = 'corrects an overextended IDP run';
+                }
+            }
+        }
+
+        if (afterTotal >= 8) {
+            const expectedPos = expectedPositionShare(profile, pos, slot);
+            if (expectedPos > 0.015) {
+                const afterPosShare = (Number(picked.pos?.[pos] || 0) + 1) / Math.max(1, afterTotal);
+                const over = afterPosShare - expectedPos - (historyHeavy ? 0.055 : 0.10);
+                if (over > 0) {
+                    score -= Math.round(over * (historyHeavy ? 18500 : 6000));
+                    if (!code) {
+                        code = 'history_pace_penalty';
+                        detail = pos + ' pace above league history';
+                    }
+                } else if (expectedPos - afterPosShare > (historyHeavy ? 0.12 : 0.08)) {
+                    score += Math.round(Math.min(0.12, expectedPos - afterPosShare) * (historyHeavy ? 520 : 900));
+                    if (!code) {
+                        code = 'history_pace';
+                        detail = pos + ' pace under league history';
+                    }
+                }
+            }
+        }
+
+        return {
+            score,
+            code,
+            detail,
+            expectedIdpShare: expectedIdp,
+            idpPickedBefore: Number(picked.idp || 0),
+        };
     }
 
     function draftWindowBonus(player, slot, tuning) {
@@ -194,7 +432,7 @@
         return value;
     }
 
-    function scoreCandidate(player, slot, persona, tuning, basis, adapter) {
+    function scoreCandidate(player, slot, persona, tuning, basis, adapter, historyContext) {
         const dhq = formatAdjustedBase(player, adapter);
         const oBias = ownerBiasScore(persona, player.pos);
         const nScore = needScore(persona, player.pos);
@@ -202,12 +440,16 @@
         const boardBonus = basis === 'my'
             ? Math.max(0, 120 - boardRank) * tuning.classValue * 48
             : Math.max(0, 72 - boardRank) * tuning.classValue * 0.34;
-        const ownerBonus = oBias * tuning.ownerDna * 0.62;
-        const needBonus = nScore * tuning.needFit * 0.48 * Number(adapter?.needBias || 1);
+        const ownerMultiplier = tuning.ownerDna >= 90 ? 0.86 : 0.62;
+        const needMultiplier = tuning.ownerDna >= 90 ? 0.36 : 0.48;
+        const ownerBonus = oBias * tuning.ownerDna * ownerMultiplier;
+        const needBonus = nScore * tuning.needFit * needMultiplier * Number(adapter?.needBias || 1);
         const windowBonus = draftWindowBonus(player, slot, tuning);
+        const historyPace = historyPaceScore(player, slot, tuning, historyContext);
         const noise = (hashUnit([slot?.overall, player.pid, basis, tuning.variance].join('|')) - 0.5) * tuning.variance * 78;
+        const specialistPenalty = specialistDraftPenalty(player.pos, slot);
         return {
-            total: dhq + boardBonus + ownerBonus + needBonus + windowBonus + noise,
+            total: dhq + boardBonus + ownerBonus + needBonus + windowBonus + historyPace.score + noise - specialistPenalty,
             baseDhq: dhq,
             boardRank,
             ownerBias: oBias,
@@ -216,6 +458,10 @@
             ownerBonus,
             needBonus,
             windowBonus,
+            historyPace: historyPace.score,
+            historyPaceCode: historyPace.code,
+            historyPaceDetail: historyPace.detail,
+            specialistPenalty,
             noise,
         };
     }
@@ -227,6 +473,7 @@
         }
         if (score.need >= 60) drivers.push({ code: 'need', label: 'roster fit' });
         if (score.ownerBias >= 30 && tuning.ownerDna >= 50) drivers.push({ code: 'owner_history', label: 'owner history' });
+        if (score.historyPace > 120 && tuning.ownerDna >= 50) drivers.push({ code: 'history_pace', label: 'league history pace' });
         if ((player.tier || player.csv?.tier) && Number(player.tier || player.csv?.tier) <= 2) drivers.push({ code: 'tier', label: 'tier pressure' });
         if (basis === 'my') drivers.push({ code: 'user_board', label: 'My Board lens' });
         const adapter = slot.formatAdapter || {};
@@ -314,10 +561,12 @@
             ownerFit = 'This tracks with the ' + draftLabel + ' owner profile';
             if (topReason?.detail) ownerFit += ': ' + topReason.detail;
             else ownerFit += ' and the historical lean toward ' + pos + '.';
+        } else if (driverHas(drivers, 'history_pace')) {
+            ownerFit = 'I am letting the league historical pace correct the board so the projection does not manufacture a position run the room has not shown before.';
         } else if (driverHas(drivers, 'need')) {
             ownerFit = 'This is more roster-context driven than pure owner habit, with ' + confidenceText + ' confidence in the historical profile.';
         } else if (basis === 'my') {
-            ownerFit = 'Through your board lens, Alex reads this as a pick your prep already had elevated.';
+            ownerFit = 'Through your board lens, I read this as a pick your prep already had elevated.';
         } else {
             ownerFit = 'Owner history is not the main signal here; board value and room shape are doing most of the work.';
         }
@@ -334,7 +583,7 @@
         }
 
         const boardRead = player.name + ' at #' + slot.overall + ' ' + boardWindowPhrase(player, slot) + ' with ' + confidence + ' confidence.';
-        const fallbackAlt = altText ? 'Alex had ' + altText + ' as the pivot path.' : 'Alex does not see a cleaner pivot in the immediate pocket.';
+        const fallbackAlt = altText ? 'I had ' + altText + ' as the pivot path.' : 'I do not see a cleaner pivot in the immediate pocket.';
         const summary = teamImpact + ' ' + ownerFit + ' ' + roomImpact;
         return {
             headline: 'Alex: ' + team + ' takes ' + player.name + ' as a ' + pos + ' signal.',
@@ -502,6 +751,65 @@
         };
     }
 
+    function valuePhrase(pick) {
+        const delta = valueDelta(pick);
+        if (delta >= 8) return '+' + delta + ' slots vs board';
+        if (delta <= -8) return Math.abs(delta) + ' pick reach';
+        return 'fair value';
+    }
+
+    function formatAlexSlackBrief(report, state = {}, opts = {}) {
+        const picks = Array.isArray(report?.picks) ? report.picks : [];
+        const limit = opts.maxLines === 'all'
+            ? picks.length
+            : clamp(opts.maxLines, 1, 500, Math.min(16, picks.length || 1));
+        const shown = picks.slice(0, limit);
+        const userPicks = picks.filter(p => isUserPick(p, state));
+        const pressure = report?.summary?.reportBrief?.positionPressure || [];
+        const pressureText = pressure.length
+            ? pressure.map(p => p.key + ' x' + p.count).join(', ')
+            : 'no clear position run';
+        const roundCount = report?.assumptions?.rounds || 0;
+        const roundLabel = roundCount ? roundCount + ' round' + (Number(roundCount) === 1 ? '' : 's') : 'projection';
+        const userPath = userPicks.length
+            ? userPicks.slice(0, 4).map(p => p.round + '.' + String(p.slot).padStart(2, '0') + ' ' + p.name).join(' / ')
+            : 'No user pick inside this window.';
+
+        return {
+            author: 'Alex Ingram',
+            headline: (report?.label || 'League History') + ' projected mock - ' + roundLabel,
+            intro: 'I ran this like a pre-draft analyst note: owner DNA, league draft history, roster needs, and the current board all matter. The main pressure before your path is ' + pressureText + '.',
+            userPath,
+            pickLines: shown.map(pick => {
+                const drivers = firstDriverPhrase(pick.drivers);
+                const dhq = Math.round(Number(pick.dhq || 0)).toLocaleString();
+                const commentary = pick.alexCommentary?.roomImpact || pick.alexCommentary?.teamImpact || pick.note || '';
+                const team = pick.ownerName || ('Team ' + pick.slot);
+                return {
+                    overall: pick.overall,
+                    pickLabel: pick.round + '.' + String(pick.slot).padStart(2, '0'),
+                    team,
+                    player: pick.name,
+                    pos: normalizedPos(pick.pos),
+                    value: valuePhrase(pick),
+                    dhq,
+                    driver: drivers,
+                    commentary: stripLeadingTeamName(pick.alexCommentary?.teamImpact || commentary, team),
+                    teamImpact: pick.alexCommentary?.teamImpact || '',
+                    ownerFit: pick.alexCommentary?.ownerFit || '',
+                    nflTeam: pick.nflTeam || pick.team || 'Team TBD',
+                    school: pick.school || pick.college || 'School TBD',
+                    photoUrl: pick.photoUrl || (pick.pid ? 'https://sleepercdn.com/content/nfl/players/thumb/' + pick.pid + '.jpg' : ''),
+                    pid: pick.pid,
+                    isUser: isUserPick(pick, state),
+                };
+            }),
+            footer: shown.length < picks.length
+                ? (picks.length - shown.length) + ' more projected picks are available in Mock Draft Center.'
+                : 'End of projection.',
+        };
+    }
+
     function applyReportFilters(report, filters = {}, state = {}) {
         const picks = Array.isArray(report?.picks) ? report.picks : [];
         const reachSet = new Set((report?.summary?.reaches || []).map(p => Number(p.overall)));
@@ -542,13 +850,13 @@
     }
 
     function buildPoolForProjection(state, playersData, maxSize) {
-        if (Array.isArray(state?.pool) && state.pool.length) return state.pool.slice();
+        if (Array.isArray(state?.pool) && state.pool.length) return normalizePoolValues(state.pool.slice());
         if (window.DraftCC?.state?.buildPool) {
-            return window.DraftCC.state.buildPool({
+            return normalizePoolValues(window.DraftCC.state.buildPool({
                 variant: state?.variant || 'startup',
                 playersData: playersData || window.S?.players,
                 maxSize: maxSize || Math.max(220, (state?.rounds || 5) * (state?.leagueSize || 12) + 80),
-            });
+            }));
         }
         return [];
     }
@@ -585,6 +893,8 @@
             ? window.DraftCC.state.buildPickOrder(rounds, leagueSize, state.draftType || 'snake', opts.draftMeta?.slotToRoster || {}, opts.draftMeta?.pickOwnership || {})
             : []);
         const personas = buildPersonas(state.leagueId, state.personas);
+        const leagueHistory = buildLeagueHistoryProfile(personas);
+        const pickedCounts = createPickedCounts();
         const available = pool.slice();
         const picks = [];
         const driverCounts = {};
@@ -600,7 +910,10 @@
             const persona = personas?.[slot.rosterId] || {};
             const topDhq = available[0]?.dhq || 0;
             const scored = available.slice(0, Math.min(96, available.length)).map(player => {
-                const s = scoreCandidate(player, { ...slot, topDhq, formatAdapter }, persona, tuning, basis, formatAdapter);
+                const s = scoreCandidate(player, { ...slot, topDhq, formatAdapter }, persona, tuning, basis, formatAdapter, {
+                    profile: leagueHistory,
+                    pickedCounts,
+                });
                 return { player, score: s };
             }).sort((a, b) => b.score.total - a.score.total);
             const chosen = scored[0];
@@ -613,6 +926,7 @@
             const alexCommentary = buildAlexCommentary({ ...slot, topDhq }, player, drivers, alternatives, confidence, persona, chosen.score, stateForCommentary, tuning, basis);
             const idx = available.findIndex(p => idKey(p.pid) === idKey(player.pid));
             if (idx >= 0) available.splice(idx, 1);
+            registerPicked(pickedCounts, player.pos);
             picks.push({
                 round: slot.round,
                 slot: slot.slot,
@@ -624,6 +938,9 @@
                 csvPid: player.csvPid || null,
                 name: player.name,
                 pos: player.pos,
+                nflTeam: player.nflTeam || player.team || player.csv?.nflTeam || player.p?.team || null,
+                school: player.school || player.college || player.csv?.college || player.p?.college || player.p?.metadata?.college || null,
+                photoUrl: player.photoUrl || (player.pid ? 'https://sleepercdn.com/content/nfl/players/thumb/' + player.pid + '.jpg' : null),
                 dhq: Number(player.dhq || 0),
                 consensusRank: player.consensusRank || player.analystBoardRank || null,
                 tier: player.tier || player.csv?.tier || null,
@@ -636,6 +953,8 @@
                     primary: drivers[0]?.label || 'projection',
                     baseVal: Number(player.dhq || 0),
                     score: Math.round(chosen.score.total),
+                    historyPace: Math.round(chosen.score.historyPace || 0),
+                    historyPaceDetail: chosen.score.historyPaceDetail || null,
                     drivers,
                     nudges: drivers.map(d => d.label),
                     analystProjection: true,
@@ -667,6 +986,13 @@
                 boardBasis: basis,
                 tuning,
                 formatAdapter,
+                historicalPace: {
+                    ready: leagueHistory.ready,
+                    samplePicks: leagueHistory.samplePicks,
+                    earlyIdpShare: leagueHistory.earlyIdpShare,
+                    overallIdpShare: leagueHistory.overallIdpShare,
+                    r1Total: leagueHistory.r1Total,
+                },
             },
             picks,
             summary: {
@@ -799,6 +1125,8 @@
         effectiveTuning,
         rankPoolByBasis,
         buildReportBrief,
+        buildLeagueHistoryProfile,
+        formatAlexSlackBrief,
         compareReports,
         applyReportFilters,
         generateProjectedMock,
